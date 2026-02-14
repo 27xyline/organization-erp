@@ -4,8 +4,9 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate, formatCurrency, formatDecimal } from '@/lib/utils'
-import { AssetStatusLabels, OperationTypeLabels } from '@/types'
-import { ArrowLeft, Edit, ArrowRightLeft, Trash2 } from 'lucide-react'
+import { AssetStatusLabels } from '@/types'
+import { ArrowLeft, Edit, ArrowRightLeft, FileText, Calendar, Image as ImageIcon } from 'lucide-react'
+import { AssetOperationsHistory } from '@/components/asset-operations-history'
 
 interface AssetDetailPageProps {
   params: { id: string }
@@ -166,64 +167,99 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
         </Card>
       </div>
 
+      {/* Дополнительная информация */}
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle>Дополнительная информация</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-muted-foreground">ID объекта</p>
+              <p className="font-mono text-sm">{asset.id}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Единица измерения</p>
+              <p className="font-medium">{asset.unitOfMeasure}</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-muted-foreground">Дата создания</p>
+              <p className="font-medium">{formatDate(asset.createdAt)}</p>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Дата обновления</p>
+              <p className="font-medium">{formatDate(asset.updatedAt)}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center gap-2">
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-muted-foreground">Прикрепленные файлы</p>
+                <p className="font-medium">{asset.documentFiles?.length || 0} файл(ов)</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+              <div>
+                <p className="text-sm text-muted-foreground">Фотографии</p>
+                <p className="font-medium">{asset.photos?.length || 0} фото</p>
+              </div>
+            </div>
+          </div>
+
+          {asset.isArchived && (
+            <div className="bg-gray-100 p-3 rounded-md">
+              <p className="text-sm font-medium text-gray-800">Объект находится в архиве</p>
+            </div>
+          )}
+
+          {asset.notes && (
+            <div className="pt-4 border-t">
+              <p className="text-sm text-muted-foreground">Примечания</p>
+              <p className="font-medium whitespace-pre-wrap">{asset.notes}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Плановое списание */}
+      {(asset.plannedDisposalDate || asset.plannedDisposalReason) && (
+        <Card className="mt-6 border-orange-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-orange-800">
+              <Calendar className="h-5 w-5" />
+              Плановое списание
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {asset.plannedDisposalDate && (
+              <div>
+                <p className="text-sm text-muted-foreground">Дата планового списания</p>
+                <p className="font-medium">{formatDate(asset.plannedDisposalDate)}</p>
+              </div>
+            )}
+            {asset.plannedDisposalReason && (
+              <div>
+                <p className="text-sm text-muted-foreground">Причина планового списания</p>
+                <p className="font-medium">{asset.plannedDisposalReason}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* История операций */}
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>История операций</CardTitle>
         </CardHeader>
         <CardContent>
-          {asset.operations.length === 0 ? (
-            <p className="text-muted-foreground">Нет операций</p>
-          ) : (
-            <div className="space-y-4">
-              {asset.operations.map((operation) => (
-                <div 
-                  key={operation.id} 
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      operation.type === 'RECEIPT' ? 'bg-green-100 text-green-800' :
-                      operation.type === 'TRANSFER' ? 'bg-blue-100 text-blue-800' :
-                      operation.type === 'DISPOSAL' ? 'bg-red-100 text-red-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      <span className="text-lg font-bold">
-                        {operation.type === 'RECEIPT' ? '+' :
-                         operation.type === 'DISPOSAL' ? '-' :
-                         operation.type === 'TRANSFER' ? '→' : '○'}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="font-medium">
-                        {OperationTypeLabels[operation.type]}
-                        {operation.type === 'TRANSFER' && operation.toMol && (
-                          <span className="text-muted-foreground">
-                            {' '}→ {operation.toMol.fullName}
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatDate(operation.date)} | {operation.documentType}
-                      </p>
-                      {operation.reason && (
-                        <p className="text-sm text-muted-foreground">
-                          {operation.reason}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium">
-                      {formatDecimal(Number(operation.quantity))} {asset.unitOfMeasure}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatCurrency(Number(operation.totalCost))}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          <AssetOperationsHistory operations={asset.operations} />
         </CardContent>
       </Card>
     </main>

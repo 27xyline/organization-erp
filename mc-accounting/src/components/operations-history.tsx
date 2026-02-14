@@ -175,6 +175,14 @@ export function OperationsHistory({ operations }: OperationsHistoryProps) {
                 </div>
               )}
 
+              {/* Основание редактирования */}
+              {isEdit && operation.documentDetails && (
+                <div className="text-sm bg-blue-50 p-2 rounded">
+                  <span className="text-muted-foreground">Основание: </span>
+                  <span className="font-medium text-blue-800">{operation.documentDetails}</span>
+                </div>
+              )}
+
               {/* Стандартная информация для операций */}
               {!isEdit && (
                 <>
