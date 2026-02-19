@@ -35,6 +35,10 @@ function TaskItem({
   const [editing, setEditing] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
   const [newTaskName, setNewTaskName] = useState('')
+  const [editingDates, setEditingDates] = useState(false)
+  const [startDate, setStartDate] = useState(task.startDate ? format(new Date(task.startDate), 'yyyy-MM-dd') : '')
+  const [endDate, setEndDate] = useState(task.endDate ? format(new Date(task.endDate), 'yyyy-MM-dd') : '')
+  const [responsible, setResponsible] = useState(task.responsible || '')
 
   const children = allTasks.filter(t => t.parentId === task.id)
   const hasChildren = children.length > 0
@@ -77,6 +81,27 @@ function TaskItem({
       }
     } catch (error) {
       console.error('Error deleting task:', error)
+    }
+  }
+
+  const handleUpdateDates = async () => {
+    try {
+      const response = await fetch(`/api/tasks/${task.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          startDate: startDate || null,
+          endDate: endDate || null,
+          responsible: responsible || null,
+        }),
+      })
+
+      if (response.ok) {
+        setEditingDates(false)
+        onTaskAdded()
+      }
+    } catch (error) {
+      console.error('Error updating task:', error)
     }
   }
 
@@ -128,6 +153,13 @@ function TaskItem({
         </div>
 
         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setEditingDates(!editingDates)}
+          >
+            <Edit2 className="h-4 w-4" />
+          </Button>
           {canAddChild && (
             <Button 
               variant="ghost" 
@@ -146,6 +178,40 @@ function TaskItem({
           </Button>
         </div>
       </div>
+
+      {editingDates && (
+        <div 
+          className="flex flex-col gap-2 py-2 px-2 bg-muted/30 rounded-lg"
+          style={{ paddingLeft: `${level * 24}px` }}
+        >
+          <div className="flex items-center gap-2">
+            <Input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              placeholder="Дата начала"
+              className="flex-1"
+            />
+            <Input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              placeholder="Дата окончания"
+              className="flex-1"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              value={responsible}
+              onChange={(e) => setResponsible(e.target.value)}
+              placeholder="Ответственный"
+              className="flex-1"
+            />
+            <Button size="sm" onClick={handleUpdateDates}>Сохранить</Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditingDates(false)}>Отмена</Button>
+          </div>
+        </div>
+      )}
 
       {showAddForm && canAddChild && (
         <div 
