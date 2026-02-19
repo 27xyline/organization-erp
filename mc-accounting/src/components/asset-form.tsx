@@ -44,6 +44,7 @@ export function AssetForm({ mols, groups, projects, initialData }: AssetFormProp
       : '',
     plannedDisposalReason: initialData?.plannedDisposalReason || '',
     status: initialData?.status || 'IN_STOCK',
+    accountingForm: initialData?.accountingForm || '145',
     editReason: '',
   })
 
@@ -265,19 +266,36 @@ export function AssetForm({ mols, groups, projects, initialData }: AssetFormProp
           <div className="space-y-2">
             <Label htmlFor="projectId">Проект</Label>
             <Select
-              value={formData.projectId}
-              onValueChange={(value) => setFormData({ ...formData, projectId: value })}
+              value={formData.projectId || "__none__"}
+              onValueChange={(value) => setFormData({ ...formData, projectId: value === "__none__" ? "" : value })}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Выберите проект (необязательно)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Без проекта</SelectItem>
+                <SelectItem value="__none__">Без проекта</SelectItem>
                 {projects.map((project) => (
                   <SelectItem key={project.id} value={project.id}>
                     {project.code} - {project.name}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Форма учета */}
+          <div className="space-y-2">
+            <Label htmlFor="accountingForm">Форма учета *</Label>
+            <Select
+              value={formData.accountingForm}
+              onValueChange={(value) => setFormData({ ...formData, accountingForm: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Выберите форму учета" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="145">145</SelectItem>
+                <SelectItem value="367">367</SelectItem>
               </SelectContent>
             </Select>
           </div>

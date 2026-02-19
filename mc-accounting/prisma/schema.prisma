@@ -84,6 +84,9 @@ model Asset {
   photos          String[] @default([])
   notes           String?
   
+  // Accounting form (145 or 367)
+  accountingForm  String   @default("145")
+  
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   

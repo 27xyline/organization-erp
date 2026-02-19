@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
     const molId = searchParams.get('molId')
     const groupId = searchParams.get('groupId')
     const status = searchParams.get('status')
+    const accountingForm = searchParams.get('accountingForm')
     const isArchived = searchParams.get('isArchived') === 'true'
     const search = searchParams.get('search')
     
@@ -16,6 +17,7 @@ export async function GET(request: NextRequest) {
     if (molId) where.molId = molId
     if (groupId) where.groupId = groupId
     if (status) where.status = status
+    if (accountingForm) where.accountingForm = accountingForm
     
     if (search) {
       where.OR = [
@@ -76,6 +78,7 @@ export async function POST(request: NextRequest) {
         plannedDisposalDate: data.plannedDisposalDate ? new Date(data.plannedDisposalDate) : null,
         plannedDisposalReason: data.plannedDisposalReason,
         photos: data.photos || [],
+        accountingForm: data.accountingForm || '145',
       },
       include: {
         mol: true,

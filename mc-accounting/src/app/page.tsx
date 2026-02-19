@@ -23,6 +23,7 @@ interface Filters {
   molId: string
   groupId: string
   status: string
+  accountingForm: string
   dateFrom: string
   dateTo: string
 }
@@ -32,6 +33,7 @@ const initialFilters: Filters = {
   molId: "",
   groupId: "",
   status: "",
+  accountingForm: "",
   dateFrom: "",
   dateTo: "",
 }
@@ -77,6 +79,9 @@ export default function AssetsPage() {
 
     // Фильтр по статусу
     if (filters.status && asset.status !== filters.status) return false
+
+    // Фильтр по форме учета
+    if (filters.accountingForm && asset.accountingForm !== filters.accountingForm) return false
 
     // Фильтр по дате
     if (filters.dateFrom) {
@@ -218,6 +223,28 @@ export default function AssetsPage() {
                     <SelectItem value="FULLY_DISPOSED">Полностью списан</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs">Форма учета</Label>
+                <div className="flex gap-2">
+                  <Button
+                    variant={filters.accountingForm === "145" ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setFilters({ ...filters, accountingForm: filters.accountingForm === "145" ? "" : "145" })}
+                  >
+                    145
+                  </Button>
+                  <Button
+                    variant={filters.accountingForm === "367" ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setFilters({ ...filters, accountingForm: filters.accountingForm === "367" ? "" : "367" })}
+                  >
+                    367
+                  </Button>
+                </div>
               </div>
 
               <div className="space-y-2">

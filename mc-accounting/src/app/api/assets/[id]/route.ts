@@ -101,6 +101,7 @@ export async function PUT(
         plannedDisposalReason: data.plannedDisposalReason,
         notes: data.notes,
         photos: data.photos || [],
+        accountingForm: data.accountingForm || '145',
       },
       include: {
         mol: true,

@@ -214,19 +214,6 @@ export function FinderSidebar() {
         {staticMenuItems.map(item => renderMenuItem(item))}
       </div>
       
-      <div className="p-4 border-t space-y-2">
-        <div className="text-xs text-muted-foreground">
-          <p>Формы учета:</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="text-xs flex-1">
-            145
-          </Button>
-          <Button variant="outline" size="sm" className="text-xs flex-1">
-            367
-          </Button>
-        </div>
-      </div>
     </div>
   )
 }

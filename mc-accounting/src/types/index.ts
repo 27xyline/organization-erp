@@ -59,6 +59,9 @@ export interface Asset {
   isArchived: boolean
   plannedDisposalDate?: Date
   plannedDisposalReason?: string
+  accountingForm?: string
+  photos?: string[]
+  notes?: string
   createdAt: Date
   updatedAt: Date
   operations?: Operation[]

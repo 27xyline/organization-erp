@@ -79,6 +79,7 @@ export function AssetsDataTable({ assets, totalCount, filteredCount }: AssetsDat
               <TableHead>Инв. номер</TableHead>
               <TableHead>Группа</TableHead>
               <TableHead>МОЛ</TableHead>
+              <TableHead className="text-center w-16">Форма</TableHead>
               <TableHead className="text-right">Кол-во</TableHead>
               <TableHead className="text-right">Стоимость</TableHead>
               <TableHead>Статус</TableHead>
@@ -90,7 +91,7 @@ export function AssetsDataTable({ assets, totalCount, filteredCount }: AssetsDat
           <TableBody>
             {assets.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
                   Нет объектов для отображения
                 </TableCell>
               </TableRow>
@@ -143,6 +144,11 @@ export function AssetsDataTable({ assets, totalCount, filteredCount }: AssetsDat
                     <TableCell>
                       <div className="text-sm">{asset.mol?.fullName}</div>
                       <div className="text-xs text-muted-foreground">{asset.mol?.code}</div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="outline" className="text-xs font-mono">
+                        {asset.accountingForm || '145'}
+                      </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       {formatDecimal(asset.quantity)} {asset.unitOfMeasure}
