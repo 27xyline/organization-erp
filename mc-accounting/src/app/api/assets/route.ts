@@ -63,6 +63,7 @@ export async function POST(request: NextRequest) {
         totalCost,
         molId: data.molId,
         groupId: data.groupId,
+        projectId: data.projectId || null,
         contractCode: data.contractCode,
         internalFundingCode: data.internalFundingCode,
         isExistingAsset: data.isExistingAsset || false,

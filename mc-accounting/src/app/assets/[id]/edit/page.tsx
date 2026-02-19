@@ -9,7 +9,7 @@ interface EditAssetPageProps {
 }
 
 export default async function EditAssetPage({ params }: EditAssetPageProps) {
-  const [asset, mols, groups] = await Promise.all([
+  const [asset, mols, groups, projects] = await Promise.all([
     prisma.asset.findUnique({
       where: { id: params.id },
       include: {
@@ -24,6 +24,11 @@ export default async function EditAssetPage({ params }: EditAssetPageProps) {
     }),
     prisma.mol.findMany({ orderBy: { code: 'asc' } }),
     prisma.assetGroup.findMany({ orderBy: { code: 'asc' } }),
+    prisma.project.findMany({
+      where: { status: 'ACTIVE' },
+      orderBy: { name: 'asc' },
+      select: { id: true, code: true, name: true },
+    }),
   ])
 
   if (!asset) {
@@ -38,7 +43,7 @@ export default async function EditAssetPage({ params }: EditAssetPageProps) {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {/* Форма редактирования */}
           <div>
-            <AssetForm mols={mols} groups={groups} initialData={asset} />
+            <AssetForm mols={mols} groups={groups} projects={projects} initialData={asset} />
           </div>
           
           {/* История операций */}

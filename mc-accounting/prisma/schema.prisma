@@ -53,6 +53,10 @@ model Asset {
   groupId         String
   group           AssetGroup @relation(fields: [groupId], references: [id])
   
+  // Project relation
+  projectId       String?
+  project         Project? @relation(fields: [projectId], references: [id])
+  
   // Source of purchase
   contractCode    String?
   internalFundingCode String?
@@ -153,4 +157,87 @@ model AuditLog {
   createdAt   DateTime @default(now())
   
   @@map("audit_logs")
+}
+
+// Projects
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+  
+  @@map("project_status")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  name        String
+  description String?
+  goals       String?
+  tasks       String?
+  results     String?
+  
+  // Dates
+  startDate   DateTime?
+  endDate     DateTime?
+  
+  // Status
+  status      ProjectStatus @default(ACTIVE)
+  
+  // Budget
+  plannedBudget Decimal  @db.Decimal(12, 2) @default(0)
+  actualBudget  Decimal  @db.Decimal(12, 2) @default(0)
+  
+  // Relations
+  assets      Asset[]
+  tasksList   Task[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("projects")
+}
+
+// Tasks with 3-level hierarchy
+model Task {
+  id          String   @id @default(cuid())
+  name        String
+  
+  // Hierarchy (Level 1, 2, 3)
+  level       Int      @default(1) // 1, 2, or 3
+  parentId    String?
+  parent      Task?    @relation("TaskChildren", fields: [parentId], references: [id])
+  children    Task[]   @relation("TaskChildren")
+  
+  // Dates and duration
+  startDate   DateTime?
+  endDate     DateTime?
+  duration    Int?     // in days
+  
+  // Progress
+  progress    Int      @default(0) // 0-100%
+  
+  // Responsible person
+  responsible String?
+  
+  // Status
+  status      TaskStatus @default(NOT_STARTED)
+  
+  // Project relation
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("tasks")
+}
+
+enum TaskStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  DELAYED
+  
+  @@map("task_status")
 }

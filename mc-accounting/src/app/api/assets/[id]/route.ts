@@ -87,6 +87,7 @@ export async function PUT(
         totalCost,
         molId: data.molId,
         groupId: data.groupId,
+        projectId: data.projectId || null,
         contractCode: data.contractCode,
         internalFundingCode: data.internalFundingCode,
         isExistingAsset: data.isExistingAsset,

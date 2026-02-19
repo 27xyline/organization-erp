@@ -46,6 +46,8 @@ export interface Asset {
   mol: Mol
   groupId: string
   group: AssetGroup
+  projectId?: string
+  project?: Project
   contractCode?: string
   internalFundingCode?: string
   isExistingAsset: boolean
@@ -98,4 +100,69 @@ export const OperationTypeLabels: Record<OperationType, string> = {
   [OperationType.TRANSFER]: 'Передача',
   [OperationType.DISPOSAL]: 'Списание',
   [OperationType.STATUS_CHANGE]: 'Изменение статуса',
+}
+
+// Projects
+export enum ProjectStatus {
+  ACTIVE = 'ACTIVE',
+  COMPLETED = 'COMPLETED',
+  ARCHIVED = 'ARCHIVED',
+}
+
+export enum TaskStatus {
+  NOT_STARTED = 'NOT_STARTED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  COMPLETED = 'COMPLETED',
+  DELAYED = 'DELAYED',
+}
+
+export interface Project {
+  id: string
+  code: string
+  name: string
+  description?: string
+  goals?: string
+  tasks?: string
+  results?: string
+  startDate?: Date
+  endDate?: Date
+  status: ProjectStatus
+  plannedBudget: number
+  actualBudget: number
+  assets?: Asset[]
+  tasksList?: Task[]
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface Task {
+  id: string
+  name: string
+  level: number // 1, 2, or 3
+  parentId?: string | null
+  parent?: Task | null
+  children?: Task[]
+  startDate?: Date | null
+  endDate?: Date | null
+  duration?: number | null // in days
+  progress: number // 0-100%
+  responsible?: string | null
+  status: TaskStatus
+  projectId: string
+  project?: Project
+  createdAt: Date
+  updatedAt: Date
+}
+
+export const ProjectStatusLabels: Record<ProjectStatus, string> = {
+  [ProjectStatus.ACTIVE]: 'Активный',
+  [ProjectStatus.COMPLETED]: 'Завершен',
+  [ProjectStatus.ARCHIVED]: 'Архив',
+}
+
+export const TaskStatusLabels: Record<TaskStatus, string> = {
+  [TaskStatus.NOT_STARTED]: 'Не начата',
+  [TaskStatus.IN_PROGRESS]: 'В работе',
+  [TaskStatus.COMPLETED]: 'Завершена',
+  [TaskStatus.DELAYED]: 'Просрочена',
 }

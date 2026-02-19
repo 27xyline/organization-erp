@@ -13,10 +13,11 @@ import { ImageIcon, Upload, X } from 'lucide-react'
 interface AssetFormProps {
   mols: Mol[]
   groups: AssetGroup[]
+  projects: { id: string; code: string; name: string }[]
   initialData?: any
 }
 
-export function AssetForm({ mols, groups, initialData }: AssetFormProps) {
+export function AssetForm({ mols, groups, projects, initialData }: AssetFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [photos, setPhotos] = useState<string[]>(initialData?.photos || [])
@@ -28,6 +29,7 @@ export function AssetForm({ mols, groups, initialData }: AssetFormProps) {
     quantity: initialData?.quantity || '1',
     molId: initialData?.molId || '',
     groupId: initialData?.groupId || '',
+    projectId: initialData?.projectId || '',
     contractCode: initialData?.contractCode || '',
     internalFundingCode: initialData?.internalFundingCode || '',
     isExistingAsset: initialData?.isExistingAsset || false,
@@ -257,6 +259,27 @@ export function AssetForm({ mols, groups, initialData }: AssetFormProps) {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          {/* Проект */}
+          <div className="space-y-2">
+            <Label htmlFor="projectId">Проект</Label>
+            <Select
+              value={formData.projectId}
+              onValueChange={(value) => setFormData({ ...formData, projectId: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Выберите проект (необязательно)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">Без проекта</SelectItem>
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.code} - {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
