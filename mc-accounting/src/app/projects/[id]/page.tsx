@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ArrowLeft, Edit, Calendar, Wallet, FolderKanban, Target, CheckSquare, Trophy } from 'lucide-react'
 import { ProjectStatusLabels, ProjectStatus } from '@/types'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import { GanttChart } from '@/components/gantt-chart'
+import { SvarGanttChart } from '@/components/svar-gantt-chart'
 import { TaskTree } from '@/components/task-tree'
 import { ProjectDetailClient } from './client'
 
@@ -96,7 +96,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
               <CardContent className="max-h-[500px] overflow-auto">
                 <ProjectDetailClient 
                   projectId={project.id} 
-                  initialTasks={project.tasksList as any}
+                  initialTasks={(project.tasksList ?? []) as any}
                   view="tasks"
                 />
               </CardContent>
@@ -108,10 +108,10 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
                 <CardTitle className="text-sm">Диаграмма Ганта</CardTitle>
               </CardHeader>
               <CardContent>
-                <GanttChart 
-                  tasks={project.tasksList as any}
-                  startDate={project.startDate || undefined}
-                  endDate={project.endDate || undefined}
+                <SvarGanttChart 
+                  tasks={(project.tasksList || []) as any}
+                  projectStart={project.startDate || undefined}
+                  projectEnd={project.endDate || undefined}
                 />
               </CardContent>
             </Card>
@@ -264,7 +264,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
             <CardContent>
               <ProjectDetailClient 
                 projectId={project.id} 
-                initialTasks={project.tasksList as any}
+                initialTasks={(project.tasksList ?? []) as any}
                 view="tree"
               />
             </CardContent>

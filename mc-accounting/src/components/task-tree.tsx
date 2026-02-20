@@ -40,7 +40,9 @@ function TaskItem({
   const [endDate, setEndDate] = useState(task.endDate ? format(new Date(task.endDate), 'yyyy-MM-dd') : '')
   const [responsible, setResponsible] = useState(task.responsible || '')
 
-  const children = allTasks.filter(t => t.parentId === task.id)
+  // Ensure allTasks is an array
+  const safeAllTasks = allTasks || []
+  const children = safeAllTasks.filter(t => t.parentId === task.id)
   const hasChildren = children.length > 0
   const canAddChild = level < 3
 
@@ -239,7 +241,7 @@ function TaskItem({
               level={level + 1}
               projectId={projectId}
               onTaskAdded={onTaskAdded}
-              allTasks={allTasks}
+              allTasks={safeAllTasks}
             />
           ))}
         </div>
@@ -252,8 +254,11 @@ export function TaskTree({ tasks, projectId, onTaskAdded }: TaskTreeProps) {
   const [showAddForm, setShowAddForm] = useState(false)
   const [newTaskName, setNewTaskName] = useState('')
 
+  // Ensure tasks is an array
+  const safeTasks = tasks || []
+
   // Get only root level tasks (level 1 with no parent)
-  const rootTasks = tasks.filter(t => t.level === 1 && !t.parentId)
+  const rootTasks = safeTasks.filter(t => t.level === 1 && !t.parentId)
 
   const handleAddTask = async () => {
     if (!newTaskName.trim()) return
@@ -287,7 +292,7 @@ export function TaskTree({ tasks, projectId, onTaskAdded }: TaskTreeProps) {
           level={1}
           projectId={projectId}
           onTaskAdded={onTaskAdded}
-          allTasks={tasks}
+          allTasks={safeTasks}
         />
       ))}
 
