@@ -4,10 +4,10 @@ import { prisma } from '@/lib/prisma'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Edit, Calendar, Wallet, FolderKanban, Target, CheckSquare, Trophy } from 'lucide-react'
+import { ArrowLeft, Edit, Calendar, Wallet, FolderKanban, Target, CheckSquare, Trophy, Plus } from 'lucide-react'
 import { ProjectStatusLabels } from '@/types'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import { CustomGantt } from '@/components/custom-gantt'
+import { ProjectGantt } from './gantt-client'
 
 interface ProjectPageProps {
   params: { id: string }
@@ -75,71 +75,66 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
         {/* Left side - Gantt Chart with task table */}
         <div className="xl:col-span-3 min-h-[700px]">
-          <CustomGantt tasks={(project.tasksList || []) as any} />
+          <ProjectGantt 
+            projectId={project.id}
+            tasks={(project.tasksList || []) as any}
+          />
         </div>
 
         {/* Right side - Project info */}
         <div className="space-y-6">
           {/* Description Block */}
-          {project.description && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <FolderKanban className="h-4 w-4" />
-                  Описание проекта
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{project.description}</p>
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <FolderKanban className="h-4 w-4" />
+                Описание проекта
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{project.description || 'Нет описания'}</p>
+            </CardContent>
+          </Card>
 
-          {project.goals && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Target className="h-4 w-4" />
-                  Цели проекта
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{project.goals}</p>
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Target className="h-4 w-4" />
+                Цели проекта
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{project.goals || 'Нет целей'}</p>
+            </CardContent>
+          </Card>
 
-          {project.tasks && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <CheckSquare className="h-4 w-4" />
-                  Задачи проекта
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{project.tasks}</p>
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <CheckSquare className="h-4 w-4" />
+                Задачи проекта
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{project.tasks || 'Нет задач'}</p>
+            </CardContent>
+          </Card>
 
-          {project.results && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Trophy className="h-4 w-4" />
-                  Результаты проекта
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{project.results}</p>
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Trophy className="h-4 w-4" />
+                Результаты проекта
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{project.results || 'Нет результатов'}</p>
+            </CardContent>
+          </Card>
 
           {/* Budget Block */}
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Wallet className="h-4 w-4" />
                 Бюджет проекта
@@ -172,7 +167,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
           {/* Timeline Block */}
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-2">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
                 Сроки проекта

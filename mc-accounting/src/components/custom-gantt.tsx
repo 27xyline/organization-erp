@@ -3,12 +3,18 @@
 import { useMemo, useRef, useState } from 'react'
 import { Task, TaskStatus, TaskStatusLabels } from '@/types'
 import { formatDate } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Edit2, Trash2, Plus } from 'lucide-react'
 
 interface CustomGanttProps {
   tasks: Task[]
+  projectId: string
+  onTaskEdit?: (taskId: string) => void
+  onTaskDelete?: (taskId: string) => void
+  onTaskAdd?: (parentId?: string) => void
 }
 
-export function CustomGantt({ tasks }: CustomGanttProps) {
+export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTaskAdd }: CustomGanttProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [rowHeight, setRowHeight] = useState(50)
   
@@ -163,14 +169,15 @@ export function CustomGantt({ tasks }: CustomGanttProps) {
     <div className="border rounded-lg overflow-hidden bg-white shadow-sm h-full" ref={containerRef}>
       <div className="flex h-full" style={{ boxSizing: 'border-box' }}>
         {/* Левая часть - Таблица задач */}
-        <div className="flex-shrink-0 border-r bg-gray-50/50" style={{ width: '600px' }}>
+        <div className="flex-shrink-0 border-r bg-gray-50/50" style={{ width: '784px' }}>
           {/* Заголовки таблицы */}
           <div className="flex bg-gray-100 border-b font-semibold text-sm">
-            <div className="flex-1 px-4 py-3 border-r">Задача</div>
-            <div className="w-28 px-3 py-3 border-r text-center">Начало</div>
-            <div className="w-28 px-3 py-3 border-r text-center">Конец</div>
-            <div className="w-32 px-3 py-3 border-r">Исполнитель</div>
-            <div className="w-28 px-3 py-3 text-center">Статус</div>
+            <div className="w-64 flex-shrink-0 px-4 py-3 border-r">Задача</div>
+            <div className="w-24 flex-shrink-0 px-3 py-3 border-r text-center">Начало</div>
+            <div className="w-24 flex-shrink-0 px-3 py-3 border-r text-center">Конец</div>
+            <div className="w-32 flex-shrink-0 px-3 py-3 border-r">Исполнитель</div>
+            <div className="w-28 flex-shrink-0 px-3 py-3 border-r text-center">Статус</div>
+            <div className="w-24 flex-shrink-0 px-3 py-3 text-center">Действия</div>
           </div>
           
           {/* Строки задач */}
@@ -182,30 +189,81 @@ export function CustomGantt({ tasks }: CustomGanttProps) {
                 style={{ height: `${rowHeight}px` }}
               >
                 <div 
-                  className="flex-1 px-4 border-r flex items-center text-sm"
+                  className="w-64 flex-shrink-0 px-4 border-r flex items-center text-sm overflow-hidden"
                   style={{ paddingLeft: `${16 + (task.level - 1) * 24}px` }}
                 >
-                  <span className={task.level === 1 ? 'font-semibold text-gray-900' : 'text-gray-700'}>
+                  <span 
+                    className={`truncate ${task.level === 1 ? 'font-semibold text-gray-900' : 'text-gray-700'}`}
+                    title={task.name}
+                  >
                     {task.name}
                   </span>
                 </div>
-                <div className="w-28 px-3 border-r flex items-center justify-center text-sm text-gray-600">
+                <div className="w-24 flex-shrink-0 px-3 border-r flex items-center justify-center text-sm text-gray-600 whitespace-nowrap">
                   {task.startDate ? formatDate(task.startDate) : '—'}
                 </div>
-                <div className="w-28 px-3 border-r flex items-center justify-center text-sm text-gray-600">
+                <div className="w-24 flex-shrink-0 px-3 border-r flex items-center justify-center text-sm text-gray-600 whitespace-nowrap">
                   {task.endDate ? formatDate(task.endDate) : '—'}
                 </div>
-                <div className="w-32 px-3 border-r flex items-center text-sm text-gray-700">
+                <div className="w-32 flex-shrink-0 px-3 border-r flex items-center text-sm text-gray-700 truncate">
                   {task.responsible || '—'}
                 </div>
-                <div className="w-28 px-3 flex items-center justify-center">
-                  <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800">
+                <div className="w-28 flex-shrink-0 px-3 border-r flex items-center justify-center">
+                  <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800 whitespace-nowrap">
                     {TaskStatusLabels[task.status]}
                   </span>
+                </div>
+                <div className="w-24 flex-shrink-0 px-2 flex items-center justify-center gap-1">
+                  {onTaskAdd && task.level < 3 && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-7 w-7 text-green-600 hover:text-green-800"
+                      onClick={() => onTaskAdd(task.id)}
+                      title="Добавить подзадачу"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {onTaskEdit && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-7 w-7"
+                      onClick={() => onTaskEdit(task.id)}
+                    >
+                      <Edit2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {onTaskDelete && (
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-7 w-7 text-red-500 hover:text-red-700"
+                      onClick={() => onTaskDelete(task.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
           </div>
+          
+          {/* Кнопка добавления задачи */}
+          {onTaskAdd && (
+            <div className="p-3 border-t bg-gray-50">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full"
+                onClick={() => onTaskAdd()}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Добавить задачу
+              </Button>
+            </div>
+          )}
         </div>
         
         {/* Правая часть - Диаграмма Ганта */}

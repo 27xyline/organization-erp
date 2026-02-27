@@ -73,6 +73,7 @@ const financeChildren = [
 ]
 
 const employeesChildren = [
+  { id: "employees-list", label: "Сотрудники", icon: <Users className="h-4 w-4" />, href: "/employees" },
   { id: "mols", label: "МОЛ", icon: <UserCog className="h-4 w-4" />, href: "/mols" },
 ]
 
@@ -146,7 +147,7 @@ export function FinderSidebar() {
     const isExpanded = expandedItems.includes(item.id)
     const children = getMenuChildren(item.id)
     const hasChildren = children.length > 0
-    const isItemActive = item.id === 'projects' ? isActive('/projects') : false
+    const isItemActive = item.id === 'projects' ? isActive('/projects') : item.id === 'employees' ? isActive('/employees') || isActive('/mols') : false
     const isChildActive = children.some(child => isActive(child.href))
 
     return (
@@ -158,6 +159,9 @@ export function FinderSidebar() {
             }
             if (item.id === 'projects') {
               router.push('/projects')
+            }
+            if (item.id === 'employees') {
+              router.push('/employees')
             }
           }}
           className={cn(

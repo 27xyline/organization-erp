@@ -241,6 +241,115 @@ enum TaskStatus {
   IN_PROGRESS
   COMPLETED
   DELAYED
-  
+
   @@map("task_status")
+}
+
+// Employees and HR
+model Employee {
+  id          String   @id @default(cuid())
+  code        String   @unique // Табельный номер
+  fullName    String
+  department  String
+  photo       String?
+  
+  // Contact info
+  phone       String?
+  email       String?
+  
+  // Staff schedule position
+  staffScheduleId String?
+  staffSchedule   StaffSchedule? @relation(fields: [staffScheduleId], references: [id])
+  
+  // Status
+  status      EmployeeStatus @default(ACTIVE)
+  
+  // Relations
+  vacations   Vacation[]
+  actions     PersonnelAction[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("employees")
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  ON_VACATION
+  ON_SICK_LEAVE
+  DISMISSED
+  
+  @@map("employee_status")
+}
+
+model StaffSchedule {
+  id          String   @id @default(cuid())
+  position    String   // Название должности
+  department  String   // Отдел
+  rate        Decimal  @db.Decimal(3, 2) // Количество ставок
+  salary      Decimal  @db.Decimal(10, 2) // Зарплата
+  
+  // Relations
+  employees   Employee[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("staff_schedule")
+}
+
+model PersonnelAction {
+  id          String   @id @default(cuid())
+  type        PersonnelActionType
+  date        DateTime
+  description String?
+  
+  // Employee
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  
+  // Additional data
+  oldDepartment String?
+  newDepartment String?
+  oldPosition   String?
+  newPosition   String?
+  
+  createdAt   DateTime @default(now())
+  
+  @@map("personnel_actions")
+}
+
+enum PersonnelActionType {
+  HIRE
+  DISMISS
+  TRANSFER
+  EXTEND
+  PROMOTE
+  
+  @@map("personnel_action_type")
+}
+
+model Vacation {
+  id          String   @id @default(cuid())
+  startDate   DateTime
+  endDate     DateTime
+  type        VacationType @default(VACATION)
+  
+  // Employee
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  
+  createdAt   DateTime @default(now())
+  
+  @@map("vacations")
+}
+
+enum VacationType {
+  VACATION
+  SICK_LEAVE
+  BUSINESS_TRIP
+  UNPAID_LEAVE
+  
+  @@map("vacation_type")
 }
