@@ -58,16 +58,22 @@
   }
 }
 
-/* Адаптация для широких экранов */
+/* Адаптация контейнеров под широкие экраны */
+@media (min-width: 1920px) {
+  .container {
+    max-width: calc(100vw - 20rem);
+  }
+}
+
 @media (min-width: 3440px) {
-  html {
-    font-size: 18px;
+  .container {
+    max-width: 3120px;
   }
 }
 
 @media (min-width: 3840px) {
-  html {
-    font-size: 20px;
+  .container {
+    max-width: 3520px;
   }
 }
 

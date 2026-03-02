@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
-import { Task, TaskStatus, TaskStatusLabels } from '@/types'
+import { useMemo, useRef } from 'react'
+import { Task, TaskStatusLabels } from '@/types'
 import { formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Edit2, Trash2, Plus } from 'lucide-react'
@@ -16,17 +16,17 @@ interface CustomGanttProps {
 
 export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTaskAdd }: CustomGanttProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [rowHeight, setRowHeight] = useState(50)
+  const rowHeight = 64
   
   const safeTasks = tasks || []
   
   // Организуем задачи иерархически (рекурсивно)
   const organizedTasks = useMemo(() => {
-    const taskMap = new Map<string, Task & { level: number; children: string[] }>()
+    const taskMap = new Map<string, Task & { level: number; childIds: string[] }>()
     
     // Сначала создаём мапу всех задач
     safeTasks.forEach(task => {
-      taskMap.set(task.id, { ...task, level: 0, children: [] })
+      taskMap.set(task.id, { ...task, level: 0, childIds: [] })
     })
     
     // Строим связи родитель-ребенок
@@ -34,7 +34,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
       if (task.parentId) {
         const parent = taskMap.get(task.parentId)
         if (parent) {
-          parent.children.push(task.id)
+          parent.childIds.push(task.id)
         }
       }
     })
@@ -54,7 +54,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
       processed.add(taskId)
       
       // Добавляем детей
-      task.children.forEach(childId => {
+      task.childIds.forEach(childId => {
         addTaskRecursively(childId, level + 1)
       })
     }
@@ -166,18 +166,19 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
   }
 
   return (
-    <div className="border rounded-lg overflow-hidden bg-white shadow-sm h-full" ref={containerRef}>
-      <div className="flex h-full" style={{ boxSizing: 'border-box' }}>
+    <div className="border rounded-lg bg-white shadow-sm h-full" ref={containerRef}>
+      <div className="h-full overflow-x-auto">
+        <div className="flex h-full min-w-[1320px]" style={{ boxSizing: 'border-box' }}>
         {/* Левая часть - Таблица задач */}
-        <div className="flex-shrink-0 border-r bg-gray-50/50" style={{ width: '784px' }}>
+        <div className="flex-shrink-0 border-r bg-gray-50/50" style={{ width: '1072px' }}>
           {/* Заголовки таблицы */}
           <div className="flex bg-gray-100 border-b font-semibold text-sm">
-            <div className="w-64 flex-shrink-0 px-4 py-3 border-r">Задача</div>
+            <div className="w-[32rem] flex-shrink-0 px-4 py-3 border-r">Задача</div>
             <div className="w-24 flex-shrink-0 px-3 py-3 border-r text-center">Начало</div>
             <div className="w-24 flex-shrink-0 px-3 py-3 border-r text-center">Конец</div>
             <div className="w-32 flex-shrink-0 px-3 py-3 border-r">Исполнитель</div>
             <div className="w-28 flex-shrink-0 px-3 py-3 border-r text-center">Статус</div>
-            <div className="w-24 flex-shrink-0 px-3 py-3 text-center">Действия</div>
+            <div className="w-32 flex-shrink-0 px-3 py-3 text-center">Действия</div>
           </div>
           
           {/* Строки задач */}
@@ -189,11 +190,17 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
                 style={{ height: `${rowHeight}px` }}
               >
                 <div 
-                  className="w-64 flex-shrink-0 px-4 border-r flex items-center text-sm overflow-hidden"
+                  className="w-[32rem] flex-shrink-0 px-4 border-r flex items-center text-sm"
                   style={{ paddingLeft: `${16 + (task.level - 1) * 24}px` }}
                 >
                   <span 
-                    className={`truncate ${task.level === 1 ? 'font-semibold text-gray-900' : 'text-gray-700'}`}
+                    className={`leading-snug break-words ${task.level === 1 ? 'font-semibold text-gray-900' : 'text-gray-700'}`}
+                    style={{
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden'
+                    }}
                     title={task.name}
                   >
                     {task.name}
@@ -213,7 +220,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
                     {TaskStatusLabels[task.status]}
                   </span>
                 </div>
-                <div className="w-24 flex-shrink-0 px-2 flex items-center justify-center gap-1">
+                <div className="w-32 flex-shrink-0 px-2 flex items-center justify-center gap-1">
                   {onTaskAdd && task.level < 3 && (
                     <Button 
                       variant="ghost" 
@@ -325,6 +332,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
               })}
             </div>
           </div>
+        </div>
         </div>
       </div>
     </div>

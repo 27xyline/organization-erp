@@ -10,7 +10,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   return (
     <div className="h-screen flex overflow-hidden bg-background">
       <FinderSidebar />
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 min-w-0 overflow-auto">
         {children}
       </main>
     </div>
