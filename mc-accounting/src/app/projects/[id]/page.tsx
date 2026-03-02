@@ -83,52 +83,42 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
         {/* Right side - Project info */}
         <div className="space-y-6">
-          {/* Description Block */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <FolderKanban className="h-4 w-4" />
-                Описание проекта
-              </CardTitle>
+              <CardTitle className="text-sm">Детали проекта</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{project.description || 'Нет описания'}</p>
-            </CardContent>
-          </Card>
+            <CardContent className="space-y-4">
+              <div className="space-y-1">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <FolderKanban className="h-4 w-4" />
+                  Описание проекта
+                </p>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{project.description || 'Нет описания'}</p>
+              </div>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Target className="h-4 w-4" />
-                Цели проекта
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{project.goals || 'Нет целей'}</p>
-            </CardContent>
-          </Card>
+              <div className="space-y-1 border-t pt-4">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <Target className="h-4 w-4" />
+                  Цели проекта
+                </p>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{project.goals || 'Нет целей'}</p>
+              </div>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <CheckSquare className="h-4 w-4" />
-                Задачи проекта
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{project.tasks || 'Нет задач'}</p>
-            </CardContent>
-          </Card>
+              <div className="space-y-1 border-t pt-4">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <CheckSquare className="h-4 w-4" />
+                  Задачи проекта
+                </p>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{project.tasks || 'Нет задач'}</p>
+              </div>
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Trophy className="h-4 w-4" />
-                Результаты проекта
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{project.results || 'Нет результатов'}</p>
+              <div className="space-y-1 border-t pt-4">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <Trophy className="h-4 w-4" />
+                  Результаты проекта
+                </p>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{project.results || 'Нет результатов'}</p>
+              </div>
             </CardContent>
           </Card>
 

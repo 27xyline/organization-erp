@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, useRef } from 'react'
-import { Task, TaskStatusLabels } from '@/types'
+import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
+import { Task, TaskStatus, TaskStatusLabels } from '@/types'
 import { formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Edit2, Trash2, Plus } from 'lucide-react'
@@ -17,6 +17,51 @@ interface CustomGanttProps {
 export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTaskAdd }: CustomGanttProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const rowHeight = 64
+  const [leftPanelWidth, setLeftPanelWidth] = useState(1072)
+  const [isResizing, setIsResizing] = useState(false)
+  const resizeStartXRef = useRef(0)
+  const resizeStartWidthRef = useRef(1072)
+
+  const minLeftPanelWidth = 760
+  const minRightPanelWidth = 260
+  const fixedColumnsWidth = 560
+  const taskColumnWidth = Math.max(leftPanelWidth - fixedColumnsWidth, 320)
+
+  useEffect(() => {
+    if (!isResizing) return
+
+    const handleMouseMove = (event: MouseEvent) => {
+      const nextWidth = resizeStartWidthRef.current + (event.clientX - resizeStartXRef.current)
+      const containerWidth = containerRef.current?.clientWidth ?? window.innerWidth
+      const maxLeftPanelWidth = Math.max(minLeftPanelWidth, containerWidth - minRightPanelWidth)
+      const clampedWidth = Math.min(Math.max(nextWidth, minLeftPanelWidth), maxLeftPanelWidth)
+
+      setLeftPanelWidth(clampedWidth)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing(false)
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [isResizing])
+
+  const handleResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    resizeStartXRef.current = event.clientX
+    resizeStartWidthRef.current = leftPanelWidth
+    setIsResizing(true)
+  }
   
   const safeTasks = tasks || []
   
@@ -156,6 +201,19 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
     
     return { left: `${left}%`, width: `${Math.max(width, 1)}%` }
   }
+
+  const getStatusBadgeClass = (status: TaskStatus) => {
+    switch (status) {
+      case TaskStatus.COMPLETED:
+        return 'bg-green-100 text-green-800'
+      case TaskStatus.IN_PROGRESS:
+        return 'bg-yellow-100 text-yellow-800'
+      case TaskStatus.DELAYED:
+        return 'bg-red-100 text-red-800'
+      default:
+        return 'bg-blue-100 text-blue-800'
+    }
+  }
   
   if (organizedTasks.length === 0) {
     return (
@@ -168,12 +226,12 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
   return (
     <div className="border rounded-lg bg-white shadow-sm h-full" ref={containerRef}>
       <div className="h-full overflow-x-auto">
-        <div className="flex h-full min-w-[1320px]" style={{ boxSizing: 'border-box' }}>
+        <div className="flex h-full" style={{ minWidth: `${leftPanelWidth + minRightPanelWidth}px`, boxSizing: 'border-box' }}>
         {/* Левая часть - Таблица задач */}
-        <div className="flex-shrink-0 border-r bg-gray-50/50" style={{ width: '1072px' }}>
+        <div className="flex-shrink-0 border-r bg-gray-50/50" style={{ width: `${leftPanelWidth}px` }}>
           {/* Заголовки таблицы */}
           <div className="flex bg-gray-100 border-b font-semibold text-sm">
-            <div className="w-[32rem] flex-shrink-0 px-4 py-3 border-r">Задача</div>
+            <div className="flex-shrink-0 px-4 py-3 border-r" style={{ width: `${taskColumnWidth}px` }}>Задача</div>
             <div className="w-24 flex-shrink-0 px-3 py-3 border-r text-center">Начало</div>
             <div className="w-24 flex-shrink-0 px-3 py-3 border-r text-center">Конец</div>
             <div className="w-32 flex-shrink-0 px-3 py-3 border-r">Исполнитель</div>
@@ -190,8 +248,8 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
                 style={{ height: `${rowHeight}px` }}
               >
                 <div 
-                  className="w-[32rem] flex-shrink-0 px-4 border-r flex items-center text-sm"
-                  style={{ paddingLeft: `${16 + (task.level - 1) * 24}px` }}
+                  className="flex-shrink-0 px-4 border-r flex items-center text-sm"
+                  style={{ width: `${taskColumnWidth}px`, paddingLeft: `${16 + (task.level - 1) * 24}px` }}
                 >
                   <span 
                     className={`leading-snug break-words ${task.level === 1 ? 'font-semibold text-gray-900' : 'text-gray-700'}`}
@@ -216,7 +274,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
                   {task.responsible || '—'}
                 </div>
                 <div className="w-28 flex-shrink-0 px-3 border-r flex items-center justify-center">
-                  <span className="text-xs px-2 py-1 rounded-full bg-blue-100 text-blue-800 whitespace-nowrap">
+                  <span className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${getStatusBadgeClass(task.status)}`}>
                     {TaskStatusLabels[task.status]}
                   </span>
                 </div>
@@ -271,6 +329,18 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
               </Button>
             </div>
           )}
+        </div>
+
+        <div
+          className={`group relative w-2 flex-shrink-0 cursor-col-resize ${isResizing ? 'bg-blue-100' : 'bg-gray-100/80 hover:bg-blue-50'}`}
+          onMouseDown={handleResizeStart}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Изменить ширину таблицы задач"
+        >
+          <div
+            className={`absolute inset-y-0 left-1/2 w-px -translate-x-1/2 ${isResizing ? 'bg-blue-500' : 'bg-gray-300 group-hover:bg-blue-400'}`}
+          />
         </div>
         
         {/* Правая часть - Диаграмма Ганта */}
