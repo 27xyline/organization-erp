@@ -16,16 +16,56 @@ interface CustomGanttProps {
 
 export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTaskAdd }: CustomGanttProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const rowHeight = 64
-  const [leftPanelWidth, setLeftPanelWidth] = useState(1072)
+  const minimumRowHeight = 64
+  const taskBaseWidth = 460
+  const [leftPanelWidth, setLeftPanelWidth] = useState(taskBaseWidth)
   const [isResizing, setIsResizing] = useState(false)
   const resizeStartXRef = useRef(0)
-  const resizeStartWidthRef = useRef(1072)
+  const resizeStartWidthRef = useRef(taskBaseWidth)
 
-  const minLeftPanelWidth = 760
+  const minLeftPanelWidth = taskBaseWidth
   const minRightPanelWidth = 260
-  const fixedColumnsWidth = 560
-  const taskColumnWidth = Math.max(leftPanelWidth - fixedColumnsWidth, 320)
+
+  const columns = useMemo(() => {
+    const orderedColumns = [
+      { key: 'start', width: 120 },
+      { key: 'end', width: 120 },
+      { key: 'responsible', width: 210 },
+      { key: 'status', width: 150 },
+      { key: 'actions', width: 120 },
+    ] as const
+
+    const widths = {
+      start: 0,
+      end: 0,
+      responsible: 0,
+      status: 0,
+      actions: 0,
+    }
+
+    const available = Math.max(leftPanelWidth - taskBaseWidth, 0)
+    let used = 0
+
+    for (const column of orderedColumns) {
+      if (available >= used + column.width) {
+        widths[column.key] = column.width
+        used += column.width
+      } else {
+        break
+      }
+    }
+
+    const task = taskBaseWidth + Math.max(available - used, 0)
+
+    return {
+      task,
+      start: widths.start,
+      end: widths.end,
+      responsible: widths.responsible,
+      status: widths.status,
+      actions: widths.actions,
+    }
+  }, [leftPanelWidth])
 
   useEffect(() => {
     if (!isResizing) return
@@ -188,6 +228,29 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
     
     return result
   }, [timeRange])
+
+  const monthSegments = useMemo(() => {
+    if (weeks.length === 0) return [] as { key: string; label: string; span: number }[]
+
+    const segments: { key: string; label: string; span: number }[] = []
+
+    weeks.forEach((week) => {
+      const month = week.start.getMonth()
+      const year = week.start.getFullYear()
+      const key = `${year}-${month}`
+      const monthLabel = week.start.toLocaleString('ru-RU', { month: 'long' })
+      const label = `${monthLabel.charAt(0).toUpperCase()}${monthLabel.slice(1)} ${year}`
+
+      const lastSegment = segments[segments.length - 1]
+      if (lastSegment && lastSegment.key === key) {
+        lastSegment.span += 1
+      } else {
+        segments.push({ key, label, span: 1 })
+      }
+    })
+
+    return segments
+  }, [weeks])
   
   // Вычисляем позицию задачи на шкале
   const getTaskPosition = (task: Task) => {
@@ -214,6 +277,73 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
         return 'bg-blue-100 text-blue-800'
     }
   }
+
+  const getTaskBarColor = (status: TaskStatus) => {
+    switch (status) {
+      case TaskStatus.COMPLETED:
+        return '#22c55e'
+      case TaskStatus.IN_PROGRESS:
+        return '#eab308'
+      case TaskStatus.DELAYED:
+        return '#ef4444'
+      default:
+        return '#3b82f6'
+    }
+  }
+
+  const estimateLineCount = (value: string, width: number) => {
+    if (width <= 0) return 1
+
+    const charsPerLine = Math.max(Math.floor((width - 24) / 5.2), 4)
+
+    return value.split('\n').reduce((sum, rawLine) => {
+      const line = rawLine.trim()
+      if (line.length === 0) return sum + 1
+
+      let lines = 1
+      let currentLength = 0
+
+      line.split(/\s+/).forEach((word) => {
+        const wordLength = word.length
+
+        if (wordLength >= charsPerLine) {
+          if (currentLength > 0) {
+            lines += 1
+            currentLength = 0
+          }
+          lines += Math.ceil(wordLength / charsPerLine) - 1
+          currentLength = wordLength % charsPerLine
+          return
+        }
+
+        const separator = currentLength === 0 ? 0 : 1
+        if (currentLength + separator + wordLength <= charsPerLine) {
+          currentLength += separator + wordLength
+        } else {
+          lines += 1
+          currentLength = wordLength
+        }
+      })
+
+      return sum + lines
+    }, 0)
+  }
+
+  const rowHeights = useMemo(() => {
+    return organizedTasks.map((task) => {
+      const taskTextWidth = Math.max(columns.task - (48 + (task.level - 1) * 24), 120)
+      const taskLines = estimateLineCount(task.name || '', taskTextWidth)
+      const taskHeight = taskLines * 28 + 36
+
+      const responsibleText = task.responsible || '—'
+      const responsibleLines = columns.responsible > 0
+        ? estimateLineCount(responsibleText, Math.max(columns.responsible - 24, 80))
+        : 1
+      const responsibleHeight = responsibleLines * 28 + 36
+
+      return Math.max(minimumRowHeight, taskHeight, responsibleHeight)
+    })
+  }, [organizedTasks, columns])
   
   if (organizedTasks.length === 0) {
     return (
@@ -225,110 +355,130 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
 
   return (
     <div className="border rounded-lg bg-white shadow-sm h-full" ref={containerRef}>
-      <div className="h-full overflow-x-auto">
-        <div className="flex h-full" style={{ minWidth: `${leftPanelWidth + minRightPanelWidth}px`, boxSizing: 'border-box' }}>
+      <div className="h-full overflow-hidden">
+        <div className="flex h-full min-w-0" style={{ boxSizing: 'border-box' }}>
         {/* Левая часть - Таблица задач */}
-        <div className="flex-shrink-0 border-r bg-gray-50/50" style={{ width: `${leftPanelWidth}px` }}>
-          {/* Заголовки таблицы */}
-          <div className="flex bg-gray-100 border-b font-semibold text-sm">
-            <div className="flex-shrink-0 px-4 py-3 border-r" style={{ width: `${taskColumnWidth}px` }}>Задача</div>
-            <div className="w-24 flex-shrink-0 px-3 py-3 border-r text-center">Начало</div>
-            <div className="w-24 flex-shrink-0 px-3 py-3 border-r text-center">Конец</div>
-            <div className="w-32 flex-shrink-0 px-3 py-3 border-r">Исполнитель</div>
-            <div className="w-28 flex-shrink-0 px-3 py-3 border-r text-center">Статус</div>
-            <div className="w-32 flex-shrink-0 px-3 py-3 text-center">Действия</div>
-          </div>
-          
-          {/* Строки задач */}
-          <div className="bg-white">
-            {organizedTasks.map((task) => (
-              <div 
-                key={task.id}
-                className="flex border-b hover:bg-blue-50/50 transition-colors"
-                style={{ height: `${rowHeight}px` }}
-              >
-                <div 
-                  className="flex-shrink-0 px-4 border-r flex items-center text-sm"
-                  style={{ width: `${taskColumnWidth}px`, paddingLeft: `${16 + (task.level - 1) * 24}px` }}
-                >
-                  <span 
-                    className={`leading-snug break-words ${task.level === 1 ? 'font-semibold text-gray-900' : 'text-gray-700'}`}
-                    style={{
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden'
-                    }}
-                    title={task.name}
-                  >
-                    {task.name}
-                  </span>
-                </div>
-                <div className="w-24 flex-shrink-0 px-3 border-r flex items-center justify-center text-sm text-gray-600 whitespace-nowrap">
-                  {task.startDate ? formatDate(task.startDate) : '—'}
-                </div>
-                <div className="w-24 flex-shrink-0 px-3 border-r flex items-center justify-center text-sm text-gray-600 whitespace-nowrap">
-                  {task.endDate ? formatDate(task.endDate) : '—'}
-                </div>
-                <div className="w-32 flex-shrink-0 px-3 border-r flex items-center text-sm text-gray-700 truncate">
-                  {task.responsible || '—'}
-                </div>
-                <div className="w-28 flex-shrink-0 px-3 border-r flex items-center justify-center">
-                  <span className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${getStatusBadgeClass(task.status)}`}>
-                    {TaskStatusLabels[task.status]}
-                  </span>
-                </div>
-                <div className="w-32 flex-shrink-0 px-2 flex items-center justify-center gap-1">
-                  {onTaskAdd && task.level < 3 && (
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-7 w-7 text-green-600 hover:text-green-800"
-                      onClick={() => onTaskAdd(task.id)}
-                      title="Добавить подзадачу"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                  {onTaskEdit && (
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-7 w-7"
-                      onClick={() => onTaskEdit(task.id)}
-                    >
-                      <Edit2 className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                  {onTaskDelete && (
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-7 w-7 text-red-500 hover:text-red-700"
-                      onClick={() => onTaskDelete(task.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          {/* Кнопка добавления задачи */}
-          {onTaskAdd && (
-            <div className="p-3 border-t bg-gray-50">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="w-full"
-                onClick={() => onTaskAdd()}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Добавить задачу
-              </Button>
+        <div className="flex-shrink-0 border-r bg-gray-50/50 overflow-hidden" style={{ width: `${leftPanelWidth}px` }}>
+          <div>
+            {/* Заголовки таблицы */}
+            <div className="flex h-24 bg-gray-100 border-b font-semibold text-sm">
+              <div className="flex-shrink-0 px-4 border-r flex items-center" style={{ width: `${columns.task}px` }}>Задача</div>
+              {columns.start > 0 && (
+                <div className="flex-shrink-0 px-3 border-r text-center flex items-center justify-center" style={{ width: `${columns.start}px` }}>Начало</div>
+              )}
+              {columns.end > 0 && (
+                <div className="flex-shrink-0 px-3 border-r text-center flex items-center justify-center" style={{ width: `${columns.end}px` }}>Конец</div>
+              )}
+              {columns.responsible > 0 && (
+                <div className="flex-shrink-0 px-3 border-r flex items-center" style={{ width: `${columns.responsible}px` }}>Исполнитель</div>
+              )}
+              {columns.status > 0 && (
+                <div className="flex-shrink-0 px-3 border-r text-center flex items-center justify-center" style={{ width: `${columns.status}px` }}>Статус</div>
+              )}
+              {columns.actions > 0 && (
+                <div className="flex-shrink-0 px-3 text-center flex items-center justify-center" style={{ width: `${columns.actions}px` }}>Действия</div>
+              )}
             </div>
-          )}
+          
+            {/* Строки задач */}
+            <div className="bg-white">
+              {organizedTasks.map((task, idx) => (
+                <div 
+                  key={task.id}
+                  className="flex border-b hover:bg-blue-50/50 transition-colors"
+                  style={{ height: `${rowHeights[idx] || minimumRowHeight}px` }}
+                >
+                  <div 
+                    className="flex-shrink-0 min-w-0 px-4 border-r flex items-center text-sm"
+                    style={{ width: `${columns.task}px`, paddingLeft: `${16 + (task.level - 1) * 24}px` }}
+                  >
+                    <span 
+                      className={`block w-full py-1 text-left whitespace-normal leading-snug ${task.level === 1 ? 'font-semibold text-gray-900' : 'text-gray-700'}`}
+                      style={{ overflowWrap: 'anywhere' }}
+                      title={task.name}
+                    >
+                      {task.name}
+                    </span>
+                  </div>
+                  {columns.start > 0 && (
+                    <div className="flex-shrink-0 px-3 border-r flex items-center justify-center text-sm text-gray-600 whitespace-nowrap" style={{ width: `${columns.start}px` }}>
+                      {task.startDate ? formatDate(task.startDate) : '—'}
+                    </div>
+                  )}
+                  {columns.end > 0 && (
+                    <div className="flex-shrink-0 px-3 border-r flex items-center justify-center text-sm text-gray-600 whitespace-nowrap" style={{ width: `${columns.end}px` }}>
+                      {task.endDate ? formatDate(task.endDate) : '—'}
+                    </div>
+                  )}
+                  {columns.responsible > 0 && (
+                    <div
+                      className="flex-shrink-0 px-3 py-1 border-r flex items-center text-left text-sm text-gray-700 whitespace-pre-line"
+                      style={{ width: `${columns.responsible}px`, overflowWrap: 'anywhere' }}
+                    >
+                      {task.responsible || '—'}
+                    </div>
+                  )}
+                  {columns.status > 0 && (
+                    <div className="flex-shrink-0 px-3 border-r flex items-center justify-center" style={{ width: `${columns.status}px` }}>
+                      <span className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${getStatusBadgeClass(task.status)}`}>
+                        {TaskStatusLabels[task.status]}
+                      </span>
+                    </div>
+                  )}
+                  {columns.actions > 0 && (
+                    <div className="flex-shrink-0 px-2 flex items-center justify-center gap-1" style={{ width: `${columns.actions}px` }}>
+                    {onTaskAdd && task.level < 3 && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-7 w-7 text-green-600 hover:text-green-800"
+                        onClick={() => onTaskAdd(task.id)}
+                        title="Добавить подзадачу"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {onTaskEdit && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-7 w-7"
+                        onClick={() => onTaskEdit(task.id)}
+                      >
+                        <Edit2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {onTaskDelete && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-7 w-7 text-red-500 hover:text-red-700"
+                        onClick={() => onTaskDelete(task.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          
+            {/* Кнопка добавления задачи */}
+            {onTaskAdd && (
+              <div className="p-3 border-t bg-gray-50">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full"
+                  onClick={() => onTaskAdd()}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Добавить задачу
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div
@@ -347,26 +497,40 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
         <div className="flex-1 overflow-x-auto bg-white">
           <div style={{ minWidth: `${weeks.length * 50}px` }}>
             {/* Заголовки недель */}
-            <div className="flex border-b bg-gray-100">
-              {weeks.map((week, idx) => (
+            <div className="bg-gray-100 border-b">
+              <div className="flex border-b">
+                {monthSegments.map((segment) => (
+                  <div
+                    key={segment.key}
+                    className="flex-shrink-0 border-r text-center py-3 px-1 text-sm font-semibold text-gray-600 whitespace-nowrap"
+                    style={{ width: `${segment.span * 50}px` }}
+                  >
+                    {segment.label}
+                  </div>
+                ))}
+              </div>
+              <div className="flex">
+                {weeks.map((week, idx) => (
                 <div 
                   key={idx}
-                  className="flex-shrink-0 border-r text-center py-3 text-xs text-gray-600"
+                  className="flex-shrink-0 border-r text-center py-4 text-sm text-gray-600"
                   style={{ width: '50px' }}
                 >
-                  <div className="font-semibold text-sm">{week.number}</div>
+                  <div className="font-semibold">{week.number}</div>
                 </div>
-              ))}
+                ))}
+              </div>
             </div>
             
             {/* Полосы задач */}
             <div className="relative">
               {organizedTasks.map((task, idx) => {
+                const currentRowHeight = rowHeights[idx] || minimumRowHeight
                 const position = getTaskPosition(task)
                 if (!position) return (
                   <div 
                     key={task.id}
-                    style={{ height: `${rowHeight}px` }}
+                    style={{ height: `${currentRowHeight}px` }}
                     className="border-b"
                   />
                 )
@@ -375,28 +539,19 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
                   <div 
                     key={task.id}
                     className="border-b relative"
-                    style={{ height: `${rowHeight}px` }}
+                    style={{ height: `${currentRowHeight}px` }}
                   >
                     <div
-                      className="absolute top-2 h-8 rounded-md flex items-center px-3 text-xs text-white overflow-hidden whitespace-nowrap shadow-sm"
+                      className="absolute h-4 rounded-full shadow-sm"
                       style={{
+                        top: `${(currentRowHeight - 16) / 2}px`,
                         left: position.left,
                         width: position.width,
-                        backgroundColor: task.level === 1 ? '#f59e0b' : task.level === 2 ? '#64748b' : '#94a3b8',
+                        backgroundColor: getTaskBarColor(task.status),
                         minWidth: '60px'
                       }}
-                      title={task.name}
-                    >
-                      {task.progress > 0 && (
-                        <div 
-                          className="absolute left-0 top-0 bottom-0 bg-black bg-opacity-20"
-                          style={{ width: `${task.progress}%` }}
-                        />
-                      )}
-                      <span className="relative z-10 font-medium">
-                        {task.name}
-                      </span>
-                    </div>
+                      title={`${task.name} — ${TaskStatusLabels[task.status]}`}
+                    />
                   </div>
                 )
               })}

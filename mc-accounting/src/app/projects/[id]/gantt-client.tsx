@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -192,7 +193,13 @@ export function ProjectGantt({ projectId, tasks }: ProjectGanttProps) {
               </div>
               <div>
                 <Label htmlFor="edit-responsible">Исполнитель</Label>
-                <Input id="edit-responsible" name="responsible" defaultValue={editingTask.responsible || ''} />
+                <Textarea
+                  id="edit-responsible"
+                  name="responsible"
+                  defaultValue={editingTask.responsible || ''}
+                  placeholder="Один исполнитель на строку"
+                  rows={4}
+                />
               </div>
               <div>
                 <Label htmlFor="edit-status">Статус</Label>
@@ -258,7 +265,12 @@ export function ProjectGantt({ projectId, tasks }: ProjectGanttProps) {
             </div>
             <div>
               <Label htmlFor="add-responsible">Исполнитель</Label>
-              <Input id="add-responsible" name="responsible" />
+              <Textarea
+                id="add-responsible"
+                name="responsible"
+                placeholder="Один исполнитель на строку"
+                rows={4}
+              />
             </div>
             <div>
               <Label htmlFor="add-status">Статус</Label>
