@@ -1,5 +1,3 @@
-"use client"
-
 import { FinderSidebar } from "@/components/finder-sidebar"
 
 interface AppLayoutProps {

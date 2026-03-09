@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -90,24 +90,33 @@ export function FinderSidebar() {
   const pathname = usePathname()
   const [expandedItems, setExpandedItems] = useState<string[]>(["assets"])
   const [projects, setProjects] = useState<Project[]>([])
-  const [loading, setLoading] = useState(true)
+  const hasFetchedProjectsRef = useRef(false)
+  const isProjectsExpanded = expandedItems.includes("projects")
 
   useEffect(() => {
+    if (!isProjectsExpanded || hasFetchedProjectsRef.current) return
+
+    let isMounted = true
+    hasFetchedProjectsRef.current = true
+
     async function fetchProjects() {
       try {
         const response = await fetch('/api/projects')
-        if (response.ok) {
+        if (response.ok && isMounted) {
           const data = await response.json()
           setProjects(data.slice(0, 5)) // Show only first 5 projects
         }
       } catch (error) {
         console.error('Error fetching projects:', error)
-      } finally {
-        setLoading(false)
       }
     }
+
     fetchProjects()
-  }, [])
+
+    return () => {
+      isMounted = false
+    }
+  }, [isProjectsExpanded])
 
   const toggleExpand = (id: string) => {
     setExpandedItems(prev => 

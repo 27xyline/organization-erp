@@ -2,9 +2,9 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Edit, Calendar, Wallet, FolderKanban, Target, CheckSquare, Trophy, Plus } from 'lucide-react'
+import { ArrowLeft, ArrowRightLeft, Calendar, CheckSquare, Edit, FolderKanban, Target, Trophy, Wallet } from 'lucide-react'
 import { ProjectStatusLabels } from '@/types'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import { ProjectGantt } from './gantt-client'
@@ -24,6 +24,16 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         include: {
           mol: true,
           group: true,
+          operations: {
+            where: {
+              type: {
+                in: ['RECEIPT', 'DISPOSAL'],
+              },
+            },
+            orderBy: {
+              date: 'desc',
+            },
+          },
         },
       },
       _count: {
@@ -38,6 +48,62 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
   // Calculate budget remaining
   const remainingBudget = Number(project.plannedBudget) - Number(project.actualBudget)
+  const projectDurationDays = project.startDate && project.endDate
+    ? Math.ceil((new Date(project.endDate).getTime() - new Date(project.startDate).getTime()) / (1000 * 60 * 60 * 24))
+    : null
+
+  const planningPeriods = (() => {
+    const formatter = new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' })
+    const start = project.startDate ? new Date(project.startDate) : new Date()
+    const end = project.endDate ? new Date(project.endDate) : new Date(start.getFullYear(), start.getMonth() + 2, 1)
+    const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
+    const lastMonth = new Date(end.getFullYear(), end.getMonth(), 1)
+    const result: string[] = []
+
+    while (cursor <= lastMonth && result.length < 3) {
+      const label = formatter.format(cursor)
+      result.push(`${label.charAt(0).toUpperCase()}${label.slice(1)}`)
+      cursor.setMonth(cursor.getMonth() + 1)
+    }
+
+    while (result.length < 3) {
+      const label = formatter.format(cursor)
+      result.push(`${label.charAt(0).toUpperCase()}${label.slice(1)}`)
+      cursor.setMonth(cursor.getMonth() + 1)
+    }
+
+    return result
+  })()
+
+  const payrollRows = [
+    'Основная команда',
+    'Дополнительные выплаты',
+    'Резерв проекта',
+  ]
+
+  const projectJournalEntries = project.assets
+    .flatMap((asset) =>
+      asset.operations.map((operation) => ({
+        id: operation.id,
+        type: operation.type,
+        assetName: asset.name,
+        inventoryNumber: asset.inventoryNumber,
+        date: operation.date,
+        totalCost: Number(operation.totalCost),
+        quantity: Number(operation.quantity),
+        documentType: operation.documentType,
+        documentDetails: operation.documentDetails,
+      }))
+    )
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+  const receiptTotal = projectJournalEntries
+    .filter((entry) => entry.type === 'RECEIPT')
+    .reduce((sum, entry) => sum + entry.totalCost, 0)
+
+  const disposalTotal = projectJournalEntries
+    .filter((entry) => entry.type === 'DISPOSAL')
+    .reduce((sum, entry) => sum + entry.totalCost, 0)
 
   return (
     <main className="container mx-auto py-8 px-4">
@@ -181,15 +247,147 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
               <div className="flex justify-between items-center py-2">
                 <span className="text-sm text-muted-foreground">Продолжительность:</span>
                 <span className="text-sm font-medium">
-                  {project.startDate && project.endDate 
-                    ? `${Math.ceil((new Date(project.endDate).getTime() - new Date(project.startDate).getTime()) / (1000 * 60 * 60 * 24))} дней`
-                    : '—'
-                  }
+                  {projectDurationDays !== null ? `${projectDurationDays} дней` : '—'}
                 </span>
               </div>
             </CardContent>
           </Card>
         </div>
+      </div>
+
+      <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <Card className="xl:col-span-2 overflow-hidden">
+          <CardHeader className="border-b bg-slate-50/80">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Wallet className="h-4 w-4" />
+              Таблица с планированием выплат заработной платы
+            </CardTitle>
+            <CardDescription>
+              Раздел подготовлен под будущую детализацию выплат по периодам проекта.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-lg border bg-muted/30 p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Период проекта</p>
+                <p className="mt-2 text-sm font-medium">
+                  {project.startDate && project.endDate
+                    ? `${formatDate(project.startDate)} - ${formatDate(project.endDate)}`
+                    : 'Сроки пока не заданы'}
+                </p>
+              </div>
+              <div className="rounded-lg border bg-muted/30 p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Задач в плане</p>
+                <p className="mt-2 text-sm font-medium">{project._count.tasksList} позиций</p>
+              </div>
+              <div className="rounded-lg border bg-muted/30 p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Плановый бюджет</p>
+                <p className="mt-2 text-sm font-medium">{formatCurrency(Number(project.plannedBudget))}</p>
+              </div>
+            </div>
+
+            <div className="mt-6 overflow-x-auto rounded-xl border">
+              <div className="grid min-w-[720px] grid-cols-[minmax(220px,1.3fr)_repeat(3,minmax(140px,1fr))] border-b bg-muted/40 text-sm font-medium text-muted-foreground">
+                <div className="border-r px-4 py-3">Статья</div>
+                {planningPeriods.map((period) => (
+                  <div key={period} className="border-r px-4 py-3 last:border-r-0">
+                    {period}
+                  </div>
+                ))}
+              </div>
+
+              <div className="min-w-[720px] divide-y">
+                {payrollRows.map((row) => (
+                  <div key={row} className="grid grid-cols-[minmax(220px,1.3fr)_repeat(3,minmax(140px,1fr))] text-sm">
+                    <div className="border-r px-4 py-4 font-medium text-slate-700">{row}</div>
+                    {planningPeriods.map((period) => (
+                      <div key={`${row}-${period}`} className="border-r px-4 py-4 text-muted-foreground last:border-r-0">
+                        —
+                      </div>
+                    ))}
+                  </div>
+                ))}
+
+                <div className="grid grid-cols-[minmax(220px,1.3fr)_repeat(3,minmax(140px,1fr))] bg-slate-50/70 text-sm font-medium">
+                  <div className="border-r px-4 py-4">Итого</div>
+                  {planningPeriods.map((period) => (
+                    <div key={`total-${period}`} className="border-r px-4 py-4 text-muted-foreground last:border-r-0">
+                      —
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-lg border border-dashed bg-slate-50/70 px-4 py-3 text-sm text-muted-foreground">
+              Таблица уже встроена в страницу и готова к заполнению, когда появятся данные по выплатам.
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="overflow-hidden">
+          <CardHeader className="border-b bg-slate-50/80">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ArrowRightLeft className="h-4 w-4" />
+              Журнал поступлений и списаний
+            </CardTitle>
+            <CardDescription>
+              Последние операции по активам, привязанным к этому проекту.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-6">
+            <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+              <div className="rounded-lg border bg-muted/30 p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Поступления</p>
+                <p className="mt-2 text-sm font-medium">{formatCurrency(receiptTotal)}</p>
+              </div>
+              <div className="rounded-lg border bg-muted/30 p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Списания</p>
+                <p className="mt-2 text-sm font-medium">{formatCurrency(disposalTotal)}</p>
+              </div>
+              <div className="rounded-lg border bg-muted/30 p-4">
+                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Записей</p>
+                <p className="mt-2 text-sm font-medium">{projectJournalEntries.length}</p>
+              </div>
+            </div>
+
+            {projectJournalEntries.length > 0 ? (
+              <div className="mt-6 space-y-3">
+                {projectJournalEntries.slice(0, 6).map((entry) => (
+                  <div key={entry.id} className="rounded-xl border p-4 transition-colors hover:bg-slate-50/70">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className={entry.type === 'RECEIPT' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}>
+                            {entry.type === 'RECEIPT' ? 'Приход' : 'Списание'}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">{formatDate(entry.date)}</span>
+                        </div>
+                        <p className="mt-3 text-sm font-medium text-slate-900">{entry.assetName}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">Инв. номер: {entry.inventoryNumber}</p>
+                      </div>
+                      <p className="text-sm font-semibold text-slate-900">{formatCurrency(entry.totalCost)}</p>
+                    </div>
+
+                    <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
+                      <p>Количество: {entry.quantity}</p>
+                      <p>{entry.documentType}: {entry.documentDetails}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-6 flex min-h-[320px] items-center justify-center rounded-xl border border-dashed bg-slate-50/70 p-6 text-center">
+                <div>
+                  <p className="text-sm font-medium text-slate-900">Пока нет операций по поступлениям и списаниям</p>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Как только по активам проекта появятся движения, они будут отображаться в этом журнале.
+                  </p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </main>
   )
