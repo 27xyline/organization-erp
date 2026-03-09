@@ -14,9 +14,20 @@ interface CustomGanttProps {
   onTaskAdd?: (parentId?: string) => void
 }
 
+const parseResponsibleList = (value?: string | null) => {
+  if (!value) return [] as string[]
+
+  return value
+    .replace(/\r/g, '\n')
+    .split(/[\n,;]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+}
+
 export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTaskAdd }: CustomGanttProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const minimumRowHeight = 64
+  const ganttBarHeight = 21
   const taskBaseWidth = 460
   const [leftPanelWidth, setLeftPanelWidth] = useState(taskBaseWidth)
   const [isResizing, setIsResizing] = useState(false)
@@ -335,7 +346,8 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
       const taskLines = estimateLineCount(task.name || '', taskTextWidth)
       const taskHeight = taskLines * 28 + 36
 
-      const responsibleText = task.responsible || '—'
+      const responsibleEntries = parseResponsibleList(task.responsible)
+      const responsibleText = responsibleEntries.length > 0 ? responsibleEntries.join('\n') : '—'
       const responsibleLines = columns.responsible > 0
         ? estimateLineCount(responsibleText, Math.max(columns.responsible - 24, 80))
         : 1
@@ -382,86 +394,100 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
           
             {/* Строки задач */}
             <div className="bg-white">
-              {organizedTasks.map((task, idx) => (
-                <div 
-                  key={task.id}
-                  className="flex border-b hover:bg-blue-50/50 transition-colors"
-                  style={{ height: `${rowHeights[idx] || minimumRowHeight}px` }}
-                >
+              {organizedTasks.map((task, idx) => {
+                const responsibleEntries = parseResponsibleList(task.responsible)
+
+                return (
                   <div 
-                    className="flex-shrink-0 min-w-0 px-4 border-r flex items-center text-sm"
-                    style={{ width: `${columns.task}px`, paddingLeft: `${16 + (task.level - 1) * 24}px` }}
+                    key={task.id}
+                    className="flex border-b hover:bg-blue-50/50 transition-colors"
+                    style={{ height: `${rowHeights[idx] || minimumRowHeight}px` }}
                   >
-                    <span 
-                      className={`block w-full py-1 text-left whitespace-normal leading-snug ${task.level === 1 ? 'font-semibold text-gray-900' : 'text-gray-700'}`}
-                      style={{ overflowWrap: 'anywhere' }}
-                      title={task.name}
+                    <div 
+                      className="flex-shrink-0 min-w-0 px-4 border-r flex items-center text-sm"
+                      style={{ width: `${columns.task}px`, paddingLeft: `${16 + (task.level - 1) * 24}px` }}
                     >
-                      {task.name}
-                    </span>
-                  </div>
-                  {columns.start > 0 && (
-                    <div className="flex-shrink-0 px-3 border-r flex items-center justify-center text-sm text-gray-600 whitespace-nowrap" style={{ width: `${columns.start}px` }}>
-                      {task.startDate ? formatDate(task.startDate) : '—'}
-                    </div>
-                  )}
-                  {columns.end > 0 && (
-                    <div className="flex-shrink-0 px-3 border-r flex items-center justify-center text-sm text-gray-600 whitespace-nowrap" style={{ width: `${columns.end}px` }}>
-                      {task.endDate ? formatDate(task.endDate) : '—'}
-                    </div>
-                  )}
-                  {columns.responsible > 0 && (
-                    <div
-                      className="flex-shrink-0 px-3 py-1 border-r flex items-center text-left text-sm text-gray-700 whitespace-pre-line"
-                      style={{ width: `${columns.responsible}px`, overflowWrap: 'anywhere' }}
-                    >
-                      {task.responsible || '—'}
-                    </div>
-                  )}
-                  {columns.status > 0 && (
-                    <div className="flex-shrink-0 px-3 border-r flex items-center justify-center" style={{ width: `${columns.status}px` }}>
-                      <span className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${getStatusBadgeClass(task.status)}`}>
-                        {TaskStatusLabels[task.status]}
+                      <span 
+                        className={`block w-full py-1 text-left whitespace-normal leading-snug ${task.level === 1 ? 'font-semibold text-gray-900' : 'text-gray-700'}`}
+                        style={{ overflowWrap: 'anywhere' }}
+                        title={task.name}
+                      >
+                        {task.name}
                       </span>
                     </div>
-                  )}
-                  {columns.actions > 0 && (
-                    <div className="flex-shrink-0 px-2 flex items-center justify-center gap-1" style={{ width: `${columns.actions}px` }}>
-                    {onTaskAdd && task.level < 3 && (
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-7 w-7 text-green-600 hover:text-green-800"
-                        onClick={() => onTaskAdd(task.id)}
-                        title="Добавить подзадачу"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                      </Button>
+                    {columns.start > 0 && (
+                      <div className="flex-shrink-0 px-3 border-r flex items-center justify-center text-sm text-gray-600 whitespace-nowrap" style={{ width: `${columns.start}px` }}>
+                        {task.startDate ? formatDate(task.startDate) : '—'}
+                      </div>
                     )}
-                    {onTaskEdit && (
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-7 w-7"
-                        onClick={() => onTaskEdit(task.id)}
-                      >
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </Button>
+                    {columns.end > 0 && (
+                      <div className="flex-shrink-0 px-3 border-r flex items-center justify-center text-sm text-gray-600 whitespace-nowrap" style={{ width: `${columns.end}px` }}>
+                        {task.endDate ? formatDate(task.endDate) : '—'}
+                      </div>
                     )}
-                    {onTaskDelete && (
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-7 w-7 text-red-500 hover:text-red-700"
-                        onClick={() => onTaskDelete(task.id)}
+                    {columns.responsible > 0 && (
+                      <div
+                        className="flex-shrink-0 px-3 py-1 border-r flex items-center text-left text-sm text-gray-700"
+                        style={{ width: `${columns.responsible}px`, overflowWrap: 'anywhere' }}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
+                        {responsibleEntries.length > 0 ? (
+                          <ol className="w-full list-decimal pl-4 space-y-1 marker:text-gray-500">
+                            {responsibleEntries.map((responsibleEntry, responsibleIdx) => (
+                              <li key={`${task.id}-responsible-${responsibleIdx}`} className="leading-snug">
+                                {responsibleEntry}
+                              </li>
+                            ))}
+                          </ol>
+                        ) : (
+                          '—'
+                        )}
+                      </div>
                     )}
-                    </div>
-                  )}
-                </div>
-              ))}
+                    {columns.status > 0 && (
+                      <div className="flex-shrink-0 px-3 border-r flex items-center justify-center" style={{ width: `${columns.status}px` }}>
+                        <span className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${getStatusBadgeClass(task.status)}`}>
+                          {TaskStatusLabels[task.status]}
+                        </span>
+                      </div>
+                    )}
+                    {columns.actions > 0 && (
+                      <div className="flex-shrink-0 px-2 flex items-center justify-center gap-1" style={{ width: `${columns.actions}px` }}>
+                      {onTaskAdd && task.level < 3 && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-7 w-7 text-green-600 hover:text-green-800"
+                          onClick={() => onTaskAdd(task.id)}
+                          title="Добавить подзадачу"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {onTaskEdit && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-7 w-7"
+                          onClick={() => onTaskEdit(task.id)}
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {onTaskDelete && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-7 w-7 text-red-500 hover:text-red-700"
+                          onClick={() => onTaskDelete(task.id)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           
             {/* Кнопка добавления задачи */}
@@ -542,11 +568,13 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
                     style={{ height: `${currentRowHeight}px` }}
                   >
                     <div
-                      className="absolute h-4 rounded-full shadow-sm"
+                      className="absolute rounded-full shadow-sm"
                       style={{
-                        top: `${(currentRowHeight - 16) / 2}px`,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
                         left: position.left,
                         width: position.width,
+                        height: `${ganttBarHeight}px`,
                         backgroundColor: getTaskBarColor(task.status),
                         minWidth: '60px'
                       }}

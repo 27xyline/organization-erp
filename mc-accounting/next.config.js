@@ -1,8 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    appDir: true,
-  },
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   images: {
     domains: ['localhost'],
   },
