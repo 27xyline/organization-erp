@@ -2,147 +2,198 @@
 
 import { useMemo } from 'react'
 
+type VacationType = 'VACATION' | 'SICK_LEAVE' | 'BUSINESS_TRIP' | 'UNPAID_LEAVE'
+
+interface VacationEmployee {
+  id: string
+  fullName: string
+  department?: string
+}
+
 interface Vacation {
   id: string
   employeeId: string
-  employeeName: string
+  employee?: VacationEmployee
   startDate: Date
   endDate: Date
-  type: 'vacation' | 'sick' | 'business'
+  type: VacationType
+}
+
+interface Employee {
+  id: string
+  fullName: string
 }
 
 interface VacationGanttProps {
   vacations: Vacation[]
-  employees: any[]
+  employees: Employee[]
+  year?: number
+  onVacationClick?: (vacation: Vacation) => void
 }
 
-export function VacationGantt({ vacations, employees }: VacationGanttProps) {
-  // Генерируем месяцы текущего года
-  const months = useMemo(() => {
-    const currentYear = new Date().getFullYear()
-    const result = []
-    for (let i = 0; i < 12; i++) {
-      const month = new Date(currentYear, i, 1)
-      result.push({
-        name: month.toLocaleString('ru', { month: 'short' }),
-        days: new Date(currentYear, i + 1, 0).getDate()
-      })
-    }
-    return result
-  }, [])
+const vacationTypeConfig: Record<VacationType, { label: string; className: string }> = {
+  VACATION: { label: 'Отпуск', className: 'bg-blue-500' },
+  SICK_LEAVE: { label: 'Больничный', className: 'bg-red-500' },
+  BUSINESS_TRIP: { label: 'Командировка', className: 'bg-emerald-500' },
+  UNPAID_LEAVE: { label: 'Без содержания', className: 'bg-slate-500' },
+}
 
-  // Текущий год для отображения
-  const currentYear = new Date().getFullYear()
+const getDayIndex = (date: Date, yearStart: Date) => {
+  const diff = date.getTime() - yearStart.getTime()
+  return Math.floor(diff / (1000 * 60 * 60 * 24))
+}
+
+export function VacationGantt({ vacations, employees, year = new Date().getFullYear(), onVacationClick }: VacationGanttProps) {
+  const yearStart = useMemo(() => new Date(year, 0, 1), [year])
+  const yearEnd = useMemo(() => new Date(year, 11, 31, 23, 59, 59, 999), [year])
+  const totalDaysInYear = useMemo(() => getDayIndex(yearEnd, yearStart) + 1, [yearEnd, yearStart])
+  const currentMonth = new Date().getFullYear() === year ? new Date().getMonth() : null
+  const monthSegments = useMemo(() => {
+    return Array.from({ length: 12 }, (_, index) => {
+      const startDate = new Date(year, index, 1)
+      const endDate = new Date(year, index + 1, 0)
+      const startIndex = getDayIndex(startDate, yearStart)
+      const endIndex = getDayIndex(endDate, yearStart)
+
+      return {
+        index,
+        label: startDate.toLocaleString('ru-RU', { month: 'short' }),
+        left: (startIndex / totalDaysInYear) * 100,
+        width: ((endIndex - startIndex + 1) / totalDaysInYear) * 100,
+      }
+    })
+  }, [year, yearStart, totalDaysInYear])
+
+  const weekLines = useMemo(() => {
+    const lines: number[] = []
+    const cursor = new Date(yearStart)
+
+    while (cursor.getDay() !== 1) {
+      cursor.setDate(cursor.getDate() + 1)
+    }
+
+    while (cursor <= yearEnd) {
+      if (cursor.getDate() !== 1) {
+        lines.push((getDayIndex(cursor, yearStart) / totalDaysInYear) * 100)
+      }
+      cursor.setDate(cursor.getDate() + 7)
+    }
+
+    return lines
+  }, [yearEnd, yearStart, totalDaysInYear])
+
+  const currentMonthSegment = currentMonth !== null ? monthSegments[currentMonth] : null
 
   return (
-    <div className="border rounded-lg overflow-hidden bg-white">
-      {/* Заголовки месяцев */}
-      <div className="flex border-b bg-gray-50">
-        <div className="w-48 p-2 border-r font-medium text-sm bg-gray-100">
-          Сотрудник
-        </div>
-        <div className="flex-1 flex">
-          {months.map((month, idx) => (
-            <div 
-              key={idx} 
-              className="flex-1 p-2 text-center text-xs font-medium border-r last:border-r-0"
-            >
-              {month.name}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Строки сотрудников */}
-      <div className="divide-y">
-        {employees.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">
-            Нет данных о сотрудниках
+    <div className="overflow-x-auto rounded-xl border bg-white">
+      <div className="min-w-[900px]">
+        <div className="flex border-b bg-slate-50">
+          <div className="w-56 flex-shrink-0 border-r px-4 py-3 text-sm font-medium text-slate-700">
+            Сотрудник
           </div>
-        ) : (
-          employees.map((employee) => (
-            <div key={employee.id} className="flex">
-              {/* Имя сотрудника */}
-              <div className="w-48 p-2 border-r bg-gray-50/50 text-sm truncate">
-                {employee.fullName}
+          <div className="relative flex-1 overflow-hidden">
+            {monthSegments.map((month) => (
+              <div
+                key={month.index}
+                className={`absolute inset-y-0 flex items-center justify-center border-r px-2 py-3 text-center text-xs font-medium uppercase text-slate-500 ${currentMonth === month.index ? 'bg-amber-50/70' : ''}`}
+                style={{
+                  left: `${month.left}%`,
+                  width: `${month.width}%`,
+                }}
+              >
+                {month.label}
               </div>
-              
-              {/* Полоса времени */}
-              <div className="flex-1 relative h-10">
-                {/* Сетка месяцев */}
-                <div className="absolute inset-0 flex">
-                  {months.map((_, idx) => (
-                    <div 
-                      key={idx} 
-                      className="flex-1 border-r last:border-r-0"
-                    />
-                  ))}
+            ))}
+          </div>
+        </div>
+
+        <div className="divide-y">
+          {employees.length === 0 ? (
+            <div className="px-6 py-12 text-center text-sm text-muted-foreground">
+              Нет сотрудников для отображения графика отпусков.
+            </div>
+          ) : (
+            employees.map((employee) => (
+              <div key={employee.id} className="flex min-h-[54px]">
+                <div className="w-56 flex-shrink-0 border-r bg-slate-50/70 px-4 py-3 text-sm font-medium text-slate-700">
+                  {employee.fullName}
                 </div>
 
-                {/* Отпуска сотрудника */}
-                {vacations
-                  .filter((v) => v.employeeId === employee.id)
-                  .map((vacation) => {
-                    const startMonth = vacation.startDate.getMonth()
-                    const startDay = vacation.startDate.getDate()
-                    const endMonth = vacation.endDate.getMonth()
-                    const endDay = vacation.endDate.getDate()
-                    
-                    const left = (startMonth / 12) * 100 + (startDay / 30 / 12) * 100
-                    const width = ((endMonth - startMonth + 1) / 12) * 100
-                    
-                    return (
+                <div className="relative flex-1 overflow-hidden">
+                  {currentMonthSegment && (
+                    <div
+                      className="absolute inset-y-0 bg-amber-100/35"
+                      style={{
+                        left: `${currentMonthSegment.left}%`,
+                        width: `${currentMonthSegment.width}%`,
+                      }}
+                    />
+                  )}
+
+                  <div className="absolute inset-0 pointer-events-none">
+                    {monthSegments.slice(1).map((month) => (
                       <div
-                        key={vacation.id}
-                        className={`absolute top-2 h-6 rounded text-xs text-white flex items-center px-2 overflow-hidden whitespace-nowrap ${
-                          vacation.type === 'vacation' 
-                            ? 'bg-blue-500' 
-                            : vacation.type === 'sick' 
-                              ? 'bg-red-500' 
-                              : 'bg-green-500'
-                        }`}
-                        style={{
-                          left: `${left}%`,
-                          width: `${Math.max(width, 2)}%`,
-                        }}
-                        title={`${vacation.employeeName}: ${vacation.startDate.toLocaleDateString()} - ${vacation.endDate.toLocaleDateString()}`}
-                      >
-                        {width > 5 ? 'Отпуск' : ''}
-                      </div>
-                    )
-                  })}
+                        key={`${employee.id}-month-${month.index}`}
+                        className="absolute inset-y-0 w-px bg-slate-300"
+                        style={{ left: `${month.left}%` }}
+                      />
+                    ))}
 
-                {/* Текущий месяц (подсветка) */}
-                <div 
-                  className="absolute top-0 bottom-0 bg-yellow-100/50 border-x border-yellow-200"
-                  style={{
-                    left: `${(new Date().getMonth() / 12) * 100}%`,
-                    width: `${100/12}%`
-                  }}
-                />
+                    {weekLines.map((line, index) => (
+                      <div
+                        key={`${employee.id}-week-${index}`}
+                        className="absolute inset-y-0 w-px bg-slate-200/80"
+                        style={{ left: `${line}%` }}
+                      />
+                    ))}
+                  </div>
+
+                  {vacations
+                    .filter((vacation) => vacation.employeeId === employee.id)
+                    .map((vacation) => {
+                      const startDate = vacation.startDate
+                      const endDate = vacation.endDate
+                      const clampedStart = startDate < yearStart ? yearStart : startDate
+                      const clampedEnd = endDate > yearEnd ? yearEnd : endDate
+                      const left = (getDayIndex(clampedStart, yearStart) / totalDaysInYear) * 100
+                      const width = ((getDayIndex(clampedEnd, yearStart) - getDayIndex(clampedStart, yearStart) + 1) / totalDaysInYear) * 100
+                      const config = vacationTypeConfig[vacation.type]
+
+                      return (
+                        <button
+                          key={vacation.id}
+                          type="button"
+                          onClick={() => onVacationClick?.(vacation)}
+                          className={`absolute top-1/2 z-10 flex h-5 -translate-y-1/2 items-center rounded-full px-2 text-left text-[11px] font-medium text-white shadow-sm ${config.className} ${onVacationClick ? 'cursor-pointer transition-opacity hover:opacity-90' : 'cursor-default'}`}
+                          style={{
+                            left: `${left}%`,
+                            width: `${Math.max(width, 1.8)}%`,
+                          }}
+                          title={`${config.label}: ${startDate.toLocaleDateString('ru-RU')} - ${endDate.toLocaleDateString('ru-RU')}`}
+                        >
+                          {width > 9 ? config.label : ''}
+                        </button>
+                      )
+                    })}
+                </div>
               </div>
-            </div>
-          ))
-        )}
-      </div>
+            ))
+          )}
+        </div>
 
-      {/* Легенда */}
-      <div className="flex gap-4 p-3 border-t bg-gray-50 text-xs">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-blue-500 rounded"></div>
-          <span>Отпуск</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-red-500 rounded"></div>
-          <span>Больничный</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-4 bg-green-500 rounded"></div>
-          <span>Командировка</span>
-        </div>
-        <div className="flex items-center gap-2 ml-auto">
-          <div className="w-4 h-4 bg-yellow-100 border border-yellow-200 rounded"></div>
-          <span>Текущий месяц</span>
+        <div className="flex flex-wrap items-center gap-4 border-t bg-slate-50 px-4 py-3 text-xs text-slate-500">
+          {Object.values(vacationTypeConfig).map((item) => (
+            <div key={item.label} className="flex items-center gap-2">
+              <span className={`h-3.5 w-3.5 rounded-full ${item.className}`} />
+              <span>{item.label}</span>
+            </div>
+          ))}
+          {currentMonth !== null && (
+            <div className="ml-auto flex items-center gap-2">
+              <span className="h-3.5 w-3.5 rounded-sm border border-amber-200 bg-amber-100/70" />
+              <span>Текущий месяц</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

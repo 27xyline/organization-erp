@@ -252,6 +252,10 @@ model Employee {
   fullName    String
   department  String
   photo       String?
+  contractType EmploymentContractType @default(PRIMARY)
+  contractSignedDate DateTime?
+  contractEndDate DateTime?
+  contractNumber String?
   
   // Contact info
   phone       String?
@@ -281,6 +285,14 @@ enum EmployeeStatus {
   DISMISSED
   
   @@map("employee_status")
+}
+
+enum EmploymentContractType {
+  PRIMARY
+  INTERNAL
+  EXTERNAL
+
+  @@map("employment_contract_type")
 }
 
 model StaffSchedule {
@@ -314,6 +326,8 @@ model PersonnelAction {
   newDepartment String?
   oldPosition   String?
   newPosition   String?
+  oldContractEndDate DateTime?
+  newContractEndDate DateTime?
   
   createdAt   DateTime @default(now())
   

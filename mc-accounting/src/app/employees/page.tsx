@@ -1,26 +1,48 @@
 'use client'
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Plus, Edit, Trash2, Search, User, Users, Calendar, Building2, UserPlus, UserX, ArrowRightLeft, RefreshCw } from "lucide-react"
+import { useEffect, useMemo, useState } from 'react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Textarea } from '@/components/ui/textarea'
+import { VacationGantt } from '@/components/vacation-gantt'
+import { cn, formatCurrency, formatDate, formatDecimal } from '@/lib/utils'
+import {
+  ArrowRightLeft,
+  Briefcase,
+  Building2,
+  Calendar,
+  Edit,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  User,
+  UserPlus,
+  UserX,
+  Users,
+} from 'lucide-react'
+
+type EmployeeStatus = 'ACTIVE' | 'ON_VACATION' | 'ON_SICK_LEAVE' | 'DISMISSED'
+type EmploymentContractType = 'PRIMARY' | 'INTERNAL' | 'EXTERNAL'
+type VacationType = 'VACATION' | 'SICK_LEAVE' | 'BUSINESS_TRIP' | 'UNPAID_LEAVE'
+type PersonnelActionType = 'HIRE' | 'DISMISS' | 'TRANSFER' | 'EXTEND' | 'PROMOTE'
 
 interface Employee {
   id: string
@@ -30,15 +52,19 @@ interface Employee {
   phone?: string
   email?: string
   photo?: string
-  status: string
-  staffScheduleId?: string
+  contractType: EmploymentContractType
+  contractSignedDate?: Date | null
+  contractEndDate?: Date | null
+  contractNumber?: string | null
+  status: EmployeeStatus
+  staffScheduleId?: string | null
   staffSchedule?: {
     id: string
     position: string
     department: string
     rate: number
     salary: number
-  }
+  } | null
 }
 
 interface StaffSchedule {
@@ -50,35 +76,246 @@ interface StaffSchedule {
   employees: Employee[]
 }
 
+interface Vacation {
+  id: string
+  employeeId: string
+  employee?: {
+    id: string
+    fullName: string
+    department?: string
+  }
+  startDate: Date
+  endDate: Date
+  type: VacationType
+}
+
+interface PersonnelAction {
+  id: string
+  type: PersonnelActionType
+  date: Date
+  description?: string | null
+  employeeId: string
+  employee: {
+    id: string
+    fullName: string
+    department: string
+    status: EmployeeStatus
+    contractType: EmploymentContractType
+    contractSignedDate?: Date | null
+    contractEndDate?: Date | null
+    contractNumber?: string | null
+    staffScheduleId?: string | null
+    staffSchedule?: {
+      id: string
+      position: string
+      department: string
+    } | null
+  }
+  oldDepartment?: string | null
+  newDepartment?: string | null
+  oldPosition?: string | null
+  newPosition?: string | null
+  oldContractEndDate?: Date | null
+  newContractEndDate?: Date | null
+}
+
+const employeeStatusLabels: Record<EmployeeStatus, string> = {
+  ACTIVE: 'Работает',
+  ON_VACATION: 'В отпуске',
+  ON_SICK_LEAVE: 'На больничном',
+  DISMISSED: 'Уволен',
+}
+
+const vacationTypeLabels: Record<VacationType, string> = {
+  VACATION: 'Отпуск',
+  SICK_LEAVE: 'Больничный',
+  BUSINESS_TRIP: 'Командировка',
+  UNPAID_LEAVE: 'Без содержания',
+}
+
+const employmentContractTypeLabels: Record<EmploymentContractType, string> = {
+  PRIMARY: 'Основной',
+  INTERNAL: 'Внутренний',
+  EXTERNAL: 'Внешний',
+}
+
+const staffDepartments = ['НИО-904', 'Лаборатория №4'] as const
+
+const personnelActionLabels: Record<PersonnelActionType, string> = {
+  HIRE: 'Прием',
+  DISMISS: 'Увольнение',
+  TRANSFER: 'Перевод',
+  EXTEND: 'Продление',
+  PROMOTE: 'Повышение',
+}
+
+const normalizeEmployee = (employee: any): Employee => ({
+  id: employee.id,
+  code: employee.code,
+  fullName: employee.fullName,
+  department: employee.department,
+  phone: employee.phone || '',
+  email: employee.email || '',
+  photo: employee.photo || '',
+  contractType: employee.contractType || 'PRIMARY',
+  contractSignedDate: employee.contractSignedDate ? new Date(employee.contractSignedDate) : null,
+  contractEndDate: employee.contractEndDate ? new Date(employee.contractEndDate) : null,
+  contractNumber: employee.contractNumber || '',
+  status: employee.status,
+  staffScheduleId: employee.staffScheduleId ?? null,
+  staffSchedule: employee.staffSchedule
+    ? {
+        id: employee.staffSchedule.id,
+        position: employee.staffSchedule.position,
+        department: employee.staffSchedule.department,
+        rate: Number(employee.staffSchedule.rate || 0),
+        salary: Number(employee.staffSchedule.salary || 0),
+      }
+    : null,
+})
+
+const normalizeStaffSchedule = (position: any): StaffSchedule => ({
+  id: position.id,
+  position: position.position,
+  department: position.department,
+  rate: Number(position.rate || 0),
+  salary: Number(position.salary || 0),
+  employees: (position.employees || []).map(normalizeEmployee),
+})
+
+const normalizeVacation = (vacation: any): Vacation => ({
+  id: vacation.id,
+  employeeId: vacation.employeeId,
+  employee: vacation.employee,
+  startDate: new Date(vacation.startDate),
+  endDate: new Date(vacation.endDate),
+  type: vacation.type,
+})
+
+const normalizePersonnelAction = (action: any): PersonnelAction => ({
+  id: action.id,
+  type: action.type,
+  date: new Date(action.date),
+  description: action.description || '',
+  employeeId: action.employeeId,
+  employee: {
+    ...action.employee,
+    contractType: action.employee?.contractType || 'PRIMARY',
+    contractSignedDate: action.employee?.contractSignedDate ? new Date(action.employee.contractSignedDate) : null,
+    contractEndDate: action.employee?.contractEndDate ? new Date(action.employee.contractEndDate) : null,
+    contractNumber: action.employee?.contractNumber || '',
+  },
+  oldDepartment: action.oldDepartment ?? null,
+  newDepartment: action.newDepartment ?? null,
+  oldPosition: action.oldPosition ?? null,
+  newPosition: action.newPosition ?? null,
+  oldContractEndDate: action.oldContractEndDate ? new Date(action.oldContractEndDate) : null,
+  newContractEndDate: action.newContractEndDate ? new Date(action.newContractEndDate) : null,
+})
+
+const isDateInRange = (date: Date, startDate: Date, endDate: Date) => date >= startDate && date <= endDate
+
+const getPersonnelActionIcon = (type: PersonnelActionType) => {
+  switch (type) {
+    case 'HIRE':
+      return <UserPlus className="h-4 w-4 text-emerald-600" />
+    case 'DISMISS':
+      return <UserX className="h-4 w-4 text-rose-600" />
+    case 'TRANSFER':
+      return <ArrowRightLeft className="h-4 w-4 text-blue-600" />
+    case 'EXTEND':
+      return <RefreshCw className="h-4 w-4 text-amber-600" />
+    case 'PROMOTE':
+      return <Briefcase className="h-4 w-4 text-violet-600" />
+    default:
+      return <User className="h-4 w-4" />
+  }
+}
+
+const getPersonnelActionDescription = (action: PersonnelAction) => {
+  if (action.description) return action.description
+
+  switch (action.type) {
+    case 'HIRE':
+      if (action.newContractEndDate) {
+        return `Прием по договору до ${formatDate(action.newContractEndDate)}`
+      }
+      return action.newDepartment ? `Прием в подразделение ${action.newDepartment}` : 'Прием на работу'
+    case 'DISMISS':
+      return 'Увольнение сотрудника'
+    case 'TRANSFER':
+      if (action.oldDepartment && action.newDepartment && action.oldDepartment !== action.newDepartment) {
+        return `${action.oldDepartment} -> ${action.newDepartment}`
+      }
+      if (action.oldPosition && action.newPosition && action.oldPosition !== action.newPosition) {
+        return `${action.oldPosition} -> ${action.newPosition}`
+      }
+      return 'Кадровый перевод'
+    case 'EXTEND':
+      if (action.newContractEndDate) {
+        return `Продление договора до ${formatDate(action.newContractEndDate)}`
+      }
+      return 'Продление срока действия договора'
+    case 'PROMOTE':
+      return 'Повышение сотрудника'
+    default:
+      return personnelActionLabels[action.type]
+  }
+}
+
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([])
   const [staffSchedule, setStaffSchedule] = useState<StaffSchedule[]>([])
-  const [personnelActions, setPersonnelActions] = useState<any[]>([])
+  const [vacations, setVacations] = useState<Vacation[]>([])
+  const [personnelActions, setPersonnelActions] = useState<PersonnelAction[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState("")
-  
-  // Dialogs
+  const [searchTerm, setSearchTerm] = useState('')
+
   const [isEmployeeDialogOpen, setIsEmployeeDialogOpen] = useState(false)
   const [isStaffDialogOpen, setIsStaffDialogOpen] = useState(false)
+  const [isVacationDialogOpen, setIsVacationDialogOpen] = useState(false)
   const [isActionDialogOpen, setIsActionDialogOpen] = useState(false)
+
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null)
   const [editingStaff, setEditingStaff] = useState<StaffSchedule | null>(null)
-  
-  // Forms
+  const [editingVacation, setEditingVacation] = useState<Vacation | null>(null)
+
   const [employeeForm, setEmployeeForm] = useState({
     code: '',
     fullName: '',
     department: '',
     phone: '',
     email: '',
-    staffScheduleId: '',
+    contractType: 'PRIMARY' as EmploymentContractType,
+    contractSignedDate: '',
+    contractEndDate: '',
+    contractNumber: '',
+    staffScheduleId: 'none',
+    status: 'ACTIVE' as EmployeeStatus,
   })
-  
+
   const [staffForm, setStaffForm] = useState({
     position: '',
     department: '',
     rate: 1,
     salary: 0,
+  })
+
+  const [vacationForm, setVacationForm] = useState({
+    employeeId: '',
+    startDate: '',
+    endDate: '',
+    type: 'VACATION' as VacationType,
+  })
+
+  const [actionForm, setActionForm] = useState({
+    employeeId: '',
+    type: 'TRANSFER' as PersonnelActionType,
+    date: new Date().toISOString().split('T')[0],
+    description: '',
+    newDepartment: '',
+    staffScheduleId: 'none',
+    newContractEndDate: '',
   })
 
   useEffect(() => {
@@ -87,117 +324,383 @@ export default function EmployeesPage() {
 
   const loadData = async () => {
     try {
-      const [empRes, staffRes] = await Promise.all([
+      const [employeesResponse, staffResponse, vacationsResponse, actionsResponse] = await Promise.all([
         fetch('/api/employees'),
         fetch('/api/staff-schedule'),
+        fetch('/api/vacations'),
+        fetch('/api/personnel-actions'),
       ])
-      
-      if (empRes.ok) {
-        const empData = await empRes.json()
-        setEmployees(empData)
+
+      if (employeesResponse.ok) {
+        const data = await employeesResponse.json()
+        setEmployees(data.map(normalizeEmployee))
       }
-      
-      if (staffRes.ok) {
-        const staffData = await staffRes.json()
-        setStaffSchedule(staffData)
+
+      if (staffResponse.ok) {
+        const data = await staffResponse.json()
+        setStaffSchedule(data.map(normalizeStaffSchedule))
       }
-      
-      // Временные данные для кадровых действий
-      setPersonnelActions([
-        { id: 1, type: 'hire', employee: 'Иванов И.И.', date: '2024-01-15', description: 'Прием на работу' },
-        { id: 2, type: 'transfer', employee: 'Петров П.П.', date: '2024-02-01', description: 'Перевод в IT отдел' },
-      ])
-      
-      setLoading(false)
+
+      if (vacationsResponse.ok) {
+        const data = await vacationsResponse.json()
+        setVacations(data.map(normalizeVacation))
+      }
+
+      if (actionsResponse.ok) {
+        const data = await actionsResponse.json()
+        setPersonnelActions(data.map(normalizePersonnelAction))
+      }
     } catch (error) {
-      console.error('Error loading data:', error)
+      console.error('Error loading employees section:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const activeEmployees = useMemo(
+    () => employees.filter((employee) => employee.status !== 'DISMISSED'),
+    [employees]
+  )
+
+  const filteredEmployees = useMemo(() => {
+    if (!searchTerm.trim()) return activeEmployees
+
+    const value = searchTerm.trim().toLowerCase()
+
+    return activeEmployees.filter((employee) => {
+      return (
+        employee.fullName.toLowerCase().includes(value) ||
+        employee.code.toLowerCase().includes(value) ||
+        employee.department.toLowerCase().includes(value) ||
+        (employee.contractNumber || '').toLowerCase().includes(value) ||
+        employee.staffSchedule?.position?.toLowerCase().includes(value)
+      )
+    })
+  }, [activeEmployees, searchTerm])
+
+  const currentYear = new Date().getFullYear()
+
+  const currentYearVacations = useMemo(
+    () => vacations.filter((vacation) => vacation.startDate.getFullYear() <= currentYear && vacation.endDate.getFullYear() >= currentYear),
+    [currentYear, vacations]
+  )
+
+  const employeesWithVacations = useMemo(
+    () => filteredEmployees.filter((employee) => currentYearVacations.some((vacation) => vacation.employeeId === employee.id)),
+    [currentYearVacations, filteredEmployees]
+  )
+
+  const totalRates = useMemo(
+    () => staffSchedule.reduce((sum, position) => sum + position.rate, 0),
+    [staffSchedule]
+  )
+
+  const occupiedPositionIds = useMemo(
+    () =>
+      new Set(
+        activeEmployees
+          .map((employee) => employee.staffScheduleId)
+          .filter((value): value is string => Boolean(value))
+      ),
+    [activeEmployees]
+  )
+
+  const selectedEmployeePosition = useMemo(
+    () => staffSchedule.find((position) => position.id === employeeForm.staffScheduleId),
+    [employeeForm.staffScheduleId, staffSchedule]
+  )
+
+  const selectedActionEmployee = useMemo(
+    () => employees.find((employee) => employee.id === actionForm.employeeId) || null,
+    [actionForm.employeeId, employees]
+  )
+
+  const selectedActionPosition = useMemo(
+    () => staffSchedule.find((position) => position.id === actionForm.staffScheduleId),
+    [actionForm.staffScheduleId, staffSchedule]
+  )
+
+  const employeePositionOptions = useMemo(
+    () =>
+      staffSchedule.filter(
+        (position) => !occupiedPositionIds.has(position.id) || position.id === editingEmployee?.staffScheduleId
+      ),
+    [editingEmployee?.staffScheduleId, occupiedPositionIds, staffSchedule]
+  )
+
+  const transferPositionOptions = useMemo(
+    () =>
+      staffSchedule.filter(
+        (position) => !occupiedPositionIds.has(position.id) || position.id === selectedActionEmployee?.staffScheduleId
+      ),
+    [occupiedPositionIds, selectedActionEmployee?.staffScheduleId, staffSchedule]
+  )
+
+  const getLiveEmployeeStatus = (employee: Employee) => {
+    const today = new Date()
+    const activeVacation = currentYearVacations.find(
+      (vacation) => vacation.employeeId === employee.id && isDateInRange(today, vacation.startDate, vacation.endDate)
+    )
+
+    if (activeVacation) {
+      switch (activeVacation.type) {
+        case 'SICK_LEAVE':
+          return {
+            label: vacationTypeLabels.SICK_LEAVE,
+            className: 'border-red-200 bg-red-50 text-red-700',
+          }
+        case 'BUSINESS_TRIP':
+          return {
+            label: vacationTypeLabels.BUSINESS_TRIP,
+            className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+          }
+        case 'UNPAID_LEAVE':
+          return {
+            label: vacationTypeLabels.UNPAID_LEAVE,
+            className: 'border-slate-200 bg-slate-100 text-slate-700',
+          }
+        default:
+          return {
+            label: vacationTypeLabels.VACATION,
+            className: 'border-blue-200 bg-blue-50 text-blue-700',
+          }
+      }
+    }
+
+    if (employee.status === 'ON_SICK_LEAVE') {
+      return {
+        label: employeeStatusLabels.ON_SICK_LEAVE,
+        className: 'border-red-200 bg-red-50 text-red-700',
+      }
+    }
+
+    if (employee.status === 'ON_VACATION') {
+      return {
+        label: employeeStatusLabels.ON_VACATION,
+        className: 'border-blue-200 bg-blue-50 text-blue-700',
+      }
+    }
+
+    return {
+      label: employeeStatusLabels.ACTIVE,
+      className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
     }
   }
 
   const handleSaveEmployee = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    const url = editingEmployee 
-      ? `/api/employees/${editingEmployee.id}`
-      : '/api/employees'
-    
-    // Prepare data - convert "none" to null for staffScheduleId
-    const dataToSend = {
-      ...employeeForm,
-      staffScheduleId: employeeForm.staffScheduleId === 'none' ? null : employeeForm.staffScheduleId
+
+    if (employeeForm.staffScheduleId === 'none') {
+      alert('Выберите должность из штатного расписания')
+      return
     }
-    
+
+    if (!employeeForm.contractNumber || !employeeForm.contractSignedDate) {
+      alert('Заполните номер и дату подписания трудового договора')
+      return
+    }
+
+    const url = editingEmployee ? `/api/employees/${editingEmployee.id}` : '/api/employees'
+    const payload = {
+      ...employeeForm,
+      contractType: employeeForm.contractType,
+      contractSignedDate: employeeForm.contractSignedDate,
+      contractEndDate: employeeForm.contractEndDate || null,
+      contractNumber: employeeForm.contractNumber,
+      staffScheduleId: employeeForm.staffScheduleId === 'none' ? null : employeeForm.staffScheduleId,
+    }
+
     try {
       const response = await fetch(url, {
         method: editingEmployee ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(dataToSend),
+        body: JSON.stringify(payload),
       })
-      
-      if (response.ok) {
-        setIsEmployeeDialogOpen(false)
-        setEditingEmployee(null)
-        loadData()
-      } else {
-        alert('Ошибка при сохранении')
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null)
+        throw new Error(errorData?.error || 'Failed to save employee')
       }
+
+      setIsEmployeeDialogOpen(false)
+      setEditingEmployee(null)
+      await loadData()
     } catch (error) {
       console.error('Error saving employee:', error)
-      alert('Ошибка при сохранении')
+      alert(error instanceof Error ? error.message : 'Ошибка при сохранении сотрудника')
     }
   }
 
   const handleSaveStaff = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    const url = editingStaff 
-      ? `/api/staff-schedule/${editingStaff.id}`
-      : '/api/staff-schedule'
-    
+
+    const url = editingStaff ? `/api/staff-schedule/${editingStaff.id}` : '/api/staff-schedule'
+
     try {
       const response = await fetch(url, {
         method: editingStaff ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(staffForm),
       })
-      
-      if (response.ok) {
-        setIsStaffDialogOpen(false)
-        setEditingStaff(null)
-        loadData()
-      } else {
-        alert('Ошибка при сохранении')
+
+      if (!response.ok) {
+        throw new Error('Failed to save staff schedule position')
       }
+
+      setIsStaffDialogOpen(false)
+      setEditingStaff(null)
+      await loadData()
     } catch (error) {
       console.error('Error saving staff position:', error)
-      alert('Ошибка при сохранении')
+      alert('Ошибка при сохранении должности')
+    }
+  }
+
+  const handleSaveVacation = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!vacationForm.employeeId || !vacationForm.startDate || !vacationForm.endDate) {
+      alert('Заполните сотрудника и даты отпуска')
+      return
+    }
+
+    if (new Date(vacationForm.startDate) > new Date(vacationForm.endDate)) {
+      alert('Дата окончания не может быть раньше даты начала')
+      return
+    }
+
+    const url = editingVacation ? `/api/vacations/${editingVacation.id}` : '/api/vacations'
+
+    try {
+      const response = await fetch(url, {
+        method: editingVacation ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(vacationForm),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to save vacation')
+      }
+
+      setIsVacationDialogOpen(false)
+      setEditingVacation(null)
+      await loadData()
+    } catch (error) {
+      console.error('Error saving vacation:', error)
+      alert('Ошибка при сохранении отпуска')
+    }
+  }
+
+  const handleSaveAction = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (!actionForm.date) {
+      alert('Заполните дату действия')
+      return
+    }
+
+    if (!actionForm.employeeId) {
+      alert('Выберите сотрудника')
+      return
+    }
+
+    if (actionForm.type === 'TRANSFER' && actionForm.staffScheduleId === 'none') {
+      alert('Для перевода выберите новую должность из штатного расписания')
+      return
+    }
+
+    if (actionForm.type === 'EXTEND' && !actionForm.newContractEndDate) {
+      alert('Для продления укажите новую дату окончания договора')
+      return
+    }
+
+    try {
+      const payload = {
+        ...actionForm,
+        staffScheduleId: actionForm.staffScheduleId === 'none' ? null : actionForm.staffScheduleId,
+        newContractEndDate: actionForm.newContractEndDate || null,
+      }
+
+      const response = await fetch('/api/personnel-actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null)
+        throw new Error(errorData?.error || 'Failed to save personnel action')
+      }
+
+      setIsActionDialogOpen(false)
+      await loadData()
+    } catch (error) {
+      console.error('Error saving personnel action:', error)
+      alert(error instanceof Error ? error.message : 'Ошибка при сохранении кадрового действия')
     }
   }
 
   const handleDeleteEmployee = async (id: string) => {
-    if (!confirm('Удалить сотрудника?')) return
-    
+    if (!confirm('Удалить сотрудника? Будут удалены его отпуска и кадровые действия.')) return
+
     try {
-      await fetch(`/api/employees/${id}`, { method: 'DELETE' })
-      loadData()
+      const response = await fetch(`/api/employees/${id}`, { method: 'DELETE' })
+      if (!response.ok) {
+        throw new Error('Failed to delete employee')
+      }
+      await loadData()
     } catch (error) {
       console.error('Error deleting employee:', error)
+      alert('Ошибка при удалении сотрудника')
     }
   }
 
   const handleDeleteStaff = async (id: string) => {
     if (!confirm('Удалить должность?')) return
-    
+
     try {
       const response = await fetch(`/api/staff-schedule/${id}`, { method: 'DELETE' })
       if (!response.ok) {
         const data = await response.json()
-        alert(data.error || 'Ошибка при удалении')
-      } else {
-        loadData()
+        alert(data.error || 'Ошибка при удалении должности')
+        return
       }
+      await loadData()
     } catch (error) {
       console.error('Error deleting staff position:', error)
+      alert('Ошибка при удалении должности')
+    }
+  }
+
+  const handleDeleteVacation = async (id: string) => {
+    if (!confirm('Удалить запись отпуска?')) return
+
+    try {
+      const response = await fetch(`/api/vacations/${id}`, { method: 'DELETE' })
+      if (!response.ok) {
+        throw new Error('Failed to delete vacation')
+      }
+      setIsVacationDialogOpen(false)
+      setEditingVacation(null)
+      await loadData()
+    } catch (error) {
+      console.error('Error deleting vacation:', error)
+      alert('Ошибка при удалении отпуска')
+    }
+  }
+
+  const handleDeleteAction = async (id: string) => {
+    if (!confirm('Удалить кадровое действие из журнала?')) return
+
+    try {
+      const response = await fetch(`/api/personnel-actions/${id}`, { method: 'DELETE' })
+      if (!response.ok) {
+        throw new Error('Failed to delete action')
+      }
+      await loadData()
+    } catch (error) {
+      console.error('Error deleting personnel action:', error)
+      alert('Ошибка при удалении кадрового действия')
     }
   }
 
@@ -210,7 +713,12 @@ export default function EmployeesPage() {
         department: employee.department,
         phone: employee.phone || '',
         email: employee.email || '',
+        contractType: employee.contractType,
+        contractSignedDate: employee.contractSignedDate ? employee.contractSignedDate.toISOString().split('T')[0] : '',
+        contractEndDate: employee.contractEndDate ? employee.contractEndDate.toISOString().split('T')[0] : '',
+        contractNumber: employee.contractNumber || '',
         staffScheduleId: employee.staffScheduleId || 'none',
+        status: employee.status,
       })
     } else {
       setEditingEmployee(null)
@@ -220,20 +728,26 @@ export default function EmployeesPage() {
         department: '',
         phone: '',
         email: '',
+        contractType: 'PRIMARY',
+        contractSignedDate: '',
+        contractEndDate: '',
+        contractNumber: '',
         staffScheduleId: 'none',
+        status: 'ACTIVE',
       })
     }
+
     setIsEmployeeDialogOpen(true)
   }
 
-  const openStaffDialog = (staff?: StaffSchedule) => {
-    if (staff) {
-      setEditingStaff(staff)
+  const openStaffDialog = (position?: StaffSchedule) => {
+    if (position) {
+      setEditingStaff(position)
       setStaffForm({
-        position: staff.position,
-        department: staff.department,
-        rate: staff.rate,
-        salary: staff.salary,
+        position: position.position,
+        department: position.department,
+        rate: position.rate,
+        salary: position.salary,
       })
     } else {
       setEditingStaff(null)
@@ -244,386 +758,551 @@ export default function EmployeesPage() {
         salary: 0,
       })
     }
+
     setIsStaffDialogOpen(true)
   }
 
-  const filteredEmployees = employees.filter((emp) => {
-    if (!searchTerm) return true
-    const searchLower = searchTerm.toLowerCase()
-    return (
-      emp.fullName?.toLowerCase().includes(searchLower) ||
-      emp.code?.toLowerCase().includes(searchLower) ||
-      emp.department?.toLowerCase().includes(searchLower) ||
-      emp.staffSchedule?.position?.toLowerCase().includes(searchLower)
-    )
-  })
-
-  const getActionIcon = (type: string) => {
-    switch (type) {
-      case 'hire': return <UserPlus className="h-4 w-4 text-green-600" />
-      case 'dismiss': return <UserX className="h-4 w-4 text-red-600" />
-      case 'transfer': return <ArrowRightLeft className="h-4 w-4 text-blue-600" />
-      case 'extend': return <RefreshCw className="h-4 w-4 text-orange-600" />
-      default: return <User className="h-4 w-4" />
+  const openVacationDialog = (vacation?: Vacation) => {
+    if (vacation) {
+      setEditingVacation(vacation)
+      setVacationForm({
+        employeeId: vacation.employeeId,
+        startDate: vacation.startDate.toISOString().split('T')[0],
+        endDate: vacation.endDate.toISOString().split('T')[0],
+        type: vacation.type,
+      })
+    } else {
+      setEditingVacation(null)
+      setVacationForm({
+        employeeId: filteredEmployees[0]?.id || activeEmployees[0]?.id || '',
+        startDate: '',
+        endDate: '',
+        type: 'VACATION',
+      })
     }
+
+    setIsVacationDialogOpen(true)
   }
 
-  const getActionText = (type: string) => {
-    switch (type) {
-      case 'hire': return 'Прием'
-      case 'dismiss': return 'Увольнение'
-      case 'transfer': return 'Перевод'
-      case 'extend': return 'Продление'
-      default: return type
-    }
+  const openActionDialog = () => {
+    setActionForm({
+      employeeId: activeEmployees[0]?.id || employees[0]?.id || '',
+      type: 'TRANSFER',
+      date: new Date().toISOString().split('T')[0],
+      description: '',
+      newDepartment: '',
+      staffScheduleId: 'none',
+      newContractEndDate: '',
+    })
+    setIsActionDialogOpen(true)
+  }
+
+  const handleEmployeePositionChange = (value: string) => {
+    const nextPosition = staffSchedule.find((position) => position.id === value)
+    setEmployeeForm((prev) => ({
+      ...prev,
+      staffScheduleId: value,
+      department: value === 'none' ? prev.department : nextPosition?.department || prev.department,
+    }))
+  }
+
+  const handleActionPositionChange = (value: string) => {
+    const nextPosition = staffSchedule.find((position) => position.id === value)
+    setActionForm((prev) => ({
+      ...prev,
+      staffScheduleId: value,
+      newDepartment: value === 'none' ? prev.newDepartment : nextPosition?.department || prev.newDepartment,
+    }))
   }
 
   return (
-    <div className="container mx-auto py-6 px-4">
-      {/* Шапка */}
-      <div className="flex items-center justify-between mb-6">
+    <div className="container mx-auto px-4 py-6">
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Сотрудники</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Управление персоналом и штатным расписанием
+          <p className="mt-1 text-sm text-muted-foreground">
+            График отпусков, таблица сотрудников, штатное расписание и кадровые действия.
           </p>
         </div>
-        <div className="flex gap-2">
+
+        <div className="flex flex-wrap gap-2">
           <Button onClick={() => openEmployeeDialog()}>
             <Plus className="mr-2 h-4 w-4" />
             Сотрудник
+          </Button>
+          <Button variant="outline" onClick={() => openVacationDialog()}>
+            <Plus className="mr-2 h-4 w-4" />
+            Отпуск
           </Button>
           <Button variant="outline" onClick={() => openStaffDialog()}>
             <Plus className="mr-2 h-4 w-4" />
             Должность
           </Button>
+          <Button variant="outline" onClick={openActionDialog}>
+            <Plus className="mr-2 h-4 w-4" />
+            Действие
+          </Button>
         </div>
       </div>
 
-      {/* Основная сетка */}
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-        {/* Слева - Таблица с текущим штатом */}
-        <div className="xl:col-span-1">
-          <Card className="h-full">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Текущий штат
-              </CardTitle>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Поиск..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="max-h-[600px] overflow-y-auto">
-                {loading ? (
-                  <div className="p-4 text-center text-muted-foreground">Загрузка...</div>
-                ) : filteredEmployees.length === 0 ? (
-                  <div className="p-4 text-center text-muted-foreground">
-                    <p>Нет сотрудников</p>
-                    <Button 
-                      variant="link" 
-                      onClick={() => openEmployeeDialog()}
-                      className="mt-2"
-                    >
-                      Добавить первого сотрудника
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="divide-y">
-                    {filteredEmployees.map((employee) => (
-                      <div 
-                        key={employee.id} 
-                        className="p-3 hover:bg-muted/50 transition-colors group"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-10 w-10">
-                            <AvatarImage src={employee.photo} alt={employee.fullName} />
-                            <AvatarFallback>
-                              <User className="h-5 w-5" />
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">{employee.fullName}</p>
-                            <p className="text-sm text-muted-foreground truncate">
-                              {employee.staffSchedule?.position || 'Должность не назначена'}
-                            </p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant="outline" className="text-xs">
-                                {employee.department}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground font-mono">
-                                {employee.code}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-7 w-7"
-                              onClick={() => openEmployeeDialog(employee)}
-                            >
-                              <Edit className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-7 w-7 text-red-500 hover:text-red-700"
-                              onClick={() => handleDeleteEmployee(employee.id)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Центр - График отпусков */}
-        <div className="xl:col-span-2">
-          <Card className="h-full">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                График отпусков {new Date().getFullYear()}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="border rounded-lg overflow-hidden bg-white">
-                {/* Заголовки месяцев */}
-                <div className="flex border-b bg-gray-50">
-                  <div className="w-48 p-2 border-r font-medium text-sm bg-gray-100">
-                    Сотрудник
-                  </div>
-                  <div className="flex-1 flex">
-                    {['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'].map((month, idx) => (
-                      <div 
-                        key={idx} 
-                        className="flex-1 p-2 text-center text-xs font-medium border-r last:border-r-0"
-                      >
-                        {month}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Строки сотрудников */}
-                <div className="divide-y">
-                  {loading ? (
-                    <div className="p-8 text-center text-muted-foreground">Загрузка...</div>
-                  ) : employees.length === 0 ? (
-                    <div className="p-8 text-center text-muted-foreground">
-                      Добавьте сотрудников для отображения графика
-                    </div>
-                  ) : (
-                    employees.map((employee) => (
-                      <div key={employee.id} className="flex">
-                        <div className="w-48 p-2 border-r bg-gray-50/50 text-sm truncate">
-                          {employee.fullName}
-                        </div>
-                        <div className="flex-1 relative h-10">
-                          <div className="absolute inset-0 flex">
-                            {Array.from({ length: 12 }).map((_, idx) => (
-                              <div key={idx} className="flex-1 border-r last:border-r-0" />
-                            ))}
-                          </div>
-                          <div 
-                            className="absolute top-0 bottom-0 bg-yellow-100/50 border-x border-yellow-200"
-                            style={{
-                              left: `${(new Date().getMonth() / 12) * 100}%`,
-                              width: `${100/12}%`
-                            }}
-                          />
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Справа - Штатное расписание и Кадровые действия */}
-        <div className="xl:col-span-1 space-y-6">
-          {/* Штатное расписание */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-4">
+        <div className="space-y-6 xl:col-span-3">
           <Card>
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Building2 className="h-5 w-5" />
-                Штатное расписание
-              </CardTitle>
-              <Button variant="ghost" size="sm" onClick={() => openStaffDialog()}>
-                <Plus className="h-4 w-4" />
-              </Button>
+            <CardHeader>
+              <div>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Calendar className="h-5 w-5" />
+                  График отпусков {currentYear}
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  Диаграмма Ганта по отпускам и отсутствиям сотрудников на текущий год.
+                </CardDescription>
+              </div>
             </CardHeader>
-            <CardContent className="p-0">
-              <div className="max-h-[250px] overflow-y-auto">
-                {staffSchedule.length === 0 ? (
-                  <div className="p-4 text-center text-muted-foreground text-sm">
-                    Нет должностей
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Сотрудников в штате</p>
+                  <p className="mt-2 text-sm font-medium">{activeEmployees.length}</p>
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Записей в графике</p>
+                  <p className="mt-2 text-sm font-medium">{currentYearVacations.length}</p>
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Сотрудников с отпусками</p>
+                  <p className="mt-2 text-sm font-medium">{employeesWithVacations.length}</p>
+                </div>
+              </div>
+
+              {loading ? (
+                <div className="rounded-xl border border-dashed px-4 py-20 text-center text-sm text-muted-foreground">
+                  Загрузка графика отпусков...
+                </div>
+              ) : (
+                <VacationGantt
+                  vacations={currentYearVacations}
+                  employees={activeEmployees}
+                  year={currentYear}
+                  onVacationClick={(vacation) => openVacationDialog(vacation)}
+                />
+              )}
+
+              <div className="rounded-lg border border-dashed bg-slate-50/70 px-4 py-3 text-sm text-muted-foreground">
+                Нажми на цветную полосу, чтобы открыть и отредактировать запись отпуска.
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="space-y-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Users className="h-5 w-5" />
+                    Сотрудники
+                  </CardTitle>
+                  <CardDescription className="mt-1">
+                    Таблица сотрудников с данными по трудовому договору и привязкой к штатному расписанию.
+                  </CardDescription>
+                </div>
+
+                <div className="relative w-full lg:w-[320px]">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Поиск по ФИО, договору, должности"
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">В штате</p>
+                  <p className="mt-2 text-sm font-medium">{activeEmployees.length} чел.</p>
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Основных договоров</p>
+                  <p className="mt-2 text-sm font-medium">{activeEmployees.filter((employee) => employee.contractType === 'PRIMARY').length}</p>
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Срочных договоров</p>
+                  <p className="mt-2 text-sm font-medium">{activeEmployees.filter((employee) => employee.contractEndDate).length}</p>
+                </div>
+              </div>
+
+              <div className="overflow-hidden rounded-xl border">
+                <Table>
+                  <TableHeader className="bg-slate-50/80">
+                    <TableRow>
+                      <TableHead>ФИО</TableHead>
+                      <TableHead>Должность</TableHead>
+                      <TableHead>Доля ставки</TableHead>
+                      <TableHead>Вид трудового договора</TableHead>
+                      <TableHead>Срок действия трудового договора</TableHead>
+                      <TableHead>Дата подписания трудового договора</TableHead>
+                      <TableHead>Номер трудового договора</TableHead>
+                      <TableHead className="w-[96px] text-right">&nbsp;</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                          Загрузка сотрудников...
+                        </TableCell>
+                      </TableRow>
+                    ) : filteredEmployees.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                          Сотрудники по текущему фильтру не найдены.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredEmployees.map((employee) => {
+                        const liveStatus = getLiveEmployeeStatus(employee)
+
+                        return (
+                          <TableRow key={employee.id}>
+                            <TableCell>
+                              <div className="min-w-[220px]">
+                                <p className="font-medium text-slate-900">{employee.fullName}</p>
+                                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                  <span className="font-mono">{employee.code}</span>
+                                  <Badge variant="outline" className={liveStatus.className}>
+                                    {liveStatus.label}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div>
+                                <p className="font-medium text-slate-900">{employee.staffSchedule?.position || '—'}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">{employee.department || '—'}</p>
+                              </div>
+                            </TableCell>
+                            <TableCell>{employee.staffSchedule ? formatDecimal(employee.staffSchedule.rate) : '—'}</TableCell>
+                            <TableCell>{employmentContractTypeLabels[employee.contractType]}</TableCell>
+                            <TableCell>{employee.contractEndDate ? formatDate(employee.contractEndDate) : 'Бессрочно'}</TableCell>
+                            <TableCell>{employee.contractSignedDate ? formatDate(employee.contractSignedDate) : '—'}</TableCell>
+                            <TableCell>{employee.contractNumber || '—'}</TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-1">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEmployeeDialog(employee)}>
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-red-500 hover:text-red-700"
+                                  onClick={() => handleDeleteEmployee(employee.id)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6 xl:col-span-1">
+          <Card>
+            <CardHeader>
+              <div>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Building2 className="h-5 w-5" />
+                  Штатное расписание
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  Должности и ставки, из которых выбирается позиция сотрудника.
+                </CardDescription>
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Должностей</p>
+                  <p className="mt-2 font-medium">{staffSchedule.length}</p>
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Ставок</p>
+                  <p className="mt-2 font-medium">{formatDecimal(totalRates)}</p>
+                </div>
+              </div>
+
+              <div className="max-h-[310px] space-y-3 overflow-y-auto pr-1">
+                {loading ? (
+                  <div className="rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
+                    Загрузка должностей...
+                  </div>
+                ) : staffSchedule.length === 0 ? (
+                  <div className="rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
+                    Должности пока не заведены.
                   </div>
                 ) : (
-                  <div className="divide-y">
-                    {staffSchedule.map((position) => (
-                      <div key={position.id} className="p-3 hover:bg-muted/50 transition-colors group">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{position.position}</p>
-                            <p className="text-xs text-muted-foreground">{position.department}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant="outline" className="text-xs">{position.rate} ст.</Badge>
-                              <span className="text-xs font-mono">
-                                {position.salary.toLocaleString()} ₽
-                              </span>
-                            </div>
+                  staffSchedule.map((position) => {
+                    const assignedEmployee = position.employees[0]
+
+                    return (
+                      <div key={position.id} className="group rounded-xl border p-4 transition-colors hover:bg-slate-50/70">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium text-slate-900">{position.position}</p>
+                            <p className="mt-1 text-sm text-muted-foreground">{position.department}</p>
                           </div>
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-6 w-6"
-                              onClick={() => openStaffDialog(position)}
-                            >
-                              <Edit className="h-3 w-3" />
+
+                          <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openStaffDialog(position)}>
+                              <Edit className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-6 w-6 text-red-500"
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-500 hover:text-red-700"
                               onClick={() => handleDeleteStaff(position.id)}
                             >
-                              <Trash2 className="h-3 w-3" />
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
+
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <Badge variant="outline">{formatDecimal(position.rate)} ст.</Badge>
+                          <Badge variant="outline">Оклад: {formatCurrency(position.salary)}</Badge>
+                        </div>
+
+                        {assignedEmployee ? (
+                          <div className="mt-3 text-xs text-muted-foreground">
+                            Назначен: {assignedEmployee.fullName}
+                          </div>
+                        ) : (
+                          <div className="mt-3 text-xs text-muted-foreground">
+                            Пока не назначена
+                          </div>
+                        )}
                       </div>
-                    ))}
-                  </div>
+                    )
+                  })
                 )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Кадровые действия */}
           <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <RefreshCw className="h-5 w-5" />
-                Кадровые действия
-              </CardTitle>
+            <CardHeader>
+              <div>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <RefreshCw className="h-5 w-5" />
+                  Кадровые действия
+                </CardTitle>
+                <CardDescription className="mt-1">
+                  Прием, перевод между подразделениями, увольнение и продление.
+                </CardDescription>
+              </div>
             </CardHeader>
-            <CardContent className="p-0">
-              <div className="max-h-[250px] overflow-y-auto">
-                <div className="divide-y">
-                  {personnelActions.map((action) => (
-                    <div key={action.id} className="p-3 hover:bg-muted/50 transition-colors">
+
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Всего действий</p>
+                  <p className="mt-2 font-medium">{personnelActions.length}</p>
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-3">
+                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">За 30 дней</p>
+                  <p className="mt-2 font-medium">
+                    {personnelActions.filter((action) => new Date(action.date).getTime() >= Date.now() - 30 * 24 * 60 * 60 * 1000).length}
+                  </p>
+                </div>
+              </div>
+
+              <div className="max-h-[360px] space-y-3 overflow-y-auto pr-1">
+                {loading ? (
+                  <div className="rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
+                    Загрузка кадровых действий...
+                  </div>
+                ) : personnelActions.length === 0 ? (
+                  <div className="rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
+                    Журнал кадровых действий пока пуст.
+                  </div>
+                ) : (
+                  personnelActions.map((action) => (
+                    <div key={action.id} className="group rounded-xl border p-4 transition-colors hover:bg-slate-50/70">
                       <div className="flex items-start gap-3">
-                        {getActionIcon(action.type)}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex justify-between items-start">
-                            <p className="font-medium text-sm truncate">{action.employee}</p>
-                            <Badge variant="outline" className="text-xs">
-                              {getActionText(action.type)}
-                            </Badge>
+                        <div className="mt-0.5 rounded-full bg-slate-100 p-2">
+                          {getPersonnelActionIcon(action.type)}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate font-medium text-slate-900">{action.employee.fullName}</p>
+                              <p className="mt-1 text-sm text-muted-foreground">{getPersonnelActionDescription(action)}</p>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline">{personnelActionLabels[action.type]}</Badge>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
+                                onClick={() => handleDeleteAction(action.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
+                            </div>
                           </div>
-                          <p className="text-sm text-muted-foreground">{action.description}</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(action.date).toLocaleDateString('ru-RU')}
-                          </p>
+
+                          <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span>{formatDate(action.date)}</span>
+                              {(action.oldDepartment || action.newDepartment) && (
+                                <span>
+                                  {action.oldDepartment || '—'} {'->'} {action.newDepartment || '—'}
+                                </span>
+                              )}
+                            </div>
+                            {(action.oldPosition || action.newPosition) && (
+                              <span>
+                                {action.oldPosition || '—'} {'->'} {action.newPosition || '—'}
+                              </span>
+                            )}
+                            {(action.oldContractEndDate || action.newContractEndDate) && (
+                              <span>
+                                Договор: {action.oldContractEndDate ? formatDate(action.oldContractEndDate) : '—'} {'->'} {action.newContractEndDate ? formatDate(action.newContractEndDate) : '—'}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {/* Диалог сотрудника */}
       <Dialog open={isEmployeeDialogOpen} onOpenChange={setIsEmployeeDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              {editingEmployee ? 'Редактировать сотрудника' : 'Новый сотрудник'}
-            </DialogTitle>
+            <DialogTitle>{editingEmployee ? 'Редактировать сотрудника' : 'Новый сотрудник'}</DialogTitle>
           </DialogHeader>
+
           <form onSubmit={handleSaveEmployee} className="space-y-4">
-            <div>
-              <Label>Табельный номер *</Label>
-              <Input 
-                value={employeeForm.code}
-                onChange={(e) => setEmployeeForm({...employeeForm, code: e.target.value})}
-                required
-              />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="employee-code">Табельный номер</Label>
+                <Input
+                  id="employee-code"
+                  value={employeeForm.code}
+                  onChange={(e) => setEmployeeForm((prev) => ({ ...prev, code: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="employee-position">Должность</Label>
+                <Select value={employeeForm.staffScheduleId} onValueChange={handleEmployeePositionChange}>
+                  <SelectTrigger id="employee-position">
+                    <SelectValue placeholder="Выберите должность" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employeePositionOptions.map((position) => (
+                      <SelectItem key={position.id} value={position.id}>
+                        {position.position} ({position.department})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div>
-              <Label>ФИО *</Label>
-              <Input 
+
+            <div className="space-y-2">
+              <Label htmlFor="employee-name">ФИО</Label>
+              <Input
+                id="employee-name"
                 value={employeeForm.fullName}
-                onChange={(e) => setEmployeeForm({...employeeForm, fullName: e.target.value})}
+                onChange={(e) => setEmployeeForm((prev) => ({ ...prev, fullName: e.target.value }))}
                 required
               />
             </div>
-            <div>
-              <Label>Отдел *</Label>
-              <Input 
-                value={employeeForm.department}
-                onChange={(e) => setEmployeeForm({...employeeForm, department: e.target.value})}
-                required
-              />
-            </div>
-            <div>
-              <Label>Должность из штатного расписания</Label>
-              <Select 
-                value={employeeForm.staffScheduleId || 'none'}
-                onValueChange={(value) => setEmployeeForm({...employeeForm, staffScheduleId: value})}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите должность" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Не назначена</SelectItem>
-                  {staffSchedule.map((pos) => (
-                    <SelectItem key={pos.id} value={pos.id}>
-                      {pos.position} ({pos.department})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Телефон</Label>
-                <Input 
-                  value={employeeForm.phone}
-                  onChange={(e) => setEmployeeForm({...employeeForm, phone: e.target.value})}
-                />
+
+            <div className="grid gap-4 rounded-lg border bg-muted/30 p-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Подразделение</p>
+                <p className="text-sm font-medium">{selectedEmployeePosition?.department || 'Выбери должность'}</p>
               </div>
-              <div>
-                <Label>Email</Label>
-                <Input 
-                  type="email"
-                  value={employeeForm.email}
-                  onChange={(e) => setEmployeeForm({...employeeForm, email: e.target.value})}
+              <div className="space-y-2">
+                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Доля ставки</p>
+                <p className="text-sm font-medium">{selectedEmployeePosition ? `${formatDecimal(selectedEmployeePosition.rate)} ст.` : 'Выбери должность'}</p>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="employee-contract-type">Вид трудового договора</Label>
+                <Select
+                  value={employeeForm.contractType}
+                  onValueChange={(value) => setEmployeeForm((prev) => ({ ...prev, contractType: value as EmploymentContractType }))}
+                >
+                  <SelectTrigger id="employee-contract-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(employmentContractTypeLabels).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="employee-contract-number">Номер трудового договора</Label>
+                <Input
+                  id="employee-contract-number"
+                  value={employeeForm.contractNumber}
+                  onChange={(e) => setEmployeeForm((prev) => ({ ...prev, contractNumber: e.target.value }))}
+                  required
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-2">
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="employee-contract-signed">Дата подписания трудового договора</Label>
+                <Input
+                  id="employee-contract-signed"
+                  type="date"
+                  value={employeeForm.contractSignedDate}
+                  onChange={(e) => setEmployeeForm((prev) => ({ ...prev, contractSignedDate: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="employee-contract-end">Срок действия трудового договора</Label>
+                <Input
+                  id="employee-contract-end"
+                  type="date"
+                  value={employeeForm.contractEndDate}
+                  onChange={(e) => setEmployeeForm((prev) => ({ ...prev, contractEndDate: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setIsEmployeeDialogOpen(false)}>
                 Отмена
               </Button>
@@ -633,56 +1312,302 @@ export default function EmployeesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Диалог должности */}
       <Dialog open={isStaffDialogOpen} onOpenChange={setIsStaffDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              {editingStaff ? 'Редактировать должность' : 'Новая должность'}
-            </DialogTitle>
+            <DialogTitle>{editingStaff ? 'Редактировать должность' : 'Новая должность'}</DialogTitle>
           </DialogHeader>
+
           <form onSubmit={handleSaveStaff} className="space-y-4">
-            <div>
-              <Label>Название должности *</Label>
-              <Input 
+            <div className="space-y-2">
+              <Label htmlFor="staff-position">Название должности</Label>
+              <Input
+                id="staff-position"
                 value={staffForm.position}
-                onChange={(e) => setStaffForm({...staffForm, position: e.target.value})}
+                onChange={(e) => setStaffForm((prev) => ({ ...prev, position: e.target.value }))}
                 required
               />
             </div>
-            <div>
-              <Label>Отдел *</Label>
-              <Input 
+
+            <div className="space-y-2">
+              <Label htmlFor="staff-department">Подразделение</Label>
+              <Select
                 value={staffForm.department}
-                onChange={(e) => setStaffForm({...staffForm, department: e.target.value})}
-                required
-              />
+                onValueChange={(value) => setStaffForm((prev) => ({ ...prev, department: value }))}
+              >
+                <SelectTrigger id="staff-department">
+                  <SelectValue placeholder="Выберите подразделение" />
+                </SelectTrigger>
+                <SelectContent>
+                  {staffDepartments.map((department) => (
+                    <SelectItem key={department} value={department}>
+                      {department}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Количество ставок *</Label>
-                <Input 
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="staff-rate">Количество ставок</Label>
+                <Input
+                  id="staff-rate"
                   type="number"
-                  step="0.5"
-                  min="0.5"
+                  step="0.25"
+                  min="0.25"
                   value={staffForm.rate}
-                  onChange={(e) => setStaffForm({...staffForm, rate: parseFloat(e.target.value)})}
+                  onChange={(e) => setStaffForm((prev) => ({ ...prev, rate: Number(e.target.value) || 0 }))}
                   required
                 />
               </div>
-              <div>
-                <Label>Зарплата (₽) *</Label>
-                <Input 
+              <div className="space-y-2">
+                <Label htmlFor="staff-salary">Оклад (₽)</Label>
+                <Input
+                  id="staff-salary"
                   type="number"
                   min="0"
+                  step="0.01"
                   value={staffForm.salary}
-                  onChange={(e) => setStaffForm({...staffForm, salary: parseFloat(e.target.value)})}
+                  onChange={(e) => setStaffForm((prev) => ({ ...prev, salary: Number(e.target.value) || 0 }))}
                   required
                 />
               </div>
             </div>
-            <div className="flex justify-end gap-2">
+
+            <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setIsStaffDialogOpen(false)}>
+                Отмена
+              </Button>
+              <Button type="submit">Сохранить</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isVacationDialogOpen} onOpenChange={setIsVacationDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingVacation ? 'Редактировать отпуск' : 'Новая запись отпуска'}</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveVacation} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="vacation-employee">Сотрудник</Label>
+              <Select value={vacationForm.employeeId} onValueChange={(value) => setVacationForm((prev) => ({ ...prev, employeeId: value }))}>
+                <SelectTrigger id="vacation-employee">
+                  <SelectValue placeholder="Выберите сотрудника" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeEmployees.map((employee) => (
+                    <SelectItem key={employee.id} value={employee.id}>
+                      {employee.fullName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="vacation-type">Тип отсутствия</Label>
+              <Select value={vacationForm.type} onValueChange={(value) => setVacationForm((prev) => ({ ...prev, type: value as VacationType }))}>
+                <SelectTrigger id="vacation-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(vacationTypeLabels).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="vacation-start">Дата начала</Label>
+                <Input
+                  id="vacation-start"
+                  type="date"
+                  value={vacationForm.startDate}
+                  onChange={(e) => setVacationForm((prev) => ({ ...prev, startDate: e.target.value }))}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="vacation-end">Дата окончания</Label>
+                <Input
+                  id="vacation-end"
+                  type="date"
+                  value={vacationForm.endDate}
+                  onChange={(e) => setVacationForm((prev) => ({ ...prev, endDate: e.target.value }))}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className={cn('flex gap-2 pt-2', editingVacation ? 'justify-between' : 'justify-end')}>
+              {editingVacation && (
+                <Button type="button" variant="destructive" onClick={() => handleDeleteVacation(editingVacation.id)}>
+                  Удалить
+                </Button>
+              )}
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => setIsVacationDialogOpen(false)}>
+                  Отмена
+                </Button>
+                <Button type="submit">Сохранить</Button>
+              </div>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isActionDialogOpen} onOpenChange={setIsActionDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Новое кадровое действие</DialogTitle>
+          </DialogHeader>
+
+          <form onSubmit={handleSaveAction} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="action-type">Тип действия</Label>
+                <Select
+                  value={actionForm.type}
+                  onValueChange={(value) => {
+                    const nextType = value as PersonnelActionType
+                    setActionForm((prev) => ({
+                      ...prev,
+                      type: nextType,
+                      staffScheduleId: nextType === 'TRANSFER' ? prev.staffScheduleId : 'none',
+                      newDepartment: nextType === 'TRANSFER' ? prev.newDepartment : '',
+                      newContractEndDate: nextType === 'EXTEND' ? prev.newContractEndDate : '',
+                    }))
+                  }}
+                >
+                <SelectTrigger id="action-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {(['TRANSFER', 'DISMISS', 'EXTEND'] as PersonnelActionType[]).map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {personnelActionLabels[type]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="action-employee">Сотрудник</Label>
+              <Select
+                value={actionForm.employeeId}
+                onValueChange={(value) =>
+                  setActionForm((prev) => ({
+                    ...prev,
+                    employeeId: value,
+                    staffScheduleId: prev.type === 'TRANSFER' ? 'none' : prev.staffScheduleId,
+                    newDepartment: prev.type === 'TRANSFER' ? '' : prev.newDepartment,
+                  }))
+                }
+              >
+                <SelectTrigger id="action-employee">
+                  <SelectValue placeholder="Выберите сотрудника" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeEmployees.map((employee) => (
+                    <SelectItem key={employee.id} value={employee.id}>
+                      {employee.fullName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="action-date">Дата</Label>
+              <Input
+                id="action-date"
+                type="date"
+                value={actionForm.date}
+                onChange={(e) => setActionForm((prev) => ({ ...prev, date: e.target.value }))}
+                required
+              />
+            </div>
+
+            {actionForm.type === 'TRANSFER' && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="action-position">Новая должность</Label>
+                  <Select value={actionForm.staffScheduleId} onValueChange={handleActionPositionChange}>
+                    <SelectTrigger id="action-position">
+                      <SelectValue placeholder="Выберите должность" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {transferPositionOptions.map((position) => (
+                        <SelectItem key={position.id} value={position.id}>
+                          {position.position} ({position.department})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-4 rounded-lg border bg-muted/30 p-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Новое подразделение</p>
+                    <p className="text-sm font-medium">{selectedActionPosition?.department || 'Выбери должность'}</p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Новая доля ставки</p>
+                    <p className="text-sm font-medium">{selectedActionPosition ? `${formatDecimal(selectedActionPosition.rate)} ст.` : 'Выбери должность'}</p>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {actionForm.type === 'EXTEND' && (
+              <>
+                <div className="rounded-lg border bg-muted/30 p-4 text-sm">
+                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Текущий срок договора</p>
+                  <p className="mt-2 font-medium">
+                    {selectedActionEmployee?.contractEndDate ? formatDate(selectedActionEmployee.contractEndDate) : 'Бессрочно'}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="action-contract-end">Новая дата окончания договора</Label>
+                  <Input
+                    id="action-contract-end"
+                    type="date"
+                    value={actionForm.newContractEndDate}
+                    onChange={(e) => setActionForm((prev) => ({ ...prev, newContractEndDate: e.target.value }))}
+                    required
+                  />
+                </div>
+              </>
+            )}
+
+            <div className="space-y-2">
+              <Label htmlFor="action-description">Описание</Label>
+              <Textarea
+                id="action-description"
+                value={actionForm.description}
+                onChange={(e) => setActionForm((prev) => ({ ...prev, description: e.target.value }))}
+                placeholder={
+                  actionForm.type === 'EXTEND'
+                    ? 'Например: продление договора на 12 месяцев'
+                    : actionForm.type === 'DISMISS'
+                      ? 'Например: увольнение по соглашению сторон'
+                      : 'Например: перевод в другой отдел'
+                }
+                rows={3}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsActionDialogOpen(false)}>
                 Отмена
               </Button>
               <Button type="submit">Сохранить</Button>
