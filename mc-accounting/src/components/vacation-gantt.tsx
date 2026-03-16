@@ -64,20 +64,32 @@ export function VacationGantt({ vacations, employees, year = new Date().getFullY
     })
   }, [year, yearStart, totalDaysInYear])
 
+  const monthBoundaries = useMemo(
+    () => monthSegments.slice(1).map((month) => month.left),
+    [monthSegments]
+  )
+
   const currentMonthSegment = currentMonth !== null ? monthSegments[currentMonth] : null
 
   return (
     <div className="overflow-x-auto rounded-xl border bg-white">
       <div className="min-w-[1280px]">
         <div className="flex border-b bg-slate-50">
-          <div className="w-56 flex-shrink-0 border-r px-4 py-3 text-sm font-medium text-slate-700">
-            Сотрудник
+          <div className="flex h-12 w-56 flex-shrink-0 items-center border-r px-4 text-sm font-medium text-slate-700">
+            <span>Сотрудник</span>
           </div>
-          <div className="relative h-[46px] flex-1 overflow-hidden">
+          <div className="relative h-12 flex-1 overflow-hidden">
+            {monthBoundaries.map((boundary, index) => (
+              <div
+                key={`header-boundary-${index}`}
+                className="absolute inset-y-0 z-20 w-[2px] bg-slate-300/90"
+                style={{ left: `calc(${boundary}% - 1px)` }}
+              />
+            ))}
             {monthSegments.map((month) => (
               <div
                 key={month.index}
-                className={`absolute inset-y-0 flex items-center justify-center border-r px-2 text-center text-xs font-medium uppercase text-slate-500 ${currentMonth === month.index ? 'bg-amber-50/70' : ''}`}
+                className={`absolute inset-y-0 flex items-center justify-center px-2 text-center text-xs font-medium uppercase text-slate-500 ${currentMonth === month.index ? 'bg-amber-50/70' : ''}`}
                 style={{
                   left: `${month.left}%`,
                   width: `${month.width}%`,
@@ -96,12 +108,12 @@ export function VacationGantt({ vacations, employees, year = new Date().getFullY
             </div>
           ) : (
             employees.map((employee) => (
-              <div key={employee.id} className="flex min-h-[54px]">
-                <div className="w-56 flex-shrink-0 border-r bg-slate-50/70 px-4 py-3 text-sm font-medium text-slate-700">
-                  {employee.fullName}
+              <div key={employee.id} className="flex h-14">
+                <div className="flex w-56 flex-shrink-0 items-center border-r bg-slate-50/70 px-4 text-sm font-medium text-slate-700">
+                  <span className="line-clamp-2">{employee.fullName}</span>
                 </div>
 
-                <div className="relative flex-1 overflow-hidden">
+                <div className="relative h-14 flex-1 overflow-hidden">
                   {currentMonthSegment && (
                     <div
                       className="absolute inset-y-0 bg-amber-100/35"
@@ -113,11 +125,11 @@ export function VacationGantt({ vacations, employees, year = new Date().getFullY
                   )}
 
                   <div className="absolute inset-0 pointer-events-none">
-                    {monthSegments.slice(1).map((month) => (
+                    {monthBoundaries.map((boundary, index) => (
                       <div
-                        key={`${employee.id}-month-${month.index}`}
-                        className="absolute inset-y-0 w-px bg-slate-300"
-                        style={{ left: `${month.left}%` }}
+                        key={`${employee.id}-month-boundary-${index}`}
+                        className="absolute inset-y-0 z-[2] w-[2px] bg-slate-300/90"
+                        style={{ left: `calc(${boundary}% - 1px)` }}
                       />
                     ))}
                   </div>

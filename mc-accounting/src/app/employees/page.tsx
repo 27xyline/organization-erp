@@ -881,9 +881,6 @@ export default function EmployeesPage() {
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold">Сотрудники</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            График отпусков, таблица сотрудников, штатное расписание и кадровые действия.
-          </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
