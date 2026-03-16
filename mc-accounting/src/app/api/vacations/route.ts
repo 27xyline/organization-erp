@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const currentYear = new Date().getFullYear()
-    const startOfYear = new Date(currentYear, 0, 1)
-    const endOfYear = new Date(currentYear, 11, 31, 23, 59, 59, 999)
+    const yearParam = request.nextUrl.searchParams.get('year')
+    const parsedYear = yearParam ? Number.parseInt(yearParam, 10) : new Date().getFullYear()
+    const targetYear = Number.isFinite(parsedYear) ? parsedYear : new Date().getFullYear()
+    const startOfYear = new Date(targetYear, 0, 1)
+    const endOfYear = new Date(targetYear, 11, 31, 23, 59, 59, 999)
 
     const vacations = await prisma.vacation.findMany({
       where: {

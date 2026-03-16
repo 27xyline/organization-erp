@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,8 @@ import {
   Briefcase,
   Building2,
   Calendar,
+  ChevronLeft,
+  ChevronRight,
   Edit,
   Plus,
   RefreshCw,
@@ -264,12 +266,17 @@ const getPersonnelActionDescription = (action: PersonnelAction) => {
 }
 
 export default function EmployeesPage() {
+  const actualCurrentYear = useMemo(() => new Date().getFullYear(), [])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [staffSchedule, setStaffSchedule] = useState<StaffSchedule[]>([])
   const [vacations, setVacations] = useState<Vacation[]>([])
+  const [liveStatusVacations, setLiveStatusVacations] = useState<Vacation[]>([])
   const [personnelActions, setPersonnelActions] = useState<PersonnelAction[]>([])
   const [loading, setLoading] = useState(true)
+  const [vacationsLoading, setVacationsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
+  const [selectedYear, setSelectedYear] = useState(actualCurrentYear)
+  const hasInitializedVacations = useRef(false)
 
   const [isEmployeeDialogOpen, setIsEmployeeDialogOpen] = useState(false)
   const [isStaffDialogOpen, setIsStaffDialogOpen] = useState(false)
@@ -318,16 +325,13 @@ export default function EmployeesPage() {
     newContractEndDate: '',
   })
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  const loadData = async () => {
+  const loadBaseData = async () => {
     try {
-      const [employeesResponse, staffResponse, vacationsResponse, actionsResponse] = await Promise.all([
+      setLoading(true)
+
+      const [employeesResponse, staffResponse, actionsResponse] = await Promise.all([
         fetch('/api/employees'),
         fetch('/api/staff-schedule'),
-        fetch('/api/vacations'),
         fetch('/api/personnel-actions'),
       ])
 
@@ -341,11 +345,6 @@ export default function EmployeesPage() {
         setStaffSchedule(data.map(normalizeStaffSchedule))
       }
 
-      if (vacationsResponse.ok) {
-        const data = await vacationsResponse.json()
-        setVacations(data.map(normalizeVacation))
-      }
-
       if (actionsResponse.ok) {
         const data = await actionsResponse.json()
         setPersonnelActions(data.map(normalizePersonnelAction))
@@ -356,6 +355,55 @@ export default function EmployeesPage() {
       setLoading(false)
     }
   }
+
+  const loadVacationsForYear = async (year: number, refreshLiveStatus = false) => {
+    try {
+      setVacationsLoading(true)
+
+      const [selectedYearResponse, liveStatusResponse] = await Promise.all([
+        fetch(`/api/vacations?year=${year}`),
+        refreshLiveStatus && year !== actualCurrentYear
+          ? fetch(`/api/vacations?year=${actualCurrentYear}`)
+          : Promise.resolve(null),
+      ])
+
+      if (selectedYearResponse.ok) {
+        const data = await selectedYearResponse.json()
+        const normalizedVacations = data.map(normalizeVacation)
+        setVacations(normalizedVacations)
+
+        if (year === actualCurrentYear) {
+          setLiveStatusVacations(normalizedVacations)
+        }
+      }
+
+      if (liveStatusResponse?.ok) {
+        const data = await liveStatusResponse.json()
+        setLiveStatusVacations(data.map(normalizeVacation))
+      }
+    } catch (error) {
+      console.error('Error loading vacations:', error)
+    } finally {
+      setVacationsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    const initializePage = async () => {
+      await Promise.all([
+        loadBaseData(),
+        loadVacationsForYear(actualCurrentYear, true),
+      ])
+      hasInitializedVacations.current = true
+    }
+
+    initializePage()
+  }, [actualCurrentYear])
+
+  useEffect(() => {
+    if (!hasInitializedVacations.current) return
+    loadVacationsForYear(selectedYear)
+  }, [selectedYear])
 
   const activeEmployees = useMemo(
     () => employees.filter((employee) => employee.status !== 'DISMISSED'),
@@ -378,16 +426,9 @@ export default function EmployeesPage() {
     })
   }, [activeEmployees, searchTerm])
 
-  const currentYear = new Date().getFullYear()
-
-  const currentYearVacations = useMemo(
-    () => vacations.filter((vacation) => vacation.startDate.getFullYear() <= currentYear && vacation.endDate.getFullYear() >= currentYear),
-    [currentYear, vacations]
-  )
-
   const employeesWithVacations = useMemo(
-    () => filteredEmployees.filter((employee) => currentYearVacations.some((vacation) => vacation.employeeId === employee.id)),
-    [currentYearVacations, filteredEmployees]
+    () => activeEmployees.filter((employee) => vacations.some((vacation) => vacation.employeeId === employee.id)),
+    [activeEmployees, vacations]
   )
 
   const totalRates = useMemo(
@@ -438,7 +479,7 @@ export default function EmployeesPage() {
 
   const getLiveEmployeeStatus = (employee: Employee) => {
     const today = new Date()
-    const activeVacation = currentYearVacations.find(
+    const activeVacation = liveStatusVacations.find(
       (vacation) => vacation.employeeId === employee.id && isDateInRange(today, vacation.startDate, vacation.endDate)
     )
 
@@ -490,8 +531,24 @@ export default function EmployeesPage() {
   const handleSaveEmployee = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    const normalizedCode = employeeForm.code.trim()
+
     if (employeeForm.staffScheduleId === 'none') {
       alert('Выберите должность из штатного расписания')
+      return
+    }
+
+    if (!normalizedCode) {
+      alert('Заполните табельный номер')
+      return
+    }
+
+    const duplicateEmployee = employees.find(
+      (employee) => employee.code.trim().toLowerCase() === normalizedCode.toLowerCase() && employee.id !== editingEmployee?.id
+    )
+
+    if (duplicateEmployee) {
+      alert('Сотрудник с таким табельным номером уже существует')
       return
     }
 
@@ -503,6 +560,7 @@ export default function EmployeesPage() {
     const url = editingEmployee ? `/api/employees/${editingEmployee.id}` : '/api/employees'
     const payload = {
       ...employeeForm,
+      code: normalizedCode,
       contractType: employeeForm.contractType,
       contractSignedDate: employeeForm.contractSignedDate,
       contractEndDate: employeeForm.contractEndDate || null,
@@ -524,7 +582,7 @@ export default function EmployeesPage() {
 
       setIsEmployeeDialogOpen(false)
       setEditingEmployee(null)
-      await loadData()
+      await loadBaseData()
     } catch (error) {
       console.error('Error saving employee:', error)
       alert(error instanceof Error ? error.message : 'Ошибка при сохранении сотрудника')
@@ -549,7 +607,7 @@ export default function EmployeesPage() {
 
       setIsStaffDialogOpen(false)
       setEditingStaff(null)
-      await loadData()
+      await loadBaseData()
     } catch (error) {
       console.error('Error saving staff position:', error)
       alert('Ошибка при сохранении должности')
@@ -584,7 +642,7 @@ export default function EmployeesPage() {
 
       setIsVacationDialogOpen(false)
       setEditingVacation(null)
-      await loadData()
+      await loadVacationsForYear(selectedYear, true)
     } catch (error) {
       console.error('Error saving vacation:', error)
       alert('Ошибка при сохранении отпуска')
@@ -633,7 +691,7 @@ export default function EmployeesPage() {
       }
 
       setIsActionDialogOpen(false)
-      await loadData()
+      await loadBaseData()
     } catch (error) {
       console.error('Error saving personnel action:', error)
       alert(error instanceof Error ? error.message : 'Ошибка при сохранении кадрового действия')
@@ -648,7 +706,10 @@ export default function EmployeesPage() {
       if (!response.ok) {
         throw new Error('Failed to delete employee')
       }
-      await loadData()
+      await Promise.all([
+        loadBaseData(),
+        loadVacationsForYear(selectedYear, true),
+      ])
     } catch (error) {
       console.error('Error deleting employee:', error)
       alert('Ошибка при удалении сотрудника')
@@ -665,7 +726,7 @@ export default function EmployeesPage() {
         alert(data.error || 'Ошибка при удалении должности')
         return
       }
-      await loadData()
+      await loadBaseData()
     } catch (error) {
       console.error('Error deleting staff position:', error)
       alert('Ошибка при удалении должности')
@@ -682,7 +743,7 @@ export default function EmployeesPage() {
       }
       setIsVacationDialogOpen(false)
       setEditingVacation(null)
-      await loadData()
+      await loadVacationsForYear(selectedYear, true)
     } catch (error) {
       console.error('Error deleting vacation:', error)
       alert('Ошибка при удалении отпуска')
@@ -697,7 +758,7 @@ export default function EmployeesPage() {
       if (!response.ok) {
         throw new Error('Failed to delete action')
       }
-      await loadData()
+      await loadBaseData()
     } catch (error) {
       console.error('Error deleting personnel action:', error)
       alert('Ошибка при удалении кадрового действия')
@@ -845,192 +906,98 @@ export default function EmployeesPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-4">
-        <div className="space-y-6 xl:col-span-3">
-          <Card>
-            <CardHeader>
+      <div className="grid grid-cols-1 gap-6 xl:min-h-[980px] xl:grid-cols-4 xl:items-stretch">
+        <Card className="flex h-full flex-col xl:col-span-3">
+          <CardHeader>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Calendar className="h-5 w-5" />
-                  График отпусков {currentYear}
+                  График отпусков {selectedYear}
                 </CardTitle>
-                <CardDescription className="mt-1">
-                  Диаграмма Ганта по отпускам и отсутствиям сотрудников на текущий год.
-                </CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-3 md:grid-cols-3">
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Сотрудников в штате</p>
-                  <p className="mt-2 text-sm font-medium">{activeEmployees.length}</p>
-                </div>
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Записей в графике</p>
-                  <p className="mt-2 text-sm font-medium">{currentYearVacations.length}</p>
-                </div>
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Сотрудников с отпусками</p>
-                  <p className="mt-2 text-sm font-medium">{employeesWithVacations.length}</p>
-                </div>
               </div>
 
-              {loading ? (
+              <div className="flex items-center gap-2 self-start">
+                {selectedYear !== actualCurrentYear && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedYear(actualCurrentYear)}
+                    disabled={vacationsLoading}
+                  >
+                    Текущий год
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={() => setSelectedYear((prev) => prev - 1)}
+                  disabled={vacationsLoading}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <div className="min-w-[92px] rounded-md border bg-muted/30 px-3 py-2 text-center text-sm font-semibold text-slate-700">
+                  {selectedYear}
+                </div>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9"
+                  onClick={() => setSelectedYear((prev) => prev + 1)}
+                  disabled={vacationsLoading}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-1 flex-col space-y-4">
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Сотрудников в штате</p>
+                <p className="mt-2 text-sm font-medium">{activeEmployees.length}</p>
+              </div>
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Записей в графике</p>
+                <p className="mt-2 text-sm font-medium">{vacations.length}</p>
+              </div>
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Сотрудников с отпусками</p>
+                <p className="mt-2 text-sm font-medium">{employeesWithVacations.length}</p>
+              </div>
+            </div>
+
+            <div className="flex-1">
+              {vacationsLoading ? (
                 <div className="rounded-xl border border-dashed px-4 py-20 text-center text-sm text-muted-foreground">
                   Загрузка графика отпусков...
                 </div>
               ) : (
                 <VacationGantt
-                  vacations={currentYearVacations}
+                  vacations={vacations}
                   employees={activeEmployees}
-                  year={currentYear}
+                  year={selectedYear}
                   onVacationClick={(vacation) => openVacationDialog(vacation)}
                 />
               )}
+            </div>
 
-              <div className="rounded-lg border border-dashed bg-slate-50/70 px-4 py-3 text-sm text-muted-foreground">
-                Нажми на цветную полосу, чтобы открыть и отредактировать запись отпуска.
-              </div>
-            </CardContent>
-          </Card>
+          </CardContent>
+        </Card>
 
-          <Card>
-            <CardHeader className="space-y-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Users className="h-5 w-5" />
-                    Сотрудники
-                  </CardTitle>
-                  <CardDescription className="mt-1">
-                    Таблица сотрудников с данными по трудовому договору и привязкой к штатному расписанию.
-                  </CardDescription>
-                </div>
-
-                <div className="relative w-full lg:w-[320px]">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Поиск по ФИО, договору, должности"
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent className="space-y-4">
-              <div className="grid gap-3 md:grid-cols-3">
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">В штате</p>
-                  <p className="mt-2 text-sm font-medium">{activeEmployees.length} чел.</p>
-                </div>
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Основных договоров</p>
-                  <p className="mt-2 text-sm font-medium">{activeEmployees.filter((employee) => employee.contractType === 'PRIMARY').length}</p>
-                </div>
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Срочных договоров</p>
-                  <p className="mt-2 text-sm font-medium">{activeEmployees.filter((employee) => employee.contractEndDate).length}</p>
-                </div>
-              </div>
-
-              <div className="overflow-hidden rounded-xl border">
-                <Table>
-                  <TableHeader className="bg-slate-50/80">
-                    <TableRow>
-                      <TableHead>ФИО</TableHead>
-                      <TableHead>Должность</TableHead>
-                      <TableHead>Доля ставки</TableHead>
-                      <TableHead>Вид трудового договора</TableHead>
-                      <TableHead>Срок действия трудового договора</TableHead>
-                      <TableHead>Дата подписания трудового договора</TableHead>
-                      <TableHead>Номер трудового договора</TableHead>
-                      <TableHead className="w-[96px] text-right">&nbsp;</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {loading ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
-                          Загрузка сотрудников...
-                        </TableCell>
-                      </TableRow>
-                    ) : filteredEmployees.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
-                          Сотрудники по текущему фильтру не найдены.
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredEmployees.map((employee) => {
-                        const liveStatus = getLiveEmployeeStatus(employee)
-
-                        return (
-                          <TableRow key={employee.id}>
-                            <TableCell>
-                              <div className="min-w-[220px]">
-                                <p className="font-medium text-slate-900">{employee.fullName}</p>
-                                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                  <span className="font-mono">{employee.code}</span>
-                                  <Badge variant="outline" className={liveStatus.className}>
-                                    {liveStatus.label}
-                                  </Badge>
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium text-slate-900">{employee.staffSchedule?.position || '—'}</p>
-                                <p className="mt-1 text-xs text-muted-foreground">{employee.department || '—'}</p>
-                              </div>
-                            </TableCell>
-                            <TableCell>{employee.staffSchedule ? formatDecimal(employee.staffSchedule.rate) : '—'}</TableCell>
-                            <TableCell>{employmentContractTypeLabels[employee.contractType]}</TableCell>
-                            <TableCell>{employee.contractEndDate ? formatDate(employee.contractEndDate) : 'Бессрочно'}</TableCell>
-                            <TableCell>{employee.contractSignedDate ? formatDate(employee.contractSignedDate) : '—'}</TableCell>
-                            <TableCell>{employee.contractNumber || '—'}</TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-1">
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEmployeeDialog(employee)}>
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-red-500 hover:text-red-700"
-                                  onClick={() => handleDeleteEmployee(employee.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="space-y-6 xl:col-span-1">
-          <Card>
+        <div className="flex h-full min-h-0 flex-col gap-6 xl:col-span-1">
+          <Card className="flex min-h-0 flex-1 flex-col">
             <CardHeader>
               <div>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Building2 className="h-5 w-5" />
                   Штатное расписание
                 </CardTitle>
-                <CardDescription className="mt-1">
-                  Должности и ставки, из которых выбирается позиция сотрудника.
-                </CardDescription>
               </div>
             </CardHeader>
 
-            <CardContent className="space-y-4">
+            <CardContent className="flex min-h-0 flex-1 flex-col space-y-4 overflow-hidden">
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="rounded-lg border bg-muted/30 p-3">
                   <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Должностей</p>
@@ -1042,7 +1009,7 @@ export default function EmployeesPage() {
                 </div>
               </div>
 
-              <div className="max-h-[310px] space-y-3 overflow-y-auto pr-1">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
                 {loading ? (
                   <div className="rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
                     Загрузка должностей...
@@ -1100,20 +1067,17 @@ export default function EmployeesPage() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="flex min-h-0 flex-1 flex-col">
             <CardHeader>
               <div>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <RefreshCw className="h-5 w-5" />
                   Кадровые действия
                 </CardTitle>
-                <CardDescription className="mt-1">
-                  Прием, перевод между подразделениями, увольнение и продление.
-                </CardDescription>
               </div>
             </CardHeader>
 
-            <CardContent className="space-y-4">
+            <CardContent className="flex min-h-0 flex-1 flex-col space-y-4 overflow-hidden">
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="rounded-lg border bg-muted/30 p-3">
                   <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Всего действий</p>
@@ -1127,7 +1091,7 @@ export default function EmployeesPage() {
                 </div>
               </div>
 
-              <div className="max-h-[360px] space-y-3 overflow-y-auto pr-1">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
                 {loading ? (
                   <div className="rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
                     Загрузка кадровых действий...
@@ -1194,6 +1158,126 @@ export default function EmployeesPage() {
           </Card>
         </div>
       </div>
+
+      <Card className="mt-6">
+        <CardHeader className="space-y-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Users className="h-5 w-5" />
+                Сотрудники
+              </CardTitle>
+            </div>
+
+            <div className="relative w-full lg:w-[320px]">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Поиск по ФИО, договору, должности"
+                className="pl-10"
+              />
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-3">
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">В штате</p>
+              <p className="mt-2 text-sm font-medium">{activeEmployees.length} чел.</p>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Основных договоров</p>
+              <p className="mt-2 text-sm font-medium">{activeEmployees.filter((employee) => employee.contractType === 'PRIMARY').length}</p>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Срочных договоров</p>
+              <p className="mt-2 text-sm font-medium">{activeEmployees.filter((employee) => employee.contractEndDate).length}</p>
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-xl border">
+            <Table>
+              <TableHeader className="bg-slate-50/80">
+                <TableRow>
+                  <TableHead>ФИО</TableHead>
+                  <TableHead>Должность</TableHead>
+                  <TableHead>Доля ставки</TableHead>
+                  <TableHead>Вид трудового договора</TableHead>
+                  <TableHead>Срок действия трудового договора</TableHead>
+                  <TableHead>Дата подписания трудового договора</TableHead>
+                  <TableHead>Номер трудового договора</TableHead>
+                  <TableHead className="w-[96px] text-right">&nbsp;</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                      Загрузка сотрудников...
+                    </TableCell>
+                  </TableRow>
+                ) : filteredEmployees.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                      Сотрудники по текущему фильтру не найдены.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredEmployees.map((employee) => {
+                    const liveStatus = getLiveEmployeeStatus(employee)
+
+                    return (
+                      <TableRow key={employee.id}>
+                        <TableCell>
+                          <div className="min-w-[220px]">
+                            <p className="font-medium text-slate-900">{employee.fullName}</p>
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                              <span className="font-mono">{employee.code}</span>
+                              {liveStatus.label !== employeeStatusLabels.ACTIVE && (
+                                <Badge variant="outline" className={liveStatus.className}>
+                                  {liveStatus.label}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium text-slate-900">{employee.staffSchedule?.position || '—'}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{employee.department || '—'}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>{employee.staffSchedule ? formatDecimal(employee.staffSchedule.rate) : '—'}</TableCell>
+                        <TableCell>{employmentContractTypeLabels[employee.contractType]}</TableCell>
+                        <TableCell>{employee.contractEndDate ? formatDate(employee.contractEndDate) : 'Бессрочно'}</TableCell>
+                        <TableCell>{employee.contractSignedDate ? formatDate(employee.contractSignedDate) : '—'}</TableCell>
+                        <TableCell>{employee.contractNumber || '—'}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEmployeeDialog(employee)}>
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-500 hover:text-red-700"
+                              onClick={() => handleDeleteEmployee(employee.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
       <Dialog open={isEmployeeDialogOpen} onOpenChange={setIsEmployeeDialogOpen}>
         <DialogContent className="max-w-lg">

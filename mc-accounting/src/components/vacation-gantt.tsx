@@ -138,15 +138,13 @@ export function VacationGantt({ vacations, employees, year = new Date().getFullY
                           key={vacation.id}
                           type="button"
                           onClick={() => onVacationClick?.(vacation)}
-                          className={`absolute top-1/2 z-10 flex h-[14px] -translate-y-1/2 items-center rounded-[4px] px-1.5 text-left text-[10px] font-medium text-white shadow-sm ${config.className} ${onVacationClick ? 'cursor-pointer transition-opacity hover:opacity-90' : 'cursor-default'}`}
+                          className={`absolute top-1/2 z-10 h-[14px] -translate-y-1/2 rounded-[4px] shadow-sm ${config.className} ${onVacationClick ? 'cursor-pointer transition-opacity hover:opacity-90' : 'cursor-default'}`}
                           style={{
                             left: `${left}%`,
                             width: `${Math.max(width, 1.5)}%`,
                           }}
                           title={`${config.label}: ${startDate.toLocaleDateString('ru-RU')} - ${endDate.toLocaleDateString('ru-RU')}`}
-                        >
-                          {width > 10 ? config.label : ''}
-                        </button>
+                        />
                       )
                     })}
                 </div>

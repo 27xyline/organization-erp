@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 
 // PUT /api/employees/[id] - Update employee
@@ -84,6 +85,17 @@ export async function PUT(
     return NextResponse.json(employee)
   } catch (error) {
     console.error('Error updating employee:', error)
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const target = Array.isArray(error.meta?.target) ? error.meta.target : []
+
+      if (target.includes('code')) {
+        return NextResponse.json(
+          { error: 'Сотрудник с таким табельным номером уже существует' },
+          { status: 400 }
+        )
+      }
+    }
 
     if (error instanceof Error) {
       if (error.message === 'POSITION_NOT_FOUND') {
