@@ -64,38 +64,20 @@ export function VacationGantt({ vacations, employees, year = new Date().getFullY
     })
   }, [year, yearStart, totalDaysInYear])
 
-  const weekLines = useMemo(() => {
-    const lines: number[] = []
-    const cursor = new Date(yearStart)
-
-    while (cursor.getDay() !== 1) {
-      cursor.setDate(cursor.getDate() + 1)
-    }
-
-    while (cursor <= yearEnd) {
-      if (cursor.getDate() !== 1) {
-        lines.push((getDayIndex(cursor, yearStart) / totalDaysInYear) * 100)
-      }
-      cursor.setDate(cursor.getDate() + 7)
-    }
-
-    return lines
-  }, [yearEnd, yearStart, totalDaysInYear])
-
   const currentMonthSegment = currentMonth !== null ? monthSegments[currentMonth] : null
 
   return (
     <div className="overflow-x-auto rounded-xl border bg-white">
-      <div className="min-w-[900px]">
+      <div className="min-w-[1280px]">
         <div className="flex border-b bg-slate-50">
           <div className="w-56 flex-shrink-0 border-r px-4 py-3 text-sm font-medium text-slate-700">
             Сотрудник
           </div>
-          <div className="relative flex-1 overflow-hidden">
+          <div className="relative h-[46px] flex-1 overflow-hidden">
             {monthSegments.map((month) => (
               <div
                 key={month.index}
-                className={`absolute inset-y-0 flex items-center justify-center border-r px-2 py-3 text-center text-xs font-medium uppercase text-slate-500 ${currentMonth === month.index ? 'bg-amber-50/70' : ''}`}
+                className={`absolute inset-y-0 flex items-center justify-center border-r px-2 text-center text-xs font-medium uppercase text-slate-500 ${currentMonth === month.index ? 'bg-amber-50/70' : ''}`}
                 style={{
                   left: `${month.left}%`,
                   width: `${month.width}%`,
@@ -138,14 +120,6 @@ export function VacationGantt({ vacations, employees, year = new Date().getFullY
                         style={{ left: `${month.left}%` }}
                       />
                     ))}
-
-                    {weekLines.map((line, index) => (
-                      <div
-                        key={`${employee.id}-week-${index}`}
-                        className="absolute inset-y-0 w-px bg-slate-200/80"
-                        style={{ left: `${line}%` }}
-                      />
-                    ))}
                   </div>
 
                   {vacations
@@ -164,14 +138,14 @@ export function VacationGantt({ vacations, employees, year = new Date().getFullY
                           key={vacation.id}
                           type="button"
                           onClick={() => onVacationClick?.(vacation)}
-                          className={`absolute top-1/2 z-10 flex h-5 -translate-y-1/2 items-center rounded-full px-2 text-left text-[11px] font-medium text-white shadow-sm ${config.className} ${onVacationClick ? 'cursor-pointer transition-opacity hover:opacity-90' : 'cursor-default'}`}
+                          className={`absolute top-1/2 z-10 flex h-[14px] -translate-y-1/2 items-center rounded-[4px] px-1.5 text-left text-[10px] font-medium text-white shadow-sm ${config.className} ${onVacationClick ? 'cursor-pointer transition-opacity hover:opacity-90' : 'cursor-default'}`}
                           style={{
                             left: `${left}%`,
-                            width: `${Math.max(width, 1.8)}%`,
+                            width: `${Math.max(width, 1.5)}%`,
                           }}
                           title={`${config.label}: ${startDate.toLocaleDateString('ru-RU')} - ${endDate.toLocaleDateString('ru-RU')}`}
                         >
-                          {width > 9 ? config.label : ''}
+                          {width > 10 ? config.label : ''}
                         </button>
                       )
                     })}

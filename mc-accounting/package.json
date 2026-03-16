@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "clean:next": "node -e \"['.next', '.next-dev', '.next-dev-turbo'].forEach((dir) => require('fs').rmSync(dir, { recursive: true, force: true }))\"",
-    "dev": "NEXT_DIST_DIR=.next-dev-turbo next dev --turbo",
+    "dev": "NEXT_DIST_DIR=.next-dev next dev",
+    "dev:turbo": "NEXT_DIST_DIR=.next-dev-turbo next dev --turbo",
     "dev:webpack": "NEXT_DIST_DIR=.next-dev next dev",
     "dev:reset": "npm run clean:next && npm run dev",
     "build": "next build",
