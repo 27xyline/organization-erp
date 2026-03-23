@@ -2,11 +2,43 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 
+const getStartOfToday = () => {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return today
+}
+
 // GET /api/employees - Get all employees
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const scope = request.nextUrl.searchParams.get('scope') || 'all'
+    const startOfToday = getStartOfToday()
+
+    const where =
+      scope === 'active'
+        ? {
+            status: {
+              not: 'DISMISSED' as const,
+            },
+            OR: [
+              { contractEndDate: null },
+              { contractEndDate: { gte: startOfToday } },
+            ],
+          }
+        : scope === 'expired'
+          ? {
+              status: {
+                not: 'DISMISSED' as const,
+              },
+              contractEndDate: {
+                lt: startOfToday,
+              },
+            }
+          : undefined
+
     const employees = await prisma.employee.findMany({
-      orderBy: { createdAt: 'desc' },
+      where,
+      orderBy: scope === 'all' ? { createdAt: 'desc' } : { fullName: 'asc' },
       include: {
         staffSchedule: true,
       },
@@ -26,6 +58,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
+    const startOfToday = getStartOfToday()
     const contractSignedDate = data.contractSignedDate ? new Date(data.contractSignedDate) : null
     const contractEndDate = data.contractEndDate ? new Date(data.contractEndDate) : null
 
@@ -50,6 +83,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (contractEndDate && contractSignedDate >= contractEndDate) {
+      return NextResponse.json(
+        { error: 'Дата подписания договора должна быть раньше срока действия договора' },
+        { status: 400 }
+      )
+    }
+
     const employee = await prisma.$transaction(async (tx) => {
       const position = await tx.staffSchedule.findUnique({
         where: { id: data.staffScheduleId },
@@ -65,6 +105,10 @@ export async function POST(request: NextRequest) {
           status: {
             not: 'DISMISSED',
           },
+          OR: [
+            { contractEndDate: null },
+            { contractEndDate: { gte: startOfToday } },
+          ],
         },
       })
 

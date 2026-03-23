@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+const getStartOfToday = () => {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return today
+}
+
 // PUT /api/staff-schedule/[id] - Update position
 export async function PUT(
   request: NextRequest,
@@ -35,10 +41,24 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    const startOfToday = getStartOfToday()
+
     // Check if position has employees
     const position = await prisma.staffSchedule.findUnique({
       where: { id: params.id },
-      include: { employees: true },
+      include: {
+        employees: {
+          where: {
+            status: {
+              not: 'DISMISSED',
+            },
+            OR: [
+              { contractEndDate: null },
+              { contractEndDate: { gte: startOfToday } },
+            ],
+          },
+        },
+      },
     })
     
     if (position && position.employees.length > 0) {

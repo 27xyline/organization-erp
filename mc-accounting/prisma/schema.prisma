@@ -340,6 +340,7 @@ enum PersonnelActionType {
   TRANSFER
   EXTEND
   PROMOTE
+  EDIT
   
   @@map("personnel_action_type")
 }

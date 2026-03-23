@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 
+const getStartOfToday = () => {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return today
+}
+
 // PUT /api/employees/[id] - Update employee
 export async function PUT(
   request: NextRequest,
@@ -9,8 +15,10 @@ export async function PUT(
 ) {
   try {
     const data = await request.json()
+    const startOfToday = getStartOfToday()
     const contractSignedDate = data.contractSignedDate ? new Date(data.contractSignedDate) : null
     const contractEndDate = data.contractEndDate ? new Date(data.contractEndDate) : null
+    const actionDate = new Date()
 
     if (!data.staffScheduleId && data.status !== 'DISMISSED') {
       return NextResponse.json(
@@ -33,7 +41,25 @@ export async function PUT(
       )
     }
 
+    if (contractEndDate && contractSignedDate >= contractEndDate) {
+      return NextResponse.json(
+        { error: 'Дата подписания договора должна быть раньше срока действия договора' },
+        { status: 400 }
+      )
+    }
+
     const employee = await prisma.$transaction(async (tx) => {
+      const existingEmployee = await tx.employee.findUnique({
+        where: { id: params.id },
+        include: {
+          staffSchedule: true,
+        },
+      })
+
+      if (!existingEmployee) {
+        throw new Error('EMPLOYEE_NOT_FOUND')
+      }
+
       const position = data.staffScheduleId
         ? await tx.staffSchedule.findUnique({ where: { id: data.staffScheduleId } })
         : null
@@ -52,6 +78,10 @@ export async function PUT(
             status: {
               not: 'DISMISSED',
             },
+            OR: [
+              { contractEndDate: null },
+              { contractEndDate: { gte: startOfToday } },
+            ],
           },
         })
 
@@ -60,7 +90,7 @@ export async function PUT(
         }
       }
 
-      return tx.employee.update({
+      const updatedEmployee = await tx.employee.update({
         where: { id: params.id },
         data: {
           code: data.code,
@@ -80,6 +110,38 @@ export async function PUT(
           staffSchedule: true,
         },
       })
+
+      const newDepartment = position?.department || data.department
+      const changedFields: string[] = []
+
+      if (existingEmployee.fullName !== updatedEmployee.fullName) changedFields.push('ФИО')
+      if (existingEmployee.code !== updatedEmployee.code) changedFields.push('табельный номер')
+      if ((existingEmployee.staffScheduleId || null) !== (updatedEmployee.staffScheduleId || null)) changedFields.push('должность')
+      if ((existingEmployee.department || null) !== (newDepartment || null)) changedFields.push('подразделение')
+      if (existingEmployee.contractType !== updatedEmployee.contractType) changedFields.push('вид договора')
+      if ((existingEmployee.contractSignedDate?.getTime() || null) !== (updatedEmployee.contractSignedDate?.getTime() || null)) changedFields.push('дату подписания договора')
+      if ((existingEmployee.contractEndDate?.getTime() || null) !== (updatedEmployee.contractEndDate?.getTime() || null)) changedFields.push('срок действия договора')
+      if ((existingEmployee.contractNumber || null) !== (updatedEmployee.contractNumber || null)) changedFields.push('номер договора')
+      if (existingEmployee.status !== updatedEmployee.status) changedFields.push('статус')
+
+      if (changedFields.length > 0) {
+        await tx.personnelAction.create({
+          data: {
+            type: 'EDIT',
+            date: actionDate,
+            description: `Изменены данные сотрудника: ${changedFields.join(', ')}`,
+            employeeId: updatedEmployee.id,
+            oldDepartment: existingEmployee.department || null,
+            newDepartment,
+            oldPosition: existingEmployee.staffSchedule?.position || null,
+            newPosition: updatedEmployee.staffSchedule?.position || null,
+            oldContractEndDate: existingEmployee.contractEndDate || null,
+            newContractEndDate: updatedEmployee.contractEndDate || null,
+          },
+        })
+      }
+
+      return updatedEmployee
     })
     
     return NextResponse.json(employee)
@@ -105,6 +167,13 @@ export async function PUT(
         )
       }
 
+      if (error.message === 'EMPLOYEE_NOT_FOUND') {
+        return NextResponse.json(
+          { error: 'Employee not found' },
+          { status: 404 }
+        )
+      }
+
       if (error.message === 'POSITION_OCCUPIED') {
         return NextResponse.json(
           { error: 'Selected position is already assigned to another employee' },
@@ -126,19 +195,29 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    await prisma.$transaction([
-      prisma.vacation.deleteMany({
-        where: { employeeId: params.id },
-      }),
-      prisma.personnelAction.deleteMany({
-        where: { employeeId: params.id },
-      }),
-      prisma.employee.delete({
-        where: { id: params.id },
-      }),
-    ])
+    const startOfToday = getStartOfToday()
+    const archiveDate = new Date(startOfToday)
+    archiveDate.setDate(archiveDate.getDate() - 1)
+
+    const employee = await prisma.employee.findUnique({
+      where: { id: params.id },
+    })
+
+    if (!employee) {
+      return NextResponse.json(
+        { error: 'Employee not found' },
+        { status: 404 }
+      )
+    }
+
+    await prisma.employee.update({
+      where: { id: params.id },
+      data: {
+        contractEndDate: archiveDate,
+      },
+    })
     
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, archived: true })
   } catch (error) {
     console.error('Error deleting employee:', error)
     return NextResponse.json(

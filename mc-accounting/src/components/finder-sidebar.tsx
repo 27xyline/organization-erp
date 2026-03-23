@@ -1,9 +1,8 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { useRouter, usePathname } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { 
   Briefcase, 
@@ -14,7 +13,6 @@ import {
   ChevronDown,
   Building2,
   Receipt,
-  FileText,
   Calculator,
   ShoppingCart,
   ArrowLeftRight,
@@ -74,6 +72,7 @@ const financeChildren = [
 
 const employeesChildren = [
   { id: "employees-list", label: "Сотрудники", icon: <Users className="h-4 w-4" />, href: "/employees" },
+  { id: "employees-archive", label: "Архив", icon: <Archive className="h-4 w-4" />, href: "/employees/archive" },
   { id: "mols", label: "МОЛ", icon: <UserCog className="h-4 w-4" />, href: "/mols" },
 ]
 
@@ -86,7 +85,6 @@ const assetsChildren = [
 ]
 
 export function FinderSidebar() {
-  const router = useRouter()
   const pathname = usePathname()
   const [expandedItems, setExpandedItems] = useState<string[]>(["assets"])
   const [projects, setProjects] = useState<Project[]>([])
@@ -131,6 +129,8 @@ export function FinderSidebar() {
     return pathname === href || pathname.startsWith(href + '/')
   }
 
+  const isChildLinkActive = (href: string) => pathname === href
+
   const projectChildren = [
     { id: "projects-list", label: "Все проекты", icon: <Building2 className="h-4 w-4" />, href: "/projects" },
     { id: "projects-new", label: "Новый проект", icon: <Plus className="h-4 w-4" />, href: "/projects/new" },
@@ -158,6 +158,7 @@ export function FinderSidebar() {
     const hasChildren = children.length > 0
     const isItemActive = item.id === 'projects' ? isActive('/projects') : item.id === 'employees' ? isActive('/employees') || isActive('/mols') : false
     const isChildActive = children.some(child => isActive(child.href))
+    const shouldHighlightParent = isItemActive && !isChildActive
 
     return (
       <div key={item.id}>
@@ -166,17 +167,11 @@ export function FinderSidebar() {
             if (hasChildren) {
               toggleExpand(item.id)
             }
-            if (item.id === 'projects') {
-              router.push('/projects')
-            }
-            if (item.id === 'employees') {
-              router.push('/employees')
-            }
           }}
           className={cn(
             "w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors",
             "hover:bg-accent hover:text-accent-foreground",
-            (isItemActive || isChildActive) && "bg-accent text-accent-foreground font-medium",
+            shouldHighlightParent && "bg-accent text-accent-foreground font-medium",
             level > 0 && "pl-8"
           )}
         >
@@ -203,7 +198,7 @@ export function FinderSidebar() {
                 className={cn(
                   "w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors",
                   "hover:bg-accent hover:text-accent-foreground pl-10",
-                  isActive(child.href) && "bg-accent text-accent-foreground font-medium"
+                  isChildLinkActive(child.href) && "bg-accent text-accent-foreground font-medium"
                 )}
               >
                 <span className="flex-shrink-0">{child.icon}</span>

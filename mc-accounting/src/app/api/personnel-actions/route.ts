@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+const getStartOfToday = () => {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return today
+}
+
 const employeeSelect = {
   id: true,
   fullName: true,
@@ -20,8 +26,20 @@ const employeeSelect = {
   },
 } as const
 
+const personnelActionPriority: Record<string, number> = {
+  HIRE: 0,
+  DISMISS: 1,
+  ARCHIVE: 2,
+  EXTEND: 3,
+  TRANSFER: 4,
+  PROMOTE: 5,
+  EDIT: 6,
+}
+
 export async function GET() {
   try {
+    const startOfToday = getStartOfToday()
+
     const actions = await prisma.personnelAction.findMany({
       orderBy: [
         {
@@ -38,7 +56,60 @@ export async function GET() {
       },
     })
 
-    return NextResponse.json(actions)
+    const archivedEmployees = await prisma.employee.findMany({
+      where: {
+        status: {
+          not: 'DISMISSED',
+        },
+        contractEndDate: {
+          lt: startOfToday,
+        },
+      },
+      select: employeeSelect,
+      orderBy: {
+        contractEndDate: 'desc',
+      },
+    })
+
+    const archiveActions = archivedEmployees.map((employee) => {
+      const archiveDate = employee.contractEndDate ?? startOfToday
+
+      return {
+        id: `archive-${employee.id}-${archiveDate.toISOString()}`,
+        type: 'ARCHIVE',
+        date: archiveDate,
+        description: 'Закончился срок действия трудового договора',
+        employeeId: employee.id,
+        employee,
+        oldDepartment: null,
+        newDepartment: null,
+        oldPosition: null,
+        newPosition: null,
+        oldContractEndDate: null,
+        newContractEndDate: null,
+        isSynthetic: true,
+      }
+    })
+
+    const timeline = [...actions, ...archiveActions].sort((a, b) => {
+      const left = new Date(a.date ?? 0).getTime()
+      const right = new Date(b.date ?? 0).getTime()
+
+      if (right !== left) {
+        return right - left
+      }
+
+      const leftPriority = personnelActionPriority[a.type] ?? Number.MAX_SAFE_INTEGER
+      const rightPriority = personnelActionPriority[b.type] ?? Number.MAX_SAFE_INTEGER
+
+      if (leftPriority !== rightPriority) {
+        return leftPriority - rightPriority
+      }
+
+      return a.employee.fullName.localeCompare(b.employee.fullName, 'ru', { sensitivity: 'base' })
+    })
+
+    return NextResponse.json(timeline)
   } catch (error) {
     console.error('Error fetching personnel actions:', error)
     return NextResponse.json(
@@ -51,6 +122,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
+    const startOfToday = getStartOfToday()
 
     if (!data.type || !data.date) {
       return NextResponse.json(
@@ -84,6 +156,10 @@ export async function POST(request: NextRequest) {
                 status: {
                   not: 'DISMISSED',
                 },
+                OR: [
+                  { contractEndDate: null },
+                  { contractEndDate: { gte: startOfToday } },
+                ],
               },
             })
           : null
@@ -105,6 +181,10 @@ export async function POST(request: NextRequest) {
 
         if (contractEndDate && Number.isNaN(contractEndDate.getTime())) {
           throw new Error('INVALID_CONTRACT_DATE')
+        }
+
+        if (contractEndDate && contractSignedDate >= contractEndDate) {
+          throw new Error('INVALID_CONTRACT_RANGE')
         }
 
         const employee = await tx.employee.create({
@@ -178,6 +258,10 @@ export async function POST(request: NextRequest) {
             status: {
               not: 'DISMISSED',
             },
+            OR: [
+              { contractEndDate: null },
+              { contractEndDate: { gte: startOfToday } },
+            ],
           },
         })
 
@@ -200,6 +284,9 @@ export async function POST(request: NextRequest) {
         const parsedContractDate = new Date(data.newContractEndDate)
         if (Number.isNaN(parsedContractDate.getTime())) {
           throw new Error('INVALID_CONTRACT_DATE')
+        }
+        if (employee.contractSignedDate && parsedContractDate <= employee.contractSignedDate) {
+          throw new Error('INVALID_CONTRACT_RANGE')
         }
         nextContractEndDate = parsedContractDate
       }
@@ -319,6 +406,13 @@ export async function POST(request: NextRequest) {
       if (error.message === 'INVALID_CONTRACT_DATE') {
         return NextResponse.json(
           { error: 'Invalid contract date' },
+          { status: 400 }
+        )
+      }
+
+      if (error.message === 'INVALID_CONTRACT_RANGE') {
+        return NextResponse.json(
+          { error: 'Дата подписания договора должна быть раньше срока действия договора' },
           { status: 400 }
         )
       }

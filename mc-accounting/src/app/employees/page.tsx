@@ -24,6 +24,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { VacationGantt } from '@/components/vacation-gantt'
 import { cn, formatCurrency, formatDate, formatDecimal } from '@/lib/utils'
 import {
+  Archive,
   ArrowRightLeft,
   Briefcase,
   Building2,
@@ -44,7 +45,7 @@ import {
 type EmployeeStatus = 'ACTIVE' | 'ON_VACATION' | 'ON_SICK_LEAVE' | 'DISMISSED'
 type EmploymentContractType = 'PRIMARY' | 'INTERNAL' | 'EXTERNAL'
 type VacationType = 'VACATION' | 'SICK_LEAVE' | 'BUSINESS_TRIP' | 'UNPAID_LEAVE'
-type PersonnelActionType = 'HIRE' | 'DISMISS' | 'TRANSFER' | 'EXTEND' | 'PROMOTE'
+type PersonnelActionType = 'HIRE' | 'DISMISS' | 'TRANSFER' | 'EXTEND' | 'PROMOTE' | 'ARCHIVE' | 'EDIT'
 
 interface Employee {
   id: string
@@ -96,6 +97,7 @@ interface PersonnelAction {
   type: PersonnelActionType
   date: Date
   description?: string | null
+  isSynthetic?: boolean
   employeeId: string
   employee: {
     id: string
@@ -143,12 +145,17 @@ const employmentContractTypeLabels: Record<EmploymentContractType, string> = {
 
 const staffDepartments = ['НИО-904', 'Лаборатория №4'] as const
 
+const sortEmployeesByName = (a: Employee, b: Employee) =>
+  a.fullName.localeCompare(b.fullName, 'ru', { sensitivity: 'base' })
+
 const personnelActionLabels: Record<PersonnelActionType, string> = {
   HIRE: 'Прием',
   DISMISS: 'Увольнение',
   TRANSFER: 'Перевод',
   EXTEND: 'Продление',
   PROMOTE: 'Повышение',
+  ARCHIVE: 'Архив',
+  EDIT: 'Редактирование',
 }
 
 const normalizeEmployee = (employee: any): Employee => ({
@@ -199,6 +206,7 @@ const normalizePersonnelAction = (action: any): PersonnelAction => ({
   type: action.type,
   date: new Date(action.date),
   description: action.description || '',
+  isSynthetic: Boolean(action.isSynthetic),
   employeeId: action.employeeId,
   employee: {
     ...action.employee,
@@ -229,6 +237,10 @@ const getPersonnelActionIcon = (type: PersonnelActionType) => {
       return <RefreshCw className="h-4 w-4 text-amber-600" />
     case 'PROMOTE':
       return <Briefcase className="h-4 w-4 text-violet-600" />
+    case 'ARCHIVE':
+      return <Archive className="h-4 w-4 text-slate-600" />
+    case 'EDIT':
+      return <Edit className="h-4 w-4 text-sky-600" />
     default:
       return <User className="h-4 w-4" />
   }
@@ -260,6 +272,10 @@ const getPersonnelActionDescription = (action: PersonnelAction) => {
       return 'Продление срока действия договора'
     case 'PROMOTE':
       return 'Повышение сотрудника'
+    case 'ARCHIVE':
+      return 'Закончился срок действия трудового договора'
+    case 'EDIT':
+      return 'Изменены данные сотрудника'
     default:
       return personnelActionLabels[action.type]
   }
@@ -330,7 +346,7 @@ export default function EmployeesPage() {
       setLoading(true)
 
       const [employeesResponse, staffResponse, actionsResponse] = await Promise.all([
-        fetch('/api/employees'),
+        fetch('/api/employees?scope=active'),
         fetch('/api/staff-schedule'),
         fetch('/api/personnel-actions'),
       ])
@@ -406,7 +422,7 @@ export default function EmployeesPage() {
   }, [selectedYear])
 
   const activeEmployees = useMemo(
-    () => employees.filter((employee) => employee.status !== 'DISMISSED'),
+    () => employees.filter((employee) => employee.status !== 'DISMISSED').sort(sortEmployeesByName),
     [employees]
   )
 
@@ -557,6 +573,11 @@ export default function EmployeesPage() {
       return
     }
 
+    if (employeeForm.contractEndDate && new Date(employeeForm.contractSignedDate) >= new Date(employeeForm.contractEndDate)) {
+      alert('Дата подписания договора должна быть раньше срока действия договора')
+      return
+    }
+
     const url = editingEmployee ? `/api/employees/${editingEmployee.id}` : '/api/employees'
     const payload = {
       ...employeeForm,
@@ -672,6 +693,15 @@ export default function EmployeesPage() {
       return
     }
 
+    if (
+      actionForm.type === 'EXTEND' &&
+      selectedActionEmployee?.contractSignedDate &&
+      new Date(actionForm.newContractEndDate) <= selectedActionEmployee.contractSignedDate
+    ) {
+      alert('Дата подписания договора должна быть раньше срока действия договора')
+      return
+    }
+
     try {
       const payload = {
         ...actionForm,
@@ -699,7 +729,7 @@ export default function EmployeesPage() {
   }
 
   const handleDeleteEmployee = async (id: string) => {
-    if (!confirm('Удалить сотрудника? Будут удалены его отпуска и кадровые действия.')) return
+    if (!confirm('Удалить сотрудника? Он будет перемещен в архив как при окончании срока действия трудового договора.')) return
 
     try {
       const response = await fetch(`/api/employees/${id}`, { method: 'DELETE' })
@@ -1114,14 +1144,16 @@ export default function EmployeesPage() {
 
                             <div className="flex items-center gap-2">
                               <Badge variant="outline">{personnelActionLabels[action.type]}</Badge>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
-                                onClick={() => handleDeleteAction(action.id)}
-                              >
-                                <Trash2 className="h-4 w-4 text-red-500" />
-                              </Button>
+                              {!action.isSynthetic && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
+                                  onClick={() => handleDeleteAction(action.id)}
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                              )}
                             </div>
                           </div>
 

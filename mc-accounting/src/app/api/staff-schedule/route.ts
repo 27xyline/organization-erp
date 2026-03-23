@@ -1,15 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+const getStartOfToday = () => {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return today
+}
+
 // GET /api/staff-schedule - Get all staff schedule positions
 export async function GET() {
   try {
+    const startOfToday = getStartOfToday()
+
     const positions = await prisma.staffSchedule.findMany({
-      orderBy: { department: 'asc' },
+      orderBy: [
+        { position: 'asc' },
+        { department: 'asc' },
+      ],
       include: {
         employees: {
           where: {
             status: 'ACTIVE',
+            OR: [
+              { contractEndDate: null },
+              { contractEndDate: { gte: startOfToday } },
+            ],
           },
         },
       },
