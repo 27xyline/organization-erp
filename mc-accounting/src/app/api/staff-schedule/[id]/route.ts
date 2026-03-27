@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-const getStartOfToday = () => {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return today
-}
-
 // PUT /api/staff-schedule/[id] - Update position
 export async function PUT(
   request: NextRequest,
@@ -41,8 +35,6 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const startOfToday = getStartOfToday()
-
     // Check if position has employees
     const position = await prisma.staffSchedule.findUnique({
       where: { id: params.id },
@@ -52,10 +44,6 @@ export async function DELETE(
             status: {
               not: 'DISMISSED',
             },
-            OR: [
-              { contractEndDate: null },
-              { contractEndDate: { gte: startOfToday } },
-            ],
           },
         },
       },
@@ -67,6 +55,16 @@ export async function DELETE(
         { status: 400 }
       )
     }
+
+    await prisma.employee.updateMany({
+      where: {
+        staffScheduleId: params.id,
+        status: 'DISMISSED',
+      },
+      data: {
+        staffScheduleId: null,
+      },
+    })
     
     await prisma.staffSchedule.delete({
       where: { id: params.id },

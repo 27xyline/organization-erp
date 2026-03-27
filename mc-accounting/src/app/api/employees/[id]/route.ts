@@ -2,12 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 
-const getStartOfToday = () => {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return today
-}
-
 // PUT /api/employees/[id] - Update employee
 export async function PUT(
   request: NextRequest,
@@ -15,7 +9,6 @@ export async function PUT(
 ) {
   try {
     const data = await request.json()
-    const startOfToday = getStartOfToday()
     const contractSignedDate = data.contractSignedDate ? new Date(data.contractSignedDate) : null
     const contractEndDate = data.contractEndDate ? new Date(data.contractEndDate) : null
     const actionDate = new Date()
@@ -78,10 +71,6 @@ export async function PUT(
             status: {
               not: 'DISMISSED',
             },
-            OR: [
-              { contractEndDate: null },
-              { contractEndDate: { gte: startOfToday } },
-            ],
           },
         })
 
@@ -195,31 +184,54 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const startOfToday = getStartOfToday()
-    const archiveDate = new Date(startOfToday)
-    archiveDate.setDate(archiveDate.getDate() - 1)
+    const actionDate = new Date()
 
-    const employee = await prisma.employee.findUnique({
-      where: { id: params.id },
+    await prisma.$transaction(async (tx) => {
+      const employee = await tx.employee.findUnique({
+        where: { id: params.id },
+        include: {
+          staffSchedule: true,
+        },
+      })
+
+      if (!employee) {
+        throw new Error('EMPLOYEE_NOT_FOUND')
+      }
+
+      await tx.employee.update({
+        where: { id: params.id },
+        data: {
+          status: 'DISMISSED',
+        },
+      })
+
+      await tx.personnelAction.create({
+        data: {
+          type: 'DISMISS',
+          date: actionDate,
+          description: 'Уволен',
+          employeeId: employee.id,
+          oldDepartment: employee.department || null,
+          newDepartment: null,
+          oldPosition: employee.staffSchedule?.position || null,
+          newPosition: null,
+          oldContractEndDate: employee.contractEndDate || null,
+          newContractEndDate: employee.contractEndDate || null,
+        },
+      })
     })
+    
+    return NextResponse.json({ success: true, archived: true, status: 'DISMISSED' })
+  } catch (error) {
+    console.error('Error deleting employee:', error)
 
-    if (!employee) {
+    if (error instanceof Error && error.message === 'EMPLOYEE_NOT_FOUND') {
       return NextResponse.json(
         { error: 'Employee not found' },
         { status: 404 }
       )
     }
 
-    await prisma.employee.update({
-      where: { id: params.id },
-      data: {
-        contractEndDate: archiveDate,
-      },
-    })
-    
-    return NextResponse.json({ success: true, archived: true })
-  } catch (error) {
-    console.error('Error deleting employee:', error)
     return NextResponse.json(
       { error: 'Failed to delete employee' },
       { status: 500 }

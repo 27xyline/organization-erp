@@ -337,6 +337,7 @@ model PersonnelAction {
 enum PersonnelActionType {
   HIRE
   DISMISS
+  ARCHIVE
   TRANSFER
   EXTEND
   PROMOTE

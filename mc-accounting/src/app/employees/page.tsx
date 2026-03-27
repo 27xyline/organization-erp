@@ -96,6 +96,7 @@ interface PersonnelAction {
   id: string
   type: PersonnelActionType
   date: Date
+  createdAt: Date
   description?: string | null
   isSynthetic?: boolean
   employeeId: string
@@ -147,6 +148,9 @@ const staffDepartments = ['НИО-904', 'Лаборатория №4'] as const
 
 const sortEmployeesByName = (a: Employee, b: Employee) =>
   a.fullName.localeCompare(b.fullName, 'ru', { sensitivity: 'base' })
+
+const isContractExpired = (employee: Employee, date: Date) =>
+  employee.status !== 'DISMISSED' && Boolean(employee.contractEndDate && employee.contractEndDate < date)
 
 const personnelActionLabels: Record<PersonnelActionType, string> = {
   HIRE: 'Прием',
@@ -205,6 +209,7 @@ const normalizePersonnelAction = (action: any): PersonnelAction => ({
   id: action.id,
   type: action.type,
   date: new Date(action.date),
+  createdAt: new Date(action.createdAt),
   description: action.description || '',
   isSynthetic: Boolean(action.isSynthetic),
   employeeId: action.employeeId,
@@ -283,6 +288,11 @@ const getPersonnelActionDescription = (action: PersonnelAction) => {
 
 export default function EmployeesPage() {
   const actualCurrentYear = useMemo(() => new Date().getFullYear(), [])
+  const startOfToday = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return today
+  }, [])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [staffSchedule, setStaffSchedule] = useState<StaffSchedule[]>([])
   const [vacations, setVacations] = useState<Vacation[]>([])
@@ -728,24 +738,6 @@ export default function EmployeesPage() {
     }
   }
 
-  const handleDeleteEmployee = async (id: string) => {
-    if (!confirm('Удалить сотрудника? Он будет перемещен в архив как при окончании срока действия трудового договора.')) return
-
-    try {
-      const response = await fetch(`/api/employees/${id}`, { method: 'DELETE' })
-      if (!response.ok) {
-        throw new Error('Failed to delete employee')
-      }
-      await Promise.all([
-        loadBaseData(),
-        loadVacationsForYear(selectedYear, true),
-      ])
-    } catch (error) {
-      console.error('Error deleting employee:', error)
-      alert('Ошибка при удалении сотрудника')
-    }
-  }
-
   const handleDeleteStaff = async (id: string) => {
     if (!confirm('Удалить должность?')) return
 
@@ -1111,12 +1103,12 @@ export default function EmployeesPage() {
                   <p className="mt-2 font-medium">{personnelActions.length}</p>
                 </div>
                 <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">За 30 дней</p>
-                  <p className="mt-2 font-medium">
-                    {personnelActions.filter((action) => new Date(action.date).getTime() >= Date.now() - 30 * 24 * 60 * 60 * 1000).length}
-                  </p>
+                    <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">За 30 дней</p>
+                    <p className="mt-2 font-medium">
+                    {personnelActions.filter((action) => action.createdAt.getTime() >= Date.now() - 30 * 24 * 60 * 60 * 1000).length}
+                    </p>
+                  </div>
                 </div>
-              </div>
 
               <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
                 {loading ? (
@@ -1144,7 +1136,7 @@ export default function EmployeesPage() {
 
                             <div className="flex items-center gap-2">
                               <Badge variant="outline">{personnelActionLabels[action.type]}</Badge>
-                              {!action.isSynthetic && (
+                              {action.type !== 'ARCHIVE' && !action.isSynthetic && (
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -1221,8 +1213,8 @@ export default function EmployeesPage() {
               <p className="mt-2 text-sm font-medium">{activeEmployees.filter((employee) => employee.contractType === 'PRIMARY').length}</p>
             </div>
             <div className="rounded-lg border bg-muted/30 p-3">
-              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Срочных договоров</p>
-              <p className="mt-2 text-sm font-medium">{activeEmployees.filter((employee) => employee.contractEndDate).length}</p>
+              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Договор истек</p>
+              <p className="mt-2 text-sm font-medium">{activeEmployees.filter((employee) => isContractExpired(employee, startOfToday)).length}</p>
             </div>
           </div>
 
@@ -1256,14 +1248,20 @@ export default function EmployeesPage() {
                 ) : (
                   filteredEmployees.map((employee) => {
                     const liveStatus = getLiveEmployeeStatus(employee)
+                    const expiredContract = isContractExpired(employee, startOfToday)
 
                     return (
-                      <TableRow key={employee.id}>
+                      <TableRow key={employee.id} className={expiredContract ? 'bg-amber-50/40' : undefined}>
                         <TableCell>
                           <div className="min-w-[220px]">
                             <p className="font-medium text-slate-900">{employee.fullName}</p>
                             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                               <span className="font-mono">{employee.code}</span>
+                              {expiredContract && (
+                                <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">
+                                  Договор истек
+                                </Badge>
+                              )}
                               {liveStatus.label !== employeeStatusLabels.ACTIVE && (
                                 <Badge variant="outline" className={liveStatus.className}>
                                   {liveStatus.label}
@@ -1287,14 +1285,6 @@ export default function EmployeesPage() {
                           <div className="flex justify-end gap-1">
                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEmployeeDialog(employee)}>
                               <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-red-500 hover:text-red-700"
-                              onClick={() => handleDeleteEmployee(employee.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </TableCell>

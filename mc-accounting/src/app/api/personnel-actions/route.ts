@@ -36,19 +36,78 @@ const personnelActionPriority: Record<string, number> = {
   EDIT: 6,
 }
 
+const ensureExpiredContractArchiveActions = async () => {
+  const startOfToday = getStartOfToday()
+
+  const expiredEmployees = await prisma.employee.findMany({
+    where: {
+      status: {
+        not: 'DISMISSED',
+      },
+      contractEndDate: {
+        lt: startOfToday,
+      },
+    },
+    include: {
+      staffSchedule: {
+        select: {
+          id: true,
+          position: true,
+          department: true,
+        },
+      },
+    },
+  })
+
+  if (expiredEmployees.length === 0) return
+
+  const existingArchiveActions = await prisma.personnelAction.findMany({
+    where: {
+      type: 'ARCHIVE',
+      employeeId: {
+        in: expiredEmployees.map((employee) => employee.id),
+      },
+    },
+    select: {
+      employeeId: true,
+      newContractEndDate: true,
+    },
+  })
+
+  const existingArchiveKeys = new Set(
+    existingArchiveActions.map((action) => `${action.employeeId}:${action.newContractEndDate?.toISOString() ?? 'null'}`)
+  )
+
+  const actionsToCreate = expiredEmployees
+    .filter((employee) => !existingArchiveKeys.has(`${employee.id}:${employee.contractEndDate?.toISOString() ?? 'null'}`))
+    .map((employee) => ({
+      type: 'ARCHIVE' as const,
+      date: employee.contractEndDate ?? startOfToday,
+      description: 'Закончился срок действия трудового договора',
+      employeeId: employee.id,
+      oldDepartment: employee.department || null,
+      newDepartment: employee.department || null,
+      oldPosition: employee.staffSchedule?.position || null,
+      newPosition: employee.staffSchedule?.position || null,
+      oldContractEndDate: employee.contractEndDate || null,
+      newContractEndDate: employee.contractEndDate || null,
+    }))
+
+  if (actionsToCreate.length > 0) {
+    await prisma.personnelAction.createMany({
+      data: actionsToCreate,
+    })
+  }
+}
+
 export async function GET() {
   try {
-    const startOfToday = getStartOfToday()
+    await ensureExpiredContractArchiveActions()
 
     const actions = await prisma.personnelAction.findMany({
-      orderBy: [
-        {
-          createdAt: 'desc',
-        },
-        {
-          date: 'desc',
-        },
-      ],
+      orderBy: {
+        createdAt: 'desc',
+      },
       include: {
         employee: {
           select: employeeSelect,
@@ -56,44 +115,9 @@ export async function GET() {
       },
     })
 
-    const archivedEmployees = await prisma.employee.findMany({
-      where: {
-        status: {
-          not: 'DISMISSED',
-        },
-        contractEndDate: {
-          lt: startOfToday,
-        },
-      },
-      select: employeeSelect,
-      orderBy: {
-        contractEndDate: 'desc',
-      },
-    })
-
-    const archiveActions = archivedEmployees.map((employee) => {
-      const archiveDate = employee.contractEndDate ?? startOfToday
-
-      return {
-        id: `archive-${employee.id}-${archiveDate.toISOString()}`,
-        type: 'ARCHIVE',
-        date: archiveDate,
-        description: 'Закончился срок действия трудового договора',
-        employeeId: employee.id,
-        employee,
-        oldDepartment: null,
-        newDepartment: null,
-        oldPosition: null,
-        newPosition: null,
-        oldContractEndDate: null,
-        newContractEndDate: null,
-        isSynthetic: true,
-      }
-    })
-
-    const timeline = [...actions, ...archiveActions].sort((a, b) => {
-      const left = new Date(a.date ?? 0).getTime()
-      const right = new Date(b.date ?? 0).getTime()
+    const timeline = [...actions].sort((a, b) => {
+      const left = new Date(a.createdAt).getTime()
+      const right = new Date(b.createdAt).getTime()
 
       if (right !== left) {
         return right - left
@@ -122,7 +146,6 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json()
-    const startOfToday = getStartOfToday()
 
     if (!data.type || !data.date) {
       return NextResponse.json(
@@ -156,10 +179,6 @@ export async function POST(request: NextRequest) {
                 status: {
                   not: 'DISMISSED',
                 },
-                OR: [
-                  { contractEndDate: null },
-                  { contractEndDate: { gte: startOfToday } },
-                ],
               },
             })
           : null
@@ -258,10 +277,6 @@ export async function POST(request: NextRequest) {
             status: {
               not: 'DISMISSED',
             },
-            OR: [
-              { contractEndDate: null },
-              { contractEndDate: { gte: startOfToday } },
-            ],
           },
         })
 
@@ -300,7 +315,7 @@ export async function POST(request: NextRequest) {
           break
         case 'DISMISS':
           nextStatus = 'DISMISSED'
-          nextStaffScheduleId = null
+          nextStaffScheduleId = employee.staffScheduleId
           newDepartment = null
           newPosition = null
           break

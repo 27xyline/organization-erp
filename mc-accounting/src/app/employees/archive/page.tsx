@@ -19,12 +19,14 @@ import { Textarea } from '@/components/ui/textarea'
 import { formatDate, formatDecimal } from '@/lib/utils'
 
 type EmploymentContractType = 'PRIMARY' | 'INTERNAL' | 'EXTERNAL'
+type EmployeeStatus = 'ACTIVE' | 'ON_VACATION' | 'ON_SICK_LEAVE' | 'DISMISSED'
 
 interface Employee {
   id: string
   code: string
   fullName: string
   department: string
+  status: EmployeeStatus
   contractType: EmploymentContractType
   contractSignedDate?: Date | null
   contractEndDate?: Date | null
@@ -48,6 +50,7 @@ const normalizeEmployee = (employee: any): Employee => ({
   code: employee.code,
   fullName: employee.fullName,
   department: employee.department,
+  status: employee.status,
   contractType: employee.contractType || 'PRIMARY',
   contractSignedDate: employee.contractSignedDate ? new Date(employee.contractSignedDate) : null,
   contractEndDate: employee.contractEndDate ? new Date(employee.contractEndDate) : null,
@@ -63,6 +66,11 @@ const normalizeEmployee = (employee: any): Employee => ({
 })
 
 export default function EmployeeArchivePage() {
+  const startOfToday = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return today
+  }, [])
   const [employees, setEmployees] = useState<Employee[]>([])
   const [searchTerm, setSearchTerm] = useState('')
   const [loading, setLoading] = useState(true)
@@ -76,7 +84,7 @@ export default function EmployeeArchivePage() {
   const loadEmployees = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/employees?scope=expired')
+      const response = await fetch('/api/employees?scope=archive')
 
       if (!response.ok) {
         throw new Error('Failed to fetch archived employees')
@@ -109,12 +117,59 @@ export default function EmployeeArchivePage() {
     ))
   }, [employees, searchTerm])
 
+  const getArchiveStatus = (employee: Employee) => {
+    if (employee.status === 'DISMISSED') {
+      return {
+        key: 'dismissed' as const,
+        label: 'Уволен',
+        className: 'border-rose-200 bg-rose-50 text-rose-700',
+      }
+    }
+
+    return {
+      key: 'expired' as const,
+      label: 'Договор истек',
+      className: 'border-amber-200 bg-amber-50 text-amber-700',
+    }
+  }
+
   const openExtendDialog = (employee: Employee) => {
     setSelectedEmployee(employee)
     setExtendForm({
       newContractEndDate: '',
       description: '',
     })
+  }
+
+  const handleDismissEmployee = async (employee: Employee) => {
+    if (!confirm(`Уволить сотрудника ${employee.fullName}?`)) return
+
+    try {
+      setSaving(true)
+
+      const response = await fetch('/api/personnel-actions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeId: employee.id,
+          type: 'DISMISS',
+          date: new Date().toISOString().split('T')[0],
+          description: 'Уволен',
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null)
+        throw new Error(errorData?.error || 'Failed to dismiss employee')
+      }
+
+      await loadEmployees()
+    } catch (error) {
+      console.error('Error dismissing employee from archive:', error)
+      alert(error instanceof Error ? error.message : 'Ошибка при увольнении сотрудника')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleExtendContract = async (e: React.FormEvent) => {
@@ -182,7 +237,7 @@ export default function EmployeeArchivePage() {
               Архив сотрудников
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Сотрудники с истекшим сроком действия трудового договора.
+              Сотрудники с истекшим сроком действия трудового договора и уволенные сотрудники.
             </p>
           </div>
         </div>
@@ -213,9 +268,9 @@ export default function EmployeeArchivePage() {
               <p className="mt-2 text-sm font-medium">{filteredEmployees.length}</p>
             </div>
             <div className="rounded-lg border bg-muted/30 p-3">
-              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Основных договоров</p>
+              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Договор истек</p>
               <p className="mt-2 text-sm font-medium">
-                {employees.filter((employee) => employee.contractType === 'PRIMARY').length}
+                {employees.filter((employee) => employee.status !== 'DISMISSED' && employee.contractEndDate && employee.contractEndDate < startOfToday).length}
               </p>
             </div>
           </div>
@@ -249,37 +304,50 @@ export default function EmployeeArchivePage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredEmployees.map((employee) => (
-                    <TableRow key={employee.id}>
-                      <TableCell>
-                        <div className="min-w-[220px]">
-                          <p className="font-medium text-slate-900">{employee.fullName}</p>
-                          <p className="mt-1 text-xs font-mono text-muted-foreground">{employee.code}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium text-slate-900">{employee.staffSchedule?.position || '—'}</p>
-                          <p className="mt-1 text-xs text-muted-foreground">{employee.department || '—'}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>{employee.staffSchedule ? formatDecimal(employee.staffSchedule.rate) : '—'}</TableCell>
-                      <TableCell>{employmentContractTypeLabels[employee.contractType]}</TableCell>
-                      <TableCell>{employee.contractEndDate ? formatDate(employee.contractEndDate) : '—'}</TableCell>
-                      <TableCell>{employee.contractSignedDate ? formatDate(employee.contractSignedDate) : '—'}</TableCell>
-                      <TableCell>{employee.contractNumber || '—'}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">
-                          Договор истек
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="outline" size="sm" onClick={() => openExtendDialog(employee)}>
-                          Продлить
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  filteredEmployees.map((employee) => {
+                    const archiveStatus = getArchiveStatus(employee)
+
+                    return (
+                      <TableRow key={employee.id}>
+                        <TableCell>
+                          <div className="min-w-[220px]">
+                            <p className="font-medium text-slate-900">{employee.fullName}</p>
+                            <p className="mt-1 text-xs font-mono text-muted-foreground">{employee.code}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium text-slate-900">{employee.staffSchedule?.position || '—'}</p>
+                            <p className="mt-1 text-xs text-muted-foreground">{employee.department || '—'}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>{employee.staffSchedule ? formatDecimal(employee.staffSchedule.rate) : '—'}</TableCell>
+                        <TableCell>{employmentContractTypeLabels[employee.contractType]}</TableCell>
+                        <TableCell>{employee.contractEndDate ? formatDate(employee.contractEndDate) : '—'}</TableCell>
+                        <TableCell>{employee.contractSignedDate ? formatDate(employee.contractSignedDate) : '—'}</TableCell>
+                        <TableCell>{employee.contractNumber || '—'}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={archiveStatus.className}>
+                            {archiveStatus.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {archiveStatus.key === 'expired' ? (
+                            <div className="flex justify-end gap-2">
+                              <Button variant="outline" size="sm" onClick={() => openExtendDialog(employee)}>
+                                Восстановить
+                              </Button>
+                              <Button variant="destructive" size="sm" onClick={() => handleDismissEmployee(employee)} disabled={saving}>
+                                Уволить
+                              </Button>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
                 )}
               </TableBody>
             </Table>
@@ -290,7 +358,7 @@ export default function EmployeeArchivePage() {
       <Dialog open={Boolean(selectedEmployee)} onOpenChange={(open) => !open && setSelectedEmployee(null)}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Продлить трудовой договор</DialogTitle>
+            <DialogTitle>Восстановить сотрудника</DialogTitle>
           </DialogHeader>
 
           <form onSubmit={handleExtendContract} className="space-y-4">
@@ -329,7 +397,7 @@ export default function EmployeeArchivePage() {
                 Отмена
               </Button>
               <Button type="submit" disabled={saving}>
-                {saving ? 'Сохранение...' : 'Продлить'}
+                {saving ? 'Сохранение...' : 'Восстановить'}
               </Button>
             </div>
           </form>
