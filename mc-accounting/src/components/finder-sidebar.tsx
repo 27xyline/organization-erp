@@ -64,7 +64,7 @@ const staticMenuItems: Omit<MenuItem, 'children'>[] = [
 ]
 
 const financeChildren = [
-  { id: "salary", label: "Заработная плата", icon: <Wallet className="h-4 w-4" />, href: "#" },
+  { id: "salary", label: "Заработная плата", icon: <Wallet className="h-4 w-4" />, href: "/finance/salary" },
   { id: "budget-planning", label: "Планирование бюджета", icon: <Calculator className="h-4 w-4" />, href: "#" },
   { id: "reports", label: "Отчеты Аналитика", icon: <BarChart3 className="h-4 w-4" />, href: "#" },
   { id: "cash", label: "Касса", icon: <Receipt className="h-4 w-4" />, href: "#" },
@@ -115,6 +115,19 @@ export function FinderSidebar() {
       isMounted = false
     }
   }, [isProjectsExpanded])
+
+  useEffect(() => {
+    const itemsToExpand: string[] = []
+
+    if (pathname.startsWith('/projects')) itemsToExpand.push('projects')
+    if (pathname.startsWith('/finance')) itemsToExpand.push('finance')
+    if (pathname.startsWith('/employees') || pathname.startsWith('/mols')) itemsToExpand.push('employees')
+    if (pathname === '/' || pathname.startsWith('/groups') || pathname.startsWith('/archive')) itemsToExpand.push('assets')
+
+    if (itemsToExpand.length === 0) return
+
+    setExpandedItems((prev) => Array.from(new Set([...prev, ...itemsToExpand])))
+  }, [pathname])
 
   const toggleExpand = (id: string) => {
     setExpandedItems(prev => 

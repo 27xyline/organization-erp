@@ -271,6 +271,7 @@ model Employee {
   // Relations
   vacations   Vacation[]
   actions     PersonnelAction[]
+  salaryEntries SalaryEntry[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -309,6 +310,22 @@ model StaffSchedule {
   updatedAt   DateTime @updatedAt
   
   @@map("staff_schedule")
+}
+
+model SalaryEntry {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  year        Int
+  month       Int
+  amount      Decimal  @db.Decimal(12, 2)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([employeeId, year, month])
+  @@index([year, month])
+  @@map("salary_entries")
 }
 
 model PersonnelAction {

@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -76,6 +77,8 @@ export default function EmployeeArchivePage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null)
+  const [dismissEmployee, setDismissEmployee] = useState<Employee | null>(null)
+  const [statusFilter, setStatusFilter] = useState<'all' | 'expired' | 'dismissed'>('all')
   const [extendForm, setExtendForm] = useState({
     newContractEndDate: '',
     description: '',
@@ -104,18 +107,34 @@ export default function EmployeeArchivePage() {
   }, [])
 
   const filteredEmployees = useMemo(() => {
-    if (!searchTerm.trim()) return employees
+    const filteredByStatus = employees.filter((employee) => {
+      if (statusFilter === 'expired') return employee.status !== 'DISMISSED'
+      if (statusFilter === 'dismissed') return employee.status === 'DISMISSED'
+      return true
+    })
+
+    if (!searchTerm.trim()) return filteredByStatus
 
     const value = searchTerm.trim().toLowerCase()
 
-    return employees.filter((employee) => (
+    return filteredByStatus.filter((employee) => (
       employee.fullName.toLowerCase().includes(value) ||
       employee.code.toLowerCase().includes(value) ||
       employee.department.toLowerCase().includes(value) ||
       (employee.contractNumber || '').toLowerCase().includes(value) ||
       employee.staffSchedule?.position?.toLowerCase().includes(value)
     ))
-  }, [employees, searchTerm])
+  }, [employees, searchTerm, statusFilter])
+
+  const expiredCount = useMemo(
+    () => employees.filter((employee) => employee.status !== 'DISMISSED' && employee.contractEndDate && employee.contractEndDate < startOfToday).length,
+    [employees, startOfToday]
+  )
+
+  const dismissedCount = useMemo(
+    () => employees.filter((employee) => employee.status === 'DISMISSED').length,
+    [employees]
+  )
 
   const getArchiveStatus = (employee: Employee) => {
     if (employee.status === 'DISMISSED') {
@@ -142,7 +161,11 @@ export default function EmployeeArchivePage() {
   }
 
   const handleDismissEmployee = async (employee: Employee) => {
-    if (!confirm(`Уволить сотрудника ${employee.fullName}?`)) return
+    setDismissEmployee(employee)
+  }
+
+  const confirmDismissEmployee = async () => {
+    if (!dismissEmployee) return
 
     try {
       setSaving(true)
@@ -151,7 +174,7 @@ export default function EmployeeArchivePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          employeeId: employee.id,
+          employeeId: dismissEmployee.id,
           type: 'DISMISS',
           date: new Date().toISOString().split('T')[0],
           description: 'Уволен',
@@ -163,6 +186,7 @@ export default function EmployeeArchivePage() {
         throw new Error(errorData?.error || 'Failed to dismiss employee')
       }
 
+      setDismissEmployee(null)
       await loadEmployees()
     } catch (error) {
       console.error('Error dismissing employee from archive:', error)
@@ -258,7 +282,7 @@ export default function EmployeeArchivePage() {
           <CardTitle className="text-lg">Архив</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-4">
             <div className="rounded-lg border bg-muted/30 p-3">
               <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Сотрудников в архиве</p>
               <p className="mt-2 text-sm font-medium">{employees.length}</p>
@@ -270,9 +294,25 @@ export default function EmployeeArchivePage() {
             <div className="rounded-lg border bg-muted/30 p-3">
               <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Договор истек</p>
               <p className="mt-2 text-sm font-medium">
-                {employees.filter((employee) => employee.status !== 'DISMISSED' && employee.contractEndDate && employee.contractEndDate < startOfToday).length}
+                {expiredCount}
               </p>
             </div>
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Уволены</p>
+              <p className="mt-2 text-sm font-medium">{dismissedCount}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button variant={statusFilter === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setStatusFilter('all')}>
+              Все
+            </Button>
+            <Button variant={statusFilter === 'expired' ? 'default' : 'outline'} size="sm" onClick={() => setStatusFilter('expired')}>
+              Договор истек
+            </Button>
+            <Button variant={statusFilter === 'dismissed' ? 'default' : 'outline'} size="sm" onClick={() => setStatusFilter('dismissed')}>
+              Уволены
+            </Button>
           </div>
 
           <div className="overflow-hidden rounded-xl border">
@@ -359,6 +399,9 @@ export default function EmployeeArchivePage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Восстановить сотрудника</DialogTitle>
+            <DialogDescription>
+              Продление трудового договора уберет сотрудника из архива и оставит его в основном разделе сотрудников.
+            </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleExtendContract} className="space-y-4">
@@ -401,6 +444,33 @@ export default function EmployeeArchivePage() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(dismissEmployee)} onOpenChange={(open) => !open && setDismissEmployee(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Подтвердить увольнение</DialogTitle>
+            <DialogDescription>
+              Сотрудник останется в архиве со статусом "уволен", исчезнет из основных разделов и освободит должность в штатном расписании.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="rounded-lg border bg-muted/30 p-4 text-sm">
+            <p className="font-medium text-slate-900">{dismissEmployee?.fullName}</p>
+            <p className="mt-2 text-muted-foreground">
+              Причина архива сейчас: договор истек.
+            </p>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setDismissEmployee(null)}>
+              Отмена
+            </Button>
+            <Button type="button" variant="destructive" onClick={confirmDismissEmployee} disabled={saving}>
+              {saving ? 'Сохранение...' : 'Уволить сотрудника'}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import { cn } from '@/lib/utils'
 
 type VacationType = 'VACATION' | 'SICK_LEAVE' | 'BUSINESS_TRIP' | 'UNPAID_LEAVE'
 
@@ -29,6 +30,7 @@ interface VacationGanttProps {
   employees: Employee[]
   year?: number
   onVacationClick?: (vacation: Vacation) => void
+  expiredEmployeeIds?: string[]
 }
 
 const vacationTypeConfig: Record<VacationType, { label: string; className: string }> = {
@@ -43,11 +45,12 @@ const getDayIndex = (date: Date, yearStart: Date) => {
   return Math.floor(diff / (1000 * 60 * 60 * 24))
 }
 
-export function VacationGantt({ vacations, employees, year = new Date().getFullYear(), onVacationClick }: VacationGanttProps) {
+export function VacationGantt({ vacations, employees, year = new Date().getFullYear(), onVacationClick, expiredEmployeeIds = [] }: VacationGanttProps) {
   const yearStart = useMemo(() => new Date(year, 0, 1), [year])
   const yearEnd = useMemo(() => new Date(year, 11, 31, 23, 59, 59, 999), [year])
   const totalDaysInYear = useMemo(() => getDayIndex(yearEnd, yearStart) + 1, [yearEnd, yearStart])
   const currentMonth = new Date().getFullYear() === year ? new Date().getMonth() : null
+  const expiredEmployeeIdSet = useMemo(() => new Set(expiredEmployeeIds), [expiredEmployeeIds])
   const monthSegments = useMemo(() => {
     return Array.from({ length: 12 }, (_, index) => {
       const startDate = new Date(year, index, 1)
@@ -107,13 +110,26 @@ export function VacationGantt({ vacations, employees, year = new Date().getFullY
               Нет сотрудников для отображения графика отпусков.
             </div>
           ) : (
-            employees.map((employee) => (
-              <div key={employee.id} className="flex h-14">
-                <div className="flex w-56 flex-shrink-0 items-center border-r bg-slate-50/70 px-4 text-sm font-medium text-slate-700">
-                  <span className="line-clamp-2">{employee.fullName}</span>
+            employees.map((employee) => {
+              const isExpired = expiredEmployeeIdSet.has(employee.id)
+
+              return (
+              <div key={employee.id} className={cn('flex h-14', isExpired && 'bg-amber-50/30')}>
+                <div className={cn('flex w-56 flex-shrink-0 items-center border-r px-4 text-sm font-medium text-slate-700', isExpired ? 'bg-amber-50/70' : 'bg-slate-50/70')}>
+                  <div className="min-w-0">
+                    <span className="line-clamp-1 block">{employee.fullName}</span>
+                    {isExpired && (
+                      <span className="mt-1 inline-flex rounded-full border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                        Договор истек
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="relative h-14 flex-1 overflow-hidden">
+                  {isExpired && (
+                    <div className="absolute inset-0 bg-amber-50/20" />
+                  )}
                   {currentMonthSegment && (
                     <div
                       className="absolute inset-y-0 bg-amber-100/35"
@@ -161,7 +177,7 @@ export function VacationGantt({ vacations, employees, year = new Date().getFullY
                     })}
                 </div>
               </div>
-            ))
+            )})
           )}
         </div>
 

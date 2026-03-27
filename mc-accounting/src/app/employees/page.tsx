@@ -355,10 +355,9 @@ export default function EmployeesPage() {
     try {
       setLoading(true)
 
-      const [employeesResponse, staffResponse, actionsResponse] = await Promise.all([
+      const [employeesResponse, staffResponse] = await Promise.all([
         fetch('/api/employees?scope=active'),
         fetch('/api/staff-schedule'),
-        fetch('/api/personnel-actions'),
       ])
 
       if (employeesResponse.ok) {
@@ -370,6 +369,8 @@ export default function EmployeesPage() {
         const data = await staffResponse.json()
         setStaffSchedule(data.map(normalizeStaffSchedule))
       }
+
+      const actionsResponse = await fetch('/api/personnel-actions')
 
       if (actionsResponse.ok) {
         const data = await actionsResponse.json()
@@ -455,6 +456,11 @@ export default function EmployeesPage() {
   const employeesWithVacations = useMemo(
     () => activeEmployees.filter((employee) => vacations.some((vacation) => vacation.employeeId === employee.id)),
     [activeEmployees, vacations]
+  )
+
+  const expiredActiveEmployees = useMemo(
+    () => activeEmployees.filter((employee) => isContractExpired(employee, startOfToday)),
+    [activeEmployees, startOfToday]
   )
 
   const totalRates = useMemo(
@@ -997,6 +1003,7 @@ export default function EmployeesPage() {
                   vacations={vacations}
                   employees={activeEmployees}
                   year={selectedYear}
+                  expiredEmployeeIds={expiredActiveEmployees.map((employee) => employee.id)}
                   onVacationClick={(vacation) => openVacationDialog(vacation)}
                 />
               )}
@@ -1214,7 +1221,7 @@ export default function EmployeesPage() {
             </div>
             <div className="rounded-lg border bg-muted/30 p-3">
               <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Договор истек</p>
-              <p className="mt-2 text-sm font-medium">{activeEmployees.filter((employee) => isContractExpired(employee, startOfToday)).length}</p>
+              <p className="mt-2 text-sm font-medium">{expiredActiveEmployees.length}</p>
             </div>
           </div>
 
