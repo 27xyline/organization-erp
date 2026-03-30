@@ -6,13 +6,15 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { formatDecimal } from '@/lib/utils'
+import { formatCurrency, formatDecimal } from '@/lib/utils'
 
 interface SalaryRow {
   employeeId: string
   fullName: string
+  department: string
   position: string
   rate: string
+  salary: string
   months: Record<string, string>
 }
 
@@ -82,6 +84,11 @@ export default function SalaryPage() {
 
   const totalRate = useMemo(
     () => rows.reduce((sum, row) => sum + Number(row.rate), 0),
+    [rows]
+  )
+
+  const totalSalary = useMemo(
+    () => rows.reduce((sum, row) => sum + Number(row.salary), 0),
     [rows]
   )
 
@@ -188,7 +195,7 @@ export default function SalaryPage() {
           <CardTitle className="text-lg">Таблица заработной платы</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-4">
             <div className="rounded-lg border bg-muted/30 p-3">
               <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Сотрудников</p>
               <p className="mt-2 text-sm font-medium">{rows.length}</p>
@@ -196,6 +203,10 @@ export default function SalaryPage() {
             <div className="rounded-lg border bg-muted/30 p-3">
               <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Всего ставок</p>
               <p className="mt-2 text-sm font-medium">{formatDecimal(totalRate)}</p>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Сумма окладов</p>
+              <p className="mt-2 text-sm font-medium">{formatCurrency(totalSalary)}</p>
             </div>
             <div className="rounded-lg border bg-muted/30 p-3">
               <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Режим сохранения</p>
@@ -208,8 +219,10 @@ export default function SalaryPage() {
               <TableHeader className="bg-slate-50/80">
                 <TableRow>
                   <TableHead className="min-w-[240px]">ФИО</TableHead>
+                  <TableHead className="min-w-[180px]">Подразделение</TableHead>
                   <TableHead className="min-w-[180px]">Должность</TableHead>
                   <TableHead className="min-w-[120px]">Доля ставки</TableHead>
+                  <TableHead className="min-w-[140px]">Оклад</TableHead>
                   {monthLabels.map((month) => (
                     <TableHead key={month} className="min-w-[140px] text-center">
                       {month}
@@ -220,13 +233,13 @@ export default function SalaryPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={15} className="h-32 text-center text-muted-foreground">
+                    <TableCell colSpan={17} className="h-32 text-center text-muted-foreground">
                       Загрузка таблицы заработной платы...
                     </TableCell>
                   </TableRow>
                 ) : rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={15} className="h-32 text-center text-muted-foreground">
+                    <TableCell colSpan={17} className="h-32 text-center text-muted-foreground">
                       Нет сотрудников для отображения.
                     </TableCell>
                   </TableRow>
@@ -234,8 +247,10 @@ export default function SalaryPage() {
                   rows.map((row) => (
                     <TableRow key={row.employeeId}>
                       <TableCell className="font-medium text-slate-900">{row.fullName}</TableCell>
+                      <TableCell>{row.department}</TableCell>
                       <TableCell>{row.position}</TableCell>
                       <TableCell>{formatDecimal(row.rate)}</TableCell>
+                      <TableCell>{formatCurrency(row.salary)}</TableCell>
                       {monthLabels.map((_, index) => {
                         const month = String(index + 1)
 

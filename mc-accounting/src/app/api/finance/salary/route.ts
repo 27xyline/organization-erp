@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
             position: true,
             department: true,
             rate: true,
+            salary: true,
           },
         },
       },
@@ -68,8 +69,10 @@ export async function GET(request: NextRequest) {
     const rows = employees.map((employee) => ({
       employeeId: employee.id,
       fullName: employee.fullName,
+      department: employee.staffSchedule?.department || employee.department || '—',
       position: employee.staffSchedule?.position || '—',
       rate: employee.staffSchedule ? Number(employee.staffSchedule.rate).toFixed(2) : '0.00',
+      salary: employee.staffSchedule ? Number(employee.staffSchedule.salary).toFixed(2) : '0.00',
       months: Object.fromEntries(
         Array.from({ length: 12 }, (_, index) => {
           const month = index + 1
