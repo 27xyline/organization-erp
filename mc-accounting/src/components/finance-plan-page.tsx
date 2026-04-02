@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { formatCurrency, formatDecimal } from '@/lib/utils'
+import { cn, formatCurrency, formatDecimal } from '@/lib/utils'
 
 interface FinancePlanRow {
   employeeId: string
@@ -35,23 +35,52 @@ const monthLabels = [
   'Декабрь',
 ]
 
-const pageConfig: Record<FinanceSectionType, { title: string; endpoint: (year: number) => string; editable: boolean; saveType?: 'oklad' | 'nadbavka' }> = {
+const stickyColumnStyles = {
+  fullName: { left: 0, width: 240 },
+  department: { left: 240, width: 180 },
+  position: { left: 420, width: 180 },
+  rate: { left: 600, width: 120 },
+  salary: { left: 720, width: 140 },
+} as const
+
+const pageConfig: Record<FinanceSectionType, {
+  title: string
+  endpoint: (year: number) => string
+  editable: boolean
+  saveType?: 'oklad' | 'nadbavka'
+  iconClassName: string
+  summaryCardClassName: string
+  badgeClassName: string
+  modeLabel: string
+}> = {
   salary: {
     title: 'Заработная плата',
     endpoint: (year) => `/api/finance/salary?year=${year}`,
     editable: false,
+    iconClassName: 'bg-slate-100 text-slate-700',
+    summaryCardClassName: 'border-slate-200 bg-slate-50/70',
+    badgeClassName: 'border-slate-200 bg-slate-100 text-slate-700',
+    modeLabel: 'Автоматический расчет',
   },
   oklad: {
     title: 'Оклад',
     endpoint: (year) => `/api/finance/plans?type=oklad&year=${year}`,
     editable: true,
     saveType: 'oklad',
+    iconClassName: 'bg-blue-100 text-blue-700',
+    summaryCardClassName: 'border-blue-200 bg-blue-50/70',
+    badgeClassName: 'border-blue-200 bg-blue-100 text-blue-700',
+    modeLabel: 'Редактируемый раздел',
   },
   nadbavka: {
     title: 'Надбавка',
     endpoint: (year) => `/api/finance/plans?type=nadbavka&year=${year}`,
     editable: true,
     saveType: 'nadbavka',
+    iconClassName: 'bg-violet-100 text-violet-700',
+    summaryCardClassName: 'border-violet-200 bg-violet-50/70',
+    badgeClassName: 'border-violet-200 bg-violet-100 text-violet-700',
+    modeLabel: 'Редактируемый раздел',
   },
 }
 
@@ -153,6 +182,17 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
 
   const totalSalary = useMemo(
     () => rows.reduce((sum, row) => sum + Number(row.salary), 0),
+    [rows]
+  )
+
+  const monthTotals = useMemo(
+    () => Object.fromEntries(
+      Array.from({ length: 12 }, (_, index) => {
+        const month = String(index + 1)
+        const total = rows.reduce((sum, row) => sum + Number(formatAmountValue(row.months[month])), 0)
+        return [month, total.toFixed(2)]
+      })
+    ),
     [rows]
   )
 
@@ -258,57 +298,68 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
     <div className="container mx-auto px-4 py-6">
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold">
-            <Wallet className="h-6 w-6" />
+          <h1 className="flex items-center gap-3 text-2xl font-bold">
+            <span className={cn('inline-flex rounded-xl p-2', config.iconClassName)}>
+              <Wallet className="h-6 w-6" />
+            </span>
             {config.title}
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">Текущий год: {currentYear}</p>
         </div>
 
-        {config.editable ? (
-          <Button onClick={handleSave} disabled={loading || saving || !hasChanges}>
-            {saving ? 'Сохранение...' : 'Сохранить'}
-          </Button>
-        ) : null}
+        <div className="flex items-center gap-3">
+          <div className={cn('rounded-full border px-3 py-1 text-sm font-medium', config.badgeClassName)}>
+            {config.modeLabel}
+          </div>
+          {config.editable ? (
+            <Button onClick={handleSave} disabled={loading || saving || !hasChanges}>
+              {saving ? 'Сохранение...' : 'Сохранить'}
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">{config.title}</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-4">
-            <div className="rounded-lg border bg-muted/30 p-3">
-              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Сотрудников</p>
-              <p className="mt-2 text-sm font-medium">{rows.length}</p>
-            </div>
-            <div className="rounded-lg border bg-muted/30 p-3">
-              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Всего ставок</p>
-              <p className="mt-2 text-sm font-medium">{formatDecimal(totalRate)}</p>
-            </div>
-            <div className="rounded-lg border bg-muted/30 p-3">
-              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Сумма окладов</p>
-              <p className="mt-2 text-sm font-medium">{formatCurrency(totalSalary)}</p>
-            </div>
-            <div className="rounded-lg border bg-muted/30 p-3">
-              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Режим</p>
-              <p className="mt-2 text-sm font-medium">
-                {config.editable ? 'По кнопке “Сохранить”' : 'Автоматический расчет'}
-              </p>
-            </div>
-          </div>
-
-          <div className="overflow-x-auto rounded-xl border">
-            <Table>
+        <CardContent>
+          <div className="rounded-xl border">
+            <Table className="w-[2540px] min-w-[2540px] table-fixed border-separate border-spacing-0">
               <TableHeader className="bg-slate-50/80">
                 <TableRow>
-                  <TableHead className="min-w-[240px]">ФИО</TableHead>
-                  <TableHead className="min-w-[180px]">Подразделение</TableHead>
-                  <TableHead className="min-w-[180px]">Должность</TableHead>
-                  <TableHead className="min-w-[120px]">Доля ставки</TableHead>
-                  <TableHead className="min-w-[140px]">Оклад</TableHead>
+                  <TableHead
+                    className="sticky left-0 z-30 box-border border-r bg-slate-50"
+                    style={{ width: stickyColumnStyles.fullName.width, minWidth: stickyColumnStyles.fullName.width, maxWidth: stickyColumnStyles.fullName.width }}
+                  >
+                    ФИО
+                  </TableHead>
+                  <TableHead
+                    className="sticky z-30 box-border border-r bg-slate-50"
+                    style={{ left: stickyColumnStyles.department.left, width: stickyColumnStyles.department.width, minWidth: stickyColumnStyles.department.width, maxWidth: stickyColumnStyles.department.width }}
+                  >
+                    Подразделение
+                  </TableHead>
+                  <TableHead
+                    className="sticky z-30 box-border border-r bg-slate-50"
+                    style={{ left: stickyColumnStyles.position.left, width: stickyColumnStyles.position.width, minWidth: stickyColumnStyles.position.width, maxWidth: stickyColumnStyles.position.width }}
+                  >
+                    Должность
+                  </TableHead>
+                  <TableHead
+                    className="sticky z-30 box-border border-r bg-slate-50"
+                    style={{ left: stickyColumnStyles.rate.left, width: stickyColumnStyles.rate.width, minWidth: stickyColumnStyles.rate.width, maxWidth: stickyColumnStyles.rate.width }}
+                  >
+                    Доля ставки
+                  </TableHead>
+                  <TableHead
+                    className="sticky z-30 box-border border-r bg-slate-50 shadow-[1px_0_0_0_rgba(203,213,225,1)]"
+                    style={{ left: stickyColumnStyles.salary.left, width: stickyColumnStyles.salary.width, minWidth: stickyColumnStyles.salary.width, maxWidth: stickyColumnStyles.salary.width }}
+                  >
+                    Оклад
+                  </TableHead>
                   {monthLabels.map((month) => (
-                    <TableHead key={month} className="min-w-[140px] text-center">
+                    <TableHead key={month} className="min-w-[140px] text-center" style={{ width: 140 }}>
                       {month}
                     </TableHead>
                   ))}
@@ -329,12 +380,37 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
                   </TableRow>
                 ) : (
                   rows.map((row) => (
-                    <TableRow key={row.employeeId}>
-                      <TableCell className="font-medium text-slate-900">{row.fullName}</TableCell>
-                      <TableCell>{row.department}</TableCell>
-                      <TableCell>{row.position}</TableCell>
-                      <TableCell>{formatDecimal(row.rate)}</TableCell>
-                      <TableCell>{formatCurrency(row.salary)}</TableCell>
+                    <TableRow key={row.employeeId} className="group">
+                      <TableCell
+                        className="sticky left-0 z-20 box-border border-r bg-white font-medium text-slate-900 group-hover:bg-white"
+                        style={{ width: stickyColumnStyles.fullName.width, minWidth: stickyColumnStyles.fullName.width, maxWidth: stickyColumnStyles.fullName.width }}
+                      >
+                        {row.fullName}
+                      </TableCell>
+                      <TableCell
+                        className="sticky z-20 box-border border-r bg-white group-hover:bg-white"
+                        style={{ left: stickyColumnStyles.department.left, width: stickyColumnStyles.department.width, minWidth: stickyColumnStyles.department.width, maxWidth: stickyColumnStyles.department.width }}
+                      >
+                        {row.department}
+                      </TableCell>
+                      <TableCell
+                        className="sticky z-20 box-border border-r bg-white group-hover:bg-white"
+                        style={{ left: stickyColumnStyles.position.left, width: stickyColumnStyles.position.width, minWidth: stickyColumnStyles.position.width, maxWidth: stickyColumnStyles.position.width }}
+                      >
+                        {row.position}
+                      </TableCell>
+                      <TableCell
+                        className="sticky z-20 box-border border-r bg-white group-hover:bg-white"
+                        style={{ left: stickyColumnStyles.rate.left, width: stickyColumnStyles.rate.width, minWidth: stickyColumnStyles.rate.width, maxWidth: stickyColumnStyles.rate.width }}
+                      >
+                        {formatDecimal(row.rate)}
+                      </TableCell>
+                      <TableCell
+                        className="sticky z-20 box-border border-r bg-white shadow-[1px_0_0_0_rgba(203,213,225,1)] group-hover:bg-white"
+                        style={{ left: stickyColumnStyles.salary.left, width: stickyColumnStyles.salary.width, minWidth: stickyColumnStyles.salary.width, maxWidth: stickyColumnStyles.salary.width }}
+                      >
+                        {formatCurrency(row.salary)}
+                      </TableCell>
                       {monthLabels.map((_, index) => {
                         const month = String(index + 1)
 
@@ -358,6 +434,50 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
                       })}
                     </TableRow>
                   ))
+                )}
+
+                {!loading && rows.length > 0 && (
+                  <TableRow className="bg-slate-50/90 hover:bg-slate-50/90">
+                    <TableCell
+                      className="sticky left-0 z-20 box-border border-r bg-slate-50 font-semibold text-slate-900"
+                      style={{ width: stickyColumnStyles.fullName.width, minWidth: stickyColumnStyles.fullName.width, maxWidth: stickyColumnStyles.fullName.width }}
+                    >
+                      Итого
+                    </TableCell>
+                    <TableCell
+                      className="sticky z-20 box-border border-r bg-slate-50 text-muted-foreground"
+                      style={{ left: stickyColumnStyles.department.left, width: stickyColumnStyles.department.width, minWidth: stickyColumnStyles.department.width, maxWidth: stickyColumnStyles.department.width }}
+                    >
+                      —
+                    </TableCell>
+                    <TableCell
+                      className="sticky z-20 box-border border-r bg-slate-50 text-muted-foreground"
+                      style={{ left: stickyColumnStyles.position.left, width: stickyColumnStyles.position.width, minWidth: stickyColumnStyles.position.width, maxWidth: stickyColumnStyles.position.width }}
+                    >
+                      —
+                    </TableCell>
+                    <TableCell
+                      className="sticky z-20 box-border border-r bg-slate-50 font-semibold"
+                      style={{ left: stickyColumnStyles.rate.left, width: stickyColumnStyles.rate.width, minWidth: stickyColumnStyles.rate.width, maxWidth: stickyColumnStyles.rate.width }}
+                    >
+                      {formatDecimal(totalRate)}
+                    </TableCell>
+                    <TableCell
+                      className="sticky z-20 box-border border-r bg-slate-50 shadow-[1px_0_0_0_rgba(203,213,225,1)] font-semibold"
+                      style={{ left: stickyColumnStyles.salary.left, width: stickyColumnStyles.salary.width, minWidth: stickyColumnStyles.salary.width, maxWidth: stickyColumnStyles.salary.width }}
+                    >
+                      {formatCurrency(totalSalary)}
+                    </TableCell>
+                    {monthLabels.map((_, index) => {
+                      const month = String(index + 1)
+
+                      return (
+                        <TableCell key={`total-${month}`} className="text-right font-semibold text-slate-800">
+                          {formatCurrency(monthTotals[month])}
+                        </TableCell>
+                      )
+                    })}
+                  </TableRow>
                 )}
               </TableBody>
             </Table>
