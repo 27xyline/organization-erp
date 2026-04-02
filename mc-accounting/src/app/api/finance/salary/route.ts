@@ -46,6 +46,9 @@ export async function GET(request: NextRequest) {
       ? await prisma.financePlanEntry.findMany({
           where: {
             year,
+            projectId: {
+              not: null,
+            },
             type: {
               in: [FinancePlanType.OKLAD, FinancePlanType.NADBAVKA],
             },
@@ -53,12 +56,28 @@ export async function GET(request: NextRequest) {
               in: employeeIds,
             },
           },
+          include: {
+            project: {
+              select: {
+                id: true,
+                code: true,
+              },
+            },
+          },
         })
       : []
 
-    const entryMap = new Map(
-      entries.map((entry) => [`${entry.employeeId}:${entry.month}:${entry.type}`, Number(entry.amount)])
-    )
+    const monthEntryMap = new Map<string, Array<{ amount: number; projectCode: string }>>()
+
+    entries.forEach((entry) => {
+      const key = `${entry.employeeId}:${entry.month}`
+      const currentEntries = monthEntryMap.get(key) || []
+      currentEntries.push({
+        amount: Number(entry.amount),
+        projectCode: entry.project?.code || '',
+      })
+      monthEntryMap.set(key, currentEntries)
+    })
 
     const rows = employees.map((employee) => ({
       employeeId: employee.id,
@@ -70,10 +89,20 @@ export async function GET(request: NextRequest) {
       months: Object.fromEntries(
         Array.from({ length: 12 }, (_, index) => {
           const month = index + 1
-          const okladAmount = entryMap.get(`${employee.id}:${month}:${FinancePlanType.OKLAD}`) || 0
-          const nadbavkaAmount = entryMap.get(`${employee.id}:${month}:${FinancePlanType.NADBAVKA}`) || 0
+          const values = monthEntryMap.get(`${employee.id}:${month}`) || []
+          const totalAmount = values.reduce((sum, value) => sum + value.amount, 0)
+          const projectCodes = Array.from(new Set(values.map((value) => value.projectCode).filter(Boolean)))
 
-          return [String(month), (okladAmount + nadbavkaAmount).toFixed(2)]
+          return [
+            String(month),
+            {
+              amount: totalAmount.toFixed(2),
+              projectId: null,
+              projectCode: projectCodes.length === 1 ? projectCodes[0] : '',
+              projectName: '',
+              projectLabel: projectCodes.join(', '),
+            },
+          ]
         })
       ),
     }))
@@ -81,6 +110,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       year,
       rows,
+      projects: [],
     })
   } catch (error) {
     console.error('Error fetching salary table:', error)

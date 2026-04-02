@@ -208,6 +208,7 @@ export function FinderSidebar() {
               <Link
                 key={child.id}
                 href={child.href}
+                prefetch={false}
                 className={cn(
                   "w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg transition-colors",
                   "hover:bg-accent hover:text-accent-foreground pl-10",

@@ -1,12 +1,13 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { FinancePlanType } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ArrowLeft, ArrowRightLeft, Calendar, CheckSquare, Edit, FolderKanban, Target, Trophy, Wallet } from 'lucide-react'
 import { ProjectStatusLabels } from '@/types'
-import { formatDate, formatCurrency } from '@/lib/utils'
+import { formatDate, formatCurrency, formatDateTime } from '@/lib/utils'
 import { ProjectGantt } from './gantt-client'
 
 interface ProjectPageProps {
@@ -36,8 +37,22 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
           },
         },
       },
+      financePlanEntries: {
+        include: {
+          employee: {
+            select: {
+              id: true,
+              fullName: true,
+              department: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      },
       _count: {
-        select: { assets: true, tasksList: true }
+        select: { assets: true, tasksList: true, financePlanEntries: true }
       }
     }
   })
@@ -104,6 +119,67 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   const disposalTotal = projectJournalEntries
     .filter((entry) => entry.type === 'DISPOSAL')
     .reduce((sum, entry) => sum + entry.totalCost, 0)
+
+  const financeTypeLabels: Record<FinancePlanType, string> = {
+    OKLAD: 'Оклад',
+    NADBAVKA: 'Надбавка',
+  }
+
+  const monthFormatter = new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' })
+
+  const projectFinanceEntries = project.financePlanEntries.map((entry) => ({
+    id: entry.id,
+    type: entry.type,
+    employeeId: entry.employee.id,
+    employeeName: entry.employee.fullName,
+    employeeDepartment: entry.employee.department,
+    monthLabel: `${monthFormatter.format(new Date(entry.year, entry.month - 1, 1)).charAt(0).toUpperCase()}${monthFormatter.format(new Date(entry.year, entry.month - 1, 1)).slice(1)}`,
+    amount: Number(entry.amount),
+    createdAt: entry.createdAt,
+  }))
+
+  const projectFinanceGroups = Array.from(
+    projectFinanceEntries.reduce((groups, entry) => {
+      const currentGroup = groups.get(entry.employeeId)
+
+      if (currentGroup) {
+        currentGroup.total += entry.amount
+        currentGroup.entries.push(entry)
+        if (entry.createdAt > currentGroup.latestCreatedAt) {
+          currentGroup.latestCreatedAt = entry.createdAt
+        }
+      } else {
+        groups.set(entry.employeeId, {
+          employeeId: entry.employeeId,
+          employeeName: entry.employeeName,
+          employeeDepartment: entry.employeeDepartment,
+          total: entry.amount,
+          latestCreatedAt: entry.createdAt,
+          entries: [entry],
+        })
+      }
+
+      return groups
+    }, new Map<string, {
+      employeeId: string
+      employeeName: string
+      employeeDepartment: string
+      total: number
+      latestCreatedAt: Date
+      entries: typeof projectFinanceEntries
+    }>())
+  ).map(([, group]) => ({
+    ...group,
+    entries: group.entries.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+  })).sort((a, b) => new Date(b.latestCreatedAt).getTime() - new Date(a.latestCreatedAt).getTime())
+
+  const financeTotal = projectFinanceEntries.reduce((sum, entry) => sum + entry.amount, 0)
+  const okladTotal = projectFinanceEntries
+    .filter((entry) => entry.type === FinancePlanType.OKLAD)
+    .reduce((sum, entry) => sum + entry.amount, 0)
+  const nadbavkaTotal = projectFinanceEntries
+    .filter((entry) => entry.type === FinancePlanType.NADBAVKA)
+    .reduce((sum, entry) => sum + entry.amount, 0)
 
   return (
     <main className="container mx-auto py-8 px-4">
@@ -389,6 +465,84 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mt-8 overflow-hidden">
+        <CardHeader className="border-b bg-slate-50/80">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Wallet className="h-4 w-4" />
+            Финансовые действия проекта
+          </CardTitle>
+          <CardDescription>
+            Начисления по сотрудникам из разделов `Оклад` и `Надбавка`, связанные с этим проектом.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="grid gap-3 md:grid-cols-4">
+            <div className="rounded-lg border bg-muted/30 p-4">
+              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Всего действий</p>
+              <p className="mt-2 text-sm font-medium">{project._count.financePlanEntries}</p>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-4">
+              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Оклад</p>
+              <p className="mt-2 text-sm font-medium">{formatCurrency(okladTotal)}</p>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-4">
+              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Надбавка</p>
+              <p className="mt-2 text-sm font-medium">{formatCurrency(nadbavkaTotal)}</p>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-4">
+              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Итого</p>
+              <p className="mt-2 text-sm font-medium">{formatCurrency(financeTotal)}</p>
+            </div>
+          </div>
+
+          {projectFinanceGroups.length > 0 ? (
+            <div className="mt-6 space-y-3">
+              {projectFinanceGroups.map((group) => (
+                <div key={group.employeeId} className="rounded-xl border p-4 transition-colors hover:bg-slate-50/70">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-slate-900">{group.employeeName}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{group.employeeDepartment}</p>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-900">{formatCurrency(group.total)}</p>
+                  </div>
+
+                  <div className="mt-4 space-y-3">
+                    {group.entries.map((entry) => (
+                      <div key={entry.id} className="rounded-lg border bg-white px-4 py-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className={entry.type === FinancePlanType.OKLAD ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-violet-200 bg-violet-50 text-violet-700'}>
+                                {financeTypeLabels[entry.type]}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">{entry.monthLabel}</span>
+                            </div>
+                            <div className="mt-3 text-xs text-muted-foreground">
+                              Создано: {formatDateTime(entry.createdAt)}
+                            </div>
+                          </div>
+                          <p className="text-sm font-semibold text-slate-900">{formatCurrency(entry.amount)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-6 flex min-h-[220px] items-center justify-center rounded-xl border border-dashed bg-slate-50/70 p-6 text-center">
+              <div>
+                <p className="text-sm font-medium text-slate-900">Пока нет финансовых действий по этому проекту</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Как только в разделах `Оклад` или `Надбавка` появятся начисления с привязкой к проекту, они будут отображаться здесь.
+                </p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </main>
   )
 }
