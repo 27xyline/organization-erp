@@ -65,8 +65,8 @@ const staticMenuItems: Omit<MenuItem, 'children'>[] = [
 
 const financeChildren = [
   { id: "salary", label: "Заработная плата", icon: <Wallet className="h-4 w-4" />, href: "/finance/salary" },
-  { id: "budget-planning", label: "Планирование бюджета", icon: <Calculator className="h-4 w-4" />, href: "#" },
-  { id: "reports", label: "Отчеты Аналитика", icon: <BarChart3 className="h-4 w-4" />, href: "#" },
+  { id: "oklad", label: "Оклад", icon: <Calculator className="h-4 w-4" />, href: "/finance/oklad" },
+  { id: "nadbavka", label: "Надбавка", icon: <BarChart3 className="h-4 w-4" />, href: "/finance/nadbavka" },
   { id: "cash", label: "Касса", icon: <Receipt className="h-4 w-4" />, href: "#" },
 ]
 

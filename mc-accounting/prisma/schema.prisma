@@ -272,6 +272,7 @@ model Employee {
   vacations   Vacation[]
   actions     PersonnelAction[]
   salaryEntries SalaryEntry[]
+  financePlanEntries FinancePlanEntry[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -326,6 +327,30 @@ model SalaryEntry {
   @@unique([employeeId, year, month])
   @@index([year, month])
   @@map("salary_entries")
+}
+
+enum FinancePlanType {
+  OKLAD
+  NADBAVKA
+
+  @@map("finance_plan_type")
+}
+
+model FinancePlanEntry {
+  id          String          @id @default(cuid())
+  employeeId  String
+  employee    Employee        @relation(fields: [employeeId], references: [id])
+  year        Int
+  month       Int
+  type        FinancePlanType
+  amount      Decimal         @db.Decimal(12, 2)
+
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@unique([employeeId, year, month, type])
+  @@index([year, month, type])
+  @@map("finance_plan_entries")
 }
 
 model PersonnelAction {

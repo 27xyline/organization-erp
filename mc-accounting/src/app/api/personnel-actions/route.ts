@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-
-const getStartOfToday = () => {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return today
-}
+import { findOccupiedEmployeeByStaffSchedule } from '@/lib/employees'
 
 const employeeSelect = {
   id: true,
@@ -107,14 +102,7 @@ export async function POST(request: NextRequest) {
           : null
 
         const occupiedHirePosition = data.employeeData.staffScheduleId
-          ? await tx.employee.findFirst({
-              where: {
-                staffScheduleId: data.employeeData.staffScheduleId,
-                status: {
-                  not: 'DISMISSED',
-                },
-              },
-            })
+          ? await findOccupiedEmployeeByStaffSchedule(tx, data.employeeData.staffScheduleId)
           : null
 
         const contractSignedDate = data.employeeData.contractSignedDate
@@ -202,17 +190,7 @@ export async function POST(request: NextRequest) {
       }
 
       if (data.type === 'TRANSFER' && data.staffScheduleId) {
-        const occupiedPosition = await tx.employee.findFirst({
-          where: {
-            id: {
-              not: employee.id,
-            },
-            staffScheduleId: data.staffScheduleId,
-            status: {
-              not: 'DISMISSED',
-            },
-          },
-        })
+        const occupiedPosition = await findOccupiedEmployeeByStaffSchedule(tx, data.staffScheduleId, employee.id)
 
         if (occupiedPosition) {
           throw new Error('POSITION_OCCUPIED')

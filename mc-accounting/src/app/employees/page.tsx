@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -22,7 +23,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
 import { VacationGantt } from '@/components/vacation-gantt'
-import { cn, formatCurrency, formatDate, formatDecimal } from '@/lib/utils'
+import { cn, formatCurrency, formatDate, formatDateTime, formatDecimal } from '@/lib/utils'
 import {
   Archive,
   ArrowRightLeft,
@@ -369,6 +370,8 @@ export default function EmployeesPage() {
         const data = await staffResponse.json()
         setStaffSchedule(data.map(normalizeStaffSchedule))
       }
+
+      await fetch('/api/personnel-actions/sync', { method: 'POST' })
 
       const actionsResponse = await fetch('/api/personnel-actions')
 
@@ -1158,7 +1161,10 @@ export default function EmployeesPage() {
 
                           <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
                             <div className="flex flex-wrap items-center gap-2">
-                              <span>{formatDate(action.date)}</span>
+                              <span>Создано: {formatDateTime(action.createdAt)}</span>
+                              {action.createdAt.getTime() !== action.date.getTime() && (
+                                <span>Дата события: {formatDate(action.date)}</span>
+                              )}
                               {(action.oldDepartment || action.newDepartment) && (
                                 <span>
                                   {action.oldDepartment || '—'} {'->'} {action.newDepartment || '—'}
@@ -1309,6 +1315,9 @@ export default function EmployeesPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingEmployee ? 'Редактировать сотрудника' : 'Новый сотрудник'}</DialogTitle>
+            <DialogDescription>
+              Заполни карточку сотрудника и выбери должность из штатного расписания.
+            </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSaveEmployee} className="space-y-4">
@@ -1426,6 +1435,9 @@ export default function EmployeesPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingStaff ? 'Редактировать должность' : 'Новая должность'}</DialogTitle>
+            <DialogDescription>
+              Укажи параметры штатной единицы, которая будет доступна для назначения сотрудникам.
+            </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSaveStaff} className="space-y-4">
@@ -1499,6 +1511,9 @@ export default function EmployeesPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingVacation ? 'Редактировать отпуск' : 'Новая запись отпуска'}</DialogTitle>
+            <DialogDescription>
+              Заполни период и тип отсутствия сотрудника для графика отпусков.
+            </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSaveVacation} className="space-y-4">
@@ -1578,6 +1593,9 @@ export default function EmployeesPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Новое кадровое действие</DialogTitle>
+            <DialogDescription>
+              Создай кадровое действие для выбранного сотрудника и сохрани изменения в журнале.
+            </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSaveAction} className="space-y-4">

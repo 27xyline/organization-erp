@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
+import { findOccupiedEmployeeByStaffSchedule } from '@/lib/employees'
 
 // PUT /api/employees/[id] - Update employee
 export async function PUT(
@@ -62,17 +63,7 @@ export async function PUT(
       }
 
       if (data.staffScheduleId) {
-        const occupiedPosition = await tx.employee.findFirst({
-          where: {
-            id: {
-              not: params.id,
-            },
-            staffScheduleId: data.staffScheduleId,
-            status: {
-              not: 'DISMISSED',
-            },
-          },
-        })
+        const occupiedPosition = await findOccupiedEmployeeByStaffSchedule(tx, data.staffScheduleId, params.id)
 
         if (occupiedPosition) {
           throw new Error('POSITION_OCCUPIED')
