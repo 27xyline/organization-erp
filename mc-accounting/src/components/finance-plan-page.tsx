@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Wallet } from 'lucide-react'
+import { Plus, Trash2, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -29,6 +29,12 @@ interface FinanceMonthCell {
   projectCode: string
   projectName: string
   projectLabel?: string
+  allocations?: Array<{
+    projectId: string
+    projectCode: string
+    projectName: string
+    amount: string
+  }>
 }
 
 interface FinancePlanRow {
@@ -118,6 +124,13 @@ const emptyCell = (): FinanceMonthCell => ({
   projectCode: '',
   projectName: '',
   projectLabel: '',
+  allocations: [],
+})
+
+const createEmptyAllocation = () => ({
+  localId: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  projectId: '',
+  amount: '',
 })
 
 const formatAmountValue = (value: string) => {
@@ -142,6 +155,7 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
   const [selectedCell, setSelectedCell] = useState<{
     employeeId: string
     employeeName: string
+    employeeSalary: string
     month: number
     cell: FinanceMonthCell
   } | null>(null)
@@ -149,6 +163,11 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
     projectId: '',
     amount: '',
   })
+  const [allocationRows, setAllocationRows] = useState<Array<{
+    localId: string
+    projectId: string
+    amount: string
+  }>>([])
 
   const loadFinanceTable = useCallback(async () => {
     try {
@@ -202,6 +221,7 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
     setSelectedCell({
       employeeId: row.employeeId,
       employeeName: row.fullName,
+      employeeSalary: row.salary,
       month,
       cell,
     })
@@ -209,21 +229,61 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
       projectId: cell.projectId || '',
       amount: cell.amount === '0.00' ? '' : cell.amount,
     })
+    setAllocationRows(
+      cell.allocations && cell.allocations.length > 0
+        ? cell.allocations.map((allocation, index) => ({
+            localId: `${allocation.projectId}-${index}`,
+            projectId: allocation.projectId,
+            amount: allocation.amount,
+          }))
+        : [createEmptyAllocation()]
+    )
   }
 
   const closeCellDialog = () => {
     setSelectedCell(null)
     setCellForm({ projectId: '', amount: '' })
+    setAllocationRows([])
   }
 
   const saveCell = async () => {
     if (!selectedCell || !config.saveType) return
 
-    const normalizedAmount = formatAmountValue(cellForm.amount)
+    const normalizedAmount = config.saveType === 'oklad'
+      ? formatAmountValue(selectedCell.employeeSalary)
+      : formatAmountValue(cellForm.amount)
 
-    if (!cellForm.projectId || Number(normalizedAmount) <= 0) {
-      alert('Выберите проект и введите сумму больше нуля')
+    const normalizedAllocations = config.saveType === 'nadbavka'
+      ? allocationRows
+          .filter((allocation) => allocation.projectId || allocation.amount)
+          .map((allocation) => ({
+            projectId: allocation.projectId,
+            amount: formatAmountValue(allocation.amount),
+          }))
+      : []
+
+    if (config.saveType === 'oklad' && !cellForm.projectId) {
+      alert('Выберите проект')
       return
+    }
+
+    if (config.saveType === 'oklad' && Number(normalizedAmount) <= 0) {
+      alert(config.saveType === 'oklad' ? 'Для сотрудника не задан оклад' : 'Введите сумму больше нуля')
+      return
+    }
+
+    if (config.saveType === 'nadbavka') {
+      if (normalizedAllocations.length === 0) {
+        alert('Добавьте хотя бы одно начисление')
+        return
+      }
+
+      const hasIncompleteAllocation = normalizedAllocations.some((allocation) => !allocation.projectId || Number(allocation.amount) <= 0)
+
+      if (hasIncompleteAllocation) {
+        alert('Заполните проект и сумму для каждой строки надбавки')
+        return
+      }
     }
 
     try {
@@ -237,8 +297,9 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
           year: currentYear,
           month: selectedCell.month,
           type: config.saveType,
-          projectId: cellForm.projectId,
-          amount: normalizedAmount,
+          projectId: config.saveType === 'oklad' ? cellForm.projectId : undefined,
+          amount: config.saveType === 'oklad' ? normalizedAmount : undefined,
+          allocations: config.saveType === 'nadbavka' ? normalizedAllocations : undefined,
         }),
       })
 
@@ -292,7 +353,10 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
   const renderCellValue = (cell: FinanceMonthCell) => {
     const amount = Number(cell.amount)
     const hasValue = amount > 0
-    const projectLabel = cell.projectLabel || cell.projectCode
+    const shouldShowProjectLabel = type !== 'nadbavka'
+    const projectLabel = shouldShowProjectLabel
+      ? (cell.projectLabel?.includes(',') ? '' : (cell.projectLabel || cell.projectCode))
+      : ''
 
     if (!hasValue) {
       return <span className="text-muted-foreground">—</span>
@@ -451,56 +515,134 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
           <DialogHeader>
             <DialogTitle>{config.title}: {selectedCell ? monthLabels[selectedCell.month - 1] : ''}</DialogTitle>
             <DialogDescription>
-              Выбери проект и укажи сумму. Эта сумма будет списана из бюджета проекта и отобразится в таблице.
+              {config.saveType === 'oklad'
+                ? 'Выбери проект. Сумма будет автоматически взята из оклада сотрудника и списана из бюджета проекта.'
+                : 'Выбери проект и укажи сумму. Эта сумма будет списана из бюджета проекта и отобразится в таблице.'}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="rounded-lg border bg-muted/30 p-4 text-sm">
               <p className="font-medium text-slate-900">{selectedCell?.employeeName}</p>
+              {config.saveType === 'oklad' && (
+                <p className="mt-2 text-muted-foreground">
+                  Оклад сотрудника: {selectedCell ? formatCurrency(selectedCell.employeeSalary) : '—'}
+                </p>
+              )}
               {selectedCell?.cell.projectCode ? (
                 <p className="mt-2 text-muted-foreground">
-                  Текущий проект: {selectedCell.cell.projectCode}
+                  Текущий проект: {selectedCell.cell.projectLabel || selectedCell.cell.projectCode}
                 </p>
               ) : null}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="finance-project">Проект</Label>
-              <Select value={cellForm.projectId} onValueChange={(value) => setCellForm((prev) => ({ ...prev, projectId: value }))}>
-                <SelectTrigger id="finance-project">
-                  <SelectValue placeholder="Выберите проект" />
-                </SelectTrigger>
-                <SelectContent>
-                  {projects.map((project) => (
-                    <SelectItem key={project.id} value={project.id}>
-                      {project.code} — {project.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {cellForm.projectId && (
-                <div className="rounded-md border bg-slate-50 px-3 py-2 text-xs text-muted-foreground">
-                  {(() => {
-                    const project = projects.find((item) => item.id === cellForm.projectId)
-                    return project
-                      ? `Остаток бюджета: ${formatCurrency(project.remainingBudget)}`
-                      : 'Проект не найден'
-                  })()}
+            {config.saveType === 'oklad' ? (
+              <div className="space-y-2">
+                <Label htmlFor="finance-project">Проект</Label>
+                <Select value={cellForm.projectId} onValueChange={(value) => setCellForm((prev) => ({ ...prev, projectId: value }))}>
+                  <SelectTrigger id="finance-project">
+                    <SelectValue placeholder="Выберите проект" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.code} — {project.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {cellForm.projectId && (
+                  <div className="rounded-md border bg-slate-50 px-3 py-2 text-xs text-muted-foreground">
+                    {(() => {
+                      const project = projects.find((item) => item.id === cellForm.projectId)
+                      return project
+                        ? `Остаток бюджета: ${formatCurrency(project.remainingBudget)}`
+                        : 'Проект не найден'
+                    })()}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Проекты и суммы</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={() => setAllocationRows((current) => [...current, createEmptyAllocation()])}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Добавить проект
+                  </Button>
                 </div>
-              )}
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="finance-amount">Сумма</Label>
-              <Input
-                id="finance-amount"
-                value={cellForm.amount}
-                onChange={(e) => setCellForm((prev) => ({ ...prev, amount: e.target.value.replace(',', '.') }))}
-                inputMode="decimal"
-                placeholder="0.00"
-              />
-            </div>
+                <div className="space-y-3">
+                  {allocationRows.map((allocation, index) => (
+                    <div key={allocation.localId} className="rounded-lg border p-4">
+                      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_44px] md:items-start">
+                        <div className="space-y-3">
+                          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
+                            <div className="space-y-2">
+                              <Label htmlFor={`finance-project-${allocation.localId}`}>Проект {index + 1}</Label>
+                              <Select
+                                value={allocation.projectId}
+                                onValueChange={(value) => setAllocationRows((current) => current.map((row) => row.localId === allocation.localId ? { ...row, projectId: value } : row))}
+                              >
+                                <SelectTrigger id={`finance-project-${allocation.localId}`}>
+                                  <SelectValue placeholder="Выберите проект" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {projects.map((project) => (
+                                    <SelectItem key={project.id} value={project.id}>
+                                      {project.code} — {project.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label htmlFor={`finance-amount-${allocation.localId}`}>Сумма</Label>
+                              <Input
+                                id={`finance-amount-${allocation.localId}`}
+                                value={allocation.amount}
+                                onChange={(e) => setAllocationRows((current) => current.map((row) => row.localId === allocation.localId ? { ...row, amount: e.target.value.replace(',', '.') } : row))}
+                                inputMode="decimal"
+                                placeholder="0.00"
+                              />
+                            </div>
+                          </div>
+
+                          {allocation.projectId && (
+                            <div className="rounded-md border bg-slate-50 px-4 py-3 text-sm text-muted-foreground">
+                              {(() => {
+                                const project = projects.find((item) => item.id === allocation.projectId)
+                                return project
+                                  ? (
+                                    <div className="flex items-center justify-between gap-3">
+                                      <span>Остаток бюджета:</span>
+                                      <span className="font-medium text-slate-700">{formatCurrency(project.remainingBudget)}</span>
+                                    </div>
+                                  )
+                                  : 'Проект не найден'
+                              })()}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-end md:pt-8">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10 text-red-500 hover:text-red-700"
+                            onClick={() => setAllocationRows((current) => current.length > 1 ? current.filter((row) => row.localId !== allocation.localId) : [createEmptyAllocation()])}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-between gap-2 pt-2">
               <div>

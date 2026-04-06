@@ -57,6 +57,35 @@ const getProjectsForFinance = async () => {
   }))
 }
 
+const buildCellPayload = (entries: Array<{
+  amount: Prisma.Decimal | number
+  projectId: string | null
+  project?: { id: string; code: string; name: string } | null
+}>) => {
+  const allocations = entries
+    .filter((entry) => entry.projectId)
+    .map((entry) => ({
+      projectId: entry.projectId,
+      projectCode: entry.project?.code || '',
+      projectName: entry.project?.name || '',
+      amount: Number(entry.amount).toFixed(2),
+    }))
+    .sort((left, right) => left.projectCode.localeCompare(right.projectCode, 'ru', { sensitivity: 'base' }))
+
+  const totalAmount = allocations.reduce((sum, allocation) => sum + Number(allocation.amount), 0)
+  const projectCodes = Array.from(new Set(allocations.map((allocation) => allocation.projectCode).filter(Boolean)))
+  const singleAllocation = allocations.length === 1 ? allocations[0] : null
+
+  return {
+    amount: totalAmount.toFixed(2),
+    projectId: singleAllocation?.projectId || null,
+    projectCode: singleAllocation?.projectCode || '',
+    projectName: singleAllocation?.projectName || '',
+    projectLabel: projectCodes.join(', '),
+    allocations,
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const yearParam = request.nextUrl.searchParams.get('year')
@@ -128,17 +157,13 @@ export async function GET(request: NextRequest) {
         })
       : []
 
-    const entryMap = new Map(
-      entries.map((entry) => [
-        `${entry.employeeId}:${entry.month}`,
-        {
-          amount: Number(entry.amount).toFixed(2),
-          projectId: entry.projectId,
-          projectCode: entry.project?.code || '',
-          projectName: entry.project?.name || '',
-        },
-      ])
-    )
+    const entryGroups = entries.reduce((groups, entry) => {
+      const key = `${entry.employeeId}:${entry.month}`
+      const currentEntries = groups.get(key) || []
+      currentEntries.push(entry)
+      groups.set(key, currentEntries)
+      return groups
+    }, new Map<string, typeof entries>())
 
     const rows = employees.map((employee) => ({
       employeeId: employee.id,
@@ -152,12 +177,7 @@ export async function GET(request: NextRequest) {
           const month = index + 1
           return [
             String(month),
-            entryMap.get(`${employee.id}:${month}`) || {
-              amount: '0.00',
-              projectId: null,
-              projectCode: '',
-              projectName: '',
-            },
+            buildCellPayload(entryGroups.get(`${employee.id}:${month}`) || []),
           ]
         })
       ),
@@ -185,7 +205,10 @@ export async function POST(request: NextRequest) {
     const type = getPlanType(data?.type)
     const employeeId = typeof data?.employeeId === 'string' ? data.employeeId : null
     const projectId = typeof data?.projectId === 'string' ? data.projectId : null
-    const amount = getNormalizedAmount(data?.amount)
+    const rawAmount = typeof data?.amount === 'string' ? data.amount : null
+    const rawAllocations = Array.isArray(data?.allocations)
+      ? data.allocations as Array<{ projectId?: string; amount?: string }>
+      : null
 
     if (!type) {
       return NextResponse.json(
@@ -194,9 +217,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!employeeId || !projectId || !amount) {
+    if (!employeeId) {
       return NextResponse.json(
-        { error: 'Employee, project and amount are required' },
+        { error: 'Employee is required' },
         { status: 400 }
       )
     }
@@ -208,8 +231,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const amountDecimal = new Prisma.Decimal(amount)
-
     const result = await prisma.$transaction(async (tx) => {
       const employee = await tx.employee.findFirst({
         where: {
@@ -218,76 +239,161 @@ export async function POST(request: NextRequest) {
             not: 'DISMISSED',
           },
         },
+        include: {
+          staffSchedule: {
+            select: {
+              salary: true,
+            },
+          },
+        },
       })
 
       if (!employee) {
         throw new Error('INVALID_EMPLOYEE_SELECTION')
       }
 
-      const project = await tx.project.findUnique({
-        where: { id: projectId },
-      })
+      const normalizedAllocations = type === FinancePlanType.OKLAD
+        ? (() => {
+            if (!projectId) {
+              throw new Error('PROJECT_REQUIRED')
+            }
 
-      if (!project) {
-        throw new Error('PROJECT_NOT_FOUND')
-      }
+            const amount = Number(employee.staffSchedule?.salary ?? 0).toFixed(2)
 
-      const existingEntry = await tx.financePlanEntry.findUnique({
+            if (Number(amount) <= 0) {
+              throw new Error('INVALID_OKLAD_AMOUNT')
+            }
+
+            return [{ projectId, amount }]
+          })()
+        : (() => {
+            if (!rawAllocations || rawAllocations.length === 0) {
+              throw new Error('INVALID_ALLOCATIONS')
+            }
+
+            const allocationMap = new Map<string, number>()
+
+            for (const allocation of rawAllocations) {
+              if (!allocation.projectId) {
+                throw new Error('PROJECT_REQUIRED')
+              }
+
+              const normalizedAmount = getNormalizedAmount(allocation.amount)
+
+              if (!normalizedAmount) {
+                throw new Error('INVALID_FINANCE_AMOUNT')
+              }
+
+              allocationMap.set(
+                allocation.projectId,
+                (allocationMap.get(allocation.projectId) || 0) + Number(normalizedAmount)
+              )
+            }
+
+            return Array.from(allocationMap.entries()).map(([projectId, amount]) => ({
+              projectId,
+              amount: amount.toFixed(2),
+            }))
+          })()
+
+      const projectIds = Array.from(new Set(normalizedAllocations.map((allocation) => allocation.projectId)))
+
+      const projects = await tx.project.findMany({
         where: {
-          employeeId_year_month_type: {
-            employeeId,
-            year,
-            month,
-            type,
+          id: {
+            in: projectIds,
           },
+        },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          plannedBudget: true,
+          actualBudget: true,
         },
       })
 
-      if (existingEntry?.projectId) {
+      if (projects.length !== projectIds.length) {
+        throw new Error('PROJECT_NOT_FOUND')
+      }
+
+      const existingEntries = await tx.financePlanEntry.findMany({
+        where: {
+          employeeId,
+          year,
+          month,
+          type,
+        },
+      })
+
+      for (const existingEntry of existingEntries) {
+        if (existingEntry.projectId) {
+          await tx.project.update({
+            where: { id: existingEntry.projectId },
+            data: {
+              actualBudget: {
+                decrement: existingEntry.amount,
+              },
+            },
+          })
+        }
+      }
+
+      await tx.financePlanEntry.deleteMany({
+        where: {
+          employeeId,
+          year,
+          month,
+          type,
+        },
+      })
+
+      await tx.financePlanEntry.createMany({
+        data: normalizedAllocations.map((allocation) => ({
+          employeeId,
+          year,
+          month,
+          type,
+          projectId: allocation.projectId,
+          amount: new Prisma.Decimal(allocation.amount),
+        })),
+      })
+
+      for (const allocation of normalizedAllocations) {
         await tx.project.update({
-          where: { id: existingEntry.projectId },
+          where: { id: allocation.projectId },
           data: {
             actualBudget: {
-              decrement: existingEntry.amount,
+              increment: new Prisma.Decimal(allocation.amount),
             },
           },
         })
       }
 
-      const entry = await tx.financePlanEntry.upsert({
+      const createdEntries = await tx.financePlanEntry.findMany({
         where: {
-          employeeId_year_month_type: {
-            employeeId,
-            year,
-            month,
-            type,
-          },
-        },
-        update: {
-          projectId,
-          amount: amountDecimal,
-        },
-        create: {
           employeeId,
           year,
           month,
           type,
-          projectId,
-          amount: amountDecimal,
         },
-      })
-
-      await tx.project.update({
-        where: { id: projectId },
-        data: {
-          actualBudget: {
-            increment: amountDecimal,
+        include: {
+          project: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+            },
           },
         },
       })
 
-      const updatedProject = await tx.project.findUnique({
-        where: { id: projectId },
+      const updatedProjects = await tx.project.findMany({
+        where: {
+          id: {
+            in: projectIds,
+          },
+        },
         select: {
           id: true,
           code: true,
@@ -298,27 +404,20 @@ export async function POST(request: NextRequest) {
       })
 
       return {
-        entry,
-        project: updatedProject,
+        entries: createdEntries,
+        projects: updatedProjects,
       }
     })
 
     return NextResponse.json({
       success: true,
-      cell: {
-        amount: Number(result.entry.amount).toFixed(2),
-        projectId,
-        projectCode: result.project?.code || '',
-        projectName: result.project?.name || '',
-      },
-      project: result.project
-        ? {
-            ...result.project,
-            plannedBudget: Number(result.project.plannedBudget).toFixed(2),
-            actualBudget: Number(result.project.actualBudget).toFixed(2),
-            remainingBudget: (Number(result.project.plannedBudget) - Number(result.project.actualBudget)).toFixed(2),
-          }
-        : null,
+      cell: buildCellPayload(result.entries),
+      projects: result.projects.map((project) => ({
+        ...project,
+        plannedBudget: Number(project.plannedBudget).toFixed(2),
+        actualBudget: Number(project.actualBudget).toFixed(2),
+        remainingBudget: (Number(project.plannedBudget) - Number(project.actualBudget)).toFixed(2),
+      })),
     })
   } catch (error) {
     console.error('Error saving finance plan cell:', error)
@@ -335,6 +434,34 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           { error: 'Project not found' },
           { status: 404 }
+        )
+      }
+
+      if (error.message === 'PROJECT_REQUIRED') {
+        return NextResponse.json(
+          { error: 'Выберите проект' },
+          { status: 400 }
+        )
+      }
+
+      if (error.message === 'INVALID_OKLAD_AMOUNT') {
+        return NextResponse.json(
+          { error: 'Для сотрудника не задан оклад' },
+          { status: 400 }
+        )
+      }
+
+      if (error.message === 'INVALID_FINANCE_AMOUNT') {
+        return NextResponse.json(
+          { error: 'Введите сумму больше нуля' },
+          { status: 400 }
+        )
+      }
+
+      if (error.message === 'INVALID_ALLOCATIONS') {
+        return NextResponse.json(
+          { error: 'Добавьте хотя бы одно начисление' },
+          { status: 400 }
         )
       }
     }
@@ -362,40 +489,38 @@ export async function DELETE(request: NextRequest) {
     }
 
     await prisma.$transaction(async (tx) => {
-      const existingEntry = await tx.financePlanEntry.findUnique({
+      const existingEntries = await tx.financePlanEntry.findMany({
         where: {
-          employeeId_year_month_type: {
-            employeeId,
-            year,
-            month,
-            type,
-          },
+          employeeId,
+          year,
+          month,
+          type,
         },
       })
 
-      if (!existingEntry) {
+      if (existingEntries.length === 0) {
         return
       }
 
-      if (existingEntry.projectId) {
-        await tx.project.update({
-          where: { id: existingEntry.projectId },
-          data: {
-            actualBudget: {
-              decrement: existingEntry.amount,
+      for (const existingEntry of existingEntries) {
+        if (existingEntry.projectId) {
+          await tx.project.update({
+            where: { id: existingEntry.projectId },
+            data: {
+              actualBudget: {
+                decrement: existingEntry.amount,
+              },
             },
-          },
-        })
+          })
+        }
       }
 
-      await tx.financePlanEntry.delete({
+      await tx.financePlanEntry.deleteMany({
         where: {
-          employeeId_year_month_type: {
-            employeeId,
-            year,
-            month,
-            type,
-          },
+          employeeId,
+          year,
+          month,
+          type,
         },
       })
     })

@@ -351,7 +351,8 @@ model FinancePlanEntry {
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
-  @@unique([employeeId, year, month, type])
+  @@unique([employeeId, year, month, type, projectId])
+  @@index([employeeId, year, month, type])
   @@index([year, month, type])
   @@map("finance_plan_entries")
 }
