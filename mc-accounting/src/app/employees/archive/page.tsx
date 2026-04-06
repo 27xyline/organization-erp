@@ -28,6 +28,7 @@ interface Employee {
   fullName: string
   department: string
   status: EmployeeStatus
+  employmentRate: number
   contractType: EmploymentContractType
   contractSignedDate?: Date | null
   contractEndDate?: Date | null
@@ -52,6 +53,7 @@ const normalizeEmployee = (employee: any): Employee => ({
   fullName: employee.fullName,
   department: employee.department,
   status: employee.status,
+  employmentRate: Number(employee.employmentRate ?? 0),
   contractType: employee.contractType || 'PRIMARY',
   contractSignedDate: employee.contractSignedDate ? new Date(employee.contractSignedDate) : null,
   contractEndDate: employee.contractEndDate ? new Date(employee.contractEndDate) : null,
@@ -321,7 +323,7 @@ export default function EmployeeArchivePage() {
                 <TableRow>
                   <TableHead>ФИО</TableHead>
                   <TableHead>Должность</TableHead>
-                  <TableHead>Доля ставки</TableHead>
+                  <TableHead>Количество ставок</TableHead>
                   <TableHead>Вид трудового договора</TableHead>
                   <TableHead>Срок действия трудового договора</TableHead>
                   <TableHead>Дата подписания трудового договора</TableHead>
@@ -361,7 +363,7 @@ export default function EmployeeArchivePage() {
                             <p className="mt-1 text-xs text-muted-foreground">{employee.department || '—'}</p>
                           </div>
                         </TableCell>
-                        <TableCell>{employee.staffSchedule ? formatDecimal(employee.staffSchedule.rate) : '—'}</TableCell>
+                        <TableCell>{employee.staffSchedule ? formatDecimal(employee.employmentRate) : '—'}</TableCell>
                         <TableCell>{employmentContractTypeLabels[employee.contractType]}</TableCell>
                         <TableCell>{employee.contractEndDate ? formatDate(employee.contractEndDate) : '—'}</TableCell>
                         <TableCell>{employee.contractSignedDate ? formatDate(employee.contractSignedDate) : '—'}</TableCell>

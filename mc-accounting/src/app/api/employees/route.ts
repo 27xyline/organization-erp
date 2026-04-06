@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { findOccupiedEmployeeByStaffSchedule, getStartOfToday } from '@/lib/employees'
+import { getStaffScheduleRateSummary, getStartOfToday } from '@/lib/employees'
 
 // GET /api/employees - Get all employees
 export async function GET(request: NextRequest) {
@@ -67,10 +67,18 @@ export async function POST(request: NextRequest) {
     const data = await request.json()
     const contractSignedDate = data.contractSignedDate ? new Date(data.contractSignedDate) : null
     const contractEndDate = data.contractEndDate ? new Date(data.contractEndDate) : null
+    const employmentRate = Number(data.employmentRate)
 
     if (!data.staffScheduleId) {
       return NextResponse.json(
-        { error: 'Staff schedule position is required' },
+        { error: 'Должность из штатного расписания обязательна' },
+        { status: 400 }
+      )
+    }
+
+    if (!Number.isFinite(employmentRate) || employmentRate <= 0) {
+      return NextResponse.json(
+        { error: 'Количество ставок сотрудника должно быть больше нуля' },
         { status: 400 }
       )
     }
@@ -105,10 +113,14 @@ export async function POST(request: NextRequest) {
         throw new Error('POSITION_NOT_FOUND')
       }
 
-      const occupiedPosition = await findOccupiedEmployeeByStaffSchedule(tx, data.staffScheduleId)
+      const rateSummary = await getStaffScheduleRateSummary(tx, data.staffScheduleId)
 
-      if (occupiedPosition) {
-        throw new Error('POSITION_OCCUPIED')
+      if (!rateSummary) {
+        throw new Error('POSITION_NOT_FOUND')
+      }
+
+      if (employmentRate > rateSummary.freeRate) {
+        throw new Error('INSUFFICIENT_POSITION_RATE')
       }
 
       const createdEmployee = await tx.employee.create({
@@ -124,6 +136,7 @@ export async function POST(request: NextRequest) {
           contractEndDate,
           contractNumber: data.contractNumber,
           staffScheduleId: data.staffScheduleId,
+          employmentRate,
           status: 'ACTIVE',
         },
         include: {
@@ -167,14 +180,14 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error) {
       if (error.message === 'POSITION_NOT_FOUND') {
         return NextResponse.json(
-          { error: 'Staff schedule position not found' },
+          { error: 'Должность из штатного расписания не найдена' },
           { status: 404 }
         )
       }
 
-      if (error.message === 'POSITION_OCCUPIED') {
+      if (error.message === 'INSUFFICIENT_POSITION_RATE') {
         return NextResponse.json(
-          { error: 'Selected position is already assigned to another employee' },
+          { error: 'Недостаточно свободных ставок по выбранной должности' },
           { status: 400 }
         )
       }

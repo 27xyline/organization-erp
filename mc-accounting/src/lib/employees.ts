@@ -1,6 +1,7 @@
 import { Prisma, PrismaClient } from '@prisma/client'
 
-type EmployeeDbClient = Pick<PrismaClient, 'employee' | 'personnelAction'> | Prisma.TransactionClient
+type EmployeeDbClient = Pick<PrismaClient, 'employee' | 'personnelAction' | 'staffSchedule'> | Prisma.TransactionClient
+type StaffScheduleRateDbClient = Pick<PrismaClient, 'employee' | 'staffSchedule'> | Prisma.TransactionClient
 
 export const getStartOfToday = () => {
   const today = new Date()
@@ -8,25 +9,49 @@ export const getStartOfToday = () => {
   return today
 }
 
-export const findOccupiedEmployeeByStaffSchedule = (
-  db: Pick<PrismaClient, 'employee'> | Prisma.TransactionClient,
+export const toRateNumber = (value: Prisma.Decimal | number | string | null | undefined) => Number(value ?? 0)
+
+export const getStaffScheduleRateSummary = async (
+  db: StaffScheduleRateDbClient,
   staffScheduleId: string,
   excludeEmployeeId?: string
-) => db.employee.findFirst({
-  where: {
-    ...(excludeEmployeeId
-      ? {
-          id: {
-            not: excludeEmployeeId,
-          },
-        }
-      : {}),
-    staffScheduleId,
-    status: {
-      not: 'DISMISSED',
-    },
-  },
-})
+) => {
+  const [position, occupiedRateResult] = await Promise.all([
+    db.staffSchedule.findUnique({
+      where: { id: staffScheduleId },
+      select: { rate: true },
+    }),
+    db.employee.aggregate({
+      where: {
+        staffScheduleId,
+        ...(excludeEmployeeId
+          ? {
+              id: {
+                not: excludeEmployeeId,
+              },
+            }
+          : {}),
+        status: {
+          not: 'DISMISSED',
+        },
+      },
+      _sum: {
+        employmentRate: true,
+      },
+    }),
+  ])
+
+  if (!position) return null
+
+  const totalRate = toRateNumber(position.rate)
+  const occupiedRate = toRateNumber(occupiedRateResult._sum.employmentRate)
+
+  return {
+    totalRate,
+    occupiedRate,
+    freeRate: Math.max(totalRate - occupiedRate, 0),
+  }
+}
 
 export const ensureExpiredContractArchiveActions = async (db: EmployeeDbClient) => {
   const startOfToday = getStartOfToday()

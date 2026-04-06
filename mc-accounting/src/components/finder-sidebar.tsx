@@ -21,8 +21,7 @@ import {
   BarChart3,
   Archive,
   UserCog,
-  Tag,
-  Plus
+  Tag
 } from "lucide-react"
 
 interface Project {
@@ -146,7 +145,6 @@ export function FinderSidebar() {
 
   const projectChildren = [
     { id: "projects-list", label: "Все проекты", icon: <Building2 className="h-4 w-4" />, href: "/projects" },
-    { id: "projects-new", label: "Новый проект", icon: <Plus className="h-4 w-4" />, href: "/projects/new" },
     ...projects.map(p => ({
       id: `project-${p.id}`,
       label: p.name,

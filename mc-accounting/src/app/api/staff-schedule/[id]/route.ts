@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { getStaffScheduleRateSummary } from '@/lib/employees'
 
 // PUT /api/staff-schedule/[id] - Update position
 export async function PUT(
@@ -8,14 +9,53 @@ export async function PUT(
 ) {
   try {
     const data = await request.json()
+    const rate = Number(data.rate)
+    const salary = Number(data.salary)
+
+    if (!data.position || !data.department) {
+      return NextResponse.json(
+        { error: 'Заполните должность и подразделение' },
+        { status: 400 }
+      )
+    }
+
+    if (!Number.isFinite(rate) || rate <= 0) {
+      return NextResponse.json(
+        { error: 'Количество ставок должно быть больше нуля' },
+        { status: 400 }
+      )
+    }
+
+    if (!Number.isFinite(salary) || salary < 0) {
+      return NextResponse.json(
+        { error: 'Оклад за одну ставку не может быть отрицательным' },
+        { status: 400 }
+      )
+    }
+
+    const rateSummary = await getStaffScheduleRateSummary(prisma, params.id)
+
+    if (!rateSummary) {
+      return NextResponse.json(
+        { error: 'Должность не найдена' },
+        { status: 404 }
+      )
+    }
+
+    if (rate < rateSummary.occupiedRate) {
+      return NextResponse.json(
+        { error: 'Нельзя уменьшить количество ставок ниже уже занятого значения' },
+        { status: 400 }
+      )
+    }
     
     const position = await prisma.staffSchedule.update({
       where: { id: params.id },
       data: {
-        position: data.position,
+        position: data.position.trim(),
         department: data.department,
-        rate: data.rate,
-        salary: data.salary,
+        rate,
+        salary,
       },
     })
     
@@ -51,7 +91,7 @@ export async function DELETE(
     
     if (position && position.employees.length > 0) {
       return NextResponse.json(
-        { error: 'Cannot delete position with assigned employees' },
+        { error: 'Нельзя удалить должность, пока по ней есть назначенные сотрудники' },
         { status: 400 }
       )
     }

@@ -35,6 +35,11 @@ interface FinanceMonthCell {
     projectName: string
     amount: string
   }>
+  details?: Array<{
+    typeLabel: string
+    projectCode: string
+    amount: string
+  }>
 }
 
 interface FinancePlanRow {
@@ -169,6 +174,58 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
     amount: string
   }>>([])
 
+  const salaryDetailGroups = useMemo(() => {
+    if (!selectedCell?.cell.details || selectedCell.cell.details.length === 0) return [] as Array<{
+      typeLabel: string
+      total: number
+      items: Array<{
+        projectCode: string
+        amount: string
+      }>
+    }>
+
+    const typeOrder: Record<string, number> = {
+      Оклад: 0,
+      Надбавка: 1,
+    }
+
+    return Array.from(
+      selectedCell.cell.details.reduce((groups, detail) => {
+        const currentGroup = groups.get(detail.typeLabel)
+
+        if (currentGroup) {
+          currentGroup.total += Number(detail.amount)
+          currentGroup.items.push({
+            projectCode: detail.projectCode,
+            amount: detail.amount,
+          })
+        } else {
+          groups.set(detail.typeLabel, {
+            typeLabel: detail.typeLabel,
+            total: Number(detail.amount),
+            items: [
+              {
+                projectCode: detail.projectCode,
+                amount: detail.amount,
+              },
+            ],
+          })
+        }
+
+        return groups
+      }, new Map<string, {
+        typeLabel: string
+        total: number
+        items: Array<{
+          projectCode: string
+          amount: string
+        }>
+      }>())
+    )
+      .map(([, group]) => group)
+      .sort((left, right) => (typeOrder[left.typeLabel] ?? 99) - (typeOrder[right.typeLabel] ?? 99))
+  }, [selectedCell])
+
   const loadFinanceTable = useCallback(async () => {
     try {
       setLoading(true)
@@ -214,8 +271,6 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
   )
 
   const openCellDialog = (row: FinancePlanRow, month: number) => {
-    if (!config.editable) return
-
     const cell = row.months[String(month)] || emptyCell()
 
     setSelectedCell({
@@ -353,10 +408,6 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
   const renderCellValue = (cell: FinanceMonthCell) => {
     const amount = Number(cell.amount)
     const hasValue = amount > 0
-    const shouldShowProjectLabel = type !== 'nadbavka'
-    const projectLabel = shouldShowProjectLabel
-      ? (cell.projectLabel?.includes(',') ? '' : (cell.projectLabel || cell.projectCode))
-      : ''
 
     if (!hasValue) {
       return <span className="text-muted-foreground">—</span>
@@ -365,12 +416,32 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
     return (
       <div className="min-w-[110px] text-right">
         <div className="text-sm font-medium text-slate-800">{formatCurrency(cell.amount)}</div>
-        {projectLabel ? (
-          <div className="mt-1 text-xs text-muted-foreground">{projectLabel}</div>
-        ) : null}
       </div>
     )
   }
+
+  const renderBudgetSummary = (projectId: string | null | undefined) => {
+    if (!projectId) return null
+
+    const project = projects.find((item) => item.id === projectId)
+
+    return (
+      <div className="rounded-lg border bg-slate-50 px-4 py-3 text-sm text-muted-foreground">
+        {project ? (
+          <div className="flex items-center justify-between gap-3">
+            <span>Остаток бюджета</span>
+            <span className="font-medium text-slate-700">{formatCurrency(project.remainingBudget)}</span>
+          </div>
+        ) : (
+          'Проект не найден'
+        )}
+      </div>
+    )
+  }
+
+  const selectedProjectCaption = selectedCell?.cell.projectLabel || selectedCell?.cell.projectCode || ''
+  const isSalarySection = type === 'salary'
+  const canClearCell = Boolean(selectedCell && Number(selectedCell.cell.amount) > 0 && config.editable)
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -466,6 +537,14 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
                               >
                                 {renderCellValue(cell)}
                               </button>
+                            ) : Number(cell.amount) > 0 ? (
+                              <button
+                                type="button"
+                                onClick={() => openCellDialog(row, index + 1)}
+                                className="flex min-h-[52px] w-full min-w-[110px] flex-col items-end justify-center rounded-md border px-3 py-2 text-right transition-colors hover:bg-slate-50"
+                              >
+                                {renderCellValue(cell)}
+                              </button>
                             ) : (
                               renderCellValue(cell)
                             )}
@@ -511,61 +590,96 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
       </Card>
 
       <Dialog open={Boolean(selectedCell)} onOpenChange={(open) => !open && closeCellDialog()}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className={cn('max-w-xl min-h-[620px]', config.saveType === 'nadbavka' && 'max-w-2xl')}>
           <DialogHeader>
             <DialogTitle>{config.title}: {selectedCell ? monthLabels[selectedCell.month - 1] : ''}</DialogTitle>
-            <DialogDescription>
-              {config.saveType === 'oklad'
+            <DialogDescription className="max-w-2xl leading-relaxed">
+              {isSalarySection
+                ? 'Здесь показано, из каких проектов и начислений складывается сумма заработной платы за выбранный месяц.'
+                : config.saveType === 'oklad'
                 ? 'Выбери проект. Сумма будет автоматически взята из оклада сотрудника и списана из бюджета проекта.'
                 : 'Выбери проект и укажи сумму. Эта сумма будет списана из бюджета проекта и отобразится в таблице.'}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="rounded-lg border bg-muted/30 p-4 text-sm">
+          <div className="flex min-h-0 flex-1 flex-col space-y-4">
+            <div className="rounded-xl border bg-slate-50/70 p-4 text-sm">
               <p className="font-medium text-slate-900">{selectedCell?.employeeName}</p>
               {config.saveType === 'oklad' && (
                 <p className="mt-2 text-muted-foreground">
                   Оклад сотрудника: {selectedCell ? formatCurrency(selectedCell.employeeSalary) : '—'}
                 </p>
               )}
-              {selectedCell?.cell.projectCode ? (
+              {selectedProjectCaption ? (
                 <p className="mt-2 text-muted-foreground">
-                  Текущий проект: {selectedCell.cell.projectLabel || selectedCell.cell.projectCode}
+                  {config.saveType === 'nadbavka' ? 'Текущие проекты' : 'Текущий проект'}: {selectedProjectCaption}
                 </p>
               ) : null}
+              {isSalarySection && selectedCell && Number(selectedCell.cell.amount) > 0 && (
+                <p className="mt-2 text-muted-foreground">
+                  Сумма за месяц: {formatCurrency(selectedCell.cell.amount)}
+                </p>
+              )}
             </div>
 
-            {config.saveType === 'oklad' ? (
-              <div className="space-y-2">
-                <Label htmlFor="finance-project">Проект</Label>
-                <Select value={cellForm.projectId} onValueChange={(value) => setCellForm((prev) => ({ ...prev, projectId: value }))}>
-                  <SelectTrigger id="finance-project">
-                    <SelectValue placeholder="Выберите проект" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.code} — {project.name}
-                      </SelectItem>
+            {isSalarySection ? (
+              <div className="flex min-h-0 flex-1 flex-col space-y-4">
+                {salaryDetailGroups.length > 0 ? (
+                  <div className="flex-1 space-y-4 overflow-y-auto pr-1">
+                    {salaryDetailGroups.map((group) => (
+                      <div key={group.typeLabel} className="rounded-xl border p-4">
+                        <div className="flex items-start justify-between gap-3 border-b pb-3">
+                          <p className="text-sm font-semibold text-slate-900">{group.typeLabel}</p>
+                          <p className="text-sm font-semibold text-slate-900">{formatCurrency(group.total)}</p>
+                        </div>
+
+                        <div className="mt-3 space-y-3">
+                          {group.items.map((item, index) => (
+                            <div key={`${group.typeLabel}-${item.projectCode}-${index}`} className="flex items-start justify-between gap-3 rounded-lg border bg-slate-50/70 px-4 py-3">
+                              <p className="text-sm text-slate-700">{item.projectCode}</p>
+                              <p className="text-sm font-medium text-slate-900">{formatCurrency(item.amount)}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     ))}
-                  </SelectContent>
-                </Select>
-                {cellForm.projectId && (
-                  <div className="rounded-md border bg-slate-50 px-3 py-2 text-xs text-muted-foreground">
-                    {(() => {
-                      const project = projects.find((item) => item.id === cellForm.projectId)
-                      return project
-                        ? `Остаток бюджета: ${formatCurrency(project.remainingBudget)}`
-                        : 'Проект не найден'
-                    })()}
+                  </div>
+                ) : (
+                  <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                    Для этого месяца нет проектных начислений.
                   </div>
                 )}
+
+                <div className="rounded-xl border bg-slate-50 px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-medium text-slate-700">Итого за месяц</span>
+                    <span className="text-base font-semibold text-slate-900">{formatCurrency(selectedCell?.cell.amount || '0.00')}</span>
+                  </div>
+                </div>
+              </div>
+            ) : config.saveType === 'oklad' ? (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="finance-project">Проект</Label>
+                  <Select value={cellForm.projectId} onValueChange={(value) => setCellForm((prev) => ({ ...prev, projectId: value }))}>
+                    <SelectTrigger id="finance-project">
+                      <SelectValue placeholder="Выберите проект" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          {project.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {renderBudgetSummary(cellForm.projectId)}
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label>Проекты и суммы</Label>
+                <div className="flex items-center justify-between gap-3">
+                  <Label className="text-sm font-medium text-slate-900">Проекты и суммы</Label>
                   <Button type="button" variant="outline" size="sm" onClick={() => setAllocationRows((current) => [...current, createEmptyAllocation()])}>
                     <Plus className="mr-2 h-4 w-4" />
                     Добавить проект
@@ -574,7 +688,7 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
 
                 <div className="space-y-3">
                   {allocationRows.map((allocation, index) => (
-                    <div key={allocation.localId} className="rounded-lg border p-4">
+                    <div key={allocation.localId} className="rounded-xl border p-4">
                       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_44px] md:items-start">
                         <div className="space-y-3">
                           <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
@@ -590,7 +704,7 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
                                 <SelectContent>
                                   {projects.map((project) => (
                                     <SelectItem key={project.id} value={project.id}>
-                                      {project.code} — {project.name}
+                                      {project.name}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
@@ -609,21 +723,7 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
                             </div>
                           </div>
 
-                          {allocation.projectId && (
-                            <div className="rounded-md border bg-slate-50 px-4 py-3 text-sm text-muted-foreground">
-                              {(() => {
-                                const project = projects.find((item) => item.id === allocation.projectId)
-                                return project
-                                  ? (
-                                    <div className="flex items-center justify-between gap-3">
-                                      <span>Остаток бюджета:</span>
-                                      <span className="font-medium text-slate-700">{formatCurrency(project.remainingBudget)}</span>
-                                    </div>
-                                  )
-                                  : 'Проект не найден'
-                              })()}
-                            </div>
-                          )}
+                          {renderBudgetSummary(allocation.projectId)}
                         </div>
 
                         <div className="flex items-center justify-end md:pt-8">
@@ -646,7 +746,7 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
 
             <div className="flex justify-between gap-2 pt-2">
               <div>
-                {selectedCell?.cell.projectId && (
+                {canClearCell && (
                   <Button type="button" variant="outline" onClick={clearCell} disabled={saving}>
                     Очистить
                   </Button>
@@ -656,9 +756,11 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
                 <Button type="button" variant="outline" onClick={closeCellDialog}>
                   Отмена
                 </Button>
-                <Button type="button" onClick={saveCell} disabled={saving}>
-                  {saving ? 'Сохранение...' : 'Сохранить'}
-                </Button>
+                {!isSalarySection && (
+                  <Button type="button" onClick={saveCell} disabled={saving}>
+                    {saving ? 'Сохранение...' : 'Сохранить'}
+                  </Button>
+                )}
               </div>
             </div>
           </div>

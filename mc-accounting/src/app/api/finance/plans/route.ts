@@ -30,11 +30,24 @@ const getNormalizedAmount = (value: unknown) => {
   return numericValue.toFixed(2)
 }
 
-const getProjectsForFinance = async () => {
+const getProjectsForFinance = async (includedProjectIds: string[] = []) => {
   const projects = await prisma.project.findMany({
-    where: {
-      status: 'ACTIVE',
-    },
+    where: includedProjectIds.length > 0
+      ? {
+          OR: [
+            {
+              status: 'ACTIVE',
+            },
+            {
+              id: {
+                in: includedProjectIds,
+              },
+            },
+          ],
+        }
+      : {
+          status: 'ACTIVE',
+        },
     orderBy: {
       code: 'asc',
     },
@@ -106,30 +119,27 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const [employees, projects] = await Promise.all([
-      prisma.employee.findMany({
-        where: {
-          status: {
-            not: 'DISMISSED',
+    const employees = await prisma.employee.findMany({
+      where: {
+        status: {
+          not: 'DISMISSED',
+        },
+      },
+      orderBy: {
+        fullName: 'asc',
+      },
+      include: {
+        staffSchedule: {
+          select: {
+            id: true,
+            position: true,
+            department: true,
+            rate: true,
+            salary: true,
           },
         },
-        orderBy: {
-          fullName: 'asc',
-        },
-        include: {
-          staffSchedule: {
-            select: {
-              id: true,
-              position: true,
-              department: true,
-              rate: true,
-              salary: true,
-            },
-          },
-        },
-      }),
-      getProjectsForFinance(),
-    ])
+      },
+    })
 
     const employeeIds = employees.map((employee) => employee.id)
 
@@ -157,6 +167,10 @@ export async function GET(request: NextRequest) {
         })
       : []
 
+    const projects = await getProjectsForFinance(
+      Array.from(new Set(entries.map((entry) => entry.projectId).filter((value): value is string => Boolean(value))))
+    )
+
     const entryGroups = entries.reduce((groups, entry) => {
       const key = `${entry.employeeId}:${entry.month}`
       const currentEntries = groups.get(key) || []
@@ -170,8 +184,10 @@ export async function GET(request: NextRequest) {
       fullName: employee.fullName,
       department: employee.staffSchedule?.department || employee.department || '—',
       position: employee.staffSchedule?.position || '—',
-      rate: employee.staffSchedule ? Number(employee.staffSchedule.rate).toFixed(2) : '0.00',
-      salary: employee.staffSchedule ? Number(employee.staffSchedule.salary).toFixed(2) : '0.00',
+      rate: Number(employee.employmentRate ?? 0).toFixed(2),
+      salary: employee.staffSchedule
+        ? (Number(employee.staffSchedule.salary) * Number(employee.employmentRate ?? 0)).toFixed(2)
+        : '0.00',
       months: Object.fromEntries(
         Array.from({ length: 12 }, (_, index) => {
           const month = index + 1
@@ -181,7 +197,15 @@ export async function GET(request: NextRequest) {
           ]
         })
       ),
-    }))
+    })).sort((left, right) => {
+      const departmentCompare = left.department.localeCompare(right.department, 'ru', { sensitivity: 'base' })
+
+      if (departmentCompare !== 0) {
+        return departmentCompare
+      }
+
+      return left.fullName.localeCompare(right.fullName, 'ru', { sensitivity: 'base' })
+    })
 
     return NextResponse.json({
       year,
@@ -258,7 +282,7 @@ export async function POST(request: NextRequest) {
               throw new Error('PROJECT_REQUIRED')
             }
 
-            const amount = Number(employee.staffSchedule?.salary ?? 0).toFixed(2)
+            const amount = (Number(employee.staffSchedule?.salary ?? 0) * Number(employee.employmentRate ?? 0)).toFixed(2)
 
             if (Number(amount) <= 0) {
               throw new Error('INVALID_OKLAD_AMOUNT')

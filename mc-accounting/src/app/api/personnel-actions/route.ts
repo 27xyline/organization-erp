@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { findOccupiedEmployeeByStaffSchedule } from '@/lib/employees'
+import { getStaffScheduleRateSummary } from '@/lib/employees'
 
 const employeeSelect = {
   id: true,
@@ -12,6 +12,7 @@ const employeeSelect = {
   contractEndDate: true,
   contractNumber: true,
   staffScheduleId: true,
+  employmentRate: true,
   staffSchedule: {
     select: {
       id: true,
@@ -97,12 +98,14 @@ export async function POST(request: NextRequest) {
           throw new Error('INVALID_HIRE_PAYLOAD')
         }
 
+        const employmentRate = Number(data.employeeData.employmentRate)
+
         const hireStaffSchedule = data.employeeData.staffScheduleId
           ? await tx.staffSchedule.findUnique({ where: { id: data.employeeData.staffScheduleId } })
           : null
 
-        const occupiedHirePosition = data.employeeData.staffScheduleId
-          ? await findOccupiedEmployeeByStaffSchedule(tx, data.employeeData.staffScheduleId)
+        const hireRateSummary = data.employeeData.staffScheduleId
+          ? await getStaffScheduleRateSummary(tx, data.employeeData.staffScheduleId)
           : null
 
         const contractSignedDate = data.employeeData.contractSignedDate
@@ -112,8 +115,16 @@ export async function POST(request: NextRequest) {
           ? new Date(data.employeeData.contractEndDate)
           : null
 
-        if (!hireStaffSchedule || occupiedHirePosition) {
-          throw new Error(occupiedHirePosition ? 'POSITION_OCCUPIED' : 'POSITION_NOT_FOUND')
+        if (!hireStaffSchedule || !hireRateSummary) {
+          throw new Error('POSITION_NOT_FOUND')
+        }
+
+        if (!Number.isFinite(employmentRate) || employmentRate <= 0) {
+          throw new Error('INVALID_EMPLOYMENT_RATE')
+        }
+
+        if (employmentRate > hireRateSummary.freeRate) {
+          throw new Error('INSUFFICIENT_POSITION_RATE')
         }
 
         if (!data.employeeData.contractNumber || !contractSignedDate || Number.isNaN(contractSignedDate.getTime())) {
@@ -142,6 +153,7 @@ export async function POST(request: NextRequest) {
             contractNumber: data.employeeData.contractNumber,
             status: 'ACTIVE',
             staffScheduleId: data.employeeData.staffScheduleId,
+            employmentRate,
           },
         })
 
@@ -189,23 +201,40 @@ export async function POST(request: NextRequest) {
         throw new Error('POSITION_NOT_FOUND')
       }
 
-      if (data.type === 'TRANSFER' && data.staffScheduleId) {
-        const occupiedPosition = await findOccupiedEmployeeByStaffSchedule(tx, data.staffScheduleId, employee.id)
-
-        if (occupiedPosition) {
-          throw new Error('POSITION_OCCUPIED')
-        }
+      if (data.type === 'PROMOTE' && data.staffScheduleId && !nextStaffSchedule) {
+        throw new Error('POSITION_NOT_FOUND')
       }
 
       const oldDepartment = employee.department || null
       const oldPosition = employee.staffSchedule?.position || null
       const oldContractEndDate = employee.contractEndDate || null
+      const currentEmploymentRate = Number(employee.employmentRate || 0)
+      const requestedEmploymentRate = data.employmentRate == null ? currentEmploymentRate : Number(data.employmentRate)
+
+      if (data.type === 'TRANSFER' || data.type === 'PROMOTE') {
+        if (!Number.isFinite(requestedEmploymentRate) || requestedEmploymentRate <= 0) {
+          throw new Error('INVALID_EMPLOYMENT_RATE')
+        }
+      }
+
+      if ((data.type === 'TRANSFER' || data.type === 'PROMOTE') && data.staffScheduleId) {
+        const rateSummary = await getStaffScheduleRateSummary(tx, data.staffScheduleId, employee.id)
+
+        if (!rateSummary) {
+          throw new Error('POSITION_NOT_FOUND')
+        }
+
+        if (requestedEmploymentRate > rateSummary.freeRate) {
+          throw new Error('INSUFFICIENT_POSITION_RATE')
+        }
+      }
 
       let newDepartment = data.newDepartment || oldDepartment
       let newPosition = data.newPosition || nextStaffSchedule?.position || oldPosition
       let nextStatus = employee.status
       let nextStaffScheduleId = employee.staffScheduleId
       let nextContractEndDate = employee.contractEndDate || null
+      let nextEmploymentRate = currentEmploymentRate
 
       if (data.newContractEndDate) {
         const parsedContractDate = new Date(data.newContractEndDate)
@@ -224,6 +253,7 @@ export async function POST(request: NextRequest) {
           nextStaffScheduleId = data.staffScheduleId || employee.staffScheduleId || null
           newDepartment = data.newDepartment || nextStaffSchedule?.department || employee.department
           newPosition = data.newPosition || nextStaffSchedule?.position || employee.staffSchedule?.position || null
+          nextEmploymentRate = requestedEmploymentRate
           break
         case 'DISMISS':
           nextStatus = 'DISMISSED'
@@ -245,6 +275,7 @@ export async function POST(request: NextRequest) {
           nextStaffScheduleId = data.staffScheduleId || employee.staffScheduleId || null
           newDepartment = data.newDepartment || nextStaffSchedule?.department || employee.department
           newPosition = data.newPosition || nextStaffSchedule?.position || employee.staffSchedule?.position || null
+          nextEmploymentRate = requestedEmploymentRate
           break
         default:
           break
@@ -277,6 +308,7 @@ export async function POST(request: NextRequest) {
           status: nextStatus,
           staffScheduleId: nextStaffScheduleId,
           contractEndDate: nextContractEndDate,
+          employmentRate: nextEmploymentRate,
         },
       })
 
@@ -304,14 +336,21 @@ export async function POST(request: NextRequest) {
 
       if (error.message === 'POSITION_NOT_FOUND') {
         return NextResponse.json(
-          { error: 'Staff schedule position not found' },
+          { error: 'Должность из штатного расписания не найдена' },
           { status: 404 }
         )
       }
 
-      if (error.message === 'POSITION_OCCUPIED') {
+      if (error.message === 'INVALID_EMPLOYMENT_RATE') {
         return NextResponse.json(
-          { error: 'Selected position is already assigned to another employee' },
+          { error: 'Количество ставок сотрудника должно быть больше нуля' },
+          { status: 400 }
+        )
+      }
+
+      if (error.message === 'INSUFFICIENT_POSITION_RATE') {
+        return NextResponse.json(
+          { error: 'Недостаточно свободных ставок по выбранной должности' },
           { status: 400 }
         )
       }

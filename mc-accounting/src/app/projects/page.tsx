@@ -1,8 +1,8 @@
-import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import Link from 'next/link'
 import { Plus, FolderKanban, Calendar, Wallet } from 'lucide-react'
 import { ProjectStatusLabels } from '@/types'
 import { formatDate, formatCurrency } from '@/lib/utils'
@@ -19,19 +19,19 @@ export default async function ProjectsPage() {
 
   return (
     <main className="container mx-auto py-8 px-4">
-      <div className="flex justify-between items-center mb-8">
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Проекты</h1>
           <p className="text-muted-foreground mt-1">
             Управление проектами и задачами
           </p>
         </div>
-        <Link href="/projects/new">
-          <Button>
+        <Button asChild className="shrink-0">
+          <Link href="/projects/new">
             <Plus className="mr-2 h-4 w-4" />
             Новый проект
-          </Button>
-        </Link>
+          </Link>
+        </Button>
       </div>
 
       {projects.length === 0 ? (
@@ -40,7 +40,7 @@ export default async function ProjectsPage() {
             <FolderKanban className="h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-muted-foreground text-center">
               Проекты не созданы.<br />
-              Нажмите "Новый проект" чтобы создать первый проект.
+              Нажмите "Новый проект", чтобы создать первый проект.
             </p>
           </CardContent>
         </Card>

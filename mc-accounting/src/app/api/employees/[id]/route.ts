@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { findOccupiedEmployeeByStaffSchedule } from '@/lib/employees'
+import { getStaffScheduleRateSummary } from '@/lib/employees'
 
 // PUT /api/employees/[id] - Update employee
 export async function PUT(
@@ -13,10 +13,18 @@ export async function PUT(
     const contractSignedDate = data.contractSignedDate ? new Date(data.contractSignedDate) : null
     const contractEndDate = data.contractEndDate ? new Date(data.contractEndDate) : null
     const actionDate = new Date()
+    const employmentRate = Number(data.employmentRate)
 
     if (!data.staffScheduleId && data.status !== 'DISMISSED') {
       return NextResponse.json(
-        { error: 'Staff schedule position is required' },
+        { error: 'Должность из штатного расписания обязательна' },
+        { status: 400 }
+      )
+    }
+
+    if (data.status !== 'DISMISSED' && (!Number.isFinite(employmentRate) || employmentRate <= 0)) {
+      return NextResponse.json(
+        { error: 'Количество ставок сотрудника должно быть больше нуля' },
         { status: 400 }
       )
     }
@@ -63,10 +71,14 @@ export async function PUT(
       }
 
       if (data.staffScheduleId) {
-        const occupiedPosition = await findOccupiedEmployeeByStaffSchedule(tx, data.staffScheduleId, params.id)
+        const rateSummary = await getStaffScheduleRateSummary(tx, data.staffScheduleId, params.id)
 
-        if (occupiedPosition) {
-          throw new Error('POSITION_OCCUPIED')
+        if (!rateSummary) {
+          throw new Error('POSITION_NOT_FOUND')
+        }
+
+        if (data.status !== 'DISMISSED' && employmentRate > rateSummary.freeRate) {
+          throw new Error('INSUFFICIENT_POSITION_RATE')
         }
       }
 
@@ -84,6 +96,7 @@ export async function PUT(
           contractEndDate,
           contractNumber: data.contractNumber,
           staffScheduleId: data.staffScheduleId,
+          employmentRate: data.status === 'DISMISSED' ? existingEmployee.employmentRate : employmentRate,
           status: data.status,
         },
         include: {
@@ -97,6 +110,7 @@ export async function PUT(
       if (existingEmployee.fullName !== updatedEmployee.fullName) changedFields.push('ФИО')
       if (existingEmployee.code !== updatedEmployee.code) changedFields.push('табельный номер')
       if ((existingEmployee.staffScheduleId || null) !== (updatedEmployee.staffScheduleId || null)) changedFields.push('должность')
+      if (Number(existingEmployee.employmentRate || 0) !== Number(updatedEmployee.employmentRate || 0)) changedFields.push('количество ставок')
       if ((existingEmployee.department || null) !== (newDepartment || null)) changedFields.push('подразделение')
       if (existingEmployee.contractType !== updatedEmployee.contractType) changedFields.push('вид договора')
       if ((existingEmployee.contractSignedDate?.getTime() || null) !== (updatedEmployee.contractSignedDate?.getTime() || null)) changedFields.push('дату подписания договора')
@@ -142,7 +156,7 @@ export async function PUT(
     if (error instanceof Error) {
       if (error.message === 'POSITION_NOT_FOUND') {
         return NextResponse.json(
-          { error: 'Staff schedule position not found' },
+          { error: 'Должность из штатного расписания не найдена' },
           { status: 404 }
         )
       }
@@ -154,9 +168,9 @@ export async function PUT(
         )
       }
 
-      if (error.message === 'POSITION_OCCUPIED') {
+      if (error.message === 'INSUFFICIENT_POSITION_RATE') {
         return NextResponse.json(
-          { error: 'Selected position is already assigned to another employee' },
+          { error: 'Недостаточно свободных ставок по выбранной должности' },
           { status: 400 }
         )
       }

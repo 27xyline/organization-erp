@@ -265,6 +265,7 @@ model Employee {
   // Staff schedule position
   staffScheduleId String?
   staffSchedule   StaffSchedule? @relation(fields: [staffScheduleId], references: [id])
+  employmentRate  Decimal @default(1) @db.Decimal(5, 2) // Количество ставок сотрудника
   
   // Status
   status      EmployeeStatus @default(ACTIVE)

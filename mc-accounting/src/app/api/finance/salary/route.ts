@@ -24,9 +24,14 @@ export async function GET(request: NextRequest) {
           not: 'DISMISSED',
         },
       },
-      orderBy: {
-        fullName: 'asc',
-      },
+      orderBy: [
+        {
+          department: 'asc',
+        },
+        {
+          fullName: 'asc',
+        },
+      ],
       include: {
         staffSchedule: {
           select: {
@@ -61,13 +66,14 @@ export async function GET(request: NextRequest) {
               select: {
                 id: true,
                 code: true,
+                name: true,
               },
             },
           },
         })
       : []
 
-    const monthEntryMap = new Map<string, Array<{ amount: number; projectCode: string }>>()
+    const monthEntryMap = new Map<string, Array<{ amount: number; projectCode: string; typeLabel: string }>>()
 
     entries.forEach((entry) => {
       const key = `${entry.employeeId}:${entry.month}`
@@ -75,6 +81,7 @@ export async function GET(request: NextRequest) {
       currentEntries.push({
         amount: Number(entry.amount),
         projectCode: entry.project?.code || '',
+        typeLabel: entry.type === FinancePlanType.OKLAD ? 'Оклад' : 'Надбавка',
       })
       monthEntryMap.set(key, currentEntries)
     })
@@ -84,8 +91,10 @@ export async function GET(request: NextRequest) {
       fullName: employee.fullName,
       department: employee.staffSchedule?.department || employee.department || '—',
       position: employee.staffSchedule?.position || '—',
-      rate: employee.staffSchedule ? Number(employee.staffSchedule.rate).toFixed(2) : '0.00',
-      salary: employee.staffSchedule ? Number(employee.staffSchedule.salary).toFixed(2) : '0.00',
+      rate: Number(employee.employmentRate ?? 0).toFixed(2),
+      salary: employee.staffSchedule
+        ? (Number(employee.staffSchedule.salary) * Number(employee.employmentRate ?? 0)).toFixed(2)
+        : '0.00',
       months: Object.fromEntries(
         Array.from({ length: 12 }, (_, index) => {
           const month = index + 1
@@ -98,9 +107,14 @@ export async function GET(request: NextRequest) {
             {
               amount: totalAmount.toFixed(2),
               projectId: null,
-              projectCode: projectCodes.length === 1 ? projectCodes[0] : '',
+              projectCode: '',
               projectName: '',
               projectLabel: projectCodes.join(', '),
+              details: values.map((value) => ({
+                typeLabel: value.typeLabel,
+                projectCode: value.projectCode,
+                amount: value.amount.toFixed(2),
+              })),
             },
           ]
         })
@@ -120,4 +134,3 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-

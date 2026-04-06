@@ -62,6 +62,7 @@ interface Employee {
   contractNumber?: string | null
   status: EmployeeStatus
   staffScheduleId?: string | null
+  employmentRate: number
   staffSchedule?: {
     id: string
     position: string
@@ -77,6 +78,8 @@ interface StaffSchedule {
   department: string
   rate: number
   salary: number
+  occupiedRate: number
+  freeRate: number
   employees: Employee[]
 }
 
@@ -111,6 +114,7 @@ interface PersonnelAction {
     contractEndDate?: Date | null
     contractNumber?: string | null
     staffScheduleId?: string | null
+    employmentRate: number
     staffSchedule?: {
       id: string
       position: string
@@ -150,6 +154,13 @@ const staffDepartments = ['НИО-904', 'Лаборатория №4'] as const
 const sortEmployeesByName = (a: Employee, b: Employee) =>
   a.fullName.localeCompare(b.fullName, 'ru', { sensitivity: 'base' })
 
+const DetailSummaryItem = ({ label, value }: { label: string; value: string }) => (
+  <div className="rounded-lg border bg-slate-50/80 px-4 py-3">
+    <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+    <p className="mt-2 text-sm font-medium leading-snug text-slate-900">{value}</p>
+  </div>
+)
+
 const isContractExpired = (employee: Employee, date: Date) =>
   employee.status !== 'DISMISSED' && Boolean(employee.contractEndDate && employee.contractEndDate < date)
 
@@ -177,6 +188,7 @@ const normalizeEmployee = (employee: any): Employee => ({
   contractNumber: employee.contractNumber || '',
   status: employee.status,
   staffScheduleId: employee.staffScheduleId ?? null,
+  employmentRate: Number(employee.employmentRate ?? 0),
   staffSchedule: employee.staffSchedule
     ? {
         id: employee.staffSchedule.id,
@@ -188,14 +200,23 @@ const normalizeEmployee = (employee: any): Employee => ({
     : null,
 })
 
-const normalizeStaffSchedule = (position: any): StaffSchedule => ({
-  id: position.id,
-  position: position.position,
-  department: position.department,
-  rate: Number(position.rate || 0),
-  salary: Number(position.salary || 0),
-  employees: (position.employees || []).map(normalizeEmployee),
-})
+const normalizeStaffSchedule = (position: any): StaffSchedule => {
+  const employees = (position.employees || []).map(normalizeEmployee)
+  const occupiedRate = Number(
+    position.occupiedRate ?? employees.reduce((sum: number, employee: Employee) => sum + employee.employmentRate, 0)
+  )
+
+  return {
+    id: position.id,
+    position: position.position,
+    department: position.department,
+    rate: Number(position.rate || 0),
+    salary: Number(position.salary || 0),
+    occupiedRate,
+    freeRate: Number(position.freeRate ?? Math.max(Number(position.rate || 0) - occupiedRate, 0)),
+    employees,
+  }
+}
 
 const normalizeVacation = (vacation: any): Vacation => ({
   id: vacation.id,
@@ -220,6 +241,7 @@ const normalizePersonnelAction = (action: any): PersonnelAction => ({
     contractSignedDate: action.employee?.contractSignedDate ? new Date(action.employee.contractSignedDate) : null,
     contractEndDate: action.employee?.contractEndDate ? new Date(action.employee.contractEndDate) : null,
     contractNumber: action.employee?.contractNumber || '',
+    employmentRate: Number(action.employee?.employmentRate ?? 0),
   },
   oldDepartment: action.oldDepartment ?? null,
   newDepartment: action.newDepartment ?? null,
@@ -287,6 +309,40 @@ const getPersonnelActionDescription = (action: PersonnelAction) => {
   }
 }
 
+const getAssignableRateForPosition = (position?: StaffSchedule | null, excludeEmployeeId?: string | null) => {
+  if (!position) return 0
+
+  const occupiedRate = position.employees.reduce((sum, employee) => {
+    if (excludeEmployeeId && employee.id === excludeEmployeeId) {
+      return sum
+    }
+
+    return sum + employee.employmentRate
+  }, 0)
+
+  return Math.max(position.rate - occupiedRate, 0)
+}
+
+const normalizeEmploymentRateInput = (value: string) => {
+  const normalizedValue = value.replace(',', '.').trim()
+
+  if (!normalizedValue) return 0
+
+  const parsedValue = Number(normalizedValue)
+  return Number.isFinite(parsedValue) ? parsedValue : 0
+}
+
+const clampEmploymentRate = (value: number, availableRate: number) => {
+  if (availableRate <= 0) return 0
+  if (!Number.isFinite(value) || value <= 0) return Math.min(1, availableRate)
+  return Math.min(value, availableRate)
+}
+
+const getCalculatedSalary = (position: StaffSchedule | null | undefined, employmentRate: number) => {
+  if (!position || !Number.isFinite(employmentRate) || employmentRate <= 0) return 0
+  return position.salary * employmentRate
+}
+
 export default function EmployeesPage() {
   const actualCurrentYear = useMemo(() => new Date().getFullYear(), [])
   const startOfToday = useMemo(() => {
@@ -325,6 +381,7 @@ export default function EmployeesPage() {
     contractEndDate: '',
     contractNumber: '',
     staffScheduleId: 'none',
+    employmentRate: 1,
     status: 'ACTIVE' as EmployeeStatus,
   })
 
@@ -349,6 +406,7 @@ export default function EmployeesPage() {
     description: '',
     newDepartment: '',
     staffScheduleId: 'none',
+    employmentRate: 1,
     newContractEndDate: '',
   })
 
@@ -471,14 +529,14 @@ export default function EmployeesPage() {
     [staffSchedule]
   )
 
-  const occupiedPositionIds = useMemo(
-    () =>
-      new Set(
-        activeEmployees
-          .map((employee) => employee.staffScheduleId)
-          .filter((value): value is string => Boolean(value))
-      ),
-    [activeEmployees]
+  const occupiedRates = useMemo(
+    () => staffSchedule.reduce((sum, position) => sum + position.occupiedRate, 0),
+    [staffSchedule]
+  )
+
+  const freeRates = useMemo(
+    () => staffSchedule.reduce((sum, position) => sum + position.freeRate, 0),
+    [staffSchedule]
   )
 
   const selectedEmployeePosition = useMemo(
@@ -496,20 +554,40 @@ export default function EmployeesPage() {
     [actionForm.staffScheduleId, staffSchedule]
   )
 
+  const availableEmployeeRate = useMemo(
+    () => getAssignableRateForPosition(selectedEmployeePosition, editingEmployee?.id),
+    [editingEmployee?.id, selectedEmployeePosition]
+  )
+
+  const availableActionRate = useMemo(
+    () => getAssignableRateForPosition(selectedActionPosition, selectedActionEmployee?.id),
+    [selectedActionEmployee?.id, selectedActionPosition]
+  )
+
+  const calculatedEmployeeSalary = useMemo(
+    () => getCalculatedSalary(selectedEmployeePosition, employeeForm.employmentRate),
+    [employeeForm.employmentRate, selectedEmployeePosition]
+  )
+
+  const calculatedActionSalary = useMemo(
+    () => getCalculatedSalary(selectedActionPosition, actionForm.employmentRate),
+    [actionForm.employmentRate, selectedActionPosition]
+  )
+
   const employeePositionOptions = useMemo(
     () =>
       staffSchedule.filter(
-        (position) => !occupiedPositionIds.has(position.id) || position.id === editingEmployee?.staffScheduleId
+        (position) => getAssignableRateForPosition(position, editingEmployee?.id) > 0 || position.id === editingEmployee?.staffScheduleId
       ),
-    [editingEmployee?.staffScheduleId, occupiedPositionIds, staffSchedule]
+    [editingEmployee?.id, editingEmployee?.staffScheduleId, staffSchedule]
   )
 
   const transferPositionOptions = useMemo(
     () =>
       staffSchedule.filter(
-        (position) => !occupiedPositionIds.has(position.id) || position.id === selectedActionEmployee?.staffScheduleId
+        (position) => getAssignableRateForPosition(position, selectedActionEmployee?.id) > 0 || position.id === selectedActionEmployee?.staffScheduleId
       ),
-    [occupiedPositionIds, selectedActionEmployee?.staffScheduleId, staffSchedule]
+    [selectedActionEmployee?.id, selectedActionEmployee?.staffScheduleId, staffSchedule]
   )
 
   const getLiveEmployeeStatus = (employee: Employee) => {
@@ -578,6 +656,16 @@ export default function EmployeesPage() {
       return
     }
 
+    if (employeeForm.employmentRate <= 0) {
+      alert('Укажите количество ставок сотрудника')
+      return
+    }
+
+    if (selectedEmployeePosition && employeeForm.employmentRate > availableEmployeeRate) {
+      alert('Недостаточно свободных ставок по выбранной должности')
+      return
+    }
+
     const duplicateEmployee = employees.find(
       (employee) => employee.code.trim().toLowerCase() === normalizedCode.toLowerCase() && employee.id !== editingEmployee?.id
     )
@@ -606,6 +694,7 @@ export default function EmployeesPage() {
       contractEndDate: employeeForm.contractEndDate || null,
       contractNumber: employeeForm.contractNumber,
       staffScheduleId: employeeForm.staffScheduleId === 'none' ? null : employeeForm.staffScheduleId,
+      employmentRate: employeeForm.employmentRate,
     }
 
     try {
@@ -642,7 +731,8 @@ export default function EmployeesPage() {
       })
 
       if (!response.ok) {
-        throw new Error('Failed to save staff schedule position')
+        const errorData = await response.json().catch(() => null)
+        throw new Error(errorData?.error || 'Failed to save staff schedule position')
       }
 
       setIsStaffDialogOpen(false)
@@ -650,7 +740,7 @@ export default function EmployeesPage() {
       await loadBaseData()
     } catch (error) {
       console.error('Error saving staff position:', error)
-      alert('Ошибка при сохранении должности')
+      alert(error instanceof Error ? error.message : 'Ошибка при сохранении должности')
     }
   }
 
@@ -707,6 +797,16 @@ export default function EmployeesPage() {
       return
     }
 
+    if ((actionForm.type === 'TRANSFER' || actionForm.type === 'PROMOTE') && actionForm.employmentRate <= 0) {
+      alert('Укажите количество ставок сотрудника')
+      return
+    }
+
+    if ((actionForm.type === 'TRANSFER' || actionForm.type === 'PROMOTE') && selectedActionPosition && actionForm.employmentRate > availableActionRate) {
+      alert('Недостаточно свободных ставок по выбранной должности')
+      return
+    }
+
     if (actionForm.type === 'EXTEND' && !actionForm.newContractEndDate) {
       alert('Для продления укажите новую дату окончания договора')
       return
@@ -725,6 +825,7 @@ export default function EmployeesPage() {
       const payload = {
         ...actionForm,
         staffScheduleId: actionForm.staffScheduleId === 'none' ? null : actionForm.staffScheduleId,
+        employmentRate: actionForm.employmentRate,
         newContractEndDate: actionForm.newContractEndDate || null,
       }
 
@@ -810,6 +911,7 @@ export default function EmployeesPage() {
         contractEndDate: employee.contractEndDate ? employee.contractEndDate.toISOString().split('T')[0] : '',
         contractNumber: employee.contractNumber || '',
         staffScheduleId: employee.staffScheduleId || 'none',
+        employmentRate: employee.employmentRate,
         status: employee.status,
       })
     } else {
@@ -825,6 +927,7 @@ export default function EmployeesPage() {
         contractEndDate: '',
         contractNumber: '',
         staffScheduleId: 'none',
+        employmentRate: 1,
         status: 'ACTIVE',
       })
     }
@@ -877,13 +980,16 @@ export default function EmployeesPage() {
   }
 
   const openActionDialog = () => {
+    const defaultEmployee = activeEmployees[0] || employees[0] || null
+
     setActionForm({
-      employeeId: activeEmployees[0]?.id || employees[0]?.id || '',
+      employeeId: defaultEmployee?.id || '',
       type: 'TRANSFER',
       date: new Date().toISOString().split('T')[0],
       description: '',
       newDepartment: '',
       staffScheduleId: 'none',
+      employmentRate: defaultEmployee?.employmentRate || 1,
       newContractEndDate: '',
     })
     setIsActionDialogOpen(true)
@@ -891,19 +997,50 @@ export default function EmployeesPage() {
 
   const handleEmployeePositionChange = (value: string) => {
     const nextPosition = staffSchedule.find((position) => position.id === value)
+    const nextAvailableRate = getAssignableRateForPosition(nextPosition, editingEmployee?.id)
+
     setEmployeeForm((prev) => ({
       ...prev,
       staffScheduleId: value,
       department: value === 'none' ? prev.department : nextPosition?.department || prev.department,
+      employmentRate: value === 'none' ? prev.employmentRate : clampEmploymentRate(prev.employmentRate, nextAvailableRate),
+    }))
+  }
+
+  const handleActionTypeChange = (value: string) => {
+    const nextType = value as PersonnelActionType
+
+    setActionForm((prev) => ({
+      ...prev,
+      type: nextType,
+      staffScheduleId: nextType === 'TRANSFER' ? prev.staffScheduleId : 'none',
+      newDepartment: nextType === 'TRANSFER' ? prev.newDepartment : '',
+      employmentRate: nextType === 'TRANSFER' ? selectedActionEmployee?.employmentRate || prev.employmentRate || 1 : prev.employmentRate,
+      newContractEndDate: nextType === 'EXTEND' ? prev.newContractEndDate : '',
+    }))
+  }
+
+  const handleActionEmployeeChange = (value: string) => {
+    const nextEmployee = employees.find((employee) => employee.id === value)
+
+    setActionForm((prev) => ({
+      ...prev,
+      employeeId: value,
+      staffScheduleId: prev.type === 'TRANSFER' ? 'none' : prev.staffScheduleId,
+      newDepartment: prev.type === 'TRANSFER' ? '' : prev.newDepartment,
+      employmentRate: prev.type === 'TRANSFER' ? nextEmployee?.employmentRate || 1 : prev.employmentRate,
     }))
   }
 
   const handleActionPositionChange = (value: string) => {
     const nextPosition = staffSchedule.find((position) => position.id === value)
+    const nextAvailableRate = getAssignableRateForPosition(nextPosition, selectedActionEmployee?.id)
+
     setActionForm((prev) => ({
       ...prev,
       staffScheduleId: value,
       newDepartment: value === 'none' ? prev.newDepartment : nextPosition?.department || prev.newDepartment,
+      employmentRate: value === 'none' ? prev.employmentRate : clampEmploymentRate(prev.employmentRate, nextAvailableRate),
     }))
   }
 
@@ -1015,183 +1152,192 @@ export default function EmployeesPage() {
           </CardContent>
         </Card>
 
-        <div className="flex h-full min-h-0 flex-col gap-6 xl:col-span-1">
-          <Card className="flex min-h-0 flex-1 flex-col">
-            <CardHeader>
-              <div>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Building2 className="h-5 w-5" />
-                  Штатное расписание
-                </CardTitle>
+        <Card className="flex h-full min-h-0 flex-col xl:col-span-1">
+          <CardHeader>
+            <div>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <RefreshCw className="h-5 w-5" />
+                Кадровые действия
+              </CardTitle>
+            </div>
+          </CardHeader>
+
+          <CardContent className="flex min-h-0 flex-1 flex-col space-y-4 overflow-hidden">
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Всего действий</p>
+                <p className="mt-2 font-medium">{personnelActions.length}</p>
               </div>
-            </CardHeader>
-
-            <CardContent className="flex min-h-0 flex-1 flex-col space-y-4 overflow-hidden">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Должностей</p>
-                  <p className="mt-2 font-medium">{staffSchedule.length}</p>
-                </div>
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Ставок</p>
-                  <p className="mt-2 font-medium">{formatDecimal(totalRates)}</p>
-                </div>
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">За 30 дней</p>
+                <p className="mt-2 font-medium">
+                  {personnelActions.filter((action) => action.createdAt.getTime() >= Date.now() - 30 * 24 * 60 * 60 * 1000).length}
+                </p>
               </div>
+            </div>
 
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-                {loading ? (
-                  <div className="rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
-                    Загрузка должностей...
-                  </div>
-                ) : staffSchedule.length === 0 ? (
-                  <div className="rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
-                    Должности пока не заведены.
-                  </div>
-                ) : (
-                  staffSchedule.map((position) => {
-                    const assignedEmployee = position.employees[0]
-
-                    return (
-                      <div key={position.id} className="group rounded-xl border p-4 transition-colors hover:bg-slate-50/70">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate font-medium text-slate-900">{position.position}</p>
-                            <p className="mt-1 text-sm text-muted-foreground">{position.department}</p>
-                          </div>
-
-                          <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openStaffDialog(position)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-red-500 hover:text-red-700"
-                              onClick={() => handleDeleteStaff(position.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <Badge variant="outline">{formatDecimal(position.rate)} ст.</Badge>
-                          <Badge variant="outline">Оклад: {formatCurrency(position.salary)}</Badge>
-                        </div>
-
-                        {assignedEmployee ? (
-                          <div className="mt-3 text-xs text-muted-foreground">
-                            Назначен: {assignedEmployee.fullName}
-                          </div>
-                        ) : (
-                          <div className="mt-3 text-xs text-muted-foreground">
-                            Пока не назначена
-                          </div>
-                        )}
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+              {loading ? (
+                <div className="rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
+                  Загрузка кадровых действий...
+                </div>
+              ) : personnelActions.length === 0 ? (
+                <div className="rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
+                  Журнал кадровых действий пока пуст.
+                </div>
+              ) : (
+                personnelActions.map((action) => (
+                  <div key={action.id} className="group rounded-xl border p-4 transition-colors hover:bg-slate-50/70">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5 rounded-full bg-slate-100 p-2">
+                        {getPersonnelActionIcon(action.type)}
                       </div>
-                    )
-                  })
-                )}
-              </div>
-            </CardContent>
-          </Card>
 
-          <Card className="flex min-h-0 flex-1 flex-col">
-            <CardHeader>
-              <div>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <RefreshCw className="h-5 w-5" />
-                  Кадровые действия
-                </CardTitle>
-              </div>
-            </CardHeader>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate font-medium text-slate-900">{action.employee.fullName}</p>
+                            <p className="mt-1 text-sm text-muted-foreground">{getPersonnelActionDescription(action)}</p>
+                          </div>
 
-            <CardContent className="flex min-h-0 flex-1 flex-col space-y-4 overflow-hidden">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-lg border bg-muted/30 p-3">
-                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Всего действий</p>
-                  <p className="mt-2 font-medium">{personnelActions.length}</p>
-                </div>
-                <div className="rounded-lg border bg-muted/30 p-3">
-                    <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">За 30 дней</p>
-                    <p className="mt-2 font-medium">
-                    {personnelActions.filter((action) => action.createdAt.getTime() >= Date.now() - 30 * 24 * 60 * 60 * 1000).length}
-                    </p>
-                  </div>
-                </div>
-
-              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-                {loading ? (
-                  <div className="rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
-                    Загрузка кадровых действий...
-                  </div>
-                ) : personnelActions.length === 0 ? (
-                  <div className="rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
-                    Журнал кадровых действий пока пуст.
-                  </div>
-                ) : (
-                  personnelActions.map((action) => (
-                    <div key={action.id} className="group rounded-xl border p-4 transition-colors hover:bg-slate-50/70">
-                      <div className="flex items-start gap-3">
-                        <div className="mt-0.5 rounded-full bg-slate-100 p-2">
-                          {getPersonnelActionIcon(action.type)}
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline">{personnelActionLabels[action.type]}</Badge>
+                            {action.type !== 'ARCHIVE' && !action.isSynthetic && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
+                                onClick={() => handleDeleteAction(action.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-500" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
 
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="truncate font-medium text-slate-900">{action.employee.fullName}</p>
-                              <p className="mt-1 text-sm text-muted-foreground">{getPersonnelActionDescription(action)}</p>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline">{personnelActionLabels[action.type]}</Badge>
-                              {action.type !== 'ARCHIVE' && !action.isSynthetic && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
-                                  onClick={() => handleDeleteAction(action.id)}
-                                >
-                                  <Trash2 className="h-4 w-4 text-red-500" />
-                                </Button>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span>Создано: {formatDateTime(action.createdAt)}</span>
-                              {action.createdAt.getTime() !== action.date.getTime() && (
-                                <span>Дата события: {formatDate(action.date)}</span>
-                              )}
-                              {(action.oldDepartment || action.newDepartment) && (
-                                <span>
-                                  {action.oldDepartment || '—'} {'->'} {action.newDepartment || '—'}
-                                </span>
-                              )}
-                            </div>
-                            {(action.oldPosition || action.newPosition) && (
-                              <span>
-                                {action.oldPosition || '—'} {'->'} {action.newPosition || '—'}
-                              </span>
+                        <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span>Создано: {formatDateTime(action.createdAt)}</span>
+                            {action.createdAt.getTime() !== action.date.getTime() && (
+                              <span>Дата события: {formatDate(action.date)}</span>
                             )}
-                            {(action.oldContractEndDate || action.newContractEndDate) && (
+                            {(action.oldDepartment || action.newDepartment) && (
                               <span>
-                                Договор: {action.oldContractEndDate ? formatDate(action.oldContractEndDate) : '—'} {'->'} {action.newContractEndDate ? formatDate(action.newContractEndDate) : '—'}
+                                {action.oldDepartment || '—'} {'->'} {action.newDepartment || '—'}
                               </span>
                             )}
                           </div>
+                          {(action.oldPosition || action.newPosition) && (
+                            <span>
+                              {action.oldPosition || '—'} {'->'} {action.newPosition || '—'}
+                            </span>
+                          )}
+                          {(action.oldContractEndDate || action.newContractEndDate) && (
+                            <span>
+                              Договор: {action.oldContractEndDate ? formatDate(action.oldContractEndDate) : '—'} {'->'} {action.newContractEndDate ? formatDate(action.newContractEndDate) : '—'}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="mt-6">
+        <CardHeader className="space-y-4">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Building2 className="h-5 w-5" />
+              Штатное расписание
+            </CardTitle>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 md:grid-cols-4">
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Должностей</p>
+              <p className="mt-2 text-sm font-medium">{staffSchedule.length}</p>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Всего ставок</p>
+              <p className="mt-2 text-sm font-medium">{formatDecimal(totalRates)}</p>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Занято ставок</p>
+              <p className="mt-2 text-sm font-medium">{formatDecimal(occupiedRates)}</p>
+            </div>
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Свободно ставок</p>
+              <p className="mt-2 text-sm font-medium">{formatDecimal(freeRates)}</p>
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-xl border">
+            <Table>
+              <TableHeader className="bg-slate-50/80">
+                <TableRow>
+                  <TableHead>Должность</TableHead>
+                  <TableHead>Всего ставок</TableHead>
+                  <TableHead>Свободно ставок</TableHead>
+                  <TableHead>Занято ставок</TableHead>
+                  <TableHead className="w-[96px] text-right">&nbsp;</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                      Загрузка должностей...
+                    </TableCell>
+                  </TableRow>
+                ) : staffSchedule.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                      Должности пока не заведены.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  staffSchedule.map((position) => (
+                    <TableRow key={position.id}>
+                      <TableCell>
+                        <div className="min-w-[220px]">
+                          <p className="font-medium text-slate-900">{position.position}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{position.department}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">Оклад за 1 ставку: {formatCurrency(position.salary)}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell>{formatDecimal(position.rate)}</TableCell>
+                      <TableCell>{formatDecimal(position.freeRate)}</TableCell>
+                      <TableCell>{formatDecimal(position.occupiedRate)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openStaffDialog(position)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-500 hover:text-red-700"
+                            onClick={() => handleDeleteStaff(position.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   ))
                 )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="mt-6">
         <CardHeader className="space-y-4">
@@ -1237,7 +1383,7 @@ export default function EmployeesPage() {
                 <TableRow>
                   <TableHead>ФИО</TableHead>
                   <TableHead>Должность</TableHead>
-                  <TableHead>Доля ставки</TableHead>
+                  <TableHead>Количество ставок</TableHead>
                   <TableHead>Вид трудового договора</TableHead>
                   <TableHead>Срок действия трудового договора</TableHead>
                   <TableHead>Дата подписания трудового договора</TableHead>
@@ -1289,7 +1435,7 @@ export default function EmployeesPage() {
                             <p className="mt-1 text-xs text-muted-foreground">{employee.department || '—'}</p>
                           </div>
                         </TableCell>
-                        <TableCell>{employee.staffSchedule ? formatDecimal(employee.staffSchedule.rate) : '—'}</TableCell>
+                        <TableCell>{employee.staffSchedule ? formatDecimal(employee.employmentRate) : '—'}</TableCell>
                         <TableCell>{employmentContractTypeLabels[employee.contractType]}</TableCell>
                         <TableCell>{employee.contractEndDate ? formatDate(employee.contractEndDate) : 'Бессрочно'}</TableCell>
                         <TableCell>{employee.contractSignedDate ? formatDate(employee.contractSignedDate) : '—'}</TableCell>
@@ -1312,7 +1458,7 @@ export default function EmployeesPage() {
       </Card>
 
       <Dialog open={isEmployeeDialogOpen} onOpenChange={setIsEmployeeDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>{editingEmployee ? 'Редактировать сотрудника' : 'Новый сотрудник'}</DialogTitle>
             <DialogDescription>
@@ -1320,8 +1466,8 @@ export default function EmployeesPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSaveEmployee} className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
+          <form onSubmit={handleSaveEmployee} className="space-y-5">
+            <div className="grid gap-4 md:grid-cols-[180px_minmax(0,1fr)_220px] md:items-start">
               <div className="space-y-2">
                 <Label htmlFor="employee-code">Табельный номер</Label>
                 <Input
@@ -1346,6 +1492,24 @@ export default function EmployeesPage() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="employee-rate">Количество ставок</Label>
+                <Input
+                  id="employee-rate"
+                  type="number"
+                  min="0.01"
+                  step="any"
+                  value={employeeForm.employmentRate}
+                  onChange={(e) => setEmployeeForm((prev) => ({ ...prev, employmentRate: normalizeEmploymentRateInput(e.target.value) }))}
+                  disabled={employeeForm.staffScheduleId === 'none'}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  {selectedEmployeePosition
+                    ? `Доступно для назначения: ${formatDecimal(availableEmployeeRate)} ст.`
+                    : 'Сначала выбери должность'}
+                </p>
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -1358,15 +1522,23 @@ export default function EmployeesPage() {
               />
             </div>
 
-            <div className="grid gap-4 rounded-lg border bg-muted/30 p-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Подразделение</p>
-                <p className="text-sm font-medium">{selectedEmployeePosition?.department || 'Выбери должность'}</p>
-              </div>
-              <div className="space-y-2">
-                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Доля ставки</p>
-                <p className="text-sm font-medium">{selectedEmployeePosition ? `${formatDecimal(selectedEmployeePosition.rate)} ст.` : 'Выбери должность'}</p>
-              </div>
+            <div className="grid gap-3 rounded-xl border bg-muted/20 p-4 md:grid-cols-2 xl:grid-cols-4">
+              <DetailSummaryItem
+                label="Подразделение"
+                value={selectedEmployeePosition?.department || 'Выбери должность'}
+              />
+              <DetailSummaryItem
+                label="Всего ставок по должности"
+                value={selectedEmployeePosition ? `${formatDecimal(selectedEmployeePosition.rate)} ст.` : 'Выбери должность'}
+              />
+              <DetailSummaryItem
+                label="Оклад за 1 ставку"
+                value={selectedEmployeePosition ? formatCurrency(selectedEmployeePosition.salary) : 'Выбери должность'}
+              />
+              <DetailSummaryItem
+                label="Расчетный оклад"
+                value={selectedEmployeePosition ? formatCurrency(calculatedEmployeeSalary) : 'Выбери должность'}
+              />
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -1436,7 +1608,7 @@ export default function EmployeesPage() {
           <DialogHeader>
             <DialogTitle>{editingStaff ? 'Редактировать должность' : 'Новая должность'}</DialogTitle>
             <DialogDescription>
-              Укажи параметры штатной единицы, которая будет доступна для назначения сотрудникам.
+              Укажи общее количество ставок и оклад за одну ставку для этой должности.
             </DialogDescription>
           </DialogHeader>
 
@@ -1476,15 +1648,15 @@ export default function EmployeesPage() {
                 <Input
                   id="staff-rate"
                   type="number"
-                  step="0.25"
-                  min="0.25"
+                  step="any"
+                  min="0.01"
                   value={staffForm.rate}
-                  onChange={(e) => setStaffForm((prev) => ({ ...prev, rate: Number(e.target.value) || 0 }))}
+                  onChange={(e) => setStaffForm((prev) => ({ ...prev, rate: normalizeEmploymentRateInput(e.target.value) }))}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="staff-salary">Оклад (₽)</Label>
+                <Label htmlFor="staff-salary">Оклад за 1 ставку (₽)</Label>
                 <Input
                   id="staff-salary"
                   type="number"
@@ -1590,7 +1762,7 @@ export default function EmployeesPage() {
       </Dialog>
 
       <Dialog open={isActionDialogOpen} onOpenChange={setIsActionDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>Новое кадровое действие</DialogTitle>
             <DialogDescription>
@@ -1598,22 +1770,10 @@ export default function EmployeesPage() {
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSaveAction} className="space-y-4">
+          <form onSubmit={handleSaveAction} className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="action-type">Тип действия</Label>
-                <Select
-                  value={actionForm.type}
-                  onValueChange={(value) => {
-                    const nextType = value as PersonnelActionType
-                    setActionForm((prev) => ({
-                      ...prev,
-                      type: nextType,
-                      staffScheduleId: nextType === 'TRANSFER' ? prev.staffScheduleId : 'none',
-                      newDepartment: nextType === 'TRANSFER' ? prev.newDepartment : '',
-                      newContractEndDate: nextType === 'EXTEND' ? prev.newContractEndDate : '',
-                    }))
-                  }}
-                >
+                <Select value={actionForm.type} onValueChange={handleActionTypeChange}>
                 <SelectTrigger id="action-type">
                   <SelectValue />
                 </SelectTrigger>
@@ -1629,17 +1789,7 @@ export default function EmployeesPage() {
 
             <div className="space-y-2">
               <Label htmlFor="action-employee">Сотрудник</Label>
-              <Select
-                value={actionForm.employeeId}
-                onValueChange={(value) =>
-                  setActionForm((prev) => ({
-                    ...prev,
-                    employeeId: value,
-                    staffScheduleId: prev.type === 'TRANSFER' ? 'none' : prev.staffScheduleId,
-                    newDepartment: prev.type === 'TRANSFER' ? '' : prev.newDepartment,
-                  }))
-                }
-              >
+              <Select value={actionForm.employeeId} onValueChange={handleActionEmployeeChange}>
                 <SelectTrigger id="action-employee">
                   <SelectValue placeholder="Выберите сотрудника" />
                 </SelectTrigger>
@@ -1666,31 +1816,59 @@ export default function EmployeesPage() {
 
             {actionForm.type === 'TRANSFER' && (
               <>
-                <div className="space-y-2">
-                  <Label htmlFor="action-position">Новая должность</Label>
-                  <Select value={actionForm.staffScheduleId} onValueChange={handleActionPositionChange}>
-                    <SelectTrigger id="action-position">
-                      <SelectValue placeholder="Выберите должность" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {transferPositionOptions.map((position) => (
-                        <SelectItem key={position.id} value={position.id}>
-                          {position.position} ({position.department})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px] md:items-start">
+                  <div className="space-y-2">
+                    <Label htmlFor="action-position">Новая должность</Label>
+                    <Select value={actionForm.staffScheduleId} onValueChange={handleActionPositionChange}>
+                      <SelectTrigger id="action-position">
+                        <SelectValue placeholder="Выберите должность" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {transferPositionOptions.map((position) => (
+                          <SelectItem key={position.id} value={position.id}>
+                            {position.position} ({position.department})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="action-rate">Количество ставок</Label>
+                    <Input
+                      id="action-rate"
+                      type="number"
+                      min="0.01"
+                      step="any"
+                      value={actionForm.employmentRate}
+                      onChange={(e) => setActionForm((prev) => ({ ...prev, employmentRate: normalizeEmploymentRateInput(e.target.value) }))}
+                      disabled={actionForm.staffScheduleId === 'none'}
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {selectedActionPosition
+                        ? `Доступно для назначения: ${formatDecimal(availableActionRate)} ст.`
+                        : 'Сначала выбери должность'}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="grid gap-4 rounded-lg border bg-muted/30 p-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Новое подразделение</p>
-                    <p className="text-sm font-medium">{selectedActionPosition?.department || 'Выбери должность'}</p>
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Новая доля ставки</p>
-                    <p className="text-sm font-medium">{selectedActionPosition ? `${formatDecimal(selectedActionPosition.rate)} ст.` : 'Выбери должность'}</p>
-                  </div>
+                <div className="grid gap-3 rounded-xl border bg-muted/20 p-4 md:grid-cols-2 xl:grid-cols-4">
+                  <DetailSummaryItem
+                    label="Новое подразделение"
+                    value={selectedActionPosition?.department || 'Выбери должность'}
+                  />
+                  <DetailSummaryItem
+                    label="Всего ставок по должности"
+                    value={selectedActionPosition ? `${formatDecimal(selectedActionPosition.rate)} ст.` : 'Выбери должность'}
+                  />
+                  <DetailSummaryItem
+                    label="Оклад за 1 ставку"
+                    value={selectedActionPosition ? formatCurrency(selectedActionPosition.salary) : 'Выбери должность'}
+                  />
+                  <DetailSummaryItem
+                    label="Расчетный оклад"
+                    value={selectedActionPosition ? formatCurrency(calculatedActionSalary) : 'Выбери должность'}
+                  />
                 </div>
               </>
             )}
