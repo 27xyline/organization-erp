@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { toRateNumber } from '@/lib/employees'
+import { createStaffScheduleSchema, validateRequest } from '@/lib/validations'
 
 // GET /api/staff-schedule - Get all staff schedule positions
 export async function GET() {
@@ -39,7 +40,7 @@ export async function GET() {
   } catch (error) {
     console.error('Error fetching staff schedule:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch staff schedule' },
+      { error: 'Ошибка при загрузке штатного расписания' },
       { status: 500 }
     )
   }
@@ -48,37 +49,24 @@ export async function GET() {
 // POST /api/staff-schedule - Create new position
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json()
-    const rate = Number(data.rate)
-    const salary = Number(data.salary)
+    const body = await request.json()
+    const validation = validateRequest(createStaffScheduleSchema, body)
 
-    if (!data.position || !data.department) {
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'Заполните должность и подразделение' },
+        { error: validation.error },
         { status: 400 }
       )
     }
 
-    if (!Number.isFinite(rate) || rate <= 0) {
-      return NextResponse.json(
-        { error: 'Количество ставок должно быть больше нуля' },
-        { status: 400 }
-      )
-    }
-
-    if (!Number.isFinite(salary) || salary < 0) {
-      return NextResponse.json(
-        { error: 'Оклад за одну ставку не может быть отрицательным' },
-        { status: 400 }
-      )
-    }
+    const data = validation.data
     
     const position = await prisma.staffSchedule.create({
       data: {
         position: data.position.trim(),
         department: data.department,
-        rate,
-        salary,
+        rate: data.rate,
+        salary: data.salary,
       },
     })
     
@@ -86,7 +74,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating staff position:', error)
     return NextResponse.json(
-      { error: 'Failed to create staff position' },
+      { error: 'Ошибка при создании должности' },
       { status: 500 }
     )
   }

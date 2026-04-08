@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { getStaffScheduleRateSummary, getStartOfToday } from '@/lib/employees'
+import { createEmployeeSchema, validateRequest } from '@/lib/validations'
 
 // GET /api/employees - Get all employees
 export async function GET(request: NextRequest) {
@@ -42,16 +43,29 @@ export async function GET(request: NextRequest) {
                 },
               }
           : undefined
+    const page = Number(request.nextUrl.searchParams.get('page')) || 1
+    const limit = Number(request.nextUrl.searchParams.get('limit')) || 50
+    const skip = (page - 1) * limit
 
-    const employees = await prisma.employee.findMany({
-      where,
-      orderBy: scope === 'all' ? { createdAt: 'desc' } : { fullName: 'asc' },
-      include: {
-        staffSchedule: true,
-      },
-    })
+    const [employees, total] = await prisma.$transaction([
+      prisma.employee.findMany({
+        where,
+        orderBy: scope === 'all' ? { createdAt: 'desc' } : { fullName: 'asc' },
+        include: {
+          staffSchedule: true,
+        },
+        skip,
+        take: limit,
+      }),
+      prisma.employee.count({ where }),
+    ])
     
-    return NextResponse.json(employees)
+    return NextResponse.json({
+      data: employees,
+      total,
+      page,
+      limit,
+    })
   } catch (error) {
     console.error('Error fetching employees:', error)
     return NextResponse.json(
@@ -64,38 +78,20 @@ export async function GET(request: NextRequest) {
 // POST /api/employees - Create new employee
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json()
-    const contractSignedDate = data.contractSignedDate ? new Date(data.contractSignedDate) : null
+    const body = await request.json()
+    const validation = validateRequest(createEmployeeSchema, body)
+    
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: validation.error },
+        { status: 400 }
+      )
+    }
+    
+    const data = validation.data
+    const contractSignedDate = new Date(data.contractSignedDate)
     const contractEndDate = data.contractEndDate ? new Date(data.contractEndDate) : null
-    const employmentRate = Number(data.employmentRate)
-
-    if (!data.staffScheduleId) {
-      return NextResponse.json(
-        { error: 'Должность из штатного расписания обязательна' },
-        { status: 400 }
-      )
-    }
-
-    if (!Number.isFinite(employmentRate) || employmentRate <= 0) {
-      return NextResponse.json(
-        { error: 'Количество ставок сотрудника должно быть больше нуля' },
-        { status: 400 }
-      )
-    }
-
-    if (!data.contractNumber || !contractSignedDate || Number.isNaN(contractSignedDate.getTime())) {
-      return NextResponse.json(
-        { error: 'Номер договора и дата подписания обязательны' },
-        { status: 400 }
-      )
-    }
-
-    if (contractEndDate && Number.isNaN(contractEndDate.getTime())) {
-      return NextResponse.json(
-        { error: 'Некорректная дата окончания договора' },
-        { status: 400 }
-      )
-    }
+    const employmentRate = data.employmentRate
 
     if (contractEndDate && contractSignedDate >= contractEndDate) {
       return NextResponse.json(

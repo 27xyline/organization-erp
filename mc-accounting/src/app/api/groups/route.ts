@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { createGroupSchema, validateRequest } from '@/lib/validations'
 
 export async function GET() {
   try {
@@ -10,7 +11,7 @@ export async function GET() {
   } catch (error) {
     console.error('Error fetching asset groups:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch asset groups' },
+      { error: 'Ошибка при загрузке групп имущества' },
       { status: 500 }
     )
   }
@@ -18,7 +19,17 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json()
+    const body = await request.json()
+    const validation = validateRequest(createGroupSchema, body)
+    
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: validation.error },
+        { status: 400 }
+      )
+    }
+
+    const data = validation.data
     
     const group = await prisma.assetGroup.create({
       data: {
@@ -32,7 +43,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating asset group:', error)
     return NextResponse.json(
-      { error: 'Failed to create asset group' },
+      { error: 'Ошибка при создании группы имущества' },
       { status: 500 }
     )
   }

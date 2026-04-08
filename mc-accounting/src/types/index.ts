@@ -1,18 +1,5 @@
-export enum AssetStatus {
-  IN_STOCK = 'IN_STOCK',
-  IN_USE = 'IN_USE',
-  UNDER_REPAIR = 'UNDER_REPAIR',
-  PLANNED_FOR_DISPOSAL = 'PLANNED_FOR_DISPOSAL',
-  PARTIALLY_DISPOSED = 'PARTIALLY_DISPOSED',
-  FULLY_DISPOSED = 'FULLY_DISPOSED',
-}
-
-export enum OperationType {
-  RECEIPT = 'RECEIPT',
-  TRANSFER = 'TRANSFER',
-  DISPOSAL = 'DISPOSAL',
-  STATUS_CHANGE = 'STATUS_CHANGE',
-}
+import { AssetStatus, OperationType, ProjectStatus, TaskStatus } from '@prisma/client'
+export { AssetStatus, OperationType, ProjectStatus, TaskStatus }
 
 export interface Mol {
   id: string
@@ -106,18 +93,6 @@ export const OperationTypeLabels: Record<OperationType, string> = {
 }
 
 // Projects
-export enum ProjectStatus {
-  ACTIVE = 'ACTIVE',
-  COMPLETED = 'COMPLETED',
-  ARCHIVED = 'ARCHIVED',
-}
-
-export enum TaskStatus {
-  NOT_STARTED = 'NOT_STARTED',
-  IN_PROGRESS = 'IN_PROGRESS',
-  COMPLETED = 'COMPLETED',
-  DELAYED = 'DELAYED',
-}
 
 export interface Project {
   id: string
@@ -168,4 +143,121 @@ export const TaskStatusLabels: Record<TaskStatus, string> = {
   [TaskStatus.IN_PROGRESS]: 'В работе',
   [TaskStatus.COMPLETED]: 'Завершена',
   [TaskStatus.DELAYED]: 'Просрочена',
+}
+
+// Employees
+export type EmployeeStatus = 'ACTIVE' | 'ON_VACATION' | 'ON_SICK_LEAVE' | 'DISMISSED'
+export type EmploymentContractType = 'PRIMARY' | 'INTERNAL' | 'EXTERNAL'
+export type VacationType = 'VACATION' | 'SICK_LEAVE' | 'BUSINESS_TRIP' | 'UNPAID_LEAVE'
+export type PersonnelActionType = 'HIRE' | 'DISMISS' | 'TRANSFER' | 'EXTEND' | 'PROMOTE' | 'ARCHIVE' | 'EDIT'
+
+export interface Employee {
+  id: string
+  code: string
+  fullName: string
+  department: string
+  phone?: string
+  email?: string
+  photo?: string
+  contractType: EmploymentContractType
+  contractSignedDate?: Date | null
+  contractEndDate?: Date | null
+  contractNumber?: string | null
+  status: EmployeeStatus
+  staffScheduleId?: string | null
+  employmentRate: number
+  staffSchedule?: {
+    id: string
+    position: string
+    department: string
+    rate: number
+    salary: number
+  } | null
+}
+
+export interface StaffSchedule {
+  id: string
+  position: string
+  department: string
+  rate: number
+  salary: number
+  occupiedRate: number
+  freeRate: number
+  employees: Employee[]
+}
+
+export interface Vacation {
+  id: string
+  employeeId: string
+  employee?: {
+    id: string
+    fullName: string
+    department?: string
+  }
+  startDate: Date
+  endDate: Date
+  type: VacationType
+}
+
+export interface PersonnelAction {
+  id: string
+  type: PersonnelActionType
+  date: Date
+  createdAt: Date
+  description?: string | null
+  isSynthetic?: boolean
+  employeeId: string
+  employee: {
+    id: string
+    fullName: string
+    department: string
+    status: EmployeeStatus
+    contractType: EmploymentContractType
+    contractSignedDate?: Date | null
+    contractEndDate?: Date | null
+    contractNumber?: string | null
+    staffScheduleId?: string | null
+    employmentRate: number
+    staffSchedule?: {
+      id: string
+      position: string
+      department: string
+    } | null
+  }
+  oldDepartment?: string | null
+  newDepartment?: string | null
+  oldPosition?: string | null
+  newPosition?: string | null
+  oldContractEndDate?: Date | null
+  newContractEndDate?: Date | null
+}
+
+export const employeeStatusLabels: Record<EmployeeStatus, string> = {
+  ACTIVE: 'Работает',
+  ON_VACATION: 'В отпуске',
+  ON_SICK_LEAVE: 'На больничном',
+  DISMISSED: 'Уволен',
+}
+
+export const vacationTypeLabels: Record<VacationType, string> = {
+  VACATION: 'Отпуск',
+  SICK_LEAVE: 'Больничный',
+  BUSINESS_TRIP: 'Командировка',
+  UNPAID_LEAVE: 'Без содержания',
+}
+
+export const employmentContractTypeLabels: Record<EmploymentContractType, string> = {
+  PRIMARY: 'Основной',
+  INTERNAL: 'Внутренний',
+  EXTERNAL: 'Внешний',
+}
+
+export const personnelActionLabels: Record<PersonnelActionType, string> = {
+  HIRE: 'Прием',
+  DISMISS: 'Увольнение',
+  TRANSFER: 'Перевод',
+  EXTEND: 'Продление',
+  PROMOTE: 'Повышение',
+  ARCHIVE: 'Архив',
+  EDIT: 'Редактирование',
 }

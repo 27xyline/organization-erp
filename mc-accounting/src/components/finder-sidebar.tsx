@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { usePathname } from "next/navigation"
+import { useSession, signOut } from "next-auth/react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { 
@@ -21,7 +22,8 @@ import {
   BarChart3,
   Archive,
   UserCog,
-  Tag
+  Tag,
+  LogOut
 } from "lucide-react"
 
 interface Project {
@@ -85,6 +87,7 @@ const assetsChildren = [
 
 export function FinderSidebar() {
   const pathname = usePathname()
+  const { data: session } = useSession()
   const [expandedItems, setExpandedItems] = useState<string[]>(["assets"])
   const [projects, setProjects] = useState<Project[]>([])
   const hasFetchedProjectsRef = useRef(false)
@@ -244,6 +247,30 @@ export function FinderSidebar() {
         {staticMenuItems.map(item => renderMenuItem(item))}
       </div>
       
+      {session?.user && (
+        <div className="p-4 border-t flex flex-col gap-3">
+          <div className="flex items-center gap-3 overflow-hidden">
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium shrink-0">
+              {session.user.name?.charAt(0) || 'U'}
+            </div>
+            <div className="flex flex-col truncate">
+              <span className="text-sm font-medium leading-none truncate">
+                {session.user.name}
+              </span>
+              <span className="text-xs text-muted-foreground mt-1 truncate">
+                Доступ: {session.user.role === 'admin' ? 'Администратор' : 'Чтение'}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => signOut({ callbackUrl: '/login' })}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+            Выйти
+          </button>
+        </div>
+      )}
     </div>
   )
 }

@@ -44,111 +44,35 @@ import {
   Users,
 } from 'lucide-react'
 
-type EmployeeStatus = 'ACTIVE' | 'ON_VACATION' | 'ON_SICK_LEAVE' | 'DISMISSED'
-type EmploymentContractType = 'PRIMARY' | 'INTERNAL' | 'EXTERNAL'
-type VacationType = 'VACATION' | 'SICK_LEAVE' | 'BUSINESS_TRIP' | 'UNPAID_LEAVE'
-type PersonnelActionType = 'HIRE' | 'DISMISS' | 'TRANSFER' | 'EXTEND' | 'PROMOTE' | 'ARCHIVE' | 'EDIT'
+import { PersonnelTimeline } from '@/components/employees/personnel-timeline'
+import { StaffTable } from '@/components/employees/staff-table'
+import { EmployeesTable } from '@/components/employees/employees-table'
+import { VacationsCard } from '@/components/employees/vacations-card'
+import { EmployeeDialog } from '@/components/employees/employee-dialog'
+import { StaffDialog } from '@/components/employees/staff-dialog'
+import { VacationDialog } from '@/components/employees/vacation-dialog'
+import { ActionDialog } from '@/components/employees/action-dialog'
 
-interface Employee {
-  id: string
-  code: string
-  fullName: string
-  department: string
-  phone?: string
-  email?: string
-  photo?: string
-  contractType: EmploymentContractType
-  contractSignedDate?: Date | null
-  contractEndDate?: Date | null
-  contractNumber?: string | null
-  status: EmployeeStatus
-  staffScheduleId?: string | null
-  employmentRate: number
-  staffSchedule?: {
-    id: string
-    position: string
-    department: string
-    rate: number
-    salary: number
-  } | null
-}
-
-interface StaffSchedule {
-  id: string
-  position: string
-  department: string
-  rate: number
-  salary: number
-  occupiedRate: number
-  freeRate: number
-  employees: Employee[]
-}
-
-interface Vacation {
-  id: string
-  employeeId: string
-  employee?: {
-    id: string
-    fullName: string
-    department?: string
-  }
-  startDate: Date
-  endDate: Date
-  type: VacationType
-}
-
-interface PersonnelAction {
-  id: string
-  type: PersonnelActionType
-  date: Date
-  createdAt: Date
-  description?: string | null
-  isSynthetic?: boolean
-  employeeId: string
-  employee: {
-    id: string
-    fullName: string
-    department: string
-    status: EmployeeStatus
-    contractType: EmploymentContractType
-    contractSignedDate?: Date | null
-    contractEndDate?: Date | null
-    contractNumber?: string | null
-    staffScheduleId?: string | null
-    employmentRate: number
-    staffSchedule?: {
-      id: string
-      position: string
-      department: string
-    } | null
-  }
-  oldDepartment?: string | null
-  newDepartment?: string | null
-  oldPosition?: string | null
-  newPosition?: string | null
-  oldContractEndDate?: Date | null
-  newContractEndDate?: Date | null
-}
-
-const employeeStatusLabels: Record<EmployeeStatus, string> = {
-  ACTIVE: 'Работает',
-  ON_VACATION: 'В отпуске',
-  ON_SICK_LEAVE: 'На больничном',
-  DISMISSED: 'Уволен',
-}
-
-const vacationTypeLabels: Record<VacationType, string> = {
-  VACATION: 'Отпуск',
-  SICK_LEAVE: 'Больничный',
-  BUSINESS_TRIP: 'Командировка',
-  UNPAID_LEAVE: 'Без содержания',
-}
-
-const employmentContractTypeLabels: Record<EmploymentContractType, string> = {
-  PRIMARY: 'Основной',
-  INTERNAL: 'Внутренний',
-  EXTERNAL: 'Внешний',
-}
+import {
+  type Employee,
+  type StaffSchedule,
+  type Vacation,
+  type PersonnelAction,
+  type EmployeeStatus,
+  type EmploymentContractType,
+  type VacationType,
+  type PersonnelActionType,
+  employeeStatusLabels,
+  vacationTypeLabels,
+  employmentContractTypeLabels,
+  personnelActionLabels
+} from '@/types'
+import {
+  normalizeEmployee,
+  normalizeStaffSchedule,
+  normalizeVacation,
+  normalizePersonnelAction
+} from '@/lib/normalize'
 
 const staffDepartments = ['НИО-904', 'Лаборатория №4'] as const
 
@@ -165,92 +89,7 @@ const DetailSummaryItem = ({ label, value }: { label: string; value: string }) =
 const isContractExpired = (employee: Employee, date: Date) =>
   employee.status !== 'DISMISSED' && Boolean(employee.contractEndDate && employee.contractEndDate < date)
 
-const personnelActionLabels: Record<PersonnelActionType, string> = {
-  HIRE: 'Прием',
-  DISMISS: 'Увольнение',
-  TRANSFER: 'Перевод',
-  EXTEND: 'Продление',
-  PROMOTE: 'Повышение',
-  ARCHIVE: 'Архив',
-  EDIT: 'Редактирование',
-}
 
-const normalizeEmployee = (employee: any): Employee => ({
-  id: employee.id,
-  code: employee.code,
-  fullName: employee.fullName,
-  department: employee.department,
-  phone: employee.phone || '',
-  email: employee.email || '',
-  photo: employee.photo || '',
-  contractType: employee.contractType || 'PRIMARY',
-  contractSignedDate: employee.contractSignedDate ? new Date(employee.contractSignedDate) : null,
-  contractEndDate: employee.contractEndDate ? new Date(employee.contractEndDate) : null,
-  contractNumber: employee.contractNumber || '',
-  status: employee.status,
-  staffScheduleId: employee.staffScheduleId ?? null,
-  employmentRate: Number(employee.employmentRate ?? 0),
-  staffSchedule: employee.staffSchedule
-    ? {
-        id: employee.staffSchedule.id,
-        position: employee.staffSchedule.position,
-        department: employee.staffSchedule.department,
-        rate: Number(employee.staffSchedule.rate || 0),
-        salary: Number(employee.staffSchedule.salary || 0),
-      }
-    : null,
-})
-
-const normalizeStaffSchedule = (position: any): StaffSchedule => {
-  const employees = (position.employees || []).map(normalizeEmployee)
-  const occupiedRate = Number(
-    position.occupiedRate ?? employees.reduce((sum: number, employee: Employee) => sum + employee.employmentRate, 0)
-  )
-
-  return {
-    id: position.id,
-    position: position.position,
-    department: position.department,
-    rate: Number(position.rate || 0),
-    salary: Number(position.salary || 0),
-    occupiedRate,
-    freeRate: Number(position.freeRate ?? Math.max(Number(position.rate || 0) - occupiedRate, 0)),
-    employees,
-  }
-}
-
-const normalizeVacation = (vacation: any): Vacation => ({
-  id: vacation.id,
-  employeeId: vacation.employeeId,
-  employee: vacation.employee,
-  startDate: new Date(vacation.startDate),
-  endDate: new Date(vacation.endDate),
-  type: vacation.type,
-})
-
-const normalizePersonnelAction = (action: any): PersonnelAction => ({
-  id: action.id,
-  type: action.type,
-  date: new Date(action.date),
-  createdAt: new Date(action.createdAt),
-  description: action.description || '',
-  isSynthetic: Boolean(action.isSynthetic),
-  employeeId: action.employeeId,
-  employee: {
-    ...action.employee,
-    contractType: action.employee?.contractType || 'PRIMARY',
-    contractSignedDate: action.employee?.contractSignedDate ? new Date(action.employee.contractSignedDate) : null,
-    contractEndDate: action.employee?.contractEndDate ? new Date(action.employee.contractEndDate) : null,
-    contractNumber: action.employee?.contractNumber || '',
-    employmentRate: Number(action.employee?.employmentRate ?? 0),
-  },
-  oldDepartment: action.oldDepartment ?? null,
-  newDepartment: action.newDepartment ?? null,
-  oldPosition: action.oldPosition ?? null,
-  newPosition: action.newPosition ?? null,
-  oldContractEndDate: action.oldContractEndDate ? new Date(action.oldContractEndDate) : null,
-  newContractEndDate: action.newContractEndDate ? new Date(action.newContractEndDate) : null,
-})
 
 const isDateInRange = (date: Date, startDate: Date, endDate: Date) => date >= startDate && date <= endDate
 
@@ -423,7 +262,7 @@ export default function EmployeesPage() {
 
       if (employeesResponse.ok) {
         const data = await employeesResponse.json()
-        setEmployees(data.map(normalizeEmployee))
+        setEmployees((data.data || []).map(normalizeEmployee))
       }
 
       if (staffResponse.ok) {
@@ -431,13 +270,12 @@ export default function EmployeesPage() {
         setStaffSchedule(data.map(normalizeStaffSchedule))
       }
 
-      await fetch('/api/personnel-actions/sync', { method: 'POST' })
 
       const actionsResponse = await fetch('/api/personnel-actions')
 
       if (actionsResponse.ok) {
         const data = await actionsResponse.json()
-        setPersonnelActions(data.map(normalizePersonnelAction))
+        setPersonnelActions((data.data || []).map(normalizePersonnelAction))
       }
     } catch (error) {
       console.error('Error loading employees section:', error)
@@ -1074,855 +912,87 @@ export default function EmployeesPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:min-h-[980px] xl:grid-cols-4 xl:items-stretch">
-        <Card className="flex h-full flex-col xl:col-span-3">
-          <CardHeader>
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Calendar className="h-5 w-5" />
-                  График отпусков {selectedYear}
-                </CardTitle>
-              </div>
+        <VacationsCard
+          vacationsLoading={vacationsLoading}
+          vacations={vacations}
+          activeEmployees={activeEmployees}
+          startOfToday={startOfToday}
+          selectedYear={selectedYear}
+          onYearChange={setSelectedYear}
+          onVacationClick={openVacationDialog}
+        />
 
-              <div className="flex items-center gap-2 self-start">
-                {selectedYear !== actualCurrentYear && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelectedYear(actualCurrentYear)}
-                    disabled={vacationsLoading}
-                  >
-                    Текущий год
-                  </Button>
-                )}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9"
-                  onClick={() => setSelectedYear((prev) => prev - 1)}
-                  disabled={vacationsLoading}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <div className="min-w-[92px] rounded-md border bg-muted/30 px-3 py-2 text-center text-sm font-semibold text-slate-700">
-                  {selectedYear}
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9"
-                  onClick={() => setSelectedYear((prev) => prev + 1)}
-                  disabled={vacationsLoading}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="flex flex-1 flex-col space-y-4">
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="rounded-lg border bg-muted/30 p-3">
-                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Сотрудников в штате</p>
-                <p className="mt-2 text-sm font-medium">{activeEmployees.length}</p>
-              </div>
-              <div className="rounded-lg border bg-muted/30 p-3">
-                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Записей в графике</p>
-                <p className="mt-2 text-sm font-medium">{vacations.length}</p>
-              </div>
-              <div className="rounded-lg border bg-muted/30 p-3">
-                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Сотрудников с отпусками</p>
-                <p className="mt-2 text-sm font-medium">{employeesWithVacations.length}</p>
-              </div>
-            </div>
-
-            <div className="flex-1">
-              {vacationsLoading ? (
-                <div className="rounded-xl border border-dashed px-4 py-20 text-center text-sm text-muted-foreground">
-                  Загрузка графика отпусков...
-                </div>
-              ) : (
-                <VacationGantt
-                  vacations={vacations}
-                  employees={activeEmployees}
-                  year={selectedYear}
-                  expiredEmployeeIds={expiredActiveEmployees.map((employee) => employee.id)}
-                  onVacationClick={(vacation) => openVacationDialog(vacation)}
-                />
-              )}
-            </div>
-
-          </CardContent>
-        </Card>
-
-        <Card className="flex h-full min-h-0 flex-col xl:col-span-1">
-          <CardHeader>
-            <div>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <RefreshCw className="h-5 w-5" />
-                Кадровые действия
-              </CardTitle>
-            </div>
-          </CardHeader>
-
-          <CardContent className="flex min-h-0 flex-1 flex-col space-y-4 overflow-hidden">
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-lg border bg-muted/30 p-3">
-                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Всего действий</p>
-                <p className="mt-2 font-medium">{personnelActions.length}</p>
-              </div>
-              <div className="rounded-lg border bg-muted/30 p-3">
-                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">За 30 дней</p>
-                <p className="mt-2 font-medium">
-                  {personnelActions.filter((action) => action.createdAt.getTime() >= Date.now() - 30 * 24 * 60 * 60 * 1000).length}
-                </p>
-              </div>
-            </div>
-
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-              {loading ? (
-                <div className="rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
-                  Загрузка кадровых действий...
-                </div>
-              ) : personnelActions.length === 0 ? (
-                <div className="rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
-                  Журнал кадровых действий пока пуст.
-                </div>
-              ) : (
-                personnelActions.map((action) => (
-                  <div key={action.id} className="group rounded-xl border p-4 transition-colors hover:bg-slate-50/70">
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5 rounded-full bg-slate-100 p-2">
-                        {getPersonnelActionIcon(action.type)}
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate font-medium text-slate-900">{action.employee.fullName}</p>
-                            <p className="mt-1 text-sm text-muted-foreground">{getPersonnelActionDescription(action)}</p>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline">{personnelActionLabels[action.type]}</Badge>
-                            {action.type !== 'ARCHIVE' && !action.isSynthetic && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
-                                onClick={() => handleDeleteAction(action.id)}
-                              >
-                                <Trash2 className="h-4 w-4 text-red-500" />
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="mt-3 grid gap-2 text-xs text-muted-foreground">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span>Создано: {formatDateTime(action.createdAt)}</span>
-                            {action.createdAt.getTime() !== action.date.getTime() && (
-                              <span>Дата события: {formatDate(action.date)}</span>
-                            )}
-                            {(action.oldDepartment || action.newDepartment) && (
-                              <span>
-                                {action.oldDepartment || '—'} {'->'} {action.newDepartment || '—'}
-                              </span>
-                            )}
-                          </div>
-                          {(action.oldPosition || action.newPosition) && (
-                            <span>
-                              {action.oldPosition || '—'} {'->'} {action.newPosition || '—'}
-                            </span>
-                          )}
-                          {(action.oldContractEndDate || action.newContractEndDate) && (
-                            <span>
-                              Договор: {action.oldContractEndDate ? formatDate(action.oldContractEndDate) : '—'} {'->'} {action.newContractEndDate ? formatDate(action.newContractEndDate) : '—'}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        <PersonnelTimeline
+          loading={loading}
+          personnelActions={personnelActions}
+          onDeleteAction={handleDeleteAction}
+        />
       </div>
 
-      <Card className="mt-6">
-        <CardHeader className="space-y-4">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Building2 className="h-5 w-5" />
-              Штатное расписание
-            </CardTitle>
-          </div>
-        </CardHeader>
+      <StaffTable
+        loading={loading}
+        staffSchedule={staffSchedule}
+        onEditStaff={openStaffDialog}
+        onDeleteStaff={handleDeleteStaff}
+      />
 
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-4">
-            <div className="rounded-lg border bg-muted/30 p-3">
-              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Должностей</p>
-              <p className="mt-2 text-sm font-medium">{staffSchedule.length}</p>
-            </div>
-            <div className="rounded-lg border bg-muted/30 p-3">
-              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Всего ставок</p>
-              <p className="mt-2 text-sm font-medium">{formatDecimal(totalRates)}</p>
-            </div>
-            <div className="rounded-lg border bg-muted/30 p-3">
-              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Занято ставок</p>
-              <p className="mt-2 text-sm font-medium">{formatDecimal(occupiedRates)}</p>
-            </div>
-            <div className="rounded-lg border bg-muted/30 p-3">
-              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Свободно ставок</p>
-              <p className="mt-2 text-sm font-medium">{formatDecimal(freeRates)}</p>
-            </div>
-          </div>
+      <EmployeesTable
+        loading={loading}
+        activeEmployees={activeEmployees}
+        startOfToday={startOfToday}
+        onEditEmployee={openEmployeeDialog}
+        getLiveStatus={getLiveEmployeeStatus}
+      />
 
-          <div className="overflow-hidden rounded-xl border">
-            <Table>
-              <TableHeader className="bg-slate-50/80">
-                <TableRow>
-                  <TableHead>Должность</TableHead>
-                  <TableHead>Всего ставок</TableHead>
-                  <TableHead>Свободно ставок</TableHead>
-                  <TableHead>Занято ставок</TableHead>
-                  <TableHead className="w-[96px] text-right">&nbsp;</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                      Загрузка должностей...
-                    </TableCell>
-                  </TableRow>
-                ) : staffSchedule.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                      Должности пока не заведены.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  staffSchedule.map((position) => (
-                    <TableRow key={position.id}>
-                      <TableCell>
-                        <div className="min-w-[220px]">
-                          <p className="font-medium text-slate-900">{position.position}</p>
-                          <p className="mt-1 text-xs text-muted-foreground">{position.department}</p>
-                          <p className="mt-1 text-xs text-muted-foreground">Оклад за 1 ставку: {formatCurrency(position.salary)}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>{formatDecimal(position.rate)}</TableCell>
-                      <TableCell>{formatDecimal(position.freeRate)}</TableCell>
-                      <TableCell>{formatDecimal(position.occupiedRate)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openStaffDialog(position)}>
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-red-500 hover:text-red-700"
-                            onClick={() => handleDeleteStaff(position.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+      <EmployeeDialog
+        open={isEmployeeDialogOpen}
+        onOpenChange={setIsEmployeeDialogOpen}
+        editingEmployee={editingEmployee}
+        formData={employeeForm}
+        setFormData={setEmployeeForm}
+        positionOptions={employeePositionOptions}
+        onPositionChange={handleEmployeePositionChange}
+        onSave={handleSaveEmployee}
+        selectedPosition={selectedEmployeePosition}
+        availableRate={availableEmployeeRate}
+        calculatedSalary={calculatedEmployeeSalary}
+      />
 
-      <Card className="mt-6">
-        <CardHeader className="space-y-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Users className="h-5 w-5" />
-                Сотрудники
-              </CardTitle>
-            </div>
+      <StaffDialog
+        open={isStaffDialogOpen}
+        onOpenChange={setIsStaffDialogOpen}
+        editingStaff={editingStaff}
+        formData={staffForm}
+        setFormData={setStaffForm}
+        onSave={handleSaveStaff}
+      />
 
-            <div className="relative w-full lg:w-[320px]">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Поиск по ФИО, договору, должности"
-                className="pl-10"
-              />
-            </div>
-          </div>
-        </CardHeader>
+      <VacationDialog
+        open={isVacationDialogOpen}
+        onOpenChange={setIsVacationDialogOpen}
+        editingVacation={editingVacation}
+        formData={vacationForm}
+        setFormData={setVacationForm}
+        onSave={handleSaveVacation}
+        employees={activeEmployees}
+      />
 
-        <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="rounded-lg border bg-muted/30 p-3">
-              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">В штате</p>
-              <p className="mt-2 text-sm font-medium">{activeEmployees.length} чел.</p>
-            </div>
-            <div className="rounded-lg border bg-muted/30 p-3">
-              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Основных договоров</p>
-              <p className="mt-2 text-sm font-medium">{activeEmployees.filter((employee) => employee.contractType === 'PRIMARY').length}</p>
-            </div>
-            <div className="rounded-lg border bg-muted/30 p-3">
-              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Договор истек</p>
-              <p className="mt-2 text-sm font-medium">{expiredActiveEmployees.length}</p>
-            </div>
-          </div>
-
-          <div className="overflow-hidden rounded-xl border">
-            <Table>
-              <TableHeader className="bg-slate-50/80">
-                <TableRow>
-                  <TableHead>ФИО</TableHead>
-                  <TableHead>Должность</TableHead>
-                  <TableHead>Количество ставок</TableHead>
-                  <TableHead>Вид трудового договора</TableHead>
-                  <TableHead>Срок действия трудового договора</TableHead>
-                  <TableHead>Дата подписания трудового договора</TableHead>
-                  <TableHead>Номер трудового договора</TableHead>
-                  <TableHead className="w-[96px] text-right">&nbsp;</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
-                      Загрузка сотрудников...
-                    </TableCell>
-                  </TableRow>
-                ) : filteredEmployees.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
-                      Сотрудники по текущему фильтру не найдены.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredEmployees.map((employee) => {
-                    const liveStatus = getLiveEmployeeStatus(employee)
-                    const expiredContract = isContractExpired(employee, startOfToday)
-
-                    return (
-                      <TableRow key={employee.id} className={expiredContract ? 'bg-amber-50/40' : undefined}>
-                        <TableCell>
-                          <div className="min-w-[220px]">
-                            <p className="font-medium text-slate-900">{employee.fullName}</p>
-                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                              <span className="font-mono">{employee.code}</span>
-                              {expiredContract && (
-                                <Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-700">
-                                  Договор истек
-                                </Badge>
-                              )}
-                              {liveStatus.label !== employeeStatusLabels.ACTIVE && (
-                                <Badge variant="outline" className={liveStatus.className}>
-                                  {liveStatus.label}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium text-slate-900">{employee.staffSchedule?.position || '—'}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">{employee.department || '—'}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>{employee.staffSchedule ? formatDecimal(employee.employmentRate) : '—'}</TableCell>
-                        <TableCell>{employmentContractTypeLabels[employee.contractType]}</TableCell>
-                        <TableCell>{employee.contractEndDate ? formatDate(employee.contractEndDate) : 'Бессрочно'}</TableCell>
-                        <TableCell>{employee.contractSignedDate ? formatDate(employee.contractSignedDate) : '—'}</TableCell>
-                        <TableCell>{employee.contractNumber || '—'}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEmployeeDialog(employee)}>
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Dialog open={isEmployeeDialogOpen} onOpenChange={setIsEmployeeDialogOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>{editingEmployee ? 'Редактировать сотрудника' : 'Новый сотрудник'}</DialogTitle>
-            <DialogDescription>
-              Заполни карточку сотрудника и выбери должность из штатного расписания.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleSaveEmployee} className="space-y-5">
-            <div className="grid gap-4 md:grid-cols-[180px_minmax(0,1fr)_220px] md:items-start">
-              <div className="space-y-2">
-                <Label htmlFor="employee-code">Табельный номер</Label>
-                <Input
-                  id="employee-code"
-                  value={employeeForm.code}
-                  onChange={(e) => setEmployeeForm((prev) => ({ ...prev, code: e.target.value }))}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="employee-position">Должность</Label>
-                <Select value={employeeForm.staffScheduleId} onValueChange={handleEmployeePositionChange}>
-                  <SelectTrigger id="employee-position">
-                    <SelectValue placeholder="Выберите должность" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {employeePositionOptions.map((position) => (
-                      <SelectItem key={position.id} value={position.id}>
-                        {position.position} ({position.department})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="employee-rate">Количество ставок</Label>
-                <Input
-                  id="employee-rate"
-                  type="number"
-                  min="0.01"
-                  step="any"
-                  value={employeeForm.employmentRate}
-                  onChange={(e) => setEmployeeForm((prev) => ({ ...prev, employmentRate: normalizeEmploymentRateInput(e.target.value) }))}
-                  disabled={employeeForm.staffScheduleId === 'none'}
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  {selectedEmployeePosition
-                    ? `Доступно для назначения: ${formatDecimal(availableEmployeeRate)} ст.`
-                    : 'Сначала выбери должность'}
-                </p>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="employee-name">ФИО</Label>
-              <Input
-                id="employee-name"
-                value={employeeForm.fullName}
-                onChange={(e) => setEmployeeForm((prev) => ({ ...prev, fullName: e.target.value }))}
-                required
-              />
-            </div>
-
-            <div className="grid gap-3 rounded-xl border bg-muted/20 p-4 md:grid-cols-2 xl:grid-cols-4">
-              <DetailSummaryItem
-                label="Подразделение"
-                value={selectedEmployeePosition?.department || 'Выбери должность'}
-              />
-              <DetailSummaryItem
-                label="Всего ставок по должности"
-                value={selectedEmployeePosition ? `${formatDecimal(selectedEmployeePosition.rate)} ст.` : 'Выбери должность'}
-              />
-              <DetailSummaryItem
-                label="Оклад за 1 ставку"
-                value={selectedEmployeePosition ? formatCurrency(selectedEmployeePosition.salary) : 'Выбери должность'}
-              />
-              <DetailSummaryItem
-                label="Расчетный оклад"
-                value={selectedEmployeePosition ? formatCurrency(calculatedEmployeeSalary) : 'Выбери должность'}
-              />
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="employee-contract-type">Вид трудового договора</Label>
-                <Select
-                  value={employeeForm.contractType}
-                  onValueChange={(value) => setEmployeeForm((prev) => ({ ...prev, contractType: value as EmploymentContractType }))}
-                >
-                  <SelectTrigger id="employee-contract-type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(employmentContractTypeLabels).map(([value, label]) => (
-                      <SelectItem key={value} value={value}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="employee-contract-number">Номер трудового договора</Label>
-                <Input
-                  id="employee-contract-number"
-                  value={employeeForm.contractNumber}
-                  onChange={(e) => setEmployeeForm((prev) => ({ ...prev, contractNumber: e.target.value }))}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="employee-contract-signed">Дата подписания трудового договора</Label>
-                <Input
-                  id="employee-contract-signed"
-                  type="date"
-                  value={employeeForm.contractSignedDate}
-                  onChange={(e) => setEmployeeForm((prev) => ({ ...prev, contractSignedDate: e.target.value }))}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="employee-contract-end">Срок действия трудового договора</Label>
-                <Input
-                  id="employee-contract-end"
-                  type="date"
-                  value={employeeForm.contractEndDate}
-                  onChange={(e) => setEmployeeForm((prev) => ({ ...prev, contractEndDate: e.target.value }))}
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsEmployeeDialogOpen(false)}>
-                Отмена
-              </Button>
-              <Button type="submit">Сохранить</Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isStaffDialogOpen} onOpenChange={setIsStaffDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingStaff ? 'Редактировать должность' : 'Новая должность'}</DialogTitle>
-            <DialogDescription>
-              Укажи общее количество ставок и оклад за одну ставку для этой должности.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleSaveStaff} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="staff-position">Название должности</Label>
-              <Input
-                id="staff-position"
-                value={staffForm.position}
-                onChange={(e) => setStaffForm((prev) => ({ ...prev, position: e.target.value }))}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="staff-department">Подразделение</Label>
-              <Select
-                value={staffForm.department}
-                onValueChange={(value) => setStaffForm((prev) => ({ ...prev, department: value }))}
-              >
-                <SelectTrigger id="staff-department">
-                  <SelectValue placeholder="Выберите подразделение" />
-                </SelectTrigger>
-                <SelectContent>
-                  {staffDepartments.map((department) => (
-                    <SelectItem key={department} value={department}>
-                      {department}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="staff-rate">Количество ставок</Label>
-                <Input
-                  id="staff-rate"
-                  type="number"
-                  step="any"
-                  min="0.01"
-                  value={staffForm.rate}
-                  onChange={(e) => setStaffForm((prev) => ({ ...prev, rate: normalizeEmploymentRateInput(e.target.value) }))}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="staff-salary">Оклад за 1 ставку (₽)</Label>
-                <Input
-                  id="staff-salary"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={staffForm.salary}
-                  onChange={(e) => setStaffForm((prev) => ({ ...prev, salary: Number(e.target.value) || 0 }))}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsStaffDialogOpen(false)}>
-                Отмена
-              </Button>
-              <Button type="submit">Сохранить</Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isVacationDialogOpen} onOpenChange={setIsVacationDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editingVacation ? 'Редактировать отпуск' : 'Новая запись отпуска'}</DialogTitle>
-            <DialogDescription>
-              Заполни период и тип отсутствия сотрудника для графика отпусков.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleSaveVacation} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="vacation-employee">Сотрудник</Label>
-              <Select value={vacationForm.employeeId} onValueChange={(value) => setVacationForm((prev) => ({ ...prev, employeeId: value }))}>
-                <SelectTrigger id="vacation-employee">
-                  <SelectValue placeholder="Выберите сотрудника" />
-                </SelectTrigger>
-                <SelectContent>
-                  {activeEmployees.map((employee) => (
-                    <SelectItem key={employee.id} value={employee.id}>
-                      {employee.fullName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="vacation-type">Тип отсутствия</Label>
-              <Select value={vacationForm.type} onValueChange={(value) => setVacationForm((prev) => ({ ...prev, type: value as VacationType }))}>
-                <SelectTrigger id="vacation-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(vacationTypeLabels).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>
-                      {label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="vacation-start">Дата начала</Label>
-                <Input
-                  id="vacation-start"
-                  type="date"
-                  value={vacationForm.startDate}
-                  onChange={(e) => setVacationForm((prev) => ({ ...prev, startDate: e.target.value }))}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="vacation-end">Дата окончания</Label>
-                <Input
-                  id="vacation-end"
-                  type="date"
-                  value={vacationForm.endDate}
-                  onChange={(e) => setVacationForm((prev) => ({ ...prev, endDate: e.target.value }))}
-                  required
-                />
-              </div>
-            </div>
-
-            <div className={cn('flex gap-2 pt-2', editingVacation ? 'justify-between' : 'justify-end')}>
-              {editingVacation && (
-                <Button type="button" variant="destructive" onClick={() => handleDeleteVacation(editingVacation.id)}>
-                  Удалить
-                </Button>
-              )}
-              <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsVacationDialogOpen(false)}>
-                  Отмена
-                </Button>
-                <Button type="submit">Сохранить</Button>
-              </div>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isActionDialogOpen} onOpenChange={setIsActionDialogOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Новое кадровое действие</DialogTitle>
-            <DialogDescription>
-              Создай кадровое действие для выбранного сотрудника и сохрани изменения в журнале.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleSaveAction} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="action-type">Тип действия</Label>
-                <Select value={actionForm.type} onValueChange={handleActionTypeChange}>
-                <SelectTrigger id="action-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(['TRANSFER', 'DISMISS', 'EXTEND'] as PersonnelActionType[]).map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {personnelActionLabels[type]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="action-employee">Сотрудник</Label>
-              <Select value={actionForm.employeeId} onValueChange={handleActionEmployeeChange}>
-                <SelectTrigger id="action-employee">
-                  <SelectValue placeholder="Выберите сотрудника" />
-                </SelectTrigger>
-                <SelectContent>
-                  {activeEmployees.map((employee) => (
-                    <SelectItem key={employee.id} value={employee.id}>
-                      {employee.fullName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="action-date">Дата</Label>
-              <Input
-                id="action-date"
-                type="date"
-                value={actionForm.date}
-                onChange={(e) => setActionForm((prev) => ({ ...prev, date: e.target.value }))}
-                required
-              />
-            </div>
-
-            {actionForm.type === 'TRANSFER' && (
-              <>
-                <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px] md:items-start">
-                  <div className="space-y-2">
-                    <Label htmlFor="action-position">Новая должность</Label>
-                    <Select value={actionForm.staffScheduleId} onValueChange={handleActionPositionChange}>
-                      <SelectTrigger id="action-position">
-                        <SelectValue placeholder="Выберите должность" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {transferPositionOptions.map((position) => (
-                          <SelectItem key={position.id} value={position.id}>
-                            {position.position} ({position.department})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="action-rate">Количество ставок</Label>
-                    <Input
-                      id="action-rate"
-                      type="number"
-                      min="0.01"
-                      step="any"
-                      value={actionForm.employmentRate}
-                      onChange={(e) => setActionForm((prev) => ({ ...prev, employmentRate: normalizeEmploymentRateInput(e.target.value) }))}
-                      disabled={actionForm.staffScheduleId === 'none'}
-                      required
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {selectedActionPosition
-                        ? `Доступно для назначения: ${formatDecimal(availableActionRate)} ст.`
-                        : 'Сначала выбери должность'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 rounded-xl border bg-muted/20 p-4 md:grid-cols-2 xl:grid-cols-4">
-                  <DetailSummaryItem
-                    label="Новое подразделение"
-                    value={selectedActionPosition?.department || 'Выбери должность'}
-                  />
-                  <DetailSummaryItem
-                    label="Всего ставок по должности"
-                    value={selectedActionPosition ? `${formatDecimal(selectedActionPosition.rate)} ст.` : 'Выбери должность'}
-                  />
-                  <DetailSummaryItem
-                    label="Оклад за 1 ставку"
-                    value={selectedActionPosition ? formatCurrency(selectedActionPosition.salary) : 'Выбери должность'}
-                  />
-                  <DetailSummaryItem
-                    label="Расчетный оклад"
-                    value={selectedActionPosition ? formatCurrency(calculatedActionSalary) : 'Выбери должность'}
-                  />
-                </div>
-              </>
-            )}
-
-            {actionForm.type === 'EXTEND' && (
-              <>
-                <div className="rounded-lg border bg-muted/30 p-4 text-sm">
-                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Текущий срок договора</p>
-                  <p className="mt-2 font-medium">
-                    {selectedActionEmployee?.contractEndDate ? formatDate(selectedActionEmployee.contractEndDate) : 'Бессрочно'}
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="action-contract-end">Новая дата окончания договора</Label>
-                  <Input
-                    id="action-contract-end"
-                    type="date"
-                    value={actionForm.newContractEndDate}
-                    onChange={(e) => setActionForm((prev) => ({ ...prev, newContractEndDate: e.target.value }))}
-                    required
-                  />
-                </div>
-              </>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="action-description">Описание</Label>
-              <Textarea
-                id="action-description"
-                value={actionForm.description}
-                onChange={(e) => setActionForm((prev) => ({ ...prev, description: e.target.value }))}
-                placeholder={
-                  actionForm.type === 'EXTEND'
-                    ? 'Например: продление договора на 12 месяцев'
-                    : actionForm.type === 'DISMISS'
-                      ? 'Например: увольнение по соглашению сторон'
-                      : 'Например: перевод в другой отдел'
-                }
-                rows={3}
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsActionDialogOpen(false)}>
-                Отмена
-              </Button>
-              <Button type="submit">Сохранить</Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ActionDialog
+        open={isActionDialogOpen}
+        onOpenChange={setIsActionDialogOpen}
+        formData={actionForm}
+        setFormData={setActionForm}
+        onSave={handleSaveAction}
+        employees={activeEmployees}
+        onActionTypeChange={handleActionTypeChange}
+        onEmployeeChange={handleActionEmployeeChange}
+        onPositionChange={handleActionPositionChange}
+        transferPositionOptions={transferPositionOptions}
+        selectedActionEmployee={selectedActionEmployee}
+        selectedActionPosition={selectedActionPosition}
+        availableActionRate={availableActionRate}
+        calculatedActionSalary={calculatedActionSalary}
+      />
     </div>
   )
 }

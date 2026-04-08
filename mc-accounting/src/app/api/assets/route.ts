@@ -12,6 +12,9 @@ export async function GET(request: NextRequest) {
     const accountingForm = searchParams.get('accountingForm')
     const isArchived = searchParams.get('isArchived') === 'true'
     const search = searchParams.get('search')
+    const page = Number(searchParams.get('page')) || 1
+    const limit = Number(searchParams.get('limit')) || 50
+    const skip = (page - 1) * limit
     
     const where: any = { isArchived }
     
@@ -28,19 +31,29 @@ export async function GET(request: NextRequest) {
       ]
     }
     
-    const assets = await prisma.asset.findMany({
-      where,
-      include: {
-        mol: true,
-        group: true,
-        _count: {
-          select: { operations: true },
+    const [assets, total] = await prisma.$transaction([
+      prisma.asset.findMany({
+        where,
+        include: {
+          mol: true,
+          group: true,
+          _count: {
+            select: { operations: true },
+          },
         },
-      },
-      orderBy: { orderNumber: 'asc' },
-    })
+        orderBy: { orderNumber: 'asc' },
+        skip,
+        take: limit,
+      }),
+      prisma.asset.count({ where }),
+    ])
     
-    return NextResponse.json(assets)
+    return NextResponse.json({
+      data: assets,
+      total,
+      page,
+      limit,
+    })
   } catch (error) {
     console.error('Error fetching assets:', error)
     return NextResponse.json(

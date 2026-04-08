@@ -219,7 +219,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         <div className="xl:col-span-3 min-h-[700px]">
           <ProjectGantt 
             projectId={project.id}
-            tasks={(project.tasksList || []) as any}
+            tasks={project.tasksList || []}
           />
         </div>
 

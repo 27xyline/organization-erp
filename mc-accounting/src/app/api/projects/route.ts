@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { createProjectSchema, validateRequest } from '@/lib/validations'
 
 // GET /api/projects - List all projects
 export async function GET() {
@@ -17,7 +18,7 @@ export async function GET() {
   } catch (error) {
     console.error('Error fetching projects:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch projects' },
+      { error: 'Ошибка при загрузке проектов' },
       { status: 500 }
     )
   }
@@ -26,14 +27,26 @@ export async function GET() {
 // POST /api/projects - Create new project
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json()
+    const body = await request.json()
+    // Generate code if not provided so it passes validation if missing from client
+    if (!body.code) {
+      body.code = `PRJ-${Date.now()}`
+    }
     
-    // Generate code if not provided
-    const code = data.code || `PRJ-${Date.now()}`
+    const validation = validateRequest(createProjectSchema, body)
+    
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: validation.error },
+        { status: 400 }
+      )
+    }
+
+    const data = validation.data
     
     const project = await prisma.project.create({
       data: {
-        code,
+        code: data.code,
         name: data.name,
         description: data.description || null,
         goals: data.goals || null,
@@ -51,7 +64,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating project:', error)
     return NextResponse.json(
-      { error: 'Failed to create project' },
+      { error: 'Ошибка при создании проекта' },
       { status: 500 }
     )
   }

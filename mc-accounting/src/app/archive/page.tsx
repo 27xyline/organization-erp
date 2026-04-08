@@ -75,7 +75,7 @@ export default function ArchivePage() {
         groupsRes.json(),
       ])
       
-      setAssets(assetsData)
+      setAssets(assetsData.data || [])
       setMols(molsData)
       setGroups(groupsData)
       setLoading(false)

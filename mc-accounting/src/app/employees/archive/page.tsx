@@ -98,7 +98,7 @@ export default function EmployeeArchivePage() {
       }
 
       const data = await response.json()
-      setEmployees(data.map(normalizeEmployee))
+      setEmployees((data.data || []).map(normalizeEmployee))
     } catch (error) {
       console.error('Error loading archived employees:', error)
     } finally {

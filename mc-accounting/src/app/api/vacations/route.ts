@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { createVacationSchema, validateRequest } from '@/lib/validations'
 
 export async function GET(request: NextRequest) {
   try {
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching vacations:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch vacations' },
+      { error: 'Ошибка при загрузке отпусков' },
       { status: 500 }
     )
   }
@@ -44,13 +45,23 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json()
+    const body = await request.json()
+    const validation = validateRequest(createVacationSchema, body)
+
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: validation.error },
+        { status: 400 }
+      )
+    }
+
+    const data = validation.data
     const startDate = new Date(data.startDate)
     const endDate = new Date(data.endDate)
 
     if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || startDate > endDate) {
       return NextResponse.json(
-        { error: 'Invalid vacation dates' },
+        { error: 'Некорректные даты отпуска' },
         { status: 400 }
       )
     }
@@ -77,7 +88,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating vacation:', error)
     return NextResponse.json(
-      { error: 'Failed to create vacation' },
+      { error: 'Ошибка при добавлении отпуска' },
       { status: 500 }
     )
   }

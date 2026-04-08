@@ -113,6 +113,23 @@ export const createProjectSchema = z.object({
 
 export type CreateProjectInput = z.infer<typeof createProjectSchema>
 
+// ─── Personnel Action ──────────────────────────────────────────────
+
+export const createPersonnelActionSchema = z.object({
+  type: z.enum(['HIRE', 'DISMISS', 'ARCHIVE', 'TRANSFER', 'EXTEND', 'PROMOTE', 'EDIT']),
+  date: z.string().min(1, 'Дата действия обязательна'),
+  description: z.string().max(2000).optional().nullable(),
+  employeeId: z.string().optional().nullable(), // Optional for HIRE
+  employeeData: z.any().optional(), // Specific data for HIRE
+  staffScheduleId: z.string().optional().nullable(),
+  employmentRate: z.coerce.number().optional().nullable(),
+  newDepartment: z.string().optional().nullable(),
+  newPosition: z.string().optional().nullable(),
+  newContractEndDate: z.string().optional().nullable(),
+})
+
+export type CreatePersonnelActionInput = z.infer<typeof createPersonnelActionSchema>
+
 // ─── Utility: Safe parse wrapper ─────────────────────────────────
 
 export function validateRequest<T>(schema: z.ZodSchema<T>, data: unknown): {

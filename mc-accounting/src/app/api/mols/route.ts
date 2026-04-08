@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { createMolSchema, validateRequest } from '@/lib/validations'
 
 export async function GET() {
   try {
@@ -10,7 +11,7 @@ export async function GET() {
   } catch (error) {
     console.error('Error fetching MOLs:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch MOLs' },
+      { error: 'Ошибка при загрузке данных МОЛ' },
       { status: 500 }
     )
   }
@@ -18,7 +19,17 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json()
+    const body = await request.json()
+    const validation = validateRequest(createMolSchema, body)
+    
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: validation.error },
+        { status: 400 }
+      )
+    }
+
+    const data = validation.data
     
     const mol = await prisma.mol.create({
       data: {
@@ -34,7 +45,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating MOL:', error)
     return NextResponse.json(
-      { error: 'Failed to create MOL' },
+      { error: 'Ошибка при создании МОЛ' },
       { status: 500 }
     )
   }

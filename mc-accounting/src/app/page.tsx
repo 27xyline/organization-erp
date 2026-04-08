@@ -53,7 +53,7 @@ export default function AssetsPage() {
       fetch('/api/mols').then(r => r.json()),
       fetch('/api/groups').then(r => r.json()),
     ]).then(([assetsData, molsData, groupsData]) => {
-      setAssets(assetsData)
+      setAssets(assetsData.data || [])
       setMols(molsData)
       setGroups(groupsData)
       setLoading(false)

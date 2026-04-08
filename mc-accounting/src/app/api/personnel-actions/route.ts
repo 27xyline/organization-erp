@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getStaffScheduleRateSummary } from '@/lib/employees'
+import { createPersonnelActionSchema, validateRequest } from '@/lib/validations'
 
 const employeeSelect = {
   id: true,
@@ -32,18 +33,27 @@ const personnelActionPriority: Record<string, number> = {
   EDIT: 6,
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const actions = await prisma.personnelAction.findMany({
-      orderBy: {
-        createdAt: 'desc',
-      },
-      include: {
-        employee: {
-          select: employeeSelect,
+    const page = Number(request.nextUrl.searchParams.get('page')) || 1
+    const limit = Number(request.nextUrl.searchParams.get('limit')) || 50
+    const skip = (page - 1) * limit
+
+    const [actions, total] = await prisma.$transaction([
+      prisma.personnelAction.findMany({
+        orderBy: {
+          createdAt: 'desc',
         },
-      },
-    })
+        include: {
+          employee: {
+            select: employeeSelect,
+          },
+        },
+        skip,
+        take: limit,
+      }),
+      prisma.personnelAction.count(),
+    ])
 
     const timeline = [...actions].sort((a, b) => {
       const left = new Date(a.createdAt).getTime()
@@ -63,11 +73,16 @@ export async function GET() {
       return a.employee.fullName.localeCompare(b.employee.fullName, 'ru', { sensitivity: 'base' })
     })
 
-    return NextResponse.json(timeline)
+    return NextResponse.json({
+      data: timeline,
+      total,
+      page,
+      limit,
+    })
   } catch (error) {
     console.error('Error fetching personnel actions:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch personnel actions' },
+      { error: 'Ошибка при загрузке кадровых действий' },
       { status: 500 }
     )
   }
@@ -75,19 +90,22 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json()
+    const body = await request.json()
+    const validation = validateRequest(createPersonnelActionSchema, body)
 
-    if (!data.type || !data.date) {
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'Missing required action fields' },
+        { error: validation.error },
         { status: 400 }
       )
     }
 
+    const data = validation.data
     const actionDate = new Date(data.date)
+
     if (Number.isNaN(actionDate.getTime())) {
       return NextResponse.json(
-        { error: 'Invalid action date' },
+        { error: 'Некорректная дата кадрового действия' },
         { status: 400 }
       )
     }
@@ -322,14 +340,14 @@ export async function POST(request: NextRequest) {
     if (error instanceof Error) {
       if (error.message === 'EMPLOYEE_NOT_FOUND') {
         return NextResponse.json(
-          { error: 'Employee not found' },
+          { error: 'Сотрудник не найден' },
           { status: 404 }
         )
       }
 
       if (error.message === 'INVALID_HIRE_PAYLOAD') {
         return NextResponse.json(
-          { error: 'Missing required hire fields' },
+          { error: 'Отсутствуют обязательные поля для приема на работу' },
           { status: 400 }
         )
       }
@@ -357,21 +375,21 @@ export async function POST(request: NextRequest) {
 
       if (error.message === 'MISSING_EMPLOYEE_ID') {
         return NextResponse.json(
-          { error: 'Employee is required for this action' },
+          { error: 'Сотрудник обязателен для этого действия' },
           { status: 400 }
         )
       }
 
       if (error.message === 'MISSING_CONTRACT_END_DATE') {
         return NextResponse.json(
-          { error: 'New contract end date is required' },
+          { error: 'Новая дата окончания контракта обязательна' },
           { status: 400 }
         )
       }
 
       if (error.message === 'INVALID_CONTRACT_DATE') {
         return NextResponse.json(
-          { error: 'Invalid contract date' },
+          { error: 'Некорректная дата договора' },
           { status: 400 }
         )
       }
@@ -385,7 +403,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: 'Failed to create personnel action' },
+      { error: 'Ошибка при создании кадрового действия' },
       { status: 500 }
     )
   }
