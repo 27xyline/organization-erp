@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useToast } from '@/components/ui/toast'
 import { cn, formatCurrency, formatDecimal } from '@/lib/utils'
 
 interface FinanceMonthCell {
@@ -151,6 +152,7 @@ const formatAmountValue = (value: string) => {
 }
 
 export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
+  const { toast } = useToast()
   const config = pageConfig[type]
   const currentYear = useMemo(() => new Date().getFullYear(), [])
   const [rows, setRows] = useState<FinancePlanRow[]>([])
@@ -318,25 +320,25 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
       : []
 
     if (config.saveType === 'oklad' && !cellForm.projectId) {
-      alert('Выберите проект')
+      toast.error('Выберите проект')
       return
     }
 
     if (config.saveType === 'oklad' && Number(normalizedAmount) <= 0) {
-      alert(config.saveType === 'oklad' ? 'Для сотрудника не задан оклад' : 'Введите сумму больше нуля')
+      toast.error(config.saveType === 'oklad' ? 'Для сотрудника не задан оклад' : 'Введите сумму больше нуля')
       return
     }
 
     if (config.saveType === 'nadbavka') {
       if (normalizedAllocations.length === 0) {
-        alert('Добавьте хотя бы одно начисление')
+        toast.error('Добавьте хотя бы одно начисление')
         return
       }
 
       const hasIncompleteAllocation = normalizedAllocations.some((allocation) => !allocation.projectId || Number(allocation.amount) <= 0)
 
       if (hasIncompleteAllocation) {
-        alert('Заполните проект и сумму для каждой строки надбавки')
+        toast.error('Заполните проект и сумму для каждой строки надбавки')
         return
       }
     }
@@ -367,7 +369,7 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
       await loadFinanceTable()
     } catch (error) {
       console.error('Error saving finance plan cell:', error)
-      alert(error instanceof Error ? error.message : 'Ошибка при сохранении значения')
+      toast.error(error instanceof Error ? error.message : 'Ошибка при сохранении значения')
     } finally {
       setSaving(false)
     }
@@ -399,7 +401,7 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
       await loadFinanceTable()
     } catch (error) {
       console.error('Error clearing finance plan cell:', error)
-      alert(error instanceof Error ? error.message : 'Ошибка при очистке значения')
+      toast.error(error instanceof Error ? error.message : 'Ошибка при очистке значения')
     } finally {
       setSaving(false)
     }

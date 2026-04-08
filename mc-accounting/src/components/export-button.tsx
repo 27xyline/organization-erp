@@ -2,10 +2,12 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { useToast } from '@/components/ui/toast'
 import { FileSpreadsheet } from 'lucide-react'
 
 export function ExportButton() {
   const [loading, setLoading] = useState(false)
+  const { toast } = useToast()
 
   const handleExport = async () => {
     setLoading(true)
@@ -22,12 +24,13 @@ export function ExportButton() {
         a.click()
         window.URL.revokeObjectURL(url)
         document.body.removeChild(a)
+        toast.success('Экспорт завершён')
       } else {
-        alert('Ошибка при экспорте данных')
+        toast.error('Ошибка при экспорте данных')
       }
     } catch (error) {
       console.error('Export error:', error)
-      alert('Ошибка при экспорте данных')
+      toast.error('Ошибка при экспорте данных')
     } finally {
       setLoading(false)
     }

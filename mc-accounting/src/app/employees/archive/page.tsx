@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
+import { useToast } from '@/components/ui/toast'
 import { formatDate, formatDecimal } from '@/lib/utils'
 
 type EmploymentContractType = 'PRIMARY' | 'INTERNAL' | 'EXTERNAL'
@@ -69,6 +70,7 @@ const normalizeEmployee = (employee: any): Employee => ({
 })
 
 export default function EmployeeArchivePage() {
+  const { toast } = useToast()
   const startOfToday = useMemo(() => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -192,7 +194,7 @@ export default function EmployeeArchivePage() {
       await loadEmployees()
     } catch (error) {
       console.error('Error dismissing employee from archive:', error)
-      alert(error instanceof Error ? error.message : 'Ошибка при увольнении сотрудника')
+      toast.error(error instanceof Error ? error.message : 'Ошибка при увольнении сотрудника')
     } finally {
       setSaving(false)
     }
@@ -204,7 +206,7 @@ export default function EmployeeArchivePage() {
     if (!selectedEmployee) return
 
     if (!extendForm.newContractEndDate) {
-      alert('Укажите новую дату окончания договора')
+      toast.error('Укажите новую дату окончания договора')
       return
     }
 
@@ -212,7 +214,7 @@ export default function EmployeeArchivePage() {
       selectedEmployee.contractSignedDate &&
       new Date(extendForm.newContractEndDate) <= selectedEmployee.contractSignedDate
     ) {
-      alert('Дата подписания договора должна быть раньше срока действия договора')
+      toast.error('Дата подписания договора должна быть раньше срока действия договора')
       return
     }
 
@@ -240,7 +242,7 @@ export default function EmployeeArchivePage() {
       await loadEmployees()
     } catch (error) {
       console.error('Error extending employee contract:', error)
-      alert(error instanceof Error ? error.message : 'Ошибка при продлении договора')
+      toast.error(error instanceof Error ? error.message : 'Ошибка при продлении договора')
     } finally {
       setSaving(false)
     }

@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { AppLayout } from '@/components/app-layout'
+import { ToastProvider } from '@/components/ui/toast'
 
 const inter = Inter({ subsets: ['latin', 'cyrillic'] })
 
@@ -18,7 +19,9 @@ export default function RootLayout({
   return (
     <html lang="ru">
       <body className={`${inter.className} antialiased min-h-screen bg-background text-foreground`}>
-        <AppLayout>{children}</AppLayout>
+        <ToastProvider>
+          <AppLayout>{children}</AppLayout>
+        </ToastProvider>
       </body>
     </html>
   )

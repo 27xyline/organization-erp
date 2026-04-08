@@ -31,14 +31,14 @@ export async function PUT(
 
     if (!data.contractNumber || !contractSignedDate || Number.isNaN(contractSignedDate.getTime())) {
       return NextResponse.json(
-        { error: 'Contract number and sign date are required' },
+        { error: 'Номер договора и дата подписания обязательны' },
         { status: 400 }
       )
     }
 
     if (contractEndDate && Number.isNaN(contractEndDate.getTime())) {
       return NextResponse.json(
-        { error: 'Invalid contract end date' },
+        { error: 'Некорректная дата окончания договора' },
         { status: 400 }
       )
     }
@@ -163,7 +163,7 @@ export async function PUT(
 
       if (error.message === 'EMPLOYEE_NOT_FOUND') {
         return NextResponse.json(
-          { error: 'Employee not found' },
+          { error: 'Сотрудник не найден' },
           { status: 404 }
         )
       }
@@ -177,7 +177,7 @@ export async function PUT(
     }
 
     return NextResponse.json(
-      { error: 'Failed to update employee' },
+      { error: 'Ошибка при обновлении сотрудника' },
       { status: 500 }
     )
   }
@@ -232,13 +232,13 @@ export async function DELETE(
 
     if (error instanceof Error && error.message === 'EMPLOYEE_NOT_FOUND') {
       return NextResponse.json(
-        { error: 'Employee not found' },
+        { error: 'Сотрудник не найден' },
         { status: 404 }
       )
     }
 
     return NextResponse.json(
-      { error: 'Failed to delete employee' },
+      { error: 'Ошибка при увольнении сотрудника' },
       { status: 500 }
     )
   }

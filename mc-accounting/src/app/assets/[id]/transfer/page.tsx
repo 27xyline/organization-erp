@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -33,6 +34,7 @@ async function getMols() {
 
 export default function TransferPage({ params }: { params: { id: string } }) {
   const router = useRouter()
+  const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [asset, setAsset] = useState<any>(null)
   const [mols, setMols] = useState<any[]>([])
@@ -86,11 +88,11 @@ export default function TransferPage({ params }: { params: { id: string } }) {
         router.refresh()
       } else {
         const error = await res.json()
-        alert(error.error || 'Произошла ошибка')
+        toast.error(error.error || 'Произошла ошибка')
       }
     } catch (error) {
       console.error('Error transferring asset:', error)
-      alert('Произошла ошибка при передаче')
+      toast.error('Произошла ошибка при передаче')
     } finally {
       setLoading(false)
     }

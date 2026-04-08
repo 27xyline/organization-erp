@@ -66,7 +66,7 @@ const financeChildren = [
   { id: "salary", label: "Заработная плата", icon: <Wallet className="h-4 w-4" />, href: "/finance/salary" },
   { id: "oklad", label: "Оклад", icon: <Calculator className="h-4 w-4" />, href: "/finance/oklad" },
   { id: "nadbavka", label: "Надбавка", icon: <BarChart3 className="h-4 w-4" />, href: "/finance/nadbavka" },
-  { id: "cash", label: "Касса", icon: <Receipt className="h-4 w-4" />, href: "#" },
+  { id: "cash", label: "Касса (скоро)", icon: <Receipt className="h-4 w-4" />, href: "" },
 ]
 
 const employeesChildren = [
@@ -78,8 +78,8 @@ const employeesChildren = [
 const assetsChildren = [
   { id: "assets-groups", label: "Группы имущества", icon: <Tag className="h-4 w-4" />, href: "/groups" },
   { id: "assets-registered", label: "Зарегистрировано", icon: <LayoutGrid className="h-4 w-4" />, href: "/" },
-  { id: "assets-purchase", label: "Закупки", icon: <ShoppingCart className="h-4 w-4" />, href: "#" },
-  { id: "assets-transfer", label: "Перемещение", icon: <ArrowLeftRight className="h-4 w-4" />, href: "#" },
+  { id: "assets-purchase", label: "Закупки (скоро)", icon: <ShoppingCart className="h-4 w-4" />, href: "" },
+  { id: "assets-transfer", label: "Перемещение (скоро)", icon: <ArrowLeftRight className="h-4 w-4" />, href: "" },
   { id: "assets-archive", label: "Архив", icon: <Archive className="h-4 w-4" />, href: "/archive" },
 ]
 
@@ -203,6 +203,7 @@ export function FinderSidebar() {
         {hasChildren && isExpanded && (
           <div className="mt-1">
             {children.map(child => (
+              child.href ? (
               <Link
                 key={child.id}
                 href={child.href}
@@ -216,6 +217,15 @@ export function FinderSidebar() {
                 <span className="flex-shrink-0">{child.icon}</span>
                 <span className="truncate">{child.label}</span>
               </Link>
+              ) : (
+              <span
+                key={child.id}
+                className="w-full flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg pl-10 opacity-40 cursor-not-allowed select-none"
+              >
+                <span className="flex-shrink-0">{child.icon}</span>
+                <span className="truncate">{child.label}</span>
+              </span>
+              )
             ))}
           </div>
         )}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,6 +17,7 @@ import { AssetsDataTable } from "@/components/assets-data-table"
 import { ExportButton } from "@/components/export-button"
 import { Plus, Search, Filter, X } from "lucide-react"
 import Link from "next/link"
+import type { Asset, Mol, AssetGroup } from "@/types"
 
 interface Filters {
   search: string
@@ -41,13 +42,12 @@ const initialFilters: Filters = {
 export default function AssetsPage() {
   const [filters, setFilters] = useState<Filters>(initialFilters)
   const [showFilters, setShowFilters] = useState(true)
-  const [assets, setAssets] = useState([])
-  const [mols, setMols] = useState([])
-  const [groups, setGroups] = useState([])
+  const [assets, setAssets] = useState<Asset[]>([])
+  const [mols, setMols] = useState<Mol[]>([])
+  const [groups, setGroups] = useState<AssetGroup[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    // Загрузка данных
+  const loadData = useCallback(() => {
     Promise.all([
       fetch('/api/assets').then(r => r.json()),
       fetch('/api/mols').then(r => r.json()),
@@ -60,14 +60,18 @@ export default function AssetsPage() {
     })
   }, [])
 
-  const filteredAssets = assets.filter((asset: any) => {
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  const filteredAssets = assets.filter((asset) => {
     // Поиск по тексту
     if (filters.search) {
       const searchLower = filters.search.toLowerCase()
       const matchesSearch = 
         asset.name.toLowerCase().includes(searchLower) ||
         asset.inventoryNumber.toLowerCase().includes(searchLower) ||
-        asset.documentDetails?.toLowerCase().includes(searchLower)
+        (asset.documentDetails || '').toLowerCase().includes(searchLower)
       if (!matchesSearch) return false
     }
 
@@ -279,6 +283,7 @@ export default function AssetsPage() {
               assets={filteredAssets} 
               totalCount={assets.length}
               filteredCount={filteredAssets.length}
+              onArchive={() => loadData()}
             />
           )}
         </div>

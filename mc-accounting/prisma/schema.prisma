@@ -92,6 +92,11 @@ model Asset {
   
   operations      Operation[]
   
+  @@index([molId])
+  @@index([groupId])
+  @@index([status])
+  @@index([isArchived, status])
+  @@index([projectId])
   @@map("assets")
 }
 
@@ -276,6 +281,7 @@ model Employee {
   salaryEntries SalaryEntry[]
   financePlanEntries FinancePlanEntry[]
   
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
@@ -303,7 +309,7 @@ model StaffSchedule {
   id          String   @id @default(cuid())
   position    String   // Название должности
   department  String   // Отдел
-  rate        Decimal  @db.Decimal(3, 2) // Количество ставок
+  rate        Decimal  @db.Decimal(5, 2) // Количество ставок
   salary      Decimal  @db.Decimal(10, 2) // Зарплата
   
   // Relations
@@ -401,7 +407,7 @@ model Vacation {
   
   // Employee
   employeeId  String
-  employee    Employee @relation(fields: [employeeId], references: [id])
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   
   createdAt   DateTime @default(now())
   

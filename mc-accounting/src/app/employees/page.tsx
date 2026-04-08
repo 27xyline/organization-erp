@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
+import { useToast } from '@/components/ui/toast'
 import { VacationGantt } from '@/components/vacation-gantt'
 import { cn, formatCurrency, formatDate, formatDateTime, formatDecimal } from '@/lib/utils'
 import {
@@ -344,6 +345,7 @@ const getCalculatedSalary = (position: StaffSchedule | null | undefined, employm
 }
 
 export default function EmployeesPage() {
+  const { toast } = useToast()
   const actualCurrentYear = useMemo(() => new Date().getFullYear(), [])
   const startOfToday = useMemo(() => {
     const today = new Date()
@@ -647,22 +649,22 @@ export default function EmployeesPage() {
     const normalizedCode = employeeForm.code.trim()
 
     if (employeeForm.staffScheduleId === 'none') {
-      alert('Выберите должность из штатного расписания')
+      toast.error('Выберите должность из штатного расписания')
       return
     }
 
     if (!normalizedCode) {
-      alert('Заполните табельный номер')
+      toast.error('Заполните табельный номер')
       return
     }
 
     if (employeeForm.employmentRate <= 0) {
-      alert('Укажите количество ставок сотрудника')
+      toast.error('Укажите количество ставок сотрудника')
       return
     }
 
     if (selectedEmployeePosition && employeeForm.employmentRate > availableEmployeeRate) {
-      alert('Недостаточно свободных ставок по выбранной должности')
+      toast.error('Недостаточно свободных ставок по выбранной должности')
       return
     }
 
@@ -671,17 +673,17 @@ export default function EmployeesPage() {
     )
 
     if (duplicateEmployee) {
-      alert('Сотрудник с таким табельным номером уже существует')
+      toast.error('Сотрудник с таким табельным номером уже существует')
       return
     }
 
     if (!employeeForm.contractNumber || !employeeForm.contractSignedDate) {
-      alert('Заполните номер и дату подписания трудового договора')
+      toast.error('Заполните номер и дату подписания трудового договора')
       return
     }
 
     if (employeeForm.contractEndDate && new Date(employeeForm.contractSignedDate) >= new Date(employeeForm.contractEndDate)) {
-      alert('Дата подписания договора должна быть раньше срока действия договора')
+      toast.error('Дата подписания договора должна быть раньше срока действия договора')
       return
     }
 
@@ -714,7 +716,7 @@ export default function EmployeesPage() {
       await loadBaseData()
     } catch (error) {
       console.error('Error saving employee:', error)
-      alert(error instanceof Error ? error.message : 'Ошибка при сохранении сотрудника')
+      toast.error(error instanceof Error ? error.message : 'Ошибка при сохранении сотрудника')
     }
   }
 
@@ -740,7 +742,7 @@ export default function EmployeesPage() {
       await loadBaseData()
     } catch (error) {
       console.error('Error saving staff position:', error)
-      alert(error instanceof Error ? error.message : 'Ошибка при сохранении должности')
+      toast.error(error instanceof Error ? error.message : 'Ошибка при сохранении должности')
     }
   }
 
@@ -748,12 +750,12 @@ export default function EmployeesPage() {
     e.preventDefault()
 
     if (!vacationForm.employeeId || !vacationForm.startDate || !vacationForm.endDate) {
-      alert('Заполните сотрудника и даты отпуска')
+      toast.error('Заполните сотрудника и даты отпуска')
       return
     }
 
     if (new Date(vacationForm.startDate) > new Date(vacationForm.endDate)) {
-      alert('Дата окончания не может быть раньше даты начала')
+      toast.error('Дата окончания не может быть раньше даты начала')
       return
     }
 
@@ -775,7 +777,7 @@ export default function EmployeesPage() {
       await loadVacationsForYear(selectedYear, true)
     } catch (error) {
       console.error('Error saving vacation:', error)
-      alert('Ошибка при сохранении отпуска')
+      toast.error('Ошибка при сохранении отпуска')
     }
   }
 
@@ -783,32 +785,32 @@ export default function EmployeesPage() {
     e.preventDefault()
 
     if (!actionForm.date) {
-      alert('Заполните дату действия')
+      toast.error('Заполните дату действия')
       return
     }
 
     if (!actionForm.employeeId) {
-      alert('Выберите сотрудника')
+      toast.error('Выберите сотрудника')
       return
     }
 
     if (actionForm.type === 'TRANSFER' && actionForm.staffScheduleId === 'none') {
-      alert('Для перевода выберите новую должность из штатного расписания')
+      toast.error('Для перевода выберите новую должность из штатного расписания')
       return
     }
 
     if ((actionForm.type === 'TRANSFER' || actionForm.type === 'PROMOTE') && actionForm.employmentRate <= 0) {
-      alert('Укажите количество ставок сотрудника')
+      toast.error('Укажите количество ставок сотрудника')
       return
     }
 
     if ((actionForm.type === 'TRANSFER' || actionForm.type === 'PROMOTE') && selectedActionPosition && actionForm.employmentRate > availableActionRate) {
-      alert('Недостаточно свободных ставок по выбранной должности')
+      toast.error('Недостаточно свободных ставок по выбранной должности')
       return
     }
 
     if (actionForm.type === 'EXTEND' && !actionForm.newContractEndDate) {
-      alert('Для продления укажите новую дату окончания договора')
+      toast.error('Для продления укажите новую дату окончания договора')
       return
     }
 
@@ -817,7 +819,7 @@ export default function EmployeesPage() {
       selectedActionEmployee?.contractSignedDate &&
       new Date(actionForm.newContractEndDate) <= selectedActionEmployee.contractSignedDate
     ) {
-      alert('Дата подписания договора должна быть раньше срока действия договора')
+      toast.error('Дата подписания договора должна быть раньше срока действия договора')
       return
     }
 
@@ -844,7 +846,7 @@ export default function EmployeesPage() {
       await loadBaseData()
     } catch (error) {
       console.error('Error saving personnel action:', error)
-      alert(error instanceof Error ? error.message : 'Ошибка при сохранении кадрового действия')
+      toast.error(error instanceof Error ? error.message : 'Ошибка при сохранении кадрового действия')
     }
   }
 
@@ -855,13 +857,13 @@ export default function EmployeesPage() {
       const response = await fetch(`/api/staff-schedule/${id}`, { method: 'DELETE' })
       if (!response.ok) {
         const data = await response.json()
-        alert(data.error || 'Ошибка при удалении должности')
+        toast.error(data.error || 'Ошибка при удалении должности')
         return
       }
       await loadBaseData()
     } catch (error) {
       console.error('Error deleting staff position:', error)
-      alert('Ошибка при удалении должности')
+      toast.error('Ошибка при удалении должности')
     }
   }
 
@@ -878,7 +880,7 @@ export default function EmployeesPage() {
       await loadVacationsForYear(selectedYear, true)
     } catch (error) {
       console.error('Error deleting vacation:', error)
-      alert('Ошибка при удалении отпуска')
+      toast.error('Ошибка при удалении отпуска')
     }
   }
 
@@ -893,7 +895,7 @@ export default function EmployeesPage() {
       await loadBaseData()
     } catch (error) {
       console.error('Error deleting personnel action:', error)
-      alert('Ошибка при удалении кадрового действия')
+      toast.error('Ошибка при удалении кадрового действия')
     }
   }
 

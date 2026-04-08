@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useToast } from '@/components/ui/toast'
 import { CustomGantt } from '@/components/custom-gantt'
 import { Task } from '@/types'
 import { Button } from '@/components/ui/button'
@@ -31,6 +32,7 @@ interface ProjectGanttProps {
 
 export function ProjectGantt({ projectId, tasks }: ProjectGanttProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
@@ -54,11 +56,11 @@ export function ProjectGantt({ projectId, tasks }: ProjectGanttProps) {
       if (response.ok) {
         router.refresh()
       } else {
-        alert('Ошибка при удалении задачи')
+        toast.error('Ошибка при удалении задачи')
       }
     } catch (error) {
       console.error('Error deleting task:', error)
-      alert('Ошибка при удалении задачи')
+      toast.error('Ошибка при удалении задачи')
     }
   }
 
@@ -95,11 +97,11 @@ export function ProjectGantt({ projectId, tasks }: ProjectGanttProps) {
         setEditingTask(null)
         router.refresh()
       } else {
-        alert('Ошибка при сохранении задачи')
+        toast.error('Ошибка при сохранении задачи')
       }
     } catch (error) {
       console.error('Error saving task:', error)
-      alert('Ошибка при сохранении задачи')
+      toast.error('Ошибка при сохранении задачи')
     }
   }
 
@@ -141,11 +143,11 @@ export function ProjectGantt({ projectId, tasks }: ProjectGanttProps) {
         setParentTaskId(undefined)
         router.refresh()
       } else {
-        alert('Ошибка при создании задачи')
+        toast.error('Ошибка при создании задачи')
       }
     } catch (error) {
       console.error('Error creating task:', error)
-      alert('Ошибка при создании задачи')
+      toast.error('Ошибка при создании задачи')
     }
   }
 

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useToast } from '@/components/ui/toast'
 import { ImageIcon, Upload, X } from 'lucide-react'
 
 interface AssetFormProps {
@@ -19,6 +20,7 @@ interface AssetFormProps {
 
 export function AssetForm({ mols, groups, projects, initialData }: AssetFormProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [photos, setPhotos] = useState<string[]>(initialData?.photos || [])
   const [formData, setFormData] = useState({
@@ -71,7 +73,7 @@ export function AssetForm({ mols, groups, projects, initialData }: AssetFormProp
     
     // При редактировании проверяем наличие основания
     if (initialData?.id && !formData.editReason.trim()) {
-      alert('Необходимо указать основание для редактирования')
+      toast.error('Необходимо указать основание для редактирования')
       return
     }
     
@@ -95,11 +97,11 @@ export function AssetForm({ mols, groups, projects, initialData }: AssetFormProp
         router.refresh()
       } else {
         const error = await res.json()
-        alert(error.error || 'Произошла ошибка')
+        toast.error(error.error || 'Произошла ошибка')
       }
     } catch (error) {
       console.error('Error saving asset:', error)
-      alert('Произошла ошибка при сохранении')
+      toast.error('Произошла ошибка при сохранении')
     } finally {
       setLoading(false)
     }

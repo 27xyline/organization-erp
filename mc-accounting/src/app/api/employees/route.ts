@@ -85,14 +85,14 @@ export async function POST(request: NextRequest) {
 
     if (!data.contractNumber || !contractSignedDate || Number.isNaN(contractSignedDate.getTime())) {
       return NextResponse.json(
-        { error: 'Contract number and sign date are required' },
+        { error: 'Номер договора и дата подписания обязательны' },
         { status: 400 }
       )
     }
 
     if (contractEndDate && Number.isNaN(contractEndDate.getTime())) {
       return NextResponse.json(
-        { error: 'Invalid contract end date' },
+        { error: 'Некорректная дата окончания договора' },
         { status: 400 }
       )
     }
@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: 'Failed to create employee' },
+      { error: 'Ошибка при создании сотрудника' },
       { status: 500 }
     )
   }

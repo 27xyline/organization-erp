@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useToast } from '@/components/ui/toast'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -60,6 +61,7 @@ const getPlanningPeriods = (startDate: string, endDate: string) => {
 
 export default function EditProjectPage({ params }: EditProjectPageProps) {
   const router = useRouter()
+  const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [projectSummary, setProjectSummary] = useState<ProjectSummary>({
@@ -124,7 +126,7 @@ export default function EditProjectPage({ params }: EditProjectPageProps) {
     e.preventDefault()
 
     if (formData.startDate && formData.endDate && new Date(formData.endDate) < new Date(formData.startDate)) {
-      alert('Дата окончания не может быть раньше даты начала')
+      toast.error('Дата окончания не может быть раньше даты начала')
       return
     }
 
@@ -145,11 +147,11 @@ export default function EditProjectPage({ params }: EditProjectPageProps) {
         router.push(`/projects/${params.id}`)
         router.refresh()
       } else {
-        alert('Ошибка при обновлении проекта')
+        toast.error('Ошибка при обновлении проекта')
       }
     } catch (error) {
       console.error('Error updating project:', error)
-      alert('Ошибка при обновлении проекта')
+      toast.error('Ошибка при обновлении проекта')
     } finally {
       setSaving(false)
     }

@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
 import {
   Table,
   TableBody,
@@ -23,11 +22,13 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { formatDate, formatCurrency, formatDecimal } from "@/lib/utils"
+import type { Asset } from "@/types"
 
 interface AssetsDataTableProps {
-  assets: any[]
+  assets: Asset[]
   totalCount: number
   filteredCount: number
+  onArchive?: (assetId: string) => void
 }
 
 const statusLabels: Record<string, { label: string; color: string }> = {
@@ -39,8 +40,7 @@ const statusLabels: Record<string, { label: string; color: string }> = {
   FULLY_DISPOSED: { label: "Полностью списан", color: "bg-red-100 text-red-800" },
 }
 
-export function AssetsDataTable({ assets, totalCount, filteredCount }: AssetsDataTableProps) {
-  const router = useRouter()
+export function AssetsDataTable({ assets, totalCount, filteredCount, onArchive }: AssetsDataTableProps) {
   const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
 
   const handleArchive = async (assetId: string) => {
@@ -49,7 +49,7 @@ export function AssetsDataTable({ assets, totalCount, filteredCount }: AssetsDat
     try {
       const res = await fetch(`/api/assets/${assetId}`, { method: "DELETE" })
       if (res.ok) {
-        router.refresh()
+        onArchive?.(assetId)
       }
     } catch (error) {
       console.error("Error archiving asset:", error)
@@ -113,7 +113,7 @@ export function AssetsDataTable({ assets, totalCount, filteredCount }: AssetsDat
                     <TableCell>
                       {hasPhotos ? (
                         <img 
-                          src={asset.photos[0]} 
+                          src={asset.photos![0]} 
                           alt={asset.name}
                           className="w-10 h-10 rounded object-cover border"
                         />
@@ -165,7 +165,7 @@ export function AssetsDataTable({ assets, totalCount, filteredCount }: AssetsDat
                       {hasPlannedDisposal ? (
                         <div className="flex items-center justify-center gap-1 text-sm">
                           <Calendar className="h-3 w-3 text-orange-500" />
-                          {formatDate(asset.plannedDisposalDate)}
+                          {formatDate(asset.plannedDisposalDate!)}
                         </div>
                       ) : (
                         <span className="text-muted-foreground">-</span>

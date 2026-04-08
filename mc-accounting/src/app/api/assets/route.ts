@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { OperationType } from '@/types'
+import { createAssetSchema, validateRequest } from '@/lib/validations'
 
 export async function GET(request: NextRequest) {
   try {
@@ -32,8 +33,8 @@ export async function GET(request: NextRequest) {
       include: {
         mol: true,
         group: true,
-        operations: {
-          orderBy: { date: 'desc' },
+        _count: {
+          select: { operations: true },
         },
       },
       orderBy: { orderNumber: 'asc' },
@@ -43,7 +44,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching assets:', error)
     return NextResponse.json(
-      { error: 'Failed to fetch assets' },
+      { error: 'Ошибка при загрузке имущества' },
       { status: 500 }
     )
   }
@@ -51,8 +52,17 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.json()
-    
+    const body = await request.json()
+    const validation = validateRequest(createAssetSchema, body)
+
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: validation.error },
+        { status: 400 }
+      )
+    }
+
+    const data = validation.data
     const totalCost = Number(data.unitPrice) * Number(data.quantity)
     
     const asset = await prisma.asset.create({
@@ -106,7 +116,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating asset:', error)
     return NextResponse.json(
-      { error: 'Failed to create asset' },
+      { error: 'Ошибка при создании объекта имущества' },
       { status: 500 }
     )
   }

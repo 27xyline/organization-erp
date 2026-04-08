@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useToast } from '@/components/ui/toast'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -47,6 +48,7 @@ const getPlanningPeriods = (startDate: string, endDate: string) => {
 
 export default function NewProjectPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
     code: '',
@@ -82,11 +84,11 @@ export default function NewProjectPage() {
         router.push('/projects')
         router.refresh()
       } else {
-        alert('Ошибка при создании проекта')
+        toast.error('Ошибка при создании проекта')
       }
     } catch (error) {
       console.error('Error creating project:', error)
-      alert('Ошибка при создании проекта')
+      toast.error('Ошибка при создании проекта')
     } finally {
       setLoading(false)
     }
