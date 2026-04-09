@@ -14,6 +14,7 @@ import {
   UserPlus,
   UserX,
 } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 import { formatDate, formatDateTime } from '@/lib/utils'
 import { personnelActionLabels, type PersonnelAction, type PersonnelActionType } from '@/types'
 
@@ -107,9 +108,23 @@ export function PersonnelTimeline({ loading, personnelActions, onDeleteAction }:
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
           {loading ? (
-            <div className="rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
-              Загрузка кадровых действий...
-            </div>
+            Array.from({ length: 4 }).map((_, i) => (
+              <div key={`skeleton-${i}`} className="group rounded-xl border p-4">
+                <div className="flex items-start gap-3">
+                  <Skeleton className="mt-0.5 h-8 w-8 rounded-full" />
+                  <div className="min-w-0 flex-1 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 space-y-2 w-full">
+                        <Skeleton className="h-5 w-[200px]" />
+                        <Skeleton className="h-4 w-[300px]" />
+                      </div>
+                      <Skeleton className="h-6 w-[100px]" />
+                    </div>
+                    <Skeleton className="h-3 w-[250px]" />
+                  </div>
+                </div>
+              </div>
+            ))
           ) : personnelActions.length === 0 ? (
             <div className="rounded-xl border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
               Журнал кадровых действий пока пуст.

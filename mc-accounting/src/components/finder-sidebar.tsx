@@ -88,7 +88,7 @@ const assetsChildren = [
 export function FinderSidebar() {
   const pathname = usePathname()
   const { data: session } = useSession()
-  const [expandedItems, setExpandedItems] = useState<string[]>(["assets"])
+  const [expandedItems, setExpandedItems] = useState<string[]>([])
   const [projects, setProjects] = useState<Project[]>([])
   const hasFetchedProjectsRef = useRef(false)
   const isProjectsExpanded = expandedItems.includes("projects")
@@ -119,6 +119,11 @@ export function FinderSidebar() {
   }, [isProjectsExpanded])
 
   useEffect(() => {
+    if (pathname === '/login') {
+      setExpandedItems([])
+      return
+    }
+
     const itemsToExpand: string[] = []
 
     if (pathname.startsWith('/projects')) itemsToExpand.push('projects')
@@ -237,7 +242,7 @@ export function FinderSidebar() {
   }
 
   return (
-    <div className="w-64 h-full bg-muted/30 border-r flex flex-col">
+    <div className="w-72 h-full bg-muted/30 border-r flex flex-col">
       <div className="p-4 border-b">
         <h1 className="text-lg font-semibold">Consilium</h1>
         <p className="text-xs text-muted-foreground">Управление активами</p>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Label } from "@/components/ui/label"
 import {
   Select,
@@ -286,8 +287,11 @@ export default function ArchivePage() {
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-muted-foreground">Загрузка...</p>
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-full" />
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-14 w-full" />
+              ))}
             </div>
           ) : (
             <Card>

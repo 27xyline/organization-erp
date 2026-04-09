@@ -5,9 +5,13 @@ import {
   type Project,
   type Vacation,
   type StaffSchedule,
-  type Group,
+  type AssetGroup,
   type Mol,
 } from '@/types'
+import {
+  type CreateEmployeeInput,
+  type UpdateEmployeeInput
+} from '@/lib/schemas/employee'
 
 /**
  * Standard paginated response interface
@@ -86,8 +90,8 @@ export const api = {
     list: (params?: { page?: number; limit?: number; scope?: 'active' | 'archived' | 'all' }) =>
       fetchBase<PaginatedResponse<Employee>>(`/api/employees${buildQuery(params)}`),
     get: (id: string) => fetchBase<Employee>(`/api/employees/${id}`),
-    create: (data: any) => fetchBase<Employee>('/api/employees', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: any) => fetchBase<Employee>(`/api/employees/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    create: (data: CreateEmployeeInput) => fetchBase<Employee>('/api/employees', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: UpdateEmployeeInput) => fetchBase<Employee>(`/api/employees/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   },
   personnelActions: {
     list: (params?: { page?: number; limit?: number }) =>
@@ -115,9 +119,9 @@ export const api = {
     delete: (id: string) => fetchBase<{ success: boolean }>(`/api/staff-schedule/${id}`, { method: 'DELETE' }),
   },
   groups: {
-    list: () => fetchBase<Group[]>('/api/groups'),
-    create: (data: any) => fetchBase<Group>('/api/groups', { method: 'POST', body: JSON.stringify(data) }),
-    update: (id: string, data: any) => fetchBase<Group>(`/api/groups/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    list: () => fetchBase<AssetGroup[]>('/api/groups'),
+    create: (data: any) => fetchBase<AssetGroup>('/api/groups', { method: 'POST', body: JSON.stringify(data) }),
+    update: (id: string, data: any) => fetchBase<AssetGroup>(`/api/groups/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   },
   mols: {
     list: () => fetchBase<Mol[]>('/api/mols'),

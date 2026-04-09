@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { ArrowLeft, ArrowRightLeft } from 'lucide-react'
 import Link from 'next/link'
 import { formatCurrency, formatDecimal } from '@/lib/utils'
@@ -99,7 +100,14 @@ export default function TransferPage({ params }: { params: { id: string } }) {
   }
 
   if (!asset) {
-    return <div className="container mx-auto py-8">Загрузка...</div>
+    return (
+      <main className="container mx-auto py-8 px-4 max-w-2xl space-y-6">
+        <Skeleton className="h-10 w-[160px]" />
+        <Skeleton className="h-8 w-[280px]" />
+        <Skeleton className="h-32 w-full rounded-lg" />
+        <Skeleton className="h-64 w-full rounded-lg" />
+      </main>
+    )
   }
 
   const totalCost = parseFloat(formData.quantity || '0') * parseFloat(formData.unitPrice || '0')

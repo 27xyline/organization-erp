@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 import { VacationGantt } from '@/components/vacation-gantt'
+import { Skeleton } from '@/components/ui/skeleton'
 import { type Employee, type Vacation } from '@/types'
 
 const isContractExpired = (employee: Employee, date: Date) =>
@@ -105,8 +106,13 @@ export function VacationsCard({
 
         <div className="flex-1">
           {vacationsLoading ? (
-            <div className="rounded-xl border border-dashed px-4 py-20 text-center text-sm text-muted-foreground">
-              Загрузка графика отпусков...
+            <div className="space-y-4 rounded-xl border p-4">
+              <Skeleton className="h-10 w-full" />
+              <div className="space-y-2">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <Skeleton key={i} className="h-12 w-full" />
+                ))}
+              </div>
             </div>
           ) : (
             <VacationGantt

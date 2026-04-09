@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Building2, Edit, Trash2 } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrency, formatDecimal } from '@/lib/utils'
 import { type StaffSchedule } from '@/types'
 
@@ -80,11 +81,15 @@ export function StaffTable({
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
-                    Загрузка должностей...
-                  </TableCell>
-                </TableRow>
+                Array.from({ length: 4 }).map((_, i) => (
+                  <TableRow key={`skeleton-${i}`}>
+                    {Array.from({ length: 5 }).map((_, j) => (
+                      <TableCell key={`cell-${i}-${j}`}>
+                        <Skeleton className="h-4 w-full" />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
               ) : staffSchedule.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">

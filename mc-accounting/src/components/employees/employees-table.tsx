@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Search, Edit, Users } from 'lucide-react'
 import { formatDate, formatDecimal } from '@/lib/utils'
+import { EmployeesTableSkeleton } from './employees-table-skeleton'
 import {
   type Employee,
   employeeStatusLabels,
@@ -96,7 +98,7 @@ export function EmployeesTable({
           </div>
         </div>
 
-        <div className="overflow-hidden rounded-xl border">
+        <div className="overflow-x-auto rounded-xl border">
           <Table>
             <TableHeader className="bg-slate-50/80">
               <TableRow>
@@ -112,11 +114,7 @@ export function EmployeesTable({
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
-                    Загрузка сотрудников...
-                  </TableCell>
-                </TableRow>
+                <EmployeesTableSkeleton />
               ) : filteredEmployees.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">

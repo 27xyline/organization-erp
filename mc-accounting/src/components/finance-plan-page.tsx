@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Plus, Trash2, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   Dialog,
   DialogContent,
@@ -496,11 +497,15 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={17} className="h-32 text-center text-muted-foreground">
-                      Загрузка данных...
-                    </TableCell>
-                  </TableRow>
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={`skeleton-${i}`}>
+                      {Array.from({ length: 17 }).map((_, j) => (
+                        <TableCell key={`cell-${i}-${j}`}>
+                          <Skeleton className="h-4 w-full" />
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
                 ) : rows.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={17} className="h-32 text-center text-muted-foreground">

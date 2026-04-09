@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -159,9 +160,22 @@ export default function EditProjectPage({ params }: EditProjectPageProps) {
 
   if (loading) {
     return (
-      <main className="container mx-auto py-8 px-4">
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Загрузка...</p>
+      <main className="container mx-auto py-8 px-4 space-y-6">
+        <Skeleton className="h-10 w-[160px]" />
+        <div className="space-y-2">
+          <Skeleton className="h-9 w-[320px]" />
+          <Skeleton className="h-4 w-[460px]" />
+        </div>
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-4">
+          <div className="space-y-6 xl:col-span-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-48 w-full rounded-lg" />
+            ))}
+          </div>
+          <div className="space-y-6">
+            <Skeleton className="h-56 w-full rounded-lg" />
+            <Skeleton className="h-56 w-full rounded-lg" />
+          </div>
         </div>
       </main>
     )

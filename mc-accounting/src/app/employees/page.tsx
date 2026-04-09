@@ -552,6 +552,7 @@ export default function EmployeesPage() {
       setIsEmployeeDialogOpen(false)
       setEditingEmployee(null)
       await loadBaseData()
+      toast.success(editingEmployee ? 'Данные сотрудника обновлены' : 'Сотрудник успешно добавлен')
     } catch (error) {
       console.error('Error saving employee:', error)
       toast.error(error instanceof Error ? error.message : 'Ошибка при сохранении сотрудника')
@@ -578,6 +579,7 @@ export default function EmployeesPage() {
       setIsStaffDialogOpen(false)
       setEditingStaff(null)
       await loadBaseData()
+      toast.success(editingStaff ? 'Должность обновлена' : 'Должность успешно добавлена')
     } catch (error) {
       console.error('Error saving staff position:', error)
       toast.error(error instanceof Error ? error.message : 'Ошибка при сохранении должности')
@@ -613,6 +615,7 @@ export default function EmployeesPage() {
       setIsVacationDialogOpen(false)
       setEditingVacation(null)
       await loadVacationsForYear(selectedYear, true)
+      toast.success(editingVacation ? 'Запись отпуска обновлена' : 'Отпуск успешно назначен')
     } catch (error) {
       console.error('Error saving vacation:', error)
       toast.error('Ошибка при сохранении отпуска')
@@ -682,6 +685,7 @@ export default function EmployeesPage() {
 
       setIsActionDialogOpen(false)
       await loadBaseData()
+      toast.success('Кадровое действие успешно зафиксировано')
     } catch (error) {
       console.error('Error saving personnel action:', error)
       toast.error(error instanceof Error ? error.message : 'Ошибка при сохранении кадрового действия')
