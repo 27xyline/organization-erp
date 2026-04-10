@@ -99,19 +99,28 @@ cd mc-accounting
 npm install
 ```
 
-3. Создайте файл `.env` в каталоге [`mc-accounting`](./mc-accounting).
+3. Создайте локальный `.env` из шаблона:
 
-В репозитории сейчас нет `.env.example`, поэтому используйте такой минимальный локальный конфиг:
+```bash
+cp .env.example .env
+```
+
+Шаблон [`mc-accounting/.env.example`](./mc-accounting/.env.example) содержит переменные для PostgreSQL, NextAuth, локального URL приложения, credentials-login и Yandex.Disk OAuth:
 
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/mc_accounting"
+YANDEX_CLIENT_ID="your_yandex_client_id"
+YANDEX_CLIENT_SECRET="your_yandex_client_secret"
+YANDEX_REDIRECT_URI="http://localhost:3000/api/auth/yandex/callback"
 NEXTAUTH_URL="http://localhost:3000"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 PORT=3000
-NEXTAUTH_SECRET="change-me-to-a-long-random-string"
+NEXTAUTH_SECRET="change-me"
 ADMIN_USERNAME="admin"
 ADMIN_PASSWORD="admin"
 ```
+
+Для обычной локальной разработки достаточно заменить `DATABASE_URL`, `NEXTAUTH_SECRET`, `ADMIN_USERNAME` и `ADMIN_PASSWORD` под свое окружение. Yandex-переменные нужны только если используется интеграция с Yandex.Disk.
 
 4. Подготовьте Prisma Client и базу:
 
@@ -140,14 +149,14 @@ npm run dev:webpack
 npm run dev:reset
 ```
 
-### Production-режим локально
+### Локальная проверка production-сборки
 
 ```bash
 npm run build
 npm run start
 ```
 
-Полный безопасный сценарий проверки production-сборки:
+Полный безопасный сценарий локальной проверки:
 
 ```bash
 npm run start:prod
@@ -226,12 +235,12 @@ Seed не создает сотрудников, проекты, задачи и
 
 ## Известные ограничения
 
-- Файл `.env.example` отсутствует, конфиг нужно создавать вручную.
+- Проект сейчас описан и настроен в первую очередь под локальную разработку.
 - Авторизация построена на одном наборе credentials из env.
 - Часть меню еще не реализована.
 - В репозитории нет корневого `package.json`; рабочий пакет находится в `mc-accounting`.
 
-## Operational notes
+## Локальные operational notes
 
 - Для локальной production-проверки используйте один origin: `http://localhost:3000`.
 - Если после `npm start` приложение ведет себя некорректно, сначала пересоберите его через `npm run build:clean` или `npm run start:prod`.
@@ -242,8 +251,8 @@ Seed не создает сотрудников, проекты, задачи и
 
 Если проект будет передаваться другому разработчику как рабочая система, первыми улучшениями стоит сделать:
 
-1. добавить реальный `.env.example`;
-2. заменить credentials-only auth на нормальную схему пользователей и ролей;
-3. формализовать роли и права на уровне API;
-4. добавить CI-команду с единым `test` script;
+1. заменить credentials-only auth на нормальную схему пользователей и ролей;
+2. формализовать роли и права на уровне API;
+3. добавить CI-команду с единым `test` script;
+4. описать deployment-процесс, когда проект выйдет за рамки локальной разработки;
 5. поддерживать корень репозитория как документационный уровень, а код приложения держать в `mc-accounting`.
