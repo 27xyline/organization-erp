@@ -37,12 +37,20 @@
 npm install
 ```
 
-Создайте `.env`:
+Создайте `.env` на основе `.env.example`:
+
+```bash
+cp .env.example .env
+```
+
+Минимальный локальный конфиг:
 
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/mc_accounting"
-NEXTAUTH_SECRET="change-me"
 NEXTAUTH_URL="http://localhost:3000"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+PORT=3000
+NEXTAUTH_SECRET="change-me"
 ADMIN_USERNAME="admin"
 ADMIN_PASSWORD="admin"
 ```
@@ -57,15 +65,36 @@ npm run db:seed
 
 ## Запуск
 
+### Dev
+
 ```bash
 npm run dev
 ```
 
-Production build:
+### Local production
+
+Канонический локальный адрес для production-проверки: `http://localhost:3000`.
+
+Нормальный сценарий:
 
 ```bash
-npm run build
+npm run start:prod
+```
+
+То же самое вручную:
+
+```bash
+npm run build:clean
 npm start
+```
+
+`npm start` сам по себе не пересобирает приложение. Он поднимает уже существующую `.next`-сборку, поэтому после изменений кода или `.env` сначала нужен новый `npm run build` или `npm run build:clean`.
+
+Если нужна полностью чистая production-проверка без старых артефактов:
+
+```bash
+npm run prod:reset
+npm run start:prod
 ```
 
 ## Полезные команды
@@ -75,6 +104,17 @@ npm run lint
 npx tsc --noEmit
 npx vitest run
 ```
+
+## Если `npm start` запускает сайт, но он не работает
+
+Проверьте по порядку:
+
+1. Вы открыли сайт именно на `http://localhost:3000`, а не на другом порту или старой вкладке `127.0.0.1:3001`.
+2. Перед `npm start` был выполнен свежий `npm run build` или `npm run build:clean`.
+3. В `.env` согласованы `NEXTAUTH_URL`, `NEXT_PUBLIC_APP_URL` и `PORT`.
+4. В браузере нет старых cookies `next-auth.callback-url` и `next-auth.session-token` от другого origin. Если есть сомнения, очистите cookies для `localhost` и войдите заново.
+
+Локальный логин и logout поддерживают `localhost` и `127.0.0.1`, но production-конфиг в проекте считается каноническим для `http://localhost:3000`.
 
 ## Структура
 

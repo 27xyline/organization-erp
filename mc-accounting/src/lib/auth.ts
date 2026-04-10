@@ -1,6 +1,8 @@
 import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 
+const localHosts = new Set(['localhost', '127.0.0.1'])
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -37,6 +39,28 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role
       }
       return session
+    },
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith('/')) {
+        return url
+      }
+
+      try {
+        const target = new URL(url)
+        const base = new URL(baseUrl)
+
+        if (target.origin === base.origin) {
+          return url
+        }
+
+        if (localHosts.has(target.hostname) && localHosts.has(base.hostname)) {
+          return url
+        }
+      } catch {
+        return baseUrl
+      }
+
+      return baseUrl
     }
   },
   pages: {

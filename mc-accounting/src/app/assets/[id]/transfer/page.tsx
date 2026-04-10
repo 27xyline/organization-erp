@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
@@ -18,7 +18,7 @@ interface TransferPageProps {
 }
 
 async function getAsset(id: string) {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/assets/${id}`, {
+  const res = await fetch(`/api/assets/${id}`, {
     cache: 'no-store',
   })
   if (!res.ok) throw new Error('Failed to fetch asset')
@@ -26,7 +26,7 @@ async function getAsset(id: string) {
 }
 
 async function getMols() {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/mols`, {
+  const res = await fetch('/api/mols', {
     cache: 'no-store',
   })
   if (!res.ok) throw new Error('Failed to fetch MOLs')
@@ -49,18 +49,36 @@ export default function TransferPage({ params }: { params: { id: string } }) {
     reason: '',
   })
 
-  // Load data on mount
-  useState(() => {
-    Promise.all([getAsset(params.id), getMols()]).then(([assetData, molsData]) => {
-      setAsset(assetData)
-      setMols(molsData.filter((m: any) => m.id !== assetData.molId))
-      setFormData(prev => ({
-        ...prev,
-        quantity: assetData.quantity.toString(),
-        unitPrice: assetData.unitPrice.toString(),
-      }))
-    })
-  })
+  useEffect(() => {
+    let isMounted = true
+
+    async function loadData() {
+      try {
+        const [assetData, molsData] = await Promise.all([getAsset(params.id), getMols()])
+
+        if (!isMounted) {
+          return
+        }
+
+        setAsset(assetData)
+        setMols(molsData.filter((m: any) => m.id !== assetData.molId))
+        setFormData(prev => ({
+          ...prev,
+          quantity: assetData.quantity.toString(),
+          unitPrice: assetData.unitPrice.toString(),
+        }))
+      } catch (error) {
+        console.error('Error loading transfer page:', error)
+        toast.error('Не удалось загрузить данные для передачи')
+      }
+    }
+
+    void loadData()
+
+    return () => {
+      isMounted = false
+    }
+  }, [params.id, toast])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

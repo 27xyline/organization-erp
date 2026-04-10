@@ -47,22 +47,42 @@ export default function AssetsPage() {
   const [mols, setMols] = useState<Mol[]>([])
   const [groups, setGroups] = useState<AssetGroup[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
-  const loadData = useCallback(() => {
-    Promise.all([
-      fetch('/api/assets').then(r => r.json()),
-      fetch('/api/mols').then(r => r.json()),
-      fetch('/api/groups').then(r => r.json()),
-    ]).then(([assetsData, molsData, groupsData]) => {
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    setError("")
+
+    try {
+      const [assetsResponse, molsResponse, groupsResponse] = await Promise.all([
+        fetch('/api/assets'),
+        fetch('/api/mols'),
+        fetch('/api/groups'),
+      ])
+
+      if (!assetsResponse.ok || !molsResponse.ok || !groupsResponse.ok) {
+        throw new Error('Не удалось загрузить данные')
+      }
+
+      const [assetsData, molsData, groupsData] = await Promise.all([
+        assetsResponse.json(),
+        molsResponse.json(),
+        groupsResponse.json(),
+      ])
+
       setAssets(assetsData.data || [])
       setMols(molsData)
       setGroups(groupsData)
+    } catch (error) {
+      console.error('Error loading assets page:', error)
+      setError('Не удалось загрузить данные. Проверьте вход в систему и доступность API.')
+    } finally {
       setLoading(false)
-    })
+    }
   }, [])
 
   useEffect(() => {
-    loadData()
+    void loadData()
   }, [loadData])
 
   const filteredAssets = assets.filter((asset) => {
@@ -275,6 +295,16 @@ export default function AssetsPage() {
 
         {/* Таблица */}
         <div className="flex-1 p-4 overflow-auto">
+          {error && (
+            <Card className="mb-4 border-destructive/30 bg-destructive/5">
+              <CardContent className="flex items-center justify-between gap-4 p-4">
+                <p className="text-sm text-destructive">{error}</p>
+                <Button variant="outline" onClick={() => void loadData()}>
+                  Повторить
+                </Button>
+              </CardContent>
+            </Card>
+          )}
           {loading ? (
             <div className="space-y-4">
               <Skeleton className="h-10 w-full" />

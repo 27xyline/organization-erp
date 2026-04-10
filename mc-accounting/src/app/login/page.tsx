@@ -9,6 +9,42 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Label } from '@/components/ui/label'
 import { Mountain } from 'lucide-react'
 
+function getSafeCallbackUrl(path: string | null) {
+  if (typeof window === 'undefined') {
+    return '/'
+  }
+
+  try {
+    const url = new URL(path || '/', window.location.origin)
+
+    if (url.origin !== window.location.origin) {
+      return '/'
+    }
+
+    return url.toString()
+  } catch {
+    return window.location.origin
+  }
+}
+
+function toRouterPath(url: string | null | undefined) {
+  if (!url) {
+    return '/'
+  }
+
+  try {
+    const nextUrl = new URL(url, window.location.origin)
+
+    if (nextUrl.origin !== window.location.origin) {
+      return '/'
+    }
+
+    return `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`
+  } catch {
+    return '/'
+  }
+}
+
 export default function LoginPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -16,7 +52,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
-  const callbackUrl = searchParams.get('from') || '/'
+  const callbackUrl = searchParams.get('from')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -24,17 +60,18 @@ export default function LoginPage() {
     setError('')
 
     try {
+      const safeCallbackUrl = getSafeCallbackUrl(callbackUrl)
       const res = await signIn('credentials', {
         redirect: false,
         username,
         password,
-        callbackUrl,
+        callbackUrl: safeCallbackUrl,
       })
 
       if (res?.error) {
         setError('Неверный логин или пароль')
       } else {
-        router.push(callbackUrl)
+        router.push(toRouterPath(res?.url || safeCallbackUrl))
         router.refresh()
       }
     } catch (err) {

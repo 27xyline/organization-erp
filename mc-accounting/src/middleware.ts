@@ -10,7 +10,7 @@ export async function middleware(request: NextRequest) {
     if (token) {
       return NextResponse.redirect(new URL('/', request.url))
     }
-    return null
+    return NextResponse.next()
   }
 
   // Protect all API routes and pages
@@ -28,6 +28,8 @@ export async function middleware(request: NextRequest) {
       new URL(`/login?from=${encodeURIComponent(from)}`, request.url)
     )
   }
+
+  return NextResponse.next()
 }
 
 export const config = {

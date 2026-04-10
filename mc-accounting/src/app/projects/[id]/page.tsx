@@ -5,10 +5,29 @@ import { prisma } from '@/lib/prisma'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, ArrowRightLeft, Calendar, CheckSquare, Edit, FolderKanban, Target, Trophy, Wallet } from 'lucide-react'
+import {
+  ArrowLeft,
+  ArrowRightLeft,
+  Calendar,
+  CheckSquare,
+  Edit,
+  FolderKanban,
+  Target,
+  Trophy,
+  Wallet,
+} from 'lucide-react'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { ProjectStatusLabels } from '@/types'
 import { formatDate, formatCurrency, formatDateTime } from '@/lib/utils'
 import { ProjectGantt } from './gantt-client'
+import { ProjectPayrollSection } from '@/components/projects/project-payroll-section'
 
 interface ProjectPageProps {
   params: { id: string }
@@ -67,35 +86,6 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     ? Math.ceil((new Date(project.endDate).getTime() - new Date(project.startDate).getTime()) / (1000 * 60 * 60 * 24))
     : null
 
-  const planningPeriods = (() => {
-    const formatter = new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' })
-    const start = project.startDate ? new Date(project.startDate) : new Date()
-    const end = project.endDate ? new Date(project.endDate) : new Date(start.getFullYear(), start.getMonth() + 2, 1)
-    const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
-    const lastMonth = new Date(end.getFullYear(), end.getMonth(), 1)
-    const result: string[] = []
-
-    while (cursor <= lastMonth && result.length < 3) {
-      const label = formatter.format(cursor)
-      result.push(`${label.charAt(0).toUpperCase()}${label.slice(1)}`)
-      cursor.setMonth(cursor.getMonth() + 1)
-    }
-
-    while (result.length < 3) {
-      const label = formatter.format(cursor)
-      result.push(`${label.charAt(0).toUpperCase()}${label.slice(1)}`)
-      cursor.setMonth(cursor.getMonth() + 1)
-    }
-
-    return result
-  })()
-
-  const payrollRows = [
-    'Основная команда',
-    'Дополнительные выплаты',
-    'Резерв проекта',
-  ]
-
   const projectJournalEntries = project.assets
     .flatMap((asset) =>
       asset.operations.map((operation) => ({
@@ -108,6 +98,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         quantity: Number(operation.quantity),
         documentType: operation.documentType,
         documentDetails: operation.documentDetails,
+        reason: operation.reason,
       }))
     )
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
@@ -331,218 +322,177 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         </div>
       </div>
 
-      <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-3">
-        <Card className="xl:col-span-2 overflow-hidden">
-          <CardHeader className="border-b bg-slate-50/80">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Wallet className="h-4 w-4" />
-              Таблица с планированием выплат заработной платы
-            </CardTitle>
-            <CardDescription>
-              Раздел подготовлен под будущую детализацию выплат по периодам проекта.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="rounded-lg border bg-muted/30 p-4">
-                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Период проекта</p>
-                <p className="mt-2 text-sm font-medium">
-                  {project.startDate && project.endDate
-                    ? `${formatDate(project.startDate)} - ${formatDate(project.endDate)}`
-                    : 'Сроки пока не заданы'}
-                </p>
-              </div>
-              <div className="rounded-lg border bg-muted/30 p-4">
-                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Задач в плане</p>
-                <p className="mt-2 text-sm font-medium">{project._count.tasksList} позиций</p>
-              </div>
-              <div className="rounded-lg border bg-muted/30 p-4">
-                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Плановый бюджет</p>
-                <p className="mt-2 text-sm font-medium">{formatCurrency(Number(project.plannedBudget))}</p>
-              </div>
-            </div>
+      <div className="mt-8 space-y-6">
+        <Card className="overflow-hidden">
+          <ProjectPayrollSection projectId={project.id} />
+        </Card>
 
-            <div className="mt-6 overflow-x-auto rounded-xl border">
-              <div className="grid min-w-[720px] grid-cols-[minmax(220px,1.3fr)_repeat(3,minmax(140px,1fr))] border-b bg-muted/40 text-sm font-medium text-muted-foreground">
-                <div className="border-r px-4 py-3">Статья</div>
-                {planningPeriods.map((period) => (
-                  <div key={period} className="border-r px-4 py-3 last:border-r-0">
-                    {period}
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-stretch">
+          <Card className="overflow-hidden xl:h-full">
+            <CardHeader className="border-b bg-slate-50/80">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ArrowRightLeft className="h-4 w-4" />
+                Журнал поступлений и списаний
+              </CardTitle>
+              <CardDescription>
+                Последние операции по активам, привязанным к этому проекту.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                <div className="rounded-lg border bg-muted/30 p-4">
+                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Поступления</p>
+                  <p className="mt-2 text-sm font-medium">{formatCurrency(receiptTotal)}</p>
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-4">
+                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Списания</p>
+                  <p className="mt-2 text-sm font-medium">{formatCurrency(disposalTotal)}</p>
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-4">
+                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Записей</p>
+                  <p className="mt-2 text-sm font-medium">{projectJournalEntries.length}</p>
+                </div>
+              </div>
+
+              {projectJournalEntries.length > 0 ? (
+                <div className="mt-6 overflow-hidden rounded-xl border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Дата</TableHead>
+                        <TableHead>Тип</TableHead>
+                        <TableHead>Актив</TableHead>
+                        <TableHead>Инв. номер</TableHead>
+                        <TableHead>Количество</TableHead>
+                        <TableHead>Сумма</TableHead>
+                        <TableHead>Документ</TableHead>
+                        <TableHead>Основание</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {projectJournalEntries.map((entry) => (
+                        <TableRow key={entry.id}>
+                          <TableCell className="whitespace-nowrap">{formatDate(entry.date)}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={entry.type === 'RECEIPT'
+                                ? 'border-green-200 bg-green-50 text-green-700'
+                                : 'border-red-200 bg-red-50 text-red-700'}
+                            >
+                              {entry.type === 'RECEIPT' ? 'Приход' : 'Списание'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="font-medium text-slate-900">{entry.assetName}</TableCell>
+                          <TableCell>{entry.inventoryNumber}</TableCell>
+                          <TableCell>{entry.quantity}</TableCell>
+                          <TableCell className="whitespace-nowrap">{formatCurrency(entry.totalCost)}</TableCell>
+                          <TableCell className="max-w-[260px]">
+                            <div className="space-y-1">
+                              <p className="text-sm text-slate-900">{entry.documentType}</p>
+                              <p className="text-xs text-muted-foreground">{entry.documentDetails}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="max-w-[260px] text-sm text-muted-foreground">
+                            {entry.reason || '—'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="mt-6 flex min-h-[320px] items-center justify-center rounded-xl border border-dashed bg-slate-50/70 p-6 text-center">
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">Пока нет операций по поступлениям и списаниям</p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Как только по активам проекта появятся движения, они будут отображаться в этом журнале.
+                    </p>
                   </div>
-                ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="overflow-hidden xl:h-full">
+            <CardHeader className="border-b bg-slate-50/80">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Wallet className="h-4 w-4" />
+                Финансовые действия проекта
+              </CardTitle>
+              <CardDescription>
+                Начисления по сотрудникам из разделов `Оклад` и `Надбавка`, связанные с этим проектом.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-2">
+                <div className="rounded-lg border bg-muted/30 p-4">
+                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Всего действий</p>
+                  <p className="mt-2 text-sm font-medium">{project._count.financePlanEntries}</p>
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-4">
+                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Оклад</p>
+                  <p className="mt-2 text-sm font-medium">{formatCurrency(okladTotal)}</p>
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-4">
+                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Надбавка</p>
+                  <p className="mt-2 text-sm font-medium">{formatCurrency(nadbavkaTotal)}</p>
+                </div>
+                <div className="rounded-lg border bg-muted/30 p-4">
+                  <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Итого</p>
+                  <p className="mt-2 text-sm font-medium">{formatCurrency(financeTotal)}</p>
+                </div>
               </div>
 
-              <div className="min-w-[720px] divide-y">
-                {payrollRows.map((row) => (
-                  <div key={row} className="grid grid-cols-[minmax(220px,1.3fr)_repeat(3,minmax(140px,1fr))] text-sm">
-                    <div className="border-r px-4 py-4 font-medium text-slate-700">{row}</div>
-                    {planningPeriods.map((period) => (
-                      <div key={`${row}-${period}`} className="border-r px-4 py-4 text-muted-foreground last:border-r-0">
-                        —
+              {projectFinanceGroups.length > 0 ? (
+                <div className="mt-6 space-y-3">
+                  {projectFinanceGroups.map((group) => (
+                    <div key={group.employeeId} className="rounded-xl border p-4 transition-colors hover:bg-slate-50/70">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium text-slate-900">{group.employeeName}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{group.employeeDepartment}</p>
+                        </div>
+                        <p className="text-sm font-semibold text-slate-900">{formatCurrency(group.total)}</p>
                       </div>
-                    ))}
-                  </div>
-                ))}
 
-                <div className="grid grid-cols-[minmax(220px,1.3fr)_repeat(3,minmax(140px,1fr))] bg-slate-50/70 text-sm font-medium">
-                  <div className="border-r px-4 py-4">Итого</div>
-                  {planningPeriods.map((period) => (
-                    <div key={`total-${period}`} className="border-r px-4 py-4 text-muted-foreground last:border-r-0">
-                      —
+                      <div className="mt-4 space-y-3">
+                        {group.entries.map((entry) => (
+                          <div key={entry.id} className="rounded-lg border bg-white px-4 py-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="outline" className={entry.type === FinancePlanType.OKLAD ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-violet-200 bg-violet-50 text-violet-700'}>
+                                    {financeTypeLabels[entry.type]}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">{entry.monthLabel}</span>
+                                </div>
+                                <div className="mt-3 text-xs text-muted-foreground">
+                                  Создано: {formatDateTime(entry.createdAt)}
+                                </div>
+                              </div>
+                              <p className="text-sm font-semibold text-slate-900">{formatCurrency(entry.amount)}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            </div>
-
-            <div className="mt-4 rounded-lg border border-dashed bg-slate-50/70 px-4 py-3 text-sm text-muted-foreground">
-              Таблица уже встроена в страницу и готова к заполнению, когда появятся данные по выплатам.
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="overflow-hidden">
-          <CardHeader className="border-b bg-slate-50/80">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <ArrowRightLeft className="h-4 w-4" />
-              Журнал поступлений и списаний
-            </CardTitle>
-            <CardDescription>
-              Последние операции по активам, привязанным к этому проекту.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-6">
-            <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-              <div className="rounded-lg border bg-muted/30 p-4">
-                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Поступления</p>
-                <p className="mt-2 text-sm font-medium">{formatCurrency(receiptTotal)}</p>
-              </div>
-              <div className="rounded-lg border bg-muted/30 p-4">
-                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Списания</p>
-                <p className="mt-2 text-sm font-medium">{formatCurrency(disposalTotal)}</p>
-              </div>
-              <div className="rounded-lg border bg-muted/30 p-4">
-                <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Записей</p>
-                <p className="mt-2 text-sm font-medium">{projectJournalEntries.length}</p>
-              </div>
-            </div>
-
-            {projectJournalEntries.length > 0 ? (
-              <div className="mt-6 space-y-3">
-                {projectJournalEntries.slice(0, 6).map((entry) => (
-                  <div key={entry.id} className="rounded-xl border p-4 transition-colors hover:bg-slate-50/70">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className={entry.type === 'RECEIPT' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}>
-                            {entry.type === 'RECEIPT' ? 'Приход' : 'Списание'}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">{formatDate(entry.date)}</span>
-                        </div>
-                        <p className="mt-3 text-sm font-medium text-slate-900">{entry.assetName}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">Инв. номер: {entry.inventoryNumber}</p>
-                      </div>
-                      <p className="text-sm font-semibold text-slate-900">{formatCurrency(entry.totalCost)}</p>
-                    </div>
-
-                    <div className="mt-3 grid gap-2 text-xs text-muted-foreground sm:grid-cols-2">
-                      <p>Количество: {entry.quantity}</p>
-                      <p>{entry.documentType}: {entry.documentDetails}</p>
-                    </div>
+              ) : (
+                <div className="mt-6 flex min-h-[220px] items-center justify-center rounded-xl border border-dashed bg-slate-50/70 p-6 text-center">
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">Пока нет финансовых действий по этому проекту</p>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Как только в разделах `Оклад` или `Надбавка` появятся начисления с привязкой к проекту, они будут отображаться здесь.
+                    </p>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="mt-6 flex min-h-[320px] items-center justify-center rounded-xl border border-dashed bg-slate-50/70 p-6 text-center">
-                <div>
-                  <p className="text-sm font-medium text-slate-900">Пока нет операций по поступлениям и списаниям</p>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Как только по активам проекта появятся движения, они будут отображаться в этом журнале.
-                  </p>
                 </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
-
-      <Card className="mt-8 overflow-hidden">
-        <CardHeader className="border-b bg-slate-50/80">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Wallet className="h-4 w-4" />
-            Финансовые действия проекта
-          </CardTitle>
-          <CardDescription>
-            Начисления по сотрудникам из разделов `Оклад` и `Надбавка`, связанные с этим проектом.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-6">
-          <div className="grid gap-3 md:grid-cols-4">
-            <div className="rounded-lg border bg-muted/30 p-4">
-              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Всего действий</p>
-              <p className="mt-2 text-sm font-medium">{project._count.financePlanEntries}</p>
-            </div>
-            <div className="rounded-lg border bg-muted/30 p-4">
-              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Оклад</p>
-              <p className="mt-2 text-sm font-medium">{formatCurrency(okladTotal)}</p>
-            </div>
-            <div className="rounded-lg border bg-muted/30 p-4">
-              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Надбавка</p>
-              <p className="mt-2 text-sm font-medium">{formatCurrency(nadbavkaTotal)}</p>
-            </div>
-            <div className="rounded-lg border bg-muted/30 p-4">
-              <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Итого</p>
-              <p className="mt-2 text-sm font-medium">{formatCurrency(financeTotal)}</p>
-            </div>
-          </div>
-
-          {projectFinanceGroups.length > 0 ? (
-            <div className="mt-6 space-y-3">
-              {projectFinanceGroups.map((group) => (
-                <div key={group.employeeId} className="rounded-xl border p-4 transition-colors hover:bg-slate-50/70">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium text-slate-900">{group.employeeName}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{group.employeeDepartment}</p>
-                    </div>
-                    <p className="text-sm font-semibold text-slate-900">{formatCurrency(group.total)}</p>
-                  </div>
-
-                  <div className="mt-4 space-y-3">
-                    {group.entries.map((entry) => (
-                      <div key={entry.id} className="rounded-lg border bg-white px-4 py-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant="outline" className={entry.type === FinancePlanType.OKLAD ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-violet-200 bg-violet-50 text-violet-700'}>
-                                {financeTypeLabels[entry.type]}
-                              </Badge>
-                              <span className="text-xs text-muted-foreground">{entry.monthLabel}</span>
-                            </div>
-                            <div className="mt-3 text-xs text-muted-foreground">
-                              Создано: {formatDateTime(entry.createdAt)}
-                            </div>
-                          </div>
-                          <p className="text-sm font-semibold text-slate-900">{formatCurrency(entry.amount)}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-6 flex min-h-[220px] items-center justify-center rounded-xl border border-dashed bg-slate-50/70 p-6 text-center">
-              <div>
-                <p className="text-sm font-medium text-slate-900">Пока нет финансовых действий по этому проекту</p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Как только в разделах `Оклад` или `Надбавка` появятся начисления с привязкой к проекту, они будут отображаться здесь.
-                </p>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </main>
   )
 }
