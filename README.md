@@ -1,61 +1,119 @@
-# `mc-accounting`
+# Project1
 
-Внутренняя система для учета материальных ценностей, кадровых данных, отпусков, проектных задач и планирования начислений по проектам.
+Основное приложение в этом репозитории находится в [`mc-accounting`](./mc-accounting).
 
-## Стек
+Это внутренняя система учета для:
+
+- имущества и материальных ценностей;
+- МОЛ и групп имущества;
+- сотрудников, кадровых действий, отпусков и штатного расписания;
+- проектов, задач и Gantt-представления;
+- финансового планирования по сотрудникам и проектам;
+- экспорта данных в Excel.
+
+## Технологии
 
 - Next.js 14 (`App Router`)
 - React 18
-- Prisma + PostgreSQL
+- TypeScript
+- Prisma ORM
+- PostgreSQL
+- NextAuth (`CredentialsProvider`)
 - Zod
 - Tailwind CSS
-- NextAuth (credentials login)
 - Vitest
 
-## Что есть в системе
+## Структура репозитория
 
-- Учет МОЛ, групп имущества и карточек активов
-- Операции по активам: приход, передача, списание, архив
-- Проекты с задачами и Gantt-представлением
-- Кадровый раздел: сотрудники, штатное расписание, кадровые действия, архив, отпуска
-- Финансовые разделы:
-  - автоматический расчет заработной платы
-  - планирование оклада по проектам
-  - планирование надбавок по проектам
-- Экспорт данных
-- Базовая авторизация для внутреннего использования
+```text
+.
+├── mc-accounting/           # основное приложение
+│   ├── package.json
+│   ├── prisma/
+│   ├── src/
+│   └── start.js
+└── README.md                # этот файл
+```
+
+`mc-accounting/package.json` является главным manifest-файлом приложения. Все команды ниже нужно выполнять из каталога [`mc-accounting`](./mc-accounting).
+
+## Что умеет система
+
+### Имущество
+
+- карточки активов с инвентарными номерами, статусами и документами;
+- МОЛ, группы имущества, история операций;
+- архив активов;
+- экспорт имущества и операций в `.xlsx`.
+
+### Проекты
+
+- карточки проектов;
+- древовидные задачи с датами, прогрессом и статусами;
+- участники проекта (`ProjectMember`);
+- исполнители задач (`TaskAssignee`);
+- Gantt-представление.
+
+### Сотрудники и HR
+
+- справочник сотрудников;
+- штатное расписание;
+- кадровые действия;
+- отпуска и отсутствия;
+- архив сотрудников.
+
+### Финансы
+
+- расчет зарплаты;
+- планирование оклада;
+- планирование надбавок;
+- привязка финансовых планов к сотруднику и при необходимости к проекту.
+
+## Архитектура
+
+- UI построен на `App Router`-страницах в [`mc-accounting/src/app`](./mc-accounting/src/app).
+- HTTP API находится в [`mc-accounting/src/app/api`](./mc-accounting/src/app/api).
+- Доменные правила и сервисы вынесены в [`mc-accounting/src/lib/services`](./mc-accounting/src/lib/services).
+- Валидация входных данных сосредоточена в [`mc-accounting/src/lib/schemas`](./mc-accounting/src/lib/schemas) и [`mc-accounting/src/lib/validations.ts`](./mc-accounting/src/lib/validations.ts).
+- Prisma-схема и миграции лежат в [`mc-accounting/prisma`](./mc-accounting/prisma).
+
+Текущая структура проекта уже ориентирована на подход "тонкие route handlers + логика в service-слое". При расширении системы лучше сохранять этот принцип.
 
 ## Требования
 
-- Node.js 18+
-- PostgreSQL 14+
-- npm
+- Node.js 18+;
+- npm;
+- PostgreSQL 14+.
 
-## Установка
+## Быстрый старт
+
+1. Перейдите в каталог приложения:
+
+```bash
+cd mc-accounting
+```
+
+2. Установите зависимости:
 
 ```bash
 npm install
 ```
 
-Создайте `.env` на основе `.env.example`:
+3. Создайте файл `.env` в каталоге [`mc-accounting`](./mc-accounting).
 
-```bash
-cp .env.example .env
-```
-
-Минимальный локальный конфиг:
+В репозитории сейчас нет `.env.example`, поэтому используйте такой минимальный локальный конфиг:
 
 ```env
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/mc_accounting"
 NEXTAUTH_URL="http://localhost:3000"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 PORT=3000
-NEXTAUTH_SECRET="change-me"
+NEXTAUTH_SECRET="change-me-to-a-long-random-string"
 ADMIN_USERNAME="admin"
 ADMIN_PASSWORD="admin"
 ```
 
-## База данных
+4. Подготовьте Prisma Client и базу:
 
 ```bash
 npm run db:generate
@@ -63,41 +121,50 @@ npm run db:migrate
 npm run db:seed
 ```
 
-## Запуск
-
-### Dev
+5. Запустите приложение:
 
 ```bash
 npm run dev
 ```
 
-### Local production
+Откройте [http://localhost:3000](http://localhost:3000) и войдите с логином/паролем из `ADMIN_USERNAME` и `ADMIN_PASSWORD`.
 
-Канонический локальный адрес для production-проверки: `http://localhost:3000`.
+## Команды
 
-Нормальный сценарий:
+### Разработка
+
+```bash
+npm run dev
+npm run dev:turbo
+npm run dev:webpack
+npm run dev:reset
+```
+
+### Production-режим локально
+
+```bash
+npm run build
+npm run start
+```
+
+Полный безопасный сценарий проверки production-сборки:
 
 ```bash
 npm run start:prod
 ```
 
-То же самое вручную:
+Если артефакты `.next` отсутствуют или неполные, [`mc-accounting/start.js`](./mc-accounting/start.js) автоматически пересоберет приложение перед `next start`.
+
+### База данных
 
 ```bash
-npm run build:clean
-npm start
+npm run db:generate
+npm run db:migrate
+npm run db:studio
+npm run db:seed
 ```
 
-`npm start` сам по себе не пересобирает приложение. Он поднимает уже существующую `.next`-сборку, поэтому после изменений кода или `.env` сначала нужен новый `npm run build` или `npm run build:clean`.
-
-Если нужна полностью чистая production-проверка без старых артефактов:
-
-```bash
-npm run prod:reset
-npm run start:prod
-```
-
-## Полезные команды
+### Проверки
 
 ```bash
 npm run lint
@@ -105,44 +172,78 @@ npx tsc --noEmit
 npx vitest run
 ```
 
-## Если `npm start` запускает сайт, но он не работает
+Примечание: отдельного `npm test` скрипта сейчас нет.
 
-Проверьте по порядку:
+## Данные, которые создает seed
 
-1. Вы открыли сайт именно на `http://localhost:3000`, а не на другом порту или старой вкладке `127.0.0.1:3001`.
-2. Перед `npm start` был выполнен свежий `npm run build` или `npm run build:clean`.
-3. В `.env` согласованы `NEXTAUTH_URL`, `NEXT_PUBLIC_APP_URL` и `PORT`.
-4. В браузере нет старых cookies `next-auth.callback-url` и `next-auth.session-token` от другого origin. Если есть сомнения, очистите cookies для `localhost` и войдите заново.
+[`mc-accounting/prisma/seed.ts`](./mc-accounting/prisma/seed.ts) создает стартовые справочники и примеры:
 
-Локальный логин и logout поддерживают `localhost` и `127.0.0.1`, но production-конфиг в проекте считается каноническим для `http://localhost:3000`.
+- 2 МОЛ;
+- 4 группы имущества;
+- несколько тестовых активов.
 
-## Структура
+Seed не создает сотрудников, проекты, задачи или payroll-данные, поэтому эти разделы после первого запуска потребуется заполнять вручную.
 
-```text
-src/
-  app/
-    api/                 HTTP routes
-    employees/           кадровый интерфейс
-    finance/             зарплата / оклад / надбавка
-    projects/            проекты и задачи
-    assets/              активы
-  components/
-    employees/           UI блоки кадрового раздела
-    finance-plan/        table / dialog / hooks для планирования начислений
-    ui/                  базовые UI-компоненты
-  lib/
-    schemas/             Zod-схемы
-    services/            domain/service-логика
-    normalize.ts         преобразование API payload -> client types
-prisma/
-  schema.prisma
-  migrations/
-```
+## Аутентификация и доступ
 
-## Аутентификация
+- Используется `NextAuth` с `CredentialsProvider`.
+- Учетные данные берутся из `ADMIN_USERNAME` и `ADMIN_PASSWORD`.
+- Все страницы и почти все API защищены middleware из [`mc-accounting/src/middleware.ts`](./mc-accounting/src/middleware.ts).
+- Страница входа: `/login`.
 
-Сейчас используется `NextAuth` с `CredentialsProvider` и учетными данными из переменных окружения. Это решение подходит для внутреннего контура и локальной разработки, но не является production-grade auth.
+Важно: это упрощенная внутренняя auth-схема. Она подходит для локальной разработки и закрытого внутреннего контура, но не является production-grade решением для внешнего доступа.
 
-## Текущее состояние
+## Основные разделы интерфейса
 
-Проект ориентирован на внутреннюю эксплуатацию. В кодовой базе уже есть существенная бизнес-логика по HR и finance workflows; при дальнейших изменениях рекомендуется держать transport-слой тонким, а правила валидации и расчета концентрировать в `src/lib/services`.
+- `/` — реестр имущества;
+- `/groups` — группы имущества;
+- `/archive` — архив активов;
+- `/projects` — проекты;
+- `/employees` — сотрудники;
+- `/employees/archive` — архив сотрудников;
+- `/mols` — материально ответственные лица;
+- `/finance/salary` — расчет зарплаты;
+- `/finance/oklad` — планирование оклада;
+- `/finance/nadbavka` — планирование надбавок.
+
+Часть пунктов бокового меню помечена как `скоро` и пока не реализована как полноценный workflow.
+
+## API и тесты
+
+В проекте есть route-level и service-level тесты, в том числе для:
+
+- сотрудников;
+- финансовых планов;
+- кадрового домена;
+- задач проекта;
+- участников проекта;
+- payroll по проекту.
+
+Ключевые тестовые файлы находятся в:
+
+- [`mc-accounting/src/lib/services/__tests__`](./mc-accounting/src/lib/services/__tests__);
+- [`mc-accounting/src/app/api`](./mc-accounting/src/app/api).
+
+## Известные ограничения
+
+- Файл `.env.example` отсутствует, конфиг нужно создавать вручную.
+- Авторизация построена на одном наборе credentials из env.
+- Часть меню еще не реализована.
+- В репозитории нет корневого `package.json`; рабочий пакет находится в `mc-accounting`.
+
+## Operational notes
+
+- Для локальной production-проверки используйте один origin: `http://localhost:3000`.
+- Если после `npm start` приложение ведет себя некорректно, сначала пересоберите его через `npm run build:clean` или `npm run start:prod`.
+- При проблемах со входом очистите cookies для `localhost`, особенно если до этого приложение запускалось на другом origin.
+- Перед внесением изменений в Prisma-схему создавайте новую миграцию и проверяйте, что seed и route handlers остаются совместимыми.
+
+## Разработка дальше
+
+Если проект будет передаваться другому разработчику как рабочая система, первыми улучшениями стоит сделать:
+
+1. добавить реальный `.env.example`;
+2. заменить credentials-only auth на нормальную схему пользователей и ролей;
+3. формализовать роли и права на уровне API;
+4. добавить CI-команду с единым `test` script;
+5. поддерживать корень репозитория как документационный уровень, а код приложения держать в `mc-accounting`.
