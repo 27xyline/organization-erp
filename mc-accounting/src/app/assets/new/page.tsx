@@ -1,6 +1,7 @@
-import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { AssetForm } from '@/components/asset-form'
+
+export const dynamic = 'force-dynamic'
 
 export default async function NewAssetPage() {
   const mols = await prisma.mol.findMany({

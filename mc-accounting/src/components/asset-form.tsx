@@ -120,6 +120,8 @@ export function AssetForm({ mols, groups, projects, initialData }: AssetFormProp
             <div className="flex flex-wrap gap-2">
               {photos.map((photo, index) => (
                 <div key={index} className="relative">
+                  {/* User-provided image sources can be data URLs or arbitrary paths. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img 
                     src={photo} 
                     alt={`Photo ${index + 1}`}

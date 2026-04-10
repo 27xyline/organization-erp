@@ -112,6 +112,7 @@ export function AssetsDataTable({ assets, totalCount, filteredCount, onArchive }
                     </TableCell>
                     <TableCell>
                       {hasPhotos ? (
+                        /* eslint-disable-next-line @next/next/no-img-element */
                         <img 
                           src={asset.photos![0]} 
                           alt={asset.name}

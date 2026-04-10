@@ -458,12 +458,12 @@ export default function EmployeeArchivePage() {
 
       <Dialog open={Boolean(dismissEmployee)} onOpenChange={(open) => !open && setDismissEmployee(null)}>
         <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Подтвердить увольнение</DialogTitle>
-            <DialogDescription>
-              Сотрудник останется в архиве со статусом "уволен", исчезнет из основных разделов и освободит должность в штатном расписании.
-            </DialogDescription>
-          </DialogHeader>
+            <DialogHeader>
+              <DialogTitle>Подтвердить увольнение</DialogTitle>
+              <DialogDescription>
+                Сотрудник останется в архиве со статусом &quot;уволен&quot;, исчезнет из основных разделов и освободит должность в штатном расписании.
+              </DialogDescription>
+            </DialogHeader>
 
           <div className="rounded-lg border bg-muted/30 p-4 text-sm">
             <p className="font-medium text-slate-900">{dismissEmployee?.fullName}</p>

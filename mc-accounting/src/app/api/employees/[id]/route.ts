@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { EmployeeService } from '@/lib/services/employee.service'
+import { getEmployeeRouteErrorMeta } from '@/lib/services/hr-domain'
 import { updateEmployeeSchema } from '@/lib/schemas/employee'
 import { validateRequest } from '@/lib/validations'
 
@@ -18,15 +19,6 @@ export async function PUT(
     }
 
     const data = validation.data
-
-    // Specific business rules that are easier to check here or in service
-    if (!data.staffScheduleId && data.status !== 'DISMISSED') {
-      return NextResponse.json(
-        { error: 'Должность из штатного расписания обязательна' },
-        { status: 400 }
-      )
-    }
-
     const employee = await EmployeeService.updateEmployee(params.id, data)
     
     return NextResponse.json(employee)
@@ -43,20 +35,13 @@ export async function PUT(
       }
     }
 
-    if (error instanceof Error) {
-      const errorMap: Record<string, string> = {
-        'POSITION_NOT_FOUND': 'Должность из штатного расписания не найдена',
-        'EMPLOYEE_NOT_FOUND': 'Сотрудник не найден',
-        'INSUFFICIENT_POSITION_RATE': 'Недостаточно свободных ставок по выбранной должности'
-      }
+    const routeError = getEmployeeRouteErrorMeta(error)
 
-      if (errorMap[error.message]) {
-        const isNotFound = error.message.includes('NOT_FOUND')
-        return NextResponse.json(
-          { error: errorMap[error.message] },
-          { status: isNotFound ? 404 : 400 }
-        )
-      }
+    if (routeError) {
+      return NextResponse.json(
+        { error: routeError.error },
+        { status: routeError.status }
+      )
     }
 
     return NextResponse.json(
@@ -77,10 +62,12 @@ export async function DELETE(
   } catch (error) {
     console.error('Error deleting employee:', error)
 
-    if (error instanceof Error && error.message === 'EMPLOYEE_NOT_FOUND') {
+    const routeError = getEmployeeRouteErrorMeta(error)
+
+    if (routeError) {
       return NextResponse.json(
-        { error: 'Сотрудник не найден' },
-        { status: 404 }
+        { error: routeError.error },
+        { status: routeError.status }
       )
     }
 

@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { getStaffScheduleRateSummary, getStartOfToday } from '@/lib/employees'
+import { getStartOfToday } from '@/lib/employees'
+import {
+  ensureValidContractDateRange,
+  ensureValidEmploymentRate,
+  getEmployeeRouteErrorMeta,
+  parseOptionalDate,
+  parseRequiredDate,
+  resolveAssignablePosition,
+} from '@/lib/services/hr-domain'
 import { createEmployeeSchema, validateRequest } from '@/lib/validations'
 
 // GET /api/employees - Get all employees
@@ -89,41 +97,25 @@ export async function POST(request: NextRequest) {
     }
     
     const data = validation.data
-    const contractSignedDate = new Date(data.contractSignedDate)
-    const contractEndDate = data.contractEndDate ? new Date(data.contractEndDate) : null
+    const contractSignedDate = parseRequiredDate(data.contractSignedDate)
+    const contractEndDate = parseOptionalDate(data.contractEndDate)
     const employmentRate = data.employmentRate
 
-    if (contractEndDate && contractSignedDate >= contractEndDate) {
-      return NextResponse.json(
-        { error: 'Дата подписания договора должна быть раньше срока действия договора' },
-        { status: 400 }
-      )
-    }
+    ensureValidEmploymentRate(employmentRate)
+    ensureValidContractDateRange(contractSignedDate, contractEndDate)
 
     const employee = await prisma.$transaction(async (tx) => {
-      const position = await tx.staffSchedule.findUnique({
-        where: { id: data.staffScheduleId },
+      const position = await resolveAssignablePosition(tx, {
+        staffScheduleId: data.staffScheduleId,
+        employmentRate,
+        status: 'ACTIVE',
       })
-
-      if (!position) {
-        throw new Error('POSITION_NOT_FOUND')
-      }
-
-      const rateSummary = await getStaffScheduleRateSummary(tx, data.staffScheduleId)
-
-      if (!rateSummary) {
-        throw new Error('POSITION_NOT_FOUND')
-      }
-
-      if (employmentRate > rateSummary.freeRate) {
-        throw new Error('INSUFFICIENT_POSITION_RATE')
-      }
 
       const createdEmployee = await tx.employee.create({
         data: {
           code: data.code,
           fullName: data.fullName,
-          department: position.department,
+          department: position!.department,
           photo: data.photo,
           phone: data.phone,
           email: data.email,
@@ -147,9 +139,9 @@ export async function POST(request: NextRequest) {
           description: data.hireDescription || 'Прием на работу',
           employeeId: createdEmployee.id,
           oldDepartment: null,
-          newDepartment: position.department,
+          newDepartment: position!.department,
           oldPosition: null,
-          newPosition: position.position,
+          newPosition: position!.position,
           oldContractEndDate: null,
           newContractEndDate: contractEndDate,
         },
@@ -173,20 +165,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (error instanceof Error) {
-      if (error.message === 'POSITION_NOT_FOUND') {
-        return NextResponse.json(
-          { error: 'Должность из штатного расписания не найдена' },
-          { status: 404 }
-        )
-      }
+    const routeError = getEmployeeRouteErrorMeta(error)
 
-      if (error.message === 'INSUFFICIENT_POSITION_RATE') {
-        return NextResponse.json(
-          { error: 'Недостаточно свободных ставок по выбранной должности' },
-          { status: 400 }
-        )
-      }
+    if (routeError) {
+      return NextResponse.json(
+        { error: routeError.error },
+        { status: routeError.status }
+      )
     }
 
     return NextResponse.json(

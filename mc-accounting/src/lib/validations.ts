@@ -132,9 +132,9 @@ export type CreatePersonnelActionInput = z.infer<typeof createPersonnelActionSch
 
 // ─── Utility: Safe parse wrapper ─────────────────────────────────
 
-export function validateRequest<T>(schema: z.ZodSchema<T>, data: unknown): {
+export function validateRequest<TSchema extends z.ZodTypeAny>(schema: TSchema, data: unknown): {
   success: true
-  data: T
+  data: z.output<TSchema>
 } | {
   success: false
   error: string

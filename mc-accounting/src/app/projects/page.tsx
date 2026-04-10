@@ -7,6 +7,8 @@ import { Plus, FolderKanban, Calendar, Wallet } from 'lucide-react'
 import { ProjectStatusLabels } from '@/types'
 import { formatDate, formatCurrency } from '@/lib/utils'
 
+export const dynamic = 'force-dynamic'
+
 export default async function ProjectsPage() {
   const projects = await prisma.project.findMany({
     orderBy: { createdAt: 'desc' },
@@ -40,7 +42,7 @@ export default async function ProjectsPage() {
             <FolderKanban className="h-12 w-12 text-muted-foreground mb-4" />
             <p className="text-muted-foreground text-center">
               Проекты не созданы.<br />
-              Нажмите "Новый проект", чтобы создать первый проект.
+              Нажмите &quot;Новый проект&quot;, чтобы создать первый проект.
             </p>
           </CardContent>
         </Card>

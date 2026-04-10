@@ -1,5 +1,10 @@
 import { prisma } from '@/lib/prisma'
-import { getStaffScheduleRateSummary } from '@/lib/employees'
+import {
+  ensureValidContractDateRange,
+  ensureValidEmploymentRate,
+  hrError,
+  resolveAssignablePosition,
+} from '@/lib/services/hr-domain'
 import { UpdateEmployeeInput } from '@/lib/schemas/employee'
 
 export class EmployeeService {
@@ -13,30 +18,29 @@ export class EmployeeService {
       })
 
       if (!existingEmployee) {
-        throw new Error('EMPLOYEE_NOT_FOUND')
+        throw hrError('EMPLOYEE_NOT_FOUND')
       }
 
       const employmentRate = data.employmentRate !== undefined ? Number(data.employmentRate) : Number(existingEmployee.employmentRate)
       const status = data.status || existingEmployee.status
+      const contractSignedDate = data.contractSignedDate ?? existingEmployee.contractSignedDate
+      const contractEndDate = data.contractEndDate === undefined
+        ? existingEmployee.contractEndDate
+        : data.contractEndDate
+
+      if (status !== 'DISMISSED') {
+        ensureValidEmploymentRate(employmentRate)
+      }
 
       const positionId = data.staffScheduleId === undefined ? existingEmployee.staffScheduleId : data.staffScheduleId
-      
-      const position = positionId
-        ? await tx.staffSchedule.findUnique({ where: { id: positionId } })
-        : null
+      ensureValidContractDateRange(contractSignedDate, contractEndDate)
 
-      if (positionId && !position) {
-        throw new Error('POSITION_NOT_FOUND')
-      }
-
-      if (positionId) {
-        const rateSummary = await getStaffScheduleRateSummary(tx, positionId, id)
-        if (!rateSummary) throw new Error('POSITION_NOT_FOUND')
-
-        if (status !== 'DISMISSED' && employmentRate > rateSummary.freeRate) {
-          throw new Error('INSUFFICIENT_POSITION_RATE')
-        }
-      }
+      const position = await resolveAssignablePosition(tx, {
+        staffScheduleId: positionId,
+        employeeId: id,
+        employmentRate,
+        status,
+      })
 
       const updatedEmployee = await tx.employee.update({
         where: { id },
@@ -106,7 +110,7 @@ export class EmployeeService {
       })
 
       if (!employee) {
-        throw new Error('EMPLOYEE_NOT_FOUND')
+        throw hrError('EMPLOYEE_NOT_FOUND')
       }
 
       const updated = await tx.employee.update({

@@ -105,7 +105,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
     }
-  }, [isResizing])
+  }, [isResizing, minLeftPanelWidth, minRightPanelWidth])
 
   const handleResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
     event.preventDefault()
@@ -114,10 +114,9 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
     setIsResizing(true)
   }
   
-  const safeTasks = tasks || []
-  
   // Организуем задачи иерархически (рекурсивно)
   const organizedTasks = useMemo(() => {
+    const safeTasks = tasks ?? []
     const taskMap = new Map<string, Task & { level: number; childIds: string[] }>()
     
     // Сначала создаём мапу всех задач
@@ -170,7 +169,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
     })
     
     return result
-  }, [safeTasks])
+  }, [tasks])
   
   // Определяем временной диапазон
   const timeRange = useMemo(() => {
