@@ -93,13 +93,16 @@ export function GanttChart({ tasks, startDate: projectStart, endDate: projectEnd
           const taskEnd = task.endDate!
           const offsetDays = differenceInDays(taskStart, start)
           const duration = differenceInDays(taskEnd, taskStart) + 1
+          const assigneeLabel = task.assignees.length > 0
+            ? task.assignees.map((assignee) => assignee.fullName).join(', ')
+            : task.responsible
           
           return (
             <div key={task.id} className="flex border-b hover:bg-muted/20">
               <div className="w-64 flex-shrink-0 p-2 border-r text-sm">
                 <div className="font-medium truncate">{task.name}</div>
                 <div className="text-xs text-muted-foreground">
-                  {task.responsible && `Отв: ${task.responsible}`}
+                  {assigneeLabel && `Отв: ${assigneeLabel}`}
                 </div>
               </div>
               <div className="flex-1 relative h-12">

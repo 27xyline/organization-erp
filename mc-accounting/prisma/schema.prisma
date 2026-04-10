@@ -214,6 +214,7 @@ model ProjectMember {
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   employeeId  String
   employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  taskAssignees TaskAssignee[]
   department  String
   position    String
   rate        Decimal  @db.Decimal(5, 2)
@@ -249,8 +250,9 @@ model Task {
   // Progress
   progress    Int      @default(0) // 0-100%
   
-  // Responsible person
+  // Legacy responsible person field kept for backwards-compatible display.
   responsible String?
+  assignees   TaskAssignee[]
   
   // Status
   status      TaskStatus @default(NOT_STARTED)
@@ -263,6 +265,22 @@ model Task {
   updatedAt   DateTime @updatedAt
   
   @@map("tasks")
+}
+
+model TaskAssignee {
+  id              String        @id @default(cuid())
+  taskId          String
+  task            Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  employeeId      String
+  employee        Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  projectMemberId String?
+  projectMember   ProjectMember? @relation(fields: [projectMemberId], references: [id], onDelete: SetNull)
+  createdAt       DateTime      @default(now())
+
+  @@unique([taskId, employeeId])
+  @@index([employeeId])
+  @@index([projectMemberId])
+  @@map("task_assignees")
 }
 
 enum TaskStatus {
@@ -304,6 +322,7 @@ model Employee {
   salaryEntries SalaryEntry[]
   financePlanEntries FinancePlanEntry[]
   projectMembers ProjectMember[]
+  taskAssignees TaskAssignee[]
   
   
   createdAt   DateTime @default(now())

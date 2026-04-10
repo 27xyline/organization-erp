@@ -11,7 +11,7 @@
     "dev:reset": "npm run clean:next && npm run dev",
     "build": "next build",
     "build:clean": "npm run clean:next && npm run build",
-    "start": "next start",
+    "start": "node start.js",
     "start:prod": "npm run build:clean && npm run start",
     "lint": "next lint",
     "db:generate": "prisma generate",

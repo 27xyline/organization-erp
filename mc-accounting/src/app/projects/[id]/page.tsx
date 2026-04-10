@@ -39,6 +39,18 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     include: {
       tasksList: {
         orderBy: { createdAt: 'asc' },
+        include: {
+          assignees: {
+            include: {
+              employee: {
+                select: {
+                  id: true,
+                  fullName: true,
+                },
+              },
+            },
+          },
+        },
       },
       assets: {
         include: {
@@ -210,7 +222,14 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         <div className="xl:col-span-3 min-h-[700px]">
           <ProjectGantt 
             projectId={project.id}
-            tasks={project.tasksList || []}
+            tasks={project.tasksList.map((task) => ({
+              ...task,
+              assignees: task.assignees.map((assignee) => ({
+                employeeId: assignee.employeeId,
+                fullName: assignee.employee.fullName,
+                projectMemberId: assignee.projectMemberId,
+              })),
+            }))}
           />
         </div>
 

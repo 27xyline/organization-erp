@@ -125,11 +125,18 @@ export interface Task {
   duration?: number | null // in days
   progress: number // 0-100%
   responsible?: string | null
+  assignees: TaskAssignee[]
   status: TaskStatus
   projectId: string
   project?: Project
   createdAt: Date
   updatedAt: Date
+}
+
+export interface TaskAssignee {
+  employeeId: string
+  fullName: string
+  projectMemberId?: string | null
 }
 
 export const ProjectStatusLabels: Record<ProjectStatus, string> = {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Task, TaskStatus, TaskStatusLabels } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { ChevronRight, ChevronDown, Plus, Trash2, Edit2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
+import { TaskAssigneeSelector } from '@/components/projects/task-assignee-selector'
+import { useProjectTaskMembers } from '@/components/projects/use-project-task-members'
 
 interface TaskTreeProps {
   tasks: Task[]
@@ -15,36 +17,56 @@ interface TaskTreeProps {
   onTaskAdded: () => void
 }
 
-// Helper type for tasks from API that might not have all relations loaded
-type ApiTask = Task & { children?: Task[] }
-
-function TaskItem({ 
-  task, 
-  level, 
-  projectId, 
+function TaskItem({
+  task,
+  level,
+  projectId,
   onTaskAdded,
-  allTasks 
-}: { 
+  allTasks,
+  memberOptions,
+  membersLoading,
+  membersError,
+}: {
   task: Task
   level: number
   projectId: string
   onTaskAdded: () => void
   allTasks: Task[]
+  memberOptions: ReturnType<typeof useProjectTaskMembers>['members']
+  membersLoading: boolean
+  membersError: string | null
 }) {
   const [expanded, setExpanded] = useState(true)
-  const [editing, setEditing] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
   const [newTaskName, setNewTaskName] = useState('')
   const [editingDates, setEditingDates] = useState(false)
   const [startDate, setStartDate] = useState(task.startDate ? format(new Date(task.startDate), 'yyyy-MM-dd') : '')
   const [endDate, setEndDate] = useState(task.endDate ? format(new Date(task.endDate), 'yyyy-MM-dd') : '')
-  const [responsible, setResponsible] = useState(task.responsible || '')
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState(() => {
+    const activeEmployeeIds = new Set(memberOptions.map((member) => member.employeeId))
+    return task.assignees
+      .map((assignee) => assignee.employeeId)
+      .filter((employeeId) => activeEmployeeIds.has(employeeId))
+  })
 
-  // Ensure allTasks is an array
   const safeAllTasks = allTasks || []
-  const children = safeAllTasks.filter(t => t.parentId === task.id)
+  const children = safeAllTasks.filter((item) => item.parentId === task.id)
   const hasChildren = children.length > 0
   const canAddChild = level < 3
+
+  const unavailableAssignees = useMemo(() => {
+    const activeEmployeeIds = new Set(memberOptions.map((member) => member.employeeId))
+    return task.assignees.filter((assignee) => !activeEmployeeIds.has(assignee.employeeId))
+  }, [memberOptions, task.assignees])
+
+  useEffect(() => {
+    const activeEmployeeIds = new Set(memberOptions.map((member) => member.employeeId))
+    setSelectedEmployeeIds(
+      task.assignees
+        .map((assignee) => assignee.employeeId)
+        .filter((employeeId) => activeEmployeeIds.has(employeeId))
+    )
+  }, [memberOptions, task.assignees])
 
   const handleAddSubtask = async () => {
     if (!newTaskName.trim()) return
@@ -57,6 +79,7 @@ function TaskItem({
           name: newTaskName,
           level: level + 1,
           parentId: task.id,
+          employeeIds: [],
         }),
       })
 
@@ -94,7 +117,7 @@ function TaskItem({
         body: JSON.stringify({
           startDate: startDate || null,
           endDate: endDate || null,
-          responsible: responsible || null,
+          employeeIds: selectedEmployeeIds,
         }),
       })
 
@@ -116,16 +139,20 @@ function TaskItem({
     }
   }
 
+  const assigneeLabel = task.assignees.length > 0
+    ? task.assignees.map((assignee) => assignee.fullName).join(', ')
+    : (task.responsible || '')
+
   return (
     <div className="task-item">
-      <div 
-        className="flex items-center gap-2 py-2 px-2 hover:bg-muted/50 rounded-lg group"
+      <div
+        className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-muted/50 group"
         style={{ paddingLeft: `${level * 24}px` }}
       >
         {hasChildren ? (
-          <button 
+          <button
             onClick={() => setExpanded(!expanded)}
-            className="p-1 hover:bg-muted rounded"
+            className="rounded p-1 hover:bg-muted"
           >
             {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           </button>
@@ -139,40 +166,40 @@ function TaskItem({
             <Badge variant="secondary" className={getStatusColor(task.status)}>
               {TaskStatusLabels[task.status]}
             </Badge>
-            {task.progress > 0 && (
+            {task.progress > 0 ? (
               <span className="text-sm text-muted-foreground">{task.progress}%</span>
-            )}
+            ) : null}
           </div>
-          
-          <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-            {task.responsible && <span>Отв: {task.responsible}</span>}
-            {task.startDate && task.endDate && (
+
+          <div className="mt-1 flex items-center gap-4 text-sm text-muted-foreground">
+            {assigneeLabel ? <span>Отв: {assigneeLabel}</span> : null}
+            {task.startDate && task.endDate ? (
               <span>
                 {format(new Date(task.startDate), 'dd.MM.yyyy', { locale: ru })} - {format(new Date(task.endDate), 'dd.MM.yyyy', { locale: ru })}
               </span>
-            )}
+            ) : null}
           </div>
         </div>
 
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+        <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setEditingDates(!editingDates)}
           >
             <Edit2 className="h-4 w-4" />
           </Button>
-          {canAddChild && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
+          {canAddChild ? (
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => setShowAddForm(!showAddForm)}
             >
               <Plus className="h-4 w-4" />
             </Button>
-          )}
-          <Button 
-            variant="ghost" 
+          ) : null}
+          <Button
+            variant="ghost"
             size="sm"
             onClick={handleDelete}
           >
@@ -181,60 +208,68 @@ function TaskItem({
         </div>
       </div>
 
-      {editingDates && (
-        <div 
-          className="flex flex-col gap-2 py-2 px-2 bg-muted/30 rounded-lg"
+      {editingDates ? (
+        <div
+          className="space-y-3 rounded-lg bg-muted/30 px-2 py-3"
           style={{ paddingLeft: `${level * 24}px` }}
         >
           <div className="flex items-center gap-2">
             <Input
               type="date"
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
+              onChange={(event) => setStartDate(event.target.value)}
               placeholder="Дата начала"
               className="flex-1"
             />
             <Input
               type="date"
               value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
+              onChange={(event) => setEndDate(event.target.value)}
               placeholder="Дата окончания"
               className="flex-1"
             />
           </div>
+          <TaskAssigneeSelector
+            members={memberOptions}
+            selectedEmployeeIds={selectedEmployeeIds}
+            onChange={setSelectedEmployeeIds}
+            loading={membersLoading}
+            unavailableAssignees={unavailableAssignees}
+          />
+          {membersError ? (
+            <p className="text-sm text-red-600">{membersError}</p>
+          ) : null}
           <div className="flex items-center gap-2">
-            <Input
-              value={responsible}
-              onChange={(e) => setResponsible(e.target.value)}
-              placeholder="Ответственный"
-              className="flex-1"
-            />
-            <Button size="sm" onClick={handleUpdateDates}>Сохранить</Button>
-            <Button size="sm" variant="ghost" onClick={() => setEditingDates(false)}>Отмена</Button>
+            <Button size="sm" onClick={handleUpdateDates} disabled={Boolean(membersError)}>
+              Сохранить
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setEditingDates(false)}>
+              Отмена
+            </Button>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {showAddForm && canAddChild && (
-        <div 
-          className="flex items-center gap-2 py-2 px-2"
+      {showAddForm && canAddChild ? (
+        <div
+          className="flex items-center gap-2 px-2 py-2"
           style={{ paddingLeft: `${(level + 1) * 24}px` }}
         >
           <Input
             value={newTaskName}
-            onChange={(e) => setNewTaskName(e.target.value)}
+            onChange={(event) => setNewTaskName(event.target.value)}
             placeholder={`Новая ${level === 1 ? 'подзадача' : 'под-подзадача'}`}
             className="flex-1"
-            onKeyDown={(e) => e.key === 'Enter' && handleAddSubtask()}
+            onKeyDown={(event) => event.key === 'Enter' && handleAddSubtask()}
           />
           <Button size="sm" onClick={handleAddSubtask}>Добавить</Button>
           <Button size="sm" variant="ghost" onClick={() => setShowAddForm(false)}>Отмена</Button>
         </div>
-      )}
+      ) : null}
 
-      {expanded && hasChildren && (
+      {expanded && hasChildren ? (
         <div>
-          {children.map(child => (
+          {children.map((child) => (
             <TaskItem
               key={child.id}
               task={child}
@@ -242,10 +277,13 @@ function TaskItem({
               projectId={projectId}
               onTaskAdded={onTaskAdded}
               allTasks={safeAllTasks}
+              memberOptions={memberOptions}
+              membersLoading={membersLoading}
+              membersError={membersError}
             />
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   )
 }
@@ -253,12 +291,10 @@ function TaskItem({
 export function TaskTree({ tasks, projectId, onTaskAdded }: TaskTreeProps) {
   const [showAddForm, setShowAddForm] = useState(false)
   const [newTaskName, setNewTaskName] = useState('')
+  const { members, loading: membersLoading, error: membersError } = useProjectTaskMembers(projectId)
 
-  // Ensure tasks is an array
   const safeTasks = tasks || []
-
-  // Get only root level tasks (level 1 with no parent)
-  const rootTasks = safeTasks.filter(t => t.level === 1 && !t.parentId)
+  const rootTasks = safeTasks.filter((task) => task.level === 1 && !task.parentId)
 
   const handleAddTask = async () => {
     if (!newTaskName.trim()) return
@@ -270,6 +306,7 @@ export function TaskTree({ tasks, projectId, onTaskAdded }: TaskTreeProps) {
         body: JSON.stringify({
           name: newTaskName,
           level: 1,
+          employeeIds: [],
         }),
       })
 
@@ -285,7 +322,7 @@ export function TaskTree({ tasks, projectId, onTaskAdded }: TaskTreeProps) {
 
   return (
     <div className="space-y-2">
-      {rootTasks.map(task => (
+      {rootTasks.map((task) => (
         <TaskItem
           key={task.id}
           task={task}
@@ -293,6 +330,9 @@ export function TaskTree({ tasks, projectId, onTaskAdded }: TaskTreeProps) {
           projectId={projectId}
           onTaskAdded={onTaskAdded}
           allTasks={safeTasks}
+          memberOptions={members}
+          membersLoading={membersLoading}
+          membersError={membersError}
         />
       ))}
 
@@ -300,18 +340,18 @@ export function TaskTree({ tasks, projectId, onTaskAdded }: TaskTreeProps) {
         <div className="flex items-center gap-2 py-2">
           <Input
             value={newTaskName}
-            onChange={(e) => setNewTaskName(e.target.value)}
+            onChange={(event) => setNewTaskName(event.target.value)}
             placeholder="Новая задача"
             className="flex-1"
-            onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
+            onKeyDown={(event) => event.key === 'Enter' && handleAddTask()}
           />
           <Button size="sm" onClick={handleAddTask}>Добавить</Button>
           <Button size="sm" variant="ghost" onClick={() => setShowAddForm(false)}>Отмена</Button>
         </div>
       ) : (
-        <Button 
-          variant="outline" 
-          className="w-full mt-4"
+        <Button
+          variant="outline"
+          className="mt-4 w-full"
           onClick={() => setShowAddForm(true)}
         >
           <Plus className="mr-2 h-4 w-4" />

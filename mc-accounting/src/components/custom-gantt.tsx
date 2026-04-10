@@ -24,6 +24,14 @@ const parseResponsibleList = (value?: string | null) => {
     .filter(Boolean)
 }
 
+const getTaskAssigneeNames = (task: Task) => {
+  if (task.assignees.length > 0) {
+    return task.assignees.map((assignee) => assignee.fullName)
+  }
+
+  return parseResponsibleList(task.responsible)
+}
+
 export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTaskAdd }: CustomGanttProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const minimumRowHeight = 64
@@ -345,7 +353,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
       const taskLines = estimateLineCount(task.name || '', taskTextWidth)
       const taskHeight = taskLines * 28 + 36
 
-      const responsibleEntries = parseResponsibleList(task.responsible)
+      const responsibleEntries = getTaskAssigneeNames(task)
       const responsibleText = responsibleEntries.length > 0 ? responsibleEntries.join('\n') : '—'
       const responsibleLines = columns.responsible > 0
         ? estimateLineCount(responsibleText, Math.max(columns.responsible - 24, 80))
@@ -394,7 +402,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
             {/* Строки задач */}
             <div className="bg-white">
               {organizedTasks.map((task, idx) => {
-                const responsibleEntries = parseResponsibleList(task.responsible)
+                const responsibleEntries = getTaskAssigneeNames(task)
 
                 return (
                   <div 
