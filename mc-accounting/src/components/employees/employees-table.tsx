@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Search, Edit, Users } from 'lucide-react'
+import { Search, Edit, UserMinus, Users } from 'lucide-react'
 import { formatDate, formatDecimal } from '@/lib/utils'
 import { EmployeesTableSkeleton } from './employees-table-skeleton'
 import {
@@ -24,6 +24,7 @@ interface EmployeesTableProps {
   activeEmployees: Employee[]
   startOfToday: Date
   onEditEmployee: (employee: Employee) => void
+  onDismissEmployee: (employee: Employee) => void
   getLiveStatus: (employee: Employee) => { label: string; className: string }
 }
 
@@ -32,6 +33,7 @@ export function EmployeesTable({
   activeEmployees,
   startOfToday,
   onEditEmployee,
+  onDismissEmployee,
   getLiveStatus
 }: EmployeesTableProps) {
   const [searchTerm, setSearchTerm] = useState('')
@@ -109,7 +111,7 @@ export function EmployeesTable({
                 <TableHead>Срок действия трудового договора</TableHead>
                 <TableHead>Дата подписания трудового договора</TableHead>
                 <TableHead>Номер трудового договора</TableHead>
-                <TableHead className="w-[96px] text-right">&nbsp;</TableHead>
+                <TableHead className="w-[128px] text-right">&nbsp;</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -161,6 +163,16 @@ export function EmployeesTable({
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEditEmployee(employee)}>
                             <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-600 hover:text-red-700"
+                            onClick={() => onDismissEmployee(employee)}
+                            aria-label={`Уволить ${employee.fullName}`}
+                            title="Уволить / в архив"
+                          >
+                            <UserMinus className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>

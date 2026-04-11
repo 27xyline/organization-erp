@@ -125,4 +125,43 @@ describe('PersonnelActionService.createAction', () => {
       }),
     }))
   })
+
+  it('dismisses employee and writes action for DISMISS payload', async () => {
+    const dismissedAction = { id: 'action-dismiss', employee: { id: employee.id } }
+    const tx = {
+      employee: {
+        findUnique: vi.fn().mockResolvedValue(employee),
+        update: vi.fn().mockResolvedValue(null),
+      },
+      personnelAction: {
+        create: vi.fn().mockResolvedValue(dismissedAction),
+      },
+    }
+    vi.mocked(prisma.$transaction).mockImplementation(async (callback) => callback(tx as never))
+
+    const result = await PersonnelActionService.createAction({
+      type: 'DISMISS',
+      date: '2024-05-01',
+      employeeId: employee.id,
+      description: 'Уволен',
+    })
+
+    expect(result).toEqual(dismissedAction)
+    expect(tx.personnelAction.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        type: 'DISMISS',
+        employeeId: employee.id,
+        newDepartment: null,
+        newPosition: null,
+      }),
+    }))
+    expect(tx.employee.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: employee.id },
+      data: expect.objectContaining({
+        status: 'DISMISSED',
+        staffScheduleId: employee.staffScheduleId,
+        employmentRate: employee.employmentRate,
+      }),
+    }))
+  })
 })

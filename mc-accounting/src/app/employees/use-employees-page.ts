@@ -92,9 +92,9 @@ const createInitialVacationForm = () => ({
   type: 'VACATION' as VacationType,
 })
 
-const createInitialActionForm = (employee?: Employee | null) => ({
+const createInitialActionForm = (employee?: Employee | null, type: PersonnelActionType = 'TRANSFER') => ({
   employeeId: employee?.id || '',
-  type: 'TRANSFER' as PersonnelActionType,
+  type,
   date: new Date().toISOString().split('T')[0],
   description: '',
   newDepartment: '',
@@ -484,8 +484,8 @@ export function useEmployeesPage() {
       return
     }
 
-    if (actionForm.type === 'TRANSFER' && actionForm.staffScheduleId === 'none') {
-      toast.error('Для перевода выберите новую должность из штатного расписания')
+    if ((actionForm.type === 'TRANSFER' || actionForm.type === 'PROMOTE') && actionForm.staffScheduleId === 'none') {
+      toast.error('Для перевода или повышения выберите новую должность из штатного расписания')
       return
     }
 
@@ -513,6 +513,8 @@ export function useEmployeesPage() {
       return
     }
 
+    const actionType = actionForm.type
+
     try {
       const payload = {
         ...actionForm,
@@ -533,8 +535,9 @@ export function useEmployeesPage() {
       }
 
       setIsActionDialogOpen(false)
+      setActionForm(createInitialActionForm())
       await loadBaseData()
-      toast.success('Кадровое действие успешно зафиксировано')
+      toast.success(actionType === 'DISMISS' ? 'Сотрудник перенесен в архив' : 'Кадровое действие успешно зафиксировано')
     } catch (error) {
       console.error('Error saving personnel action:', error)
       toast.error(error instanceof Error ? error.message : 'Ошибка при сохранении кадрового действия')
@@ -661,9 +664,9 @@ export function useEmployeesPage() {
     setIsVacationDialogOpen(true)
   }, [activeEmployees])
 
-  const openActionDialog = useCallback(() => {
-    const defaultEmployee = activeEmployees[0] || employees[0] || null
-    setActionForm(createInitialActionForm(defaultEmployee))
+  const openActionDialog = useCallback((employee?: Employee, type: PersonnelActionType = 'TRANSFER') => {
+    const defaultEmployee = employee || activeEmployees[0] || employees[0] || null
+    setActionForm(createInitialActionForm(defaultEmployee, type))
     setIsActionDialogOpen(true)
   }, [activeEmployees, employees])
 
@@ -681,13 +684,14 @@ export function useEmployeesPage() {
 
   const handleActionTypeChange = useCallback((value: string) => {
     const nextType = value as PersonnelActionType
+    const isPositionAction = nextType === 'TRANSFER' || nextType === 'PROMOTE'
 
     setActionForm((prev) => ({
       ...prev,
       type: nextType,
-      staffScheduleId: nextType === 'TRANSFER' ? prev.staffScheduleId : 'none',
-      newDepartment: nextType === 'TRANSFER' ? prev.newDepartment : '',
-      employmentRate: nextType === 'TRANSFER' ? selectedActionEmployee?.employmentRate || prev.employmentRate || 1 : prev.employmentRate,
+      staffScheduleId: isPositionAction ? prev.staffScheduleId : 'none',
+      newDepartment: isPositionAction ? prev.newDepartment : '',
+      employmentRate: isPositionAction ? selectedActionEmployee?.employmentRate || prev.employmentRate || 1 : prev.employmentRate,
       newContractEndDate: nextType === 'EXTEND' ? prev.newContractEndDate : '',
     }))
   }, [selectedActionEmployee?.employmentRate])
@@ -698,9 +702,9 @@ export function useEmployeesPage() {
     setActionForm((prev) => ({
       ...prev,
       employeeId: value,
-      staffScheduleId: prev.type === 'TRANSFER' ? 'none' : prev.staffScheduleId,
-      newDepartment: prev.type === 'TRANSFER' ? '' : prev.newDepartment,
-      employmentRate: prev.type === 'TRANSFER' ? nextEmployee?.employmentRate || 1 : prev.employmentRate,
+      staffScheduleId: prev.type === 'TRANSFER' || prev.type === 'PROMOTE' ? 'none' : prev.staffScheduleId,
+      newDepartment: prev.type === 'TRANSFER' || prev.type === 'PROMOTE' ? '' : prev.newDepartment,
+      employmentRate: prev.type === 'TRANSFER' || prev.type === 'PROMOTE' ? nextEmployee?.employmentRate || 1 : prev.employmentRate,
     }))
   }, [employees])
 

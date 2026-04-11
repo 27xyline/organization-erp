@@ -88,7 +88,7 @@ export default function EmployeesPage() {
             <Plus className="mr-2 h-4 w-4" />
             Должность
           </Button>
-          <Button variant="outline" onClick={openActionDialog}>
+          <Button variant="outline" onClick={() => openActionDialog()}>
             <Plus className="mr-2 h-4 w-4" />
             Действие
           </Button>
@@ -125,6 +125,7 @@ export default function EmployeesPage() {
         activeEmployees={activeEmployees}
         startOfToday={startOfToday}
         onEditEmployee={openEmployeeDialog}
+        onDismissEmployee={(employee) => openActionDialog(employee, 'DISMISS')}
         getLiveStatus={getLiveEmployeeStatus}
       />
 

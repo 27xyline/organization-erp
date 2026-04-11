@@ -62,6 +62,9 @@ export function ActionDialog({
   availableActionRate,
   calculatedActionSalary
 }: ActionDialogProps) {
+  const isPositionAction = formData.type === 'TRANSFER' || formData.type === 'PROMOTE'
+  const isDismissAction = formData.type === 'DISMISS'
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
@@ -85,6 +88,7 @@ export function ActionDialog({
                     TRANSFER: personnelActionLabels.TRANSFER,
                     EXTEND: personnelActionLabels.EXTEND,
                     PROMOTE: personnelActionLabels.PROMOTE,
+                    DISMISS: personnelActionLabels.DISMISS,
                     EDIT: personnelActionLabels.EDIT,
                   }).map(([key, label]) => (
                     <SelectItem key={key} value={key}>
@@ -123,7 +127,7 @@ export function ActionDialog({
             </div>
           </div>
 
-          {formData.type === 'TRANSFER' && (
+          {isPositionAction && (
             <>
               <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px] md:items-start">
                 <div className="space-y-2">
@@ -190,6 +194,15 @@ export function ActionDialog({
                 required
               />
               <p className="text-[10px] text-muted-foreground">Оставьте без изменений, если договор становится бессрочным, но уберите дату при редактировании карточки</p>
+            </div>
+          )}
+
+          {isDismissAction && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <p className="font-medium">Сотрудник будет перенесен в архив</p>
+              <p className="mt-1 text-xs leading-relaxed">
+                После формирования действия сотрудник исчезнет из активного списка и появится в архиве сотрудников.
+              </p>
             </div>
           )}
 
