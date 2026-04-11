@@ -83,7 +83,8 @@
 
 - Node.js 18+;
 - npm;
-- PostgreSQL 14+.
+- Docker Desktop для стандартного локального запуска;
+- PostgreSQL 14+ при запуске без Docker.
 
 ## Быстрый старт
 
@@ -93,22 +94,36 @@
 cd mc-accounting
 ```
 
-2. Установите зависимости:
-
-```bash
-npm install
-```
-
-3. Создайте локальный `.env` из шаблона:
+2. Создайте локальный `.env` из шаблона:
 
 ```bash
 cp .env.example .env
 ```
 
-Шаблон [`mc-accounting/.env.example`](./mc-accounting/.env.example) содержит переменные для PostgreSQL, NextAuth, локального URL приложения, credentials-login и Yandex.Disk OAuth:
+Шаблон [`mc-accounting/.env.example`](./mc-accounting/.env.example) настроен на отдельный локальный PostgreSQL-контейнер этого проекта:
 
 ```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/mc_accounting"
+DATABASE_URL="postgresql://mc_accounting:mc_accounting_dev@localhost:5434/mc_accounting"
+```
+
+3. Запустите локальную базу:
+
+```bash
+docker compose up -d
+```
+
+Compose-файл [`mc-accounting/docker-compose.yml`](./mc-accounting/docker-compose.yml) создает отдельный контейнер `mc-accounting-postgres`, базу `mc_accounting` и пробрасывает PostgreSQL на `localhost:5434`. Это не использует общий локальный PostgreSQL на `5432` и не конфликтует с другими проектами на `5433`.
+
+4. Установите зависимости:
+
+```bash
+npm install
+```
+
+Полный шаблон `.env` содержит переменные для PostgreSQL, NextAuth, локального URL приложения, credentials-login и Yandex.Disk OAuth:
+
+```env
+DATABASE_URL="postgresql://mc_accounting:mc_accounting_dev@localhost:5434/mc_accounting"
 YANDEX_CLIENT_ID="your_yandex_client_id"
 YANDEX_CLIENT_SECRET="your_yandex_client_secret"
 YANDEX_REDIRECT_URI="http://localhost:3000/api/auth/yandex/callback"
@@ -120,9 +135,15 @@ ADMIN_USERNAME="admin"
 ADMIN_PASSWORD="admin"
 ```
 
-Для обычной локальной разработки достаточно заменить `DATABASE_URL`, `NEXTAUTH_SECRET`, `ADMIN_USERNAME` и `ADMIN_PASSWORD` под свое окружение. Yandex-переменные нужны только если используется интеграция с Yandex.Disk.
+Для обычной локальной разработки через Docker достаточно заменить `NEXTAUTH_SECRET`, `ADMIN_USERNAME` и `ADMIN_PASSWORD` под свое окружение. Yandex-переменные нужны только если используется интеграция с Yandex.Disk.
 
-4. Подготовьте Prisma Client и базу:
+Если вы запускаете без Docker и используете свой локальный PostgreSQL, задайте собственную строку подключения и заранее создайте базу `mc_accounting`, например:
+
+```env
+DATABASE_URL="postgresql://<local-postgres-user>@localhost:5432/mc_accounting"
+```
+
+5. Подготовьте Prisma Client и базу:
 
 ```bash
 npm run db:generate
@@ -130,7 +151,7 @@ npm run db:migrate
 npm run db:seed
 ```
 
-5. Запустите приложение:
+6. Запустите приложение:
 
 ```bash
 npm run dev
