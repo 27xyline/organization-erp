@@ -40,6 +40,9 @@ const minimumLeftPanelWidth = 280
 const minimumTaskColumnWidth = 220
 const minimumRightPanelWidth = 260
 const resizeHandleWidth = 8
+const monthHeaderHeight = 36
+const weekHeaderHeight = 52
+const timelineHeaderHeight = monthHeaderHeight + weekHeaderHeight
 
 const normalizeDate = (value: Date) => {
   const date = new Date(value)
@@ -482,7 +485,10 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
         <div className="flex-shrink-0 border-r bg-gray-50/50 overflow-hidden" style={{ width: `${currentLeftPanelWidth}px` }}>
           <div>
             {/* Заголовки таблицы */}
-            <div className="flex h-24 bg-gray-100 border-b font-semibold text-sm">
+            <div
+              className="flex bg-gray-100 border-b font-semibold text-sm"
+              style={{ height: `${timelineHeaderHeight}px` }}
+            >
               <div className="flex-shrink-0 px-4 border-r flex items-center" style={{ width: `${columns.task}px` }}>Задача</div>
               {columns.start > 0 && (
                 <div className="flex-shrink-0 px-3 border-r text-center flex items-center justify-center" style={{ width: `${columns.start}px` }}>Начало</div>
@@ -633,22 +639,22 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
           <div style={{ width: `${chartWidth}px`, minWidth: `${chartWidth}px` }}>
             {/* Заголовки недель */}
             <div className="bg-gray-100 border-b">
-              <div className="flex border-b">
+              <div className="flex border-b" style={{ height: `${monthHeaderHeight}px` }}>
                 {monthSegments.map((segment) => (
                   <div
                     key={segment.key}
-                    className="flex-shrink-0 border-r text-center py-3 px-1 text-sm font-semibold text-gray-600 whitespace-nowrap"
+                    className="flex flex-shrink-0 items-center justify-center border-r px-1 text-center text-sm font-semibold text-gray-600 whitespace-nowrap"
                     style={{ width: `${segment.span * weekWidth}px` }}
                   >
                     {segment.label}
                   </div>
                 ))}
               </div>
-              <div className="flex">
+              <div className="flex" style={{ height: `${weekHeaderHeight}px` }}>
                 {weeks.map((week, idx) => (
                 <div 
                   key={idx}
-                  className="flex-shrink-0 border-r px-1 py-3 text-center text-sm text-gray-600"
+                  className="flex flex-shrink-0 flex-col items-center justify-center border-r px-1 text-center text-sm text-gray-600"
                   style={{ width: `${weekWidth}px` }}
                 >
                   <div className="font-semibold">{week.number}</div>
