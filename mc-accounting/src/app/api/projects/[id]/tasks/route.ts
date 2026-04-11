@@ -83,6 +83,38 @@ async function getActiveAssigneeMembers(projectId: string, employeeIds: string[]
   })
 }
 
+async function validateTaskHierarchy(projectId: string, parentId: string | null | undefined, level: number) {
+  if (!parentId) {
+    return level === 1 ? null : 'Корневая задача должна иметь уровень 1'
+  }
+
+  const parentTask = await prisma.task.findUnique({
+    where: { id: parentId },
+    select: {
+      projectId: true,
+      level: true,
+    },
+  })
+
+  if (!parentTask) {
+    return 'Родительская задача не найдена'
+  }
+
+  if (parentTask.projectId !== projectId) {
+    return 'Родительская задача должна принадлежать этому проекту'
+  }
+
+  if (parentTask.level >= 3) {
+    return 'Нельзя создать подзадачу глубже третьего уровня'
+  }
+
+  if (level !== parentTask.level + 1) {
+    return 'Уровень подзадачи должен быть на один больше уровня родительской задачи'
+  }
+
+  return null
+}
+
 // GET /api/projects/[id]/tasks - Get all tasks for project
 export async function GET(
   request: NextRequest,
@@ -117,6 +149,19 @@ export async function POST(
     if (!validation.success) {
       return NextResponse.json(
         { error: validation.error },
+        { status: 400 }
+      )
+    }
+
+    const hierarchyError = await validateTaskHierarchy(
+      params.id,
+      validation.data.parentId,
+      validation.data.level
+    )
+
+    if (hierarchyError) {
+      return NextResponse.json(
+        { error: hierarchyError },
         { status: 400 }
       )
     }

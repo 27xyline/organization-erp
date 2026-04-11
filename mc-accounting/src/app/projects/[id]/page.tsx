@@ -217,9 +217,9 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       </div>
 
       {/* Main layout: Gantt left, Info right */}
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+      <div className="grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-4">
         {/* Left side - Gantt Chart with task table */}
-        <div className="xl:col-span-3 min-h-[700px]">
+        <div className="min-h-[700px] min-w-0 overflow-hidden xl:col-span-3">
           <ProjectGantt 
             projectId={project.id}
             tasks={project.tasksList.map((task) => ({
@@ -234,7 +234,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         </div>
 
         {/* Right side - Project info */}
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">Детали проекта</CardTitle>

@@ -32,18 +32,63 @@ const getTaskAssigneeNames = (task: Task) => {
   return parseResponsibleList(task.responsible)
 }
 
+const DAY_IN_MS = 24 * 60 * 60 * 1000
+const minimumWeekWidth = 80
+const minimumGanttBarWidth = 24
+const defaultLeftPanelWidth = 460
+const minimumLeftPanelWidth = 280
+const minimumTaskColumnWidth = 220
+const minimumRightPanelWidth = 260
+const resizeHandleWidth = 8
+
+const normalizeDate = (value: Date) => {
+  const date = new Date(value)
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+const addDays = (date: Date, days: number) => {
+  const nextDate = new Date(date)
+  nextDate.setDate(nextDate.getDate() + days)
+  return nextDate
+}
+
+const getWeekStart = (date: Date) => {
+  const normalizedDate = normalizeDate(date)
+  const dayOfWeek = normalizedDate.getDay()
+  const diff = normalizedDate.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)
+
+  normalizedDate.setDate(diff)
+  return normalizedDate
+}
+
+const getWeekEnd = (date: Date) => addDays(getWeekStart(date), 6)
+
+const getDayDifference = (start: Date, end: Date) => {
+  return Math.round((normalizeDate(end).getTime() - normalizeDate(start).getTime()) / DAY_IN_MS)
+}
+
+const getIsoWeekNumber = (date: Date) => {
+  const d = normalizeDate(date)
+  d.setDate(d.getDate() + 4 - (d.getDay() || 7))
+  const yearStart = new Date(d.getFullYear(), 0, 1)
+
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / DAY_IN_MS) + 1) / 7)
+}
+
 export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTaskAdd }: CustomGanttProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const minimumRowHeight = 64
   const ganttBarHeight = 21
-  const taskBaseWidth = 460
-  const [leftPanelWidth, setLeftPanelWidth] = useState(taskBaseWidth)
+  const [containerWidth, setContainerWidth] = useState(0)
+  const [leftPanelWidth, setLeftPanelWidth] = useState(defaultLeftPanelWidth)
   const [isResizing, setIsResizing] = useState(false)
   const resizeStartXRef = useRef(0)
-  const resizeStartWidthRef = useRef(taskBaseWidth)
-
-  const minLeftPanelWidth = taskBaseWidth
-  const minRightPanelWidth = 260
+  const resizeStartWidthRef = useRef(defaultLeftPanelWidth)
+  const maxLeftPanelWidth = containerWidth > 0
+    ? Math.max(minimumLeftPanelWidth, containerWidth - minimumRightPanelWidth - resizeHandleWidth)
+    : defaultLeftPanelWidth
+  const currentLeftPanelWidth = Math.min(Math.max(leftPanelWidth, minimumLeftPanelWidth), maxLeftPanelWidth)
+  const rightPanelWidth = Math.max(containerWidth - currentLeftPanelWidth - resizeHandleWidth, 0)
 
   const columns = useMemo(() => {
     const orderedColumns = [
@@ -62,7 +107,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
       actions: 0,
     }
 
-    const available = Math.max(leftPanelWidth - taskBaseWidth, 0)
+    const available = Math.max(currentLeftPanelWidth - minimumTaskColumnWidth, 0)
     let used = 0
 
     for (const column of orderedColumns) {
@@ -74,7 +119,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
       }
     }
 
-    const task = taskBaseWidth + Math.max(available - used, 0)
+    const task = Math.max(currentLeftPanelWidth - used, minimumTaskColumnWidth)
 
     return {
       task,
@@ -84,16 +129,44 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
       status: widths.status,
       actions: widths.actions,
     }
-  }, [leftPanelWidth])
+  }, [currentLeftPanelWidth])
+
+  useEffect(() => {
+    const element = containerRef.current
+    if (!element) return
+
+    const updateContainerWidth = () => {
+      setContainerWidth(element.clientWidth)
+    }
+
+    updateContainerWidth()
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateContainerWidth)
+
+      return () => {
+        window.removeEventListener('resize', updateContainerWidth)
+      }
+    }
+
+    const resizeObserver = new ResizeObserver(updateContainerWidth)
+    resizeObserver.observe(element)
+
+    return () => {
+      resizeObserver.disconnect()
+    }
+  }, [])
+
+  useEffect(() => {
+    setLeftPanelWidth((currentWidth) => Math.min(Math.max(currentWidth, minimumLeftPanelWidth), maxLeftPanelWidth))
+  }, [maxLeftPanelWidth])
 
   useEffect(() => {
     if (!isResizing) return
 
     const handleMouseMove = (event: MouseEvent) => {
       const nextWidth = resizeStartWidthRef.current + (event.clientX - resizeStartXRef.current)
-      const containerWidth = containerRef.current?.clientWidth ?? window.innerWidth
-      const maxLeftPanelWidth = Math.max(minLeftPanelWidth, containerWidth - minRightPanelWidth)
-      const clampedWidth = Math.min(Math.max(nextWidth, minLeftPanelWidth), maxLeftPanelWidth)
+      const clampedWidth = Math.min(Math.max(nextWidth, minimumLeftPanelWidth), maxLeftPanelWidth)
 
       setLeftPanelWidth(clampedWidth)
     }
@@ -113,12 +186,12 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
     }
-  }, [isResizing, minLeftPanelWidth, minRightPanelWidth])
+  }, [isResizing, maxLeftPanelWidth])
 
   const handleResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
     event.preventDefault()
     resizeStartXRef.current = event.clientX
-    resizeStartWidthRef.current = leftPanelWidth
+    resizeStartWidthRef.current = currentLeftPanelWidth
     setIsResizing(true)
   }
   
@@ -181,71 +254,99 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
   
   // Определяем временной диапазон
   const timeRange = useMemo(() => {
-    if (organizedTasks.length === 0) {
-      const now = new Date()
+    const taskDates = organizedTasks.flatMap((task) => {
+      const dates: Date[] = []
+
+      if (task.startDate) {
+        dates.push(normalizeDate(task.startDate))
+      }
+
+      if (task.endDate) {
+        dates.push(normalizeDate(task.endDate))
+      }
+
+      return dates
+    })
+
+    if (taskDates.length === 0) {
+      const now = normalizeDate(new Date())
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+
       return {
-        start: new Date(now.getFullYear(), 0, 1),
-        end: new Date(now.getFullYear(), 11, 31),
-        totalDays: 365
+        start: monthStart,
+        end: monthEnd,
       }
     }
-    
-    let minDate = new Date(organizedTasks[0].startDate || new Date())
-    let maxDate = new Date(organizedTasks[0].endDate || new Date())
-    
-    organizedTasks.forEach(task => {
-      if (task.startDate) {
-        const start = new Date(task.startDate)
-        if (start < minDate) minDate = start
-      }
-      if (task.endDate) {
-        const end = new Date(task.endDate)
-        if (end > maxDate) maxDate = end
-      }
-    })
-    
-    // Добавляем отступы по неделям
-    minDate = new Date(minDate.getTime() - 7 * 24 * 60 * 60 * 1000)
-    maxDate = new Date(maxDate.getTime() + 7 * 24 * 60 * 60 * 1000)
-    
-    const totalDays = Math.ceil((maxDate.getTime() - minDate.getTime()) / (1000 * 60 * 60 * 24))
-    
-    return { start: minDate, end: maxDate, totalDays }
+
+    const minDate = new Date(Math.min(...taskDates.map((date) => date.getTime())))
+    const maxDate = new Date(Math.max(...taskDates.map((date) => date.getTime())))
+
+    return {
+      start: addDays(minDate, -7),
+      end: addDays(maxDate, 7),
+    }
   }, [organizedTasks])
-  
+
+  const chartRange = useMemo(() => {
+    return {
+      start: getWeekStart(timeRange.start),
+      end: getWeekEnd(timeRange.end),
+    }
+  }, [timeRange])
+
   // Генерируем массив недель
   const weeks = useMemo(() => {
-    const result = []
-    let current = new Date(timeRange.start)
-    
-    // Находим начало недели (понедельник)
-    const dayOfWeek = current.getDay()
-    const diff = current.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)
-    current = new Date(current.setDate(diff))
-    
-    while (current <= timeRange.end) {
-      const weekStart = new Date(current)
-      const weekEnd = new Date(current.getTime() + 6 * 24 * 60 * 60 * 1000)
-      
-      // Получаем номер недели (ISO 8601)
-      const d = new Date(weekStart)
-      d.setHours(0, 0, 0, 0)
-      d.setDate(d.getDate() + 4 - (d.getDay() || 7))
-      const yearStart = new Date(d.getFullYear(), 0, 1)
-      const weekNumber = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
-      
+    const result: Array<{
+      start: Date
+      end: Date
+      number: number
+      year: number
+      label: string
+    }> = []
+    let current = new Date(chartRange.start)
+
+    while (current <= chartRange.end) {
+      const weekStart = normalizeDate(current)
+      const weekEnd = getWeekEnd(weekStart)
+
       result.push({
         start: weekStart,
         end: weekEnd,
-        number: weekNumber,
-        year: weekStart.getFullYear()
+        number: getIsoWeekNumber(weekStart),
+        year: weekStart.getFullYear(),
+        label: `${weekStart.getDate()}-${weekEnd.getDate()}`,
       })
-      
-      current = new Date(current.getTime() + 7 * 24 * 60 * 60 * 1000)
+
+      current = addDays(current, 7)
     }
-    
+
     return result
-  }, [timeRange])
+  }, [chartRange])
+
+  const naturalChartWidth = weeks.length * minimumWeekWidth
+  const chartWidth = Math.max(naturalChartWidth, Math.ceil(rightPanelWidth))
+  const weekWidth = weeks.length > 0 ? chartWidth / weeks.length : minimumWeekWidth
+  const dayWidth = weekWidth / 7
+
+  /*
+   * The old chart mixed a 50px weekly header with percentage bars based on a
+   * non-week-aligned range. Keep every timeline element on the same pixel grid.
+   */
+  const getTaskPosition = (task: Task) => {
+    if (!task.startDate || !task.endDate) return null
+
+    const start = normalizeDate(task.startDate)
+    const end = normalizeDate(task.endDate)
+    const normalizedStart = start <= end ? start : end
+    const normalizedEnd = end >= start ? end : start
+    const rawLeft = getDayDifference(chartRange.start, normalizedStart) * dayWidth
+    const rawWidth = Math.max((getDayDifference(normalizedStart, normalizedEnd) + 1) * dayWidth, minimumGanttBarWidth)
+    const left = Math.min(Math.max(rawLeft, 0), Math.max(chartWidth - minimumGanttBarWidth, 0))
+    const width = Math.min(rawWidth, Math.max(chartWidth - left, minimumGanttBarWidth))
+
+    return { left: `${left}px`, width: `${width}px` }
+  }
 
   const monthSegments = useMemo(() => {
     if (weeks.length === 0) return [] as { key: string; label: string; span: number }[]
@@ -269,19 +370,6 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
 
     return segments
   }, [weeks])
-  
-  // Вычисляем позицию задачи на шкале
-  const getTaskPosition = (task: Task) => {
-    if (!task.startDate || !task.endDate) return null
-    
-    const start = new Date(task.startDate)
-    const end = new Date(task.endDate)
-    
-    const left = ((start.getTime() - timeRange.start.getTime()) / (1000 * 60 * 60 * 24)) * (100 / timeRange.totalDays)
-    const width = ((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) * (100 / timeRange.totalDays)
-    
-    return { left: `${left}%`, width: `${Math.max(width, 1)}%` }
-  }
 
   const getStatusBadgeClass = (status: TaskStatus) => {
     switch (status) {
@@ -364,20 +452,34 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
     })
   }, [organizedTasks, columns])
   
-  if (organizedTasks.length === 0) {
-    return (
-      <div className="text-center py-8 text-muted-foreground">
-        Нет задач для отображения
-      </div>
-    )
-  }
-
   return (
-    <div className="border rounded-lg bg-white shadow-sm h-full" ref={containerRef}>
+    <div className="min-w-0 border rounded-lg bg-white shadow-sm h-full" ref={containerRef}>
       <div className="h-full overflow-hidden">
+        {organizedTasks.length === 0 ? (
+          <div className="flex h-full min-h-[280px] items-center justify-center px-6 py-10">
+            <div className="max-w-sm text-center">
+              <h3 className="text-lg font-semibold text-gray-900">Пока нет задач проекта</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Добавьте первую задачу, чтобы запланировать работу и увидеть ее на диаграмме.
+              </p>
+              {onTaskAdd && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-5"
+                  onClick={() => onTaskAdd()}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Добавить задачу
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : (
         <div className="flex h-full min-w-0" style={{ boxSizing: 'border-box' }}>
         {/* Левая часть - Таблица задач */}
-        <div className="flex-shrink-0 border-r bg-gray-50/50 overflow-hidden" style={{ width: `${leftPanelWidth}px` }}>
+        <div className="flex-shrink-0 border-r bg-gray-50/50 overflow-hidden" style={{ width: `${currentLeftPanelWidth}px` }}>
           <div>
             {/* Заголовки таблицы */}
             <div className="flex h-24 bg-gray-100 border-b font-semibold text-sm">
@@ -527,8 +629,8 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
         </div>
         
         {/* Правая часть - Диаграмма Ганта */}
-        <div className="flex-1 overflow-x-auto bg-white">
-          <div style={{ minWidth: `${weeks.length * 50}px` }}>
+        <div className="min-w-0 flex-1 overflow-x-auto bg-white">
+          <div style={{ width: `${chartWidth}px`, minWidth: `${chartWidth}px` }}>
             {/* Заголовки недель */}
             <div className="bg-gray-100 border-b">
               <div className="flex border-b">
@@ -536,7 +638,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
                   <div
                     key={segment.key}
                     className="flex-shrink-0 border-r text-center py-3 px-1 text-sm font-semibold text-gray-600 whitespace-nowrap"
-                    style={{ width: `${segment.span * 50}px` }}
+                    style={{ width: `${segment.span * weekWidth}px` }}
                   >
                     {segment.label}
                   </div>
@@ -546,10 +648,11 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
                 {weeks.map((week, idx) => (
                 <div 
                   key={idx}
-                  className="flex-shrink-0 border-r text-center py-4 text-sm text-gray-600"
-                  style={{ width: '50px' }}
+                  className="flex-shrink-0 border-r px-1 py-3 text-center text-sm text-gray-600"
+                  style={{ width: `${weekWidth}px` }}
                 >
                   <div className="font-semibold">{week.number}</div>
+                  <div className="mt-1 text-[11px] leading-none text-gray-500">{week.label}</div>
                 </div>
                 ))}
               </div>
@@ -583,7 +686,6 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
                         width: position.width,
                         height: `${ganttBarHeight}px`,
                         backgroundColor: getTaskBarColor(task.status),
-                        minWidth: '60px'
                       }}
                       title={`${task.name} — ${TaskStatusLabels[task.status]}`}
                     />
@@ -594,6 +696,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
           </div>
         </div>
         </div>
+        )}
       </div>
     </div>
   )
