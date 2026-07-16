@@ -6,9 +6,88 @@ import {
   resolveAssignablePosition,
 } from '@/lib/services/hr-domain'
 import { UpdateEmployeeInput } from '@/lib/schemas/employee'
+import type { CreateEmployeeInput } from '@/lib/validations'
+import { getStartOfToday } from '@/lib/employees'
+import { parseOptionalDate, parseRequiredDate } from '@/lib/services/hr-domain'
 
 export class EmployeeService {
-  static async updateEmployee(id: string, data: UpdateEmployeeInput) {
+  static async list(input: { scope: 'active' | 'archive' | 'expired' | 'all'; page: number; pageSize: number }) {
+    const startOfToday = getStartOfToday()
+    const where = input.scope === 'active'
+      ? { status: { not: 'DISMISSED' as const } }
+      : input.scope === 'archive'
+        ? { OR: [
+            { status: 'DISMISSED' as const },
+            { status: { not: 'DISMISSED' as const }, contractEndDate: { lt: startOfToday } },
+          ] }
+        : input.scope === 'expired'
+          ? { status: { not: 'DISMISSED' as const }, contractEndDate: { lt: startOfToday } }
+          : undefined
+    const [employees, total] = await prisma.$transaction([
+      prisma.employee.findMany({
+        where,
+        orderBy: input.scope === 'all' ? { createdAt: 'desc' } : { fullName: 'asc' },
+        include: { staffSchedule: true },
+        skip: (input.page - 1) * input.pageSize,
+        take: input.pageSize,
+      }),
+      prisma.employee.count({ where }),
+    ])
+    return { employees, total }
+  }
+
+  static async createEmployee(data: CreateEmployeeInput, actorId: string, requestId?: string) {
+    const contractSignedDate = parseRequiredDate(data.contractSignedDate)
+    const contractEndDate = parseOptionalDate(data.contractEndDate)
+    const employmentRate = Number(data.employmentRate)
+    ensureValidEmploymentRate(employmentRate)
+    ensureValidContractDateRange(contractSignedDate, contractEndDate)
+
+    return prisma.$transaction(async (tx) => {
+      const position = await resolveAssignablePosition(tx, {
+        staffScheduleId: data.staffScheduleId,
+        employmentRate,
+        status: 'ACTIVE',
+      })
+      const employee = await tx.employee.create({
+        data: {
+          code: data.code,
+          fullName: data.fullName,
+          department: position!.department,
+          photo: data.photo,
+          phone: data.phone,
+          email: data.email,
+          contractType: data.contractType || 'PRIMARY',
+          contractSignedDate,
+          contractEndDate,
+          contractNumber: data.contractNumber,
+          staffScheduleId: data.staffScheduleId,
+          employmentRate,
+          status: 'ACTIVE',
+        },
+        include: { staffSchedule: true },
+      })
+      await Promise.all([
+        tx.personnelAction.create({
+          data: {
+            type: 'HIRE', date: contractSignedDate, description: data.hireDescription || 'Прием на работу',
+            employeeId: employee.id, oldDepartment: null, newDepartment: position!.department,
+            oldPosition: null, newPosition: position!.position, oldContractEndDate: null,
+            newContractEndDate: contractEndDate,
+          },
+        }),
+        tx.auditLog.create({
+          data: {
+            userId: actorId, requestId, action: 'EMPLOYEE_CREATE', entityType: 'Employee', entityId: employee.id,
+            details: { after: { id: employee.id, code: employee.code, fullName: employee.fullName } },
+          },
+        }),
+      ])
+      return employee
+    })
+  }
+
+  static async updateEmployee(id: string, data: UpdateEmployeeInput, actorId?: string, requestId?: string) {
     return prisma.$transaction(async (tx) => {
       const existingEmployee = await tx.employee.findUnique({
         where: { id },
@@ -80,27 +159,31 @@ export class EmployeeService {
       if (data.status && existingEmployee.status !== updatedEmployee.status) changedFields.push('статус')
 
       if (changedFields.length > 0) {
-        await tx.personnelAction.create({
-          data: {
-            type: 'EDIT',
-            date: new Date(),
-            description: `Изменены данные сотрудника: ${changedFields.join(', ')}`,
-            employeeId: updatedEmployee.id,
-            oldDepartment: existingEmployee.department || null,
-            newDepartment: newDepartment || null,
-            oldPosition: existingEmployee.staffSchedule?.position || null,
-            newPosition: updatedEmployee.staffSchedule?.position || null,
-            oldContractEndDate: existingEmployee.contractEndDate || null,
-            newContractEndDate: updatedEmployee.contractEndDate || null,
-          },
-        })
+        await Promise.all([
+          tx.personnelAction.create({
+            data: {
+              type: 'EDIT', date: new Date(), description: `Изменены данные сотрудника: ${changedFields.join(', ')}`,
+              employeeId: updatedEmployee.id, oldDepartment: existingEmployee.department || null,
+              newDepartment: newDepartment || null, oldPosition: existingEmployee.staffSchedule?.position || null,
+              newPosition: updatedEmployee.staffSchedule?.position || null,
+              oldContractEndDate: existingEmployee.contractEndDate || null,
+              newContractEndDate: updatedEmployee.contractEndDate || null,
+            },
+          }),
+          ...(actorId ? [tx.auditLog.create({
+            data: {
+              userId: actorId, requestId, action: 'EMPLOYEE_UPDATE', entityType: 'Employee', entityId: id,
+              details: { changedFields },
+            },
+          })] : []),
+        ])
       }
 
       return updatedEmployee
     })
   }
 
-  static async dismissEmployee(id: string) {
+  static async dismissEmployee(id: string, actorId?: string, requestId?: string) {
     return prisma.$transaction(async (tx) => {
       const employee = await tx.employee.findUnique({
         where: { id },
@@ -120,20 +203,22 @@ export class EmployeeService {
         },
       })
 
-      await tx.personnelAction.create({
-        data: {
-          type: 'DISMISS',
-          date: new Date(),
-          description: 'Уволен',
-          employeeId: employee.id,
-          oldDepartment: employee.department || null,
-          newDepartment: null,
-          oldPosition: employee.staffSchedule?.position || null,
-          newPosition: null,
-          oldContractEndDate: employee.contractEndDate || null,
-          newContractEndDate: employee.contractEndDate || null,
-        },
-      })
+      await Promise.all([
+        tx.personnelAction.create({
+          data: {
+            type: 'DISMISS', date: new Date(), description: 'Уволен', employeeId: employee.id,
+            oldDepartment: employee.department || null, newDepartment: null,
+            oldPosition: employee.staffSchedule?.position || null, newPosition: null,
+            oldContractEndDate: employee.contractEndDate || null, newContractEndDate: employee.contractEndDate || null,
+          },
+        }),
+        ...(actorId ? [tx.auditLog.create({
+          data: {
+            userId: actorId, requestId, action: 'EMPLOYEE_DISMISS', entityType: 'Employee', entityId: id,
+            details: { before: { status: employee.status }, after: { status: 'DISMISSED' } },
+          },
+        })] : []),
+      ])
 
       return updated
     })
