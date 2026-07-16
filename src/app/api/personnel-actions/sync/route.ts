@@ -1,20 +1,11 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { ensureExpiredContractArchiveActions } from '@/lib/employees'
+import type { NextRequest } from 'next/server'
+import { PersonnelActionService } from '@/lib/services/personnel-action.service'
+import { authorizeApiRequest } from '@/lib/auth/authorization'
+import { apiData } from '@/lib/http/api-response'
 
-export async function POST() {
-  try {
-    const createdCount = await ensureExpiredContractArchiveActions(prisma)
-
-    return NextResponse.json({
-      success: true,
-      createdCount,
-    })
-  } catch (error) {
-    console.error('Error syncing personnel actions:', error)
-    return NextResponse.json(
-      { error: 'Failed to sync personnel actions' },
-      { status: 500 }
-    )
-  }
+export async function POST(request: NextRequest) {
+  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  if (auth.response) return auth.response
+  const createdCount = await PersonnelActionService.syncExpiredContracts()
+  return apiData({ success: true, createdCount })
 }

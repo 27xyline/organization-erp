@@ -1,50 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { createGroupSchema, validateRequest } from '@/lib/validations'
+import type { NextRequest } from 'next/server'
+import { CatalogService, CatalogServiceError } from '@/features/assets/catalog.service'
+import { authorizeApiRequest } from '@/lib/auth/authorization'
+import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
+import { createGroupSchema } from '@/lib/validations'
 
-export async function GET() {
-  try {
-    const groups = await prisma.assetGroup.findMany({
-      orderBy: { code: 'asc' },
-    })
-    return NextResponse.json(groups)
-  } catch (error) {
-    console.error('Error fetching asset groups:', error)
-    return NextResponse.json(
-      { error: 'Ошибка при загрузке групп имущества' },
-      { status: 500 }
-    )
-  }
+export async function GET(request: NextRequest) {
+  const auth = await authorizeApiRequest(request)
+  if (auth.response) return auth.response
+  return apiData(await CatalogService.listGroups())
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  if (auth.response) return auth.response
+  const input = createGroupSchema.safeParse(await request.json())
+  if (!input.success) return apiValidationError(input.error)
   try {
-    const body = await request.json()
-    const validation = validateRequest(createGroupSchema, body)
-    
-    if (!validation.success) {
-      return NextResponse.json(
-        { error: validation.error },
-        { status: 400 }
-      )
-    }
-
-    const data = validation.data
-    
-    const group = await prisma.assetGroup.create({
-      data: {
-        name: data.name,
-        code: data.code,
-        description: data.description,
-      },
-    })
-    
-    return NextResponse.json(group, { status: 201 })
+    return apiData(await CatalogService.createGroup(input.data, auth.user.id, auth.requestId), { status: 201 })
   } catch (error) {
-    console.error('Error creating asset group:', error)
-    return NextResponse.json(
-      { error: 'Ошибка при создании группы имущества' },
-      { status: 500 }
-    )
+    if (error instanceof CatalogServiceError && error.code === 'CODE_EXISTS') {
+      return apiError(error.code, 'Группа с таким кодом уже существует', 409)
+    }
+    throw error
   }
 }

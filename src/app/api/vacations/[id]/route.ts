@@ -1,66 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import type { NextRequest } from 'next/server'
+import { WorkforceService, WorkforceServiceError } from '@/features/employees/workforce.service'
+import { createVacationSchema } from '@/lib/validations'
+import { authorizeApiRequest } from '@/lib/auth/authorization'
+import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+const mapError = (error: WorkforceServiceError) => error.code === 'NOT_FOUND'
+  ? apiError(error.code, 'Отпуск не найден', 404)
+  : apiError(error.code, 'Некорректные даты отпуска', 422)
+
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  if (auth.response) return auth.response
+  const input = createVacationSchema.safeParse(await request.json())
+  if (!input.success) return apiValidationError(input.error)
   try {
-    const data = await request.json()
-    const startDate = new Date(data.startDate)
-    const endDate = new Date(data.endDate)
-
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || startDate > endDate) {
-      return NextResponse.json(
-        { error: 'Invalid vacation dates' },
-        { status: 400 }
-      )
-    }
-
-    const vacation = await prisma.vacation.update({
-      where: { id: params.id },
-      data: {
-        employeeId: data.employeeId,
-        startDate,
-        endDate,
-        type: data.type || 'VACATION',
-      },
-      include: {
-        employee: {
-          select: {
-            id: true,
-            fullName: true,
-            department: true,
-          },
-        },
-      },
-    })
-
-    return NextResponse.json(vacation)
+    return apiData(await WorkforceService.saveVacation((await params).id, input.data, auth.user.id, auth.requestId))
   } catch (error) {
-    console.error('Error updating vacation:', error)
-    return NextResponse.json(
-      { error: 'Failed to update vacation' },
-      { status: 500 }
-    )
+    if (error instanceof WorkforceServiceError) return mapError(error)
+    throw error
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  if (auth.response) return auth.response
   try {
-    await prisma.vacation.delete({
-      where: { id: params.id },
-    })
-
-    return NextResponse.json({ success: true })
+    return apiData(await WorkforceService.deleteVacation((await params).id, auth.user.id, auth.requestId))
   } catch (error) {
-    console.error('Error deleting vacation:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete vacation' },
-      { status: 500 }
-    )
+    if (error instanceof WorkforceServiceError) return mapError(error)
+    throw error
   }
 }

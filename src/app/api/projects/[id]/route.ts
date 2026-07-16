@@ -1,104 +1,36 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import type { NextRequest } from 'next/server'
+import { ProjectService, ProjectServiceError } from '@/features/projects/project.service'
+import { createProjectSchema } from '@/lib/validations'
+import { authorizeApiRequest } from '@/lib/auth/authorization'
+import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
 
-// GET /api/projects/[id] - Get project with tasks
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await authorizeApiRequest(request)
+  if (auth.response) return auth.response
+  const project = await ProjectService.getForApi((await params).id)
+  return project ? apiData(project) : apiError('PROJECT_NOT_FOUND', 'Проект не найден', 404)
+}
+
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  if (auth.response) return auth.response
+  const input = createProjectSchema.safeParse(await request.json())
+  if (!input.success) return apiValidationError(input.error)
   try {
-    const project = await prisma.project.findUnique({
-      where: { id: params.id },
-      include: {
-        tasksList: {
-          orderBy: { createdAt: 'asc' },
-          include: {
-            children: {
-              include: {
-                children: true
-              }
-            }
-          }
-        },
-        assets: {
-          include: {
-            mol: true,
-            group: true,
-          }
-        },
-        _count: {
-          select: { assets: true, tasksList: true }
-        }
-      }
-    })
-    
-    if (!project) {
-      return NextResponse.json(
-        { error: 'Project not found' },
-        { status: 404 }
-      )
-    }
-    
-    return NextResponse.json(project)
+    return apiData(await ProjectService.update((await params).id, input.data, auth.user.id, auth.requestId))
   } catch (error) {
-    console.error('Error fetching project:', error)
-    return NextResponse.json(
-      { error: 'Failed to fetch project' },
-      { status: 500 }
-    )
+    if (error instanceof ProjectServiceError) return apiError(error.code, 'Проект не найден', 404)
+    throw error
   }
 }
 
-// PUT /api/projects/[id] - Update project
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  if (auth.response) return auth.response
   try {
-    const data = await request.json()
-    
-    const project = await prisma.project.update({
-      where: { id: params.id },
-      data: {
-        name: data.name,
-        description: data.description || null,
-        goals: data.goals || null,
-        tasks: data.tasks || null,
-        results: data.results || null,
-        startDate: data.startDate && data.startDate.trim() !== '' ? new Date(data.startDate) : null,
-        endDate: data.endDate && data.endDate.trim() !== '' ? new Date(data.endDate) : null,
-        plannedBudget: data.plannedBudget || 0,
-        actualBudget: data.actualBudget || 0,
-        status: data.status,
-      }
-    })
-    
-    return NextResponse.json(project)
+    return apiData(await ProjectService.delete((await params).id, auth.user.id, auth.requestId))
   } catch (error) {
-    console.error('Error updating project:', error)
-    return NextResponse.json(
-      { error: 'Failed to update project' },
-      { status: 500 }
-    )
-  }
-}
-
-// DELETE /api/projects/[id] - Delete project
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    await prisma.project.delete({
-      where: { id: params.id }
-    })
-    
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('Error deleting project:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete project' },
-      { status: 500 }
-    )
+    if (error instanceof ProjectServiceError) return apiError(error.code, 'Проект не найден', 404)
+    throw error
   }
 }

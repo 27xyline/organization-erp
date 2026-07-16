@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { FinancePlanType } from '@prisma/client'
 import { financePlanDeleteSchema, financePlanSaveSchema } from '@/lib/schemas/finance-plan'
 import {
   FinancePlanService,
@@ -8,10 +7,14 @@ import {
   getPlanType,
 } from '@/lib/services/finance-plan.service'
 import { validateRequest } from '@/lib/validations'
+import { authorizeApiRequest } from '@/lib/auth/authorization'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
+  const auth = await authorizeApiRequest(request)
+  if (auth.response) return auth.response
+
   try {
     const yearParam = request.nextUrl.searchParams.get('year')
     const year = yearParam ? Number.parseInt(yearParam, 10) : getCurrentYear()
@@ -44,6 +47,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  if (auth.response) return auth.response
+
   try {
     const data = await request.json()
     const validation = validateRequest(financePlanSaveSchema, data)
@@ -82,6 +88,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  if (auth.response) return auth.response
+
   try {
     const data = await request.json()
     const validation = validateRequest(financePlanDeleteSchema, data)

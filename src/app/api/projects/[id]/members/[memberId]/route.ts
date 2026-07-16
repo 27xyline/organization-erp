@@ -5,13 +5,18 @@ import {
   ProjectMemberService,
 } from '@/lib/services/project-member.service'
 import { validateRequest } from '@/lib/validations'
+import { authorizeApiRequest } from '@/lib/auth/authorization'
 
 export const dynamic = 'force-dynamic'
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string; memberId: string } }
+  props: { params: Promise<{ id: string; memberId: string }> }
 ) {
+  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  if (auth.response) return auth.response
+
+  const params = await props.params;
   try {
     const data = await request.json()
     const validation = validateRequest(projectMemberUpdateSchema, data)
