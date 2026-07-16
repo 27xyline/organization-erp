@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiList, apiValidationError } from '@/lib/http/api-response'
 import { createUserSchema, usersQuerySchema } from '@/features/users/contracts/schemas'
-import { UserService, UserServiceError } from '@/features/users/user.service'
+import { UserService, UserServiceError } from '@/features/users/application/user.service'
 
 export async function GET(request: NextRequest) {
   const auth = await authorizeApiRequest(request, ['ADMIN'])

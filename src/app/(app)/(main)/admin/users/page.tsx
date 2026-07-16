@@ -1,5 +1,5 @@
-import { UsersManager, type UserRow } from '@/features/users/users-manager'
-import { UserService } from '@/features/users/user.service'
+import { UsersManager, type UserRow } from '@/features/users/ui/users-manager'
+import { UserService } from '@/features/users/application/user.service'
 import { requirePageUser } from '@/lib/auth/authorization'
 
 export const dynamic = 'force-dynamic'

@@ -1,4 +1,4 @@
-import { AssetForm } from '@/components/asset-form'
+import { AssetForm } from '@/features/assets/ui/asset-form'
 import { AssetService } from '@/features/assets/application/asset.service'
 import { ProjectService } from '@/features/projects/application/project.service'
 import { requirePageUser } from '@/lib/auth/authorization'

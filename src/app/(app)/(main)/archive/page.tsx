@@ -1,8 +1,8 @@
-import type { Asset } from '@/types'
+import type { Asset } from '@/features/assets/contracts/types'
 import { AssetService } from '@/features/assets/application/asset.service'
 import { assetsQuerySchema } from '@/features/assets/contracts/schemas'
 import { requirePageUser } from '@/lib/auth/authorization'
-import { ArchiveClient } from './archive-client'
+import { ArchiveClient } from '@/features/assets/ui/archive-client'
 
 interface ArchivePageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>
