@@ -1,16 +1,51 @@
 services:
   postgres:
     image: postgres:15
-    container_name: mc-accounting-postgres
     restart: unless-stopped
-    ports:
-      - "5434:5432"
     environment:
-      POSTGRES_USER: mc_accounting
-      POSTGRES_PASSWORD: mc_accounting_dev
-      POSTGRES_DB: mc_accounting
+      POSTGRES_USER: ${POSTGRES_USER:-project1}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-project1}
     volumes:
-      - mc_accounting_postgres_data:/var/lib/postgresql/data
+      - project1_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  migrate:
+    build:
+      context: .
+      target: migration
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-project1}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-project1}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      target: runner
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-project1}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-project1}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      PORT: 3000
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 
 volumes:
-  mc_accounting_postgres_data:
+  project1_postgres_data:
