@@ -1,5 +1,6 @@
 'use client'
 
+import { useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -81,6 +82,7 @@ interface PersonnelTimelineProps {
 }
 
 export function PersonnelTimeline({ loading, personnelActions, onDeleteAction }: PersonnelTimelineProps) {
+  const thirtyDaysAgo = useMemo(() => Date.now() - 30 * 24 * 60 * 60 * 1000, [personnelActions])
   return (
     <Card className="flex h-full min-h-0 flex-col xl:col-span-1">
       <CardHeader>
@@ -101,7 +103,7 @@ export function PersonnelTimeline({ loading, personnelActions, onDeleteAction }:
           <div className="rounded-lg border bg-muted/30 p-3">
             <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">За 30 дней</p>
             <p className="mt-2 font-medium">
-              {personnelActions.filter((action) => action.createdAt.getTime() >= Date.now() - 30 * 24 * 60 * 60 * 1000).length}
+              {personnelActions.filter((action) => action.createdAt.getTime() >= thirtyDaysAgo).length}
             </p>
           </div>
         </div>

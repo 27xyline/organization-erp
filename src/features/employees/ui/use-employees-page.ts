@@ -559,7 +559,7 @@ export function useEmployeesPage(initialData?: EmployeesInitialData) {
     actionForm,
     availableActionRate,
     loadBaseData,
-    selectedActionEmployee?.contractSignedDate,
+    selectedActionEmployee,
     selectedActionPosition,
     toast,
   ])

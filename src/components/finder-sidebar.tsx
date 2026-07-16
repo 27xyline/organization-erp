@@ -90,7 +90,33 @@ const assetsChildren = [
 export function FinderSidebar() {
   const pathname = usePathname()
   const { data: session } = useSession()
-  const [expandedItems, setExpandedItems] = useState<string[]>([])
+  const [expandedItems, setExpandedItems] = useState<string[]>(() => {
+    if (pathname === '/login') return []
+    const itemsToExpand: string[] = []
+    if (pathname.startsWith('/projects')) itemsToExpand.push('projects')
+    if (pathname.startsWith('/finance')) itemsToExpand.push('finance')
+    if (pathname.startsWith('/employees') || pathname.startsWith('/mols')) itemsToExpand.push('employees')
+    if (pathname === '/' || pathname.startsWith('/groups') || pathname.startsWith('/archive')) itemsToExpand.push('assets')
+    return itemsToExpand
+  })
+  const [prevPathname, setPrevPathname] = useState(pathname)
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname)
+    if (pathname === '/login') {
+      setExpandedItems([])
+    } else {
+      const itemsToExpand: string[] = []
+      if (pathname.startsWith('/projects')) itemsToExpand.push('projects')
+      if (pathname.startsWith('/finance')) itemsToExpand.push('finance')
+      if (pathname.startsWith('/employees') || pathname.startsWith('/mols')) itemsToExpand.push('employees')
+      if (pathname === '/' || pathname.startsWith('/groups') || pathname.startsWith('/archive')) itemsToExpand.push('assets')
+      
+      const newItems = itemsToExpand.filter(item => !expandedItems.includes(item))
+      if (newItems.length > 0) {
+        setExpandedItems(prev => Array.from(new Set([...prev, ...newItems])))
+      }
+    }
+  }
   const [projects, setProjects] = useState<Project[]>([])
   const hasFetchedProjectsRef = useRef(false)
   const isProjectsExpanded = expandedItems.includes("projects")
@@ -120,23 +146,7 @@ export function FinderSidebar() {
     }
   }, [isProjectsExpanded])
 
-  useEffect(() => {
-    if (pathname === '/login') {
-      setExpandedItems([])
-      return
-    }
 
-    const itemsToExpand: string[] = []
-
-    if (pathname.startsWith('/projects')) itemsToExpand.push('projects')
-    if (pathname.startsWith('/finance')) itemsToExpand.push('finance')
-    if (pathname.startsWith('/employees') || pathname.startsWith('/mols')) itemsToExpand.push('employees')
-    if (pathname === '/' || pathname.startsWith('/groups') || pathname.startsWith('/archive')) itemsToExpand.push('assets')
-
-    if (itemsToExpand.length === 0) return
-
-    setExpandedItems((prev) => Array.from(new Set([...prev, ...itemsToExpand])))
-  }, [pathname])
 
   const toggleExpand = (id: string) => {
     setExpandedItems(prev => 
