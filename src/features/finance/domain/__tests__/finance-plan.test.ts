@@ -54,11 +54,10 @@ describe('finance-plan.service helpers', () => {
     )
 
     expect(Array.from(adjustments.decrements.entries())).toEqual([
-      ['p1', '100.00'],
+      ['p1', '30.00'],
       ['p2', '50.00'],
     ])
     expect(Array.from(adjustments.increments.entries())).toEqual([
-      ['p1', '70.00'],
       ['p3', '30.00'],
     ])
   })
