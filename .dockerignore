@@ -1,0 +1,11 @@
+.git
+.next
+.next-dev
+.next-dev-turbo
+node_modules
+npm-debug.log*
+.env*
+!.env.example
+playwright-report
+test-results
+*.tsbuildinfo

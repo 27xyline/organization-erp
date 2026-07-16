@@ -1,279 +1,119 @@
-# Project1
+# Project1 Accounting
 
-Основное приложение в этом репозитории находится в [`mc-accounting`](./mc-accounting).
+Внутренняя система учёта имущества, сотрудников, проектов и финансового планирования. Это модульный Next.js-монолит; приложение, Prisma-схема и эксплуатационные файлы находятся в корне репозитория.
 
-Это внутренняя система учета для:
+## Стек и требования
 
-- имущества и материальных ценностей;
-- МОЛ и групп имущества;
-- сотрудников, кадровых действий, отпусков и штатного расписания;
-- проектов, задач и Gantt-представления;
-- финансового планирования по сотрудникам и проектам;
-- экспорта данных в Excel.
+- Node.js 22;
+- Next.js 16.2.10 и React 19.2.7;
+- PostgreSQL 15 и Prisma 6.19.3;
+- NextAuth 4, Argon2id, Zod;
+- Vitest и Playwright.
 
-## Технологии
-
-- Next.js 14 (`App Router`)
-- React 18
-- TypeScript
-- Prisma ORM
-- PostgreSQL
-- NextAuth (`CredentialsProvider`)
-- Zod
-- Tailwind CSS
-- Vitest
-
-## Структура репозитория
-
-```text
-.
-├── mc-accounting/           # основное приложение
-│   ├── package.json
-│   ├── prisma/
-│   ├── src/
-│   └── start.js
-└── README.md                # этот файл
-```
-
-`mc-accounting/package.json` является главным manifest-файлом приложения. Все команды ниже нужно выполнять из каталога [`mc-accounting`](./mc-accounting).
-
-## Что умеет система
-
-### Имущество
-
-- карточки активов с инвентарными номерами, статусами и документами;
-- МОЛ, группы имущества, история операций;
-- архив активов;
-- экспорт имущества и операций в `.xlsx`.
-
-### Проекты
-
-- карточки проектов;
-- древовидные задачи с датами, прогрессом и статусами;
-- участники проекта (`ProjectMember`);
-- исполнители задач (`TaskAssignee`);
-- Gantt-представление.
-
-### Сотрудники и HR
-
-- справочник сотрудников;
-- штатное расписание;
-- кадровые действия;
-- отпуска и отсутствия;
-- архив сотрудников.
-
-### Финансы
-
-- расчет зарплаты;
-- планирование оклада;
-- планирование надбавок;
-- привязка финансовых планов к сотруднику и при необходимости к проекту.
-
-## Архитектура
-
-- UI построен на `App Router`-страницах в [`mc-accounting/src/app`](./mc-accounting/src/app).
-- HTTP API находится в [`mc-accounting/src/app/api`](./mc-accounting/src/app/api).
-- Доменные правила и сервисы вынесены в [`mc-accounting/src/lib/services`](./mc-accounting/src/lib/services).
-- Валидация входных данных сосредоточена в [`mc-accounting/src/lib/schemas`](./mc-accounting/src/lib/schemas) и [`mc-accounting/src/lib/validations.ts`](./mc-accounting/src/lib/validations.ts).
-- Prisma-схема и миграции лежат в [`mc-accounting/prisma`](./mc-accounting/prisma).
-
-Текущая структура проекта уже ориентирована на подход "тонкие route handlers + логика в service-слое". При расширении системы лучше сохранять этот принцип.
-
-## Требования
-
-- Node.js 18+;
-- npm;
-- Docker Desktop для стандартного локального запуска;
-- PostgreSQL 14+ при запуске без Docker.
-
-## Быстрый старт
-
-1. Перейдите в каталог приложения:
-
-```bash
-cd mc-accounting
-```
-
-2. Создайте локальный `.env` из шаблона:
+## Локальный запуск
 
 ```bash
 cp .env.example .env
-```
-
-Шаблон [`mc-accounting/.env.example`](./mc-accounting/.env.example) настроен на отдельный локальный PostgreSQL-контейнер этого проекта:
-
-```env
-DATABASE_URL="postgresql://mc_accounting:mc_accounting_dev@localhost:5434/mc_accounting"
-```
-
-3. Запустите локальную базу:
-
-```bash
-docker compose up -d
-```
-
-Compose-файл [`mc-accounting/docker-compose.yml`](./mc-accounting/docker-compose.yml) создает отдельный контейнер `mc-accounting-postgres`, базу `mc_accounting` и пробрасывает PostgreSQL на `localhost:5434`. Это не использует общий локальный PostgreSQL на `5432` и не конфликтует с другими проектами на `5433`.
-
-4. Установите зависимости:
-
-```bash
-npm install
-```
-
-Полный шаблон `.env` содержит переменные для PostgreSQL, NextAuth, локального URL приложения, credentials-login и Yandex.Disk OAuth:
-
-```env
-DATABASE_URL="postgresql://mc_accounting:mc_accounting_dev@localhost:5434/mc_accounting"
-YANDEX_CLIENT_ID="your_yandex_client_id"
-YANDEX_CLIENT_SECRET="your_yandex_client_secret"
-YANDEX_REDIRECT_URI="http://localhost:3000/api/auth/yandex/callback"
-NEXTAUTH_URL="http://localhost:3000"
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
-PORT=3000
-NEXTAUTH_SECRET="change-me"
-ADMIN_USERNAME="admin"
-ADMIN_PASSWORD="admin"
-```
-
-Для обычной локальной разработки через Docker достаточно заменить `NEXTAUTH_SECRET`, `ADMIN_USERNAME` и `ADMIN_PASSWORD` под свое окружение. Yandex-переменные нужны только если используется интеграция с Yandex.Disk.
-
-Если вы запускаете без Docker и используете свой локальный PostgreSQL, задайте собственную строку подключения и заранее создайте базу `mc_accounting`, например:
-
-```env
-DATABASE_URL="postgresql://<local-postgres-user>@localhost:5432/mc_accounting"
-```
-
-5. Подготовьте Prisma Client и базу:
-
-```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres
+npm ci
 npm run db:generate
-npm run db:migrate
+npm run db:migrate:deploy
 npm run db:seed
-```
-
-6. Запустите приложение:
-
-```bash
+npm run user:create-admin
 npm run dev
 ```
 
-Откройте [http://localhost:3000](http://localhost:3000) и войдите с логином/паролем из `ADMIN_USERNAME` и `ADMIN_PASSWORD`.
+`user:create-admin` запрашивает логин, имя и скрытый временный пароль интерактивно. Пароль не передаётся через argv или env; после первого входа ADMIN обязан его изменить.
 
-## Команды
+## Роли и безопасность
 
-### Разработка
+- `ADMIN` — все операции и управление пользователями;
+- `EDITOR` — доменные изменения без управления пользователями;
+- `VIEWER` — чтение и экспорт.
 
-```bash
-npm run dev
-npm run dev:turbo
-npm run dev:webpack
-npm run dev:reset
-```
+`proxy.ts` выполняет только раннее перенаправление. Server Components и API повторно проверяют активного пользователя в PostgreSQL. Мутации требуют допустимую роль и same-origin, пароли хранятся как Argon2id, после пяти неверных попыток вход блокируется на 15 минут.
 
-### Локальная проверка production-сборки
-
-```bash
-npm run build
-npm run start
-```
-
-Полный безопасный сценарий локальной проверки:
-
-```bash
-npm run start:prod
-```
-
-Если артефакты `.next` отсутствуют или неполные, [`mc-accounting/start.js`](./mc-accounting/start.js) автоматически пересоберет приложение перед `next start`.
-
-### База данных
-
-```bash
-npm run db:generate
-npm run db:migrate
-npm run db:studio
-npm run db:seed
-```
-
-### Проверки
+## Проверки
 
 ```bash
 npm run lint
-npx tsc --noEmit
-npx vitest run
+npm run typecheck
+npm test
+npm run build
+npm run test:e2e
+npm run db:verify
+npm audit --omit=dev --audit-level=high
 ```
 
-Примечание: отдельного `npm test` скрипта сейчас нет.
+`db:verify` проверяет равенство `SUM(AssetHolding.quantity) = Asset.quantity`, отрицательные остатки, orphan relations и отсутствие секретов в audit JSON.
 
-## Данные, которые создает seed
+## Production Docker
 
-[`mc-accounting/prisma/seed.ts`](./mc-accounting/prisma/seed.ts) создает стартовые справочники и примеры:
+Заполните production `.env`, укажите публичные HTTPS URL и запустите:
 
-- 2 МОЛ;
-- 4 группы имущества;
-- несколько тестовых активов.
+```bash
+docker compose build
+docker compose up -d
+```
 
-Seed не создает сотрудников, проекты, задачи или payroll-данные, поэтому эти разделы после первого запуска потребуется заполнять вручную.
+Compose использует PostgreSQL 15 без опубликованного наружу порта. Одноразовый `migrate`-контейнер выполняет `prisma migrate deploy`; приложение запускается non-root пользователем и выполняет только `next start`. HTTPS завершается на внешнем reverse proxy.
 
-## Аутентификация и доступ
+Health endpoints:
 
-- Используется `NextAuth` с `CredentialsProvider`.
-- Учетные данные берутся из `ADMIN_USERNAME` и `ADMIN_PASSWORD`.
-- Все страницы и почти все API защищены middleware из [`mc-accounting/src/middleware.ts`](./mc-accounting/src/middleware.ts).
-- Страница входа: `/login`.
+- `GET /api/health/live` — процесс отвечает;
+- `GET /api/health/ready` — приложение видит PostgreSQL.
 
-Важно: это упрощенная внутренняя auth-схема. Она подходит для локальной разработки и закрытого внутреннего контура, но не является production-grade решением для внешнего доступа.
+## Backup и восстановление
 
-## Основные разделы интерфейса
+Перед каждой production-миграцией:
 
-- `/` — реестр имущества;
-- `/groups` — группы имущества;
-- `/archive` — архив активов;
-- `/projects` — проекты;
-- `/employees` — сотрудники;
-- `/employees/archive` — архив сотрудников;
-- `/mols` — материально ответственные лица;
-- `/finance/salary` — расчет зарплаты;
-- `/finance/oklad` — планирование оклада;
-- `/finance/nadbavka` — планирование надбавок.
+```bash
+docker compose exec -T postgres sh -c \
+  'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' \
+  > backup-$(date +%F-%H%M).dump
+```
 
-Часть пунктов бокового меню помечена как `скоро` и пока не реализована как полноценный workflow.
+Восстановление выполняется только в maintenance mode:
 
-## API и тесты
+```bash
+docker compose stop app migrate
+docker compose exec -T postgres sh -c \
+  'dropdb -U "$POSTGRES_USER" --if-exists "$POSTGRES_DB" && createdb -U "$POSTGRES_USER" "$POSTGRES_DB"'
+docker compose exec -T postgres sh -c \
+  'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' \
+  < backup.dump
+docker compose up -d migrate app
+```
 
-В проекте есть route-level и service-level тесты, в том числе для:
+После восстановления обязательно выполнить `npm run db:verify` с `DATABASE_URL` восстановленной базы.
 
-- сотрудников;
-- финансовых планов;
-- кадрового домена;
-- задач проекта;
-- участников проекта;
-- payroll по проекту.
+## Rollout AssetHolding
 
-Ключевые тестовые файлы находятся в:
+Release A:
 
-- [`mc-accounting/src/lib/services/__tests__`](./mc-accounting/src/lib/services/__tests__);
-- [`mc-accounting/src/app/api`](./mc-accounting/src/app/api).
+1. включить maintenance mode и сделать backup;
+2. применить additive-миграцию пользователей и `AssetHolding`;
+3. выполнить `npm run db:verify` и smoke/E2E;
+4. открыть доступ. Приложение читает и пишет holdings, legacy `Asset.molId` временно остаётся для rollback.
 
-## Известные ограничения
+Release B после стабильного периода:
 
-- Проект сейчас описан и настроен в первую очередь под локальную разработку.
-- Авторизация построена на одном наборе credentials из env.
-- Часть меню еще не реализована.
-- В репозитории нет корневого `package.json`; рабочий пакет находится в `mc-accounting`.
+1. повторить backup и `db:verify`;
+2. удалить legacy `Asset.molId` отдельной миграцией;
+3. снова выполнить полный CI и smoke-тесты.
 
-## Локальные operational notes
+При любой ошибке Release A доступ не открывается, контейнеры останавливаются, а база восстанавливается из backup.
 
-- Для локальной production-проверки используйте один origin: `http://localhost:3000`.
-- Если после `npm start` приложение ведет себя некорректно, сначала пересоберите его через `npm run build:clean` или `npm run start:prod`.
-- При проблемах со входом очистите cookies для `localhost`, особенно если до этого приложение запускалось на другом origin.
-- Перед внесением изменений в Prisma-схему создавайте новую миграцию и проверяйте, что seed и route handlers остаются совместимыми.
+## Структура
 
-## Разработка дальше
-
-Если проект будет передаваться другому разработчику как рабочая система, первыми улучшениями стоит сделать:
-
-1. заменить credentials-only auth на нормальную схему пользователей и ролей;
-2. формализовать роли и права на уровне API;
-3. добавить CI-команду с единым `test` script;
-4. описать deployment-процесс, когда проект выйдет за рамки локальной разработки;
-5. поддерживать корень репозитория как документационный уровень, а код приложения держать в `mc-accounting`.
+```text
+prisma/                 схема и миграции
+src/app/                route groups и HTTP API
+src/features/           доменные сервисы и UI модулей
+src/components/         общие компоненты
+src/lib/                auth, DB, HTTP, logger и инфраструктура
+e2e/                    Playwright smoke/E2E
+.github/workflows/      CI
+Dockerfile              multi-stage production image
+docker-compose.yml      production topology
+```
