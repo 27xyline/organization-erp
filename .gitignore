@@ -12,6 +12,9 @@ out/
 
 *.log
 *.tsbuildinfo
+playwright-report/
+test-results/
+blob-report/
 .DS_Store
 Thumbs.db
 
