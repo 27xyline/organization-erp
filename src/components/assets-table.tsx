@@ -29,8 +29,10 @@ export function AssetsTable({ assets, groups, mols }: AssetsTableProps) {
     if (!confirm('Вы уверены, что хотите переместить объект в архив?')) return
     
     try {
-      const res = await fetch(`/api/assets/${assetId}`, {
-        method: 'DELETE',
+      const res = await fetch(`/api/assets/${assetId}/archive`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: 'Ручное архивирование' }),
       })
       
       if (res.ok) {

@@ -1,34 +1,22 @@
 import { notFound } from 'next/navigation'
-import { prisma } from '@/lib/prisma'
 import { AssetForm } from '@/components/asset-form'
 import { OperationsHistory } from '@/components/operations-history'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { AssetService } from '@/features/assets/asset.service'
+import { ProjectService } from '@/features/projects/project.service'
+import { requirePageUser } from '@/lib/auth/authorization'
 
 interface EditAssetPageProps {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
-export default async function EditAssetPage({ params }: EditAssetPageProps) {
-  const [asset, mols, groups, projects] = await Promise.all([
-    prisma.asset.findUnique({
-      where: { id: params.id },
-      include: {
-        operations: {
-          include: {
-            fromMol: true,
-            toMol: true,
-          },
-          orderBy: { date: 'desc' },
-        },
-      },
-    }),
-    prisma.mol.findMany({ orderBy: { code: 'asc' } }),
-    prisma.assetGroup.findMany({ orderBy: { code: 'asc' } }),
-    prisma.project.findMany({
-      where: { status: 'ACTIVE' },
-      orderBy: { name: 'asc' },
-      select: { id: true, code: true, name: true },
-    }),
+export default async function EditAssetPage(props: EditAssetPageProps) {
+  await requirePageUser(['ADMIN', 'EDITOR'])
+  const params = await props.params
+  const [asset, { mols, groups }, { projects }] = await Promise.all([
+    AssetService.get(params.id),
+    AssetService.listCatalogs(),
+    ProjectService.list({ page: 1, pageSize: 100, status: 'ACTIVE' }),
   ])
 
   if (!asset) {

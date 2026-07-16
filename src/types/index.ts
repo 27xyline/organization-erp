@@ -7,8 +7,9 @@ export interface Mol {
   department: string
   fullName: string
   storageLocation: string
-  createdAt: Date
-  updatedAt: Date
+  photo?: string | null
+  createdAt: Date | string
+  updatedAt: Date | string
 }
 
 export interface AssetGroup {
@@ -16,8 +17,20 @@ export interface AssetGroup {
   name: string
   code: string
   description?: string | null
-  createdAt: Date
-  updatedAt: Date
+  createdAt: Date | string
+  updatedAt: Date | string
+}
+
+export type DecimalValue = number | string
+
+export interface AssetHolding {
+  id: string
+  assetId: string
+  molId: string
+  quantity: DecimalValue
+  mol: Mol
+  createdAt: Date | string
+  updatedAt: Date | string
 }
 
 export interface Asset {
@@ -25,15 +38,16 @@ export interface Asset {
   orderNumber: number
   name: string
   inventoryNumber: string
-  unitPrice: number
+  unitPrice: DecimalValue
   unitOfMeasure: string
-  quantity: number
-  totalCost: number
+  quantity: DecimalValue
+  totalCost: DecimalValue
   molId: string
   mol: Mol
+  holdings?: AssetHolding[]
   groupId: string
   group: AssetGroup
-  projectId?: string
+  projectId?: string | null
   project?: Project
   contractCode?: string
   internalFundingCode?: string
@@ -48,9 +62,9 @@ export interface Asset {
   plannedDisposalReason?: string
   accountingForm?: string
   photos?: string[]
-  notes?: string
-  createdAt: Date
-  updatedAt: Date
+  notes?: string | null
+  createdAt: Date | string
+  updatedAt: Date | string
   operations?: Operation[]
 }
 
@@ -63,9 +77,9 @@ export interface Operation {
   fromMol?: Mol
   toMolId?: string
   toMol?: Mol
-  quantity: number
-  unitPrice: number
-  totalCost: number
+  quantity: DecimalValue
+  unitPrice: DecimalValue
+  totalCost: DecimalValue
   date: Date
   reason?: string
   documentType: string

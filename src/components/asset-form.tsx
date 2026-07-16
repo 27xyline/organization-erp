@@ -2,20 +2,42 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Mol, AssetGroup } from '@/types'
+import type { Mol, AssetGroup } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/toast'
-import { ImageIcon, Upload, X } from 'lucide-react'
+import { Upload, X } from 'lucide-react'
 
 interface AssetFormProps {
   mols: Mol[]
   groups: AssetGroup[]
   projects: { id: string; code: string; name: string }[]
-  initialData?: any
+  initialData?: {
+    id: string
+    name?: string
+    inventoryNumber?: string
+    unitPrice?: { toString(): string } | string | number
+    unitOfMeasure?: string
+    quantity?: { toString(): string } | string | number
+    molId?: string
+    groupId?: string
+    projectId?: string | null
+    contractCode?: string | null
+    internalFundingCode?: string | null
+    isExistingAsset?: boolean
+    recordingDate?: Date | string
+    documentType?: string
+    documentDetails?: string
+    notes?: string | null
+    plannedDisposalDate?: Date | string | null
+    plannedDisposalReason?: string | null
+    status?: string
+    accountingForm?: string | null
+    photos?: string[]
+  }
 }
 
 export function AssetForm({ mols, groups, projects, initialData }: AssetFormProps) {
@@ -26,9 +48,9 @@ export function AssetForm({ mols, groups, projects, initialData }: AssetFormProp
   const [formData, setFormData] = useState({
     name: initialData?.name || '',
     inventoryNumber: initialData?.inventoryNumber || '',
-    unitPrice: initialData?.unitPrice || '',
+    unitPrice: initialData?.unitPrice?.toString() || '',
     unitOfMeasure: initialData?.unitOfMeasure || 'шт',
-    quantity: initialData?.quantity || '1',
+    quantity: initialData?.quantity?.toString() || '1',
     molId: initialData?.molId || '',
     groupId: initialData?.groupId || '',
     projectId: initialData?.projectId || '',
@@ -45,7 +67,7 @@ export function AssetForm({ mols, groups, projects, initialData }: AssetFormProp
       ? new Date(initialData.plannedDisposalDate).toISOString().split('T')[0]
       : '',
     plannedDisposalReason: initialData?.plannedDisposalReason || '',
-    status: initialData?.status || 'IN_STOCK',
+    status: String(initialData?.status || 'IN_STOCK'),
     accountingForm: initialData?.accountingForm || '145',
     editReason: '',
   })
@@ -96,8 +118,8 @@ export function AssetForm({ mols, groups, projects, initialData }: AssetFormProp
         router.push('/')
         router.refresh()
       } else {
-        const error = await res.json()
-        toast.error(error.error || 'Произошла ошибка')
+        const payload = await res.json()
+        toast.error(payload.error?.message || 'Произошла ошибка')
       }
     } catch (error) {
       console.error('Error saving asset:', error)
@@ -202,8 +224,14 @@ export function AssetForm({ mols, groups, projects, initialData }: AssetFormProp
                 step="1"
                 value={formData.quantity}
                 onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                disabled={Boolean(initialData?.id)}
                 required
               />
+              {initialData?.id && (
+                <p className="text-xs text-muted-foreground">
+                  Количество изменяется только через передачу или списание.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="status">Статус *</Label>
@@ -233,6 +261,7 @@ export function AssetForm({ mols, groups, projects, initialData }: AssetFormProp
               <Select
                 value={formData.molId}
                 onValueChange={(value) => setFormData({ ...formData, molId: value })}
+                disabled={Boolean(initialData?.id)}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Выберите МОЛ" />
@@ -245,6 +274,11 @@ export function AssetForm({ mols, groups, projects, initialData }: AssetFormProp
                   ))}
                 </SelectContent>
               </Select>
+              {initialData?.id && (
+                <p className="text-xs text-muted-foreground">
+                  Ответственные лица меняются через операцию передачи.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="groupId">Группа имущества *</Label>

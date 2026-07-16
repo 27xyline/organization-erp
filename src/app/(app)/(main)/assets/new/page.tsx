@@ -1,22 +1,16 @@
-import { prisma } from '@/lib/prisma'
 import { AssetForm } from '@/components/asset-form'
+import { AssetService } from '@/features/assets/asset.service'
+import { ProjectService } from '@/features/projects/project.service'
+import { requirePageUser } from '@/lib/auth/authorization'
 
 export const dynamic = 'force-dynamic'
 
 export default async function NewAssetPage() {
-  const mols = await prisma.mol.findMany({
-    orderBy: { code: 'asc' },
-  })
-  
-  const groups = await prisma.assetGroup.findMany({
-    orderBy: { code: 'asc' },
-  })
-
-  const projects = await prisma.project.findMany({
-    where: { status: 'ACTIVE' },
-    orderBy: { name: 'asc' },
-    select: { id: true, code: true, name: true },
-  })
+  await requirePageUser(['ADMIN', 'EDITOR'])
+  const [{ mols, groups }, { projects }] = await Promise.all([
+    AssetService.listCatalogs(),
+    ProjectService.list({ page: 1, pageSize: 100, status: 'ACTIVE' }),
+  ])
 
   return (
     <main className="container mx-auto py-8 px-4">
