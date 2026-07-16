@@ -2,6 +2,12 @@ import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ServiceError } from '@/lib/services/service-error'
 
+vi.mock('@/lib/auth/authorization', () => ({
+  authorizeApiRequest: vi.fn(async () => ({
+    user: { id: 'admin-1', username: 'admin', name: 'Admin', role: 'ADMIN' },
+  })),
+}))
+
 vi.mock('@/lib/services/project-member.service', async () => {
   const actual = await vi.importActual<typeof import('@/lib/services/project-member.service')>('@/lib/services/project-member.service')
 
@@ -34,7 +40,7 @@ describe('projects/[id]/members route', () => {
           employeeId: 'emp-1',
         }),
       }) as never,
-      { params: { id: 'project-1' } }
+      { params: Promise.resolve({ id: 'project-1' }) }
     )
     const body = await response.json()
 
@@ -51,7 +57,7 @@ describe('projects/[id]/members route', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       }) as never,
-      { params: { id: 'project-1' } }
+      { params: Promise.resolve({ id: 'project-1' }) }
     )
     const body = await response.json()
 
@@ -70,7 +76,7 @@ describe('projects/[id]/members route', () => {
 
     const response = await GET(
       new NextRequest('http://localhost/api/projects/project-1/members'),
-      { params: { id: 'project-1' } }
+      { params: Promise.resolve({ id: 'project-1' }) }
     )
     const body = await response.json()
 

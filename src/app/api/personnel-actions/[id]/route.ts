@@ -1,21 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import type { NextRequest } from 'next/server'
+import { PersonnelActionService } from '@/lib/services/personnel-action.service'
+import { authorizeApiRequest } from '@/lib/auth/authorization'
+import { apiData } from '@/lib/http/api-response'
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    await prisma.personnelAction.delete({
-      where: { id: params.id },
-    })
-
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('Error deleting personnel action:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete personnel action' },
-      { status: 500 }
-    )
-  }
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  if (auth.response) return auth.response
+  return apiData(await PersonnelActionService.delete((await params).id, auth.user.id, auth.requestId))
 }

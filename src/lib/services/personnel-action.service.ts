@@ -11,9 +11,52 @@ import {
   resolveAssignablePosition,
 } from '@/lib/services/hr-domain'
 import { CreatePersonnelActionInput } from '@/lib/validations'
+import { ensureExpiredContractArchiveActions } from '@/lib/employees'
+
+const personnelActionPriority: Record<string, number> = {
+  HIRE: 0, DISMISS: 1, ARCHIVE: 2, EXTEND: 3, TRANSFER: 4, PROMOTE: 5, EDIT: 6,
+}
 
 export class PersonnelActionService {
-  static async createAction(data: CreatePersonnelActionInput) {
+  static async list(input: { page: number; pageSize: number }) {
+    const [actions, total] = await prisma.$transaction([
+      prisma.personnelAction.findMany({
+        orderBy: { createdAt: 'desc' },
+        include: { employee: { select: employeeSelect } },
+        skip: (input.page - 1) * input.pageSize,
+        take: input.pageSize,
+      }),
+      prisma.personnelAction.count(),
+    ])
+    const timeline = [...actions].sort((left, right) => {
+      const dateDifference = right.createdAt.getTime() - left.createdAt.getTime()
+      if (dateDifference) return dateDifference
+      const priorityDifference = (personnelActionPriority[left.type] ?? 99) - (personnelActionPriority[right.type] ?? 99)
+      return priorityDifference || left.employee.fullName.localeCompare(right.employee.fullName, 'ru')
+    })
+    return { actions: timeline, total }
+  }
+
+  static async delete(id: string, actorId: string, requestId?: string) {
+    return prisma.$transaction(async (tx) => {
+      const action = await tx.personnelAction.findUnique({ where: { id } })
+      if (!action) throw hrError('INVALID_ACTION_DATE')
+      await tx.personnelAction.delete({ where: { id } })
+      await tx.auditLog.create({
+        data: {
+          userId: actorId, requestId, action: 'PERSONNEL_ACTION_DELETE', entityType: 'PersonnelAction',
+          entityId: id, details: { employeeId: action.employeeId, type: action.type },
+        },
+      })
+      return { success: true }
+    })
+  }
+
+  static syncExpiredContracts() {
+    return ensureExpiredContractArchiveActions(prisma)
+  }
+
+  static async createAction(data: CreatePersonnelActionInput, actorId?: string, requestId?: string) {
     const actionDate = ensureValidActionDate(data.date)
 
     return prisma.$transaction(async (tx) => {
@@ -60,7 +103,7 @@ export class PersonnelActionService {
           },
         })
 
-        return tx.personnelAction.create({
+        const action = await tx.personnelAction.create({
           data: {
             type: 'HIRE',
             date: contractSignedDate,
@@ -79,6 +122,13 @@ export class PersonnelActionService {
             },
           },
         })
+        if (actorId) await tx.auditLog.create({
+          data: {
+            userId: actorId, requestId, action: 'PERSONNEL_ACTION_CREATE', entityType: 'PersonnelAction',
+            entityId: action.id, details: { employeeId: employee.id, type: action.type },
+          },
+        })
+        return action
       }
 
       if (!data.employeeId) {
@@ -194,6 +244,13 @@ export class PersonnelActionService {
           staffScheduleId: nextStaffScheduleId,
           contractEndDate: nextContractEndDate,
           employmentRate: nextEmploymentRate,
+        },
+      })
+
+      if (actorId) await tx.auditLog.create({
+        data: {
+          userId: actorId, requestId, action: 'PERSONNEL_ACTION_CREATE', entityType: 'PersonnelAction',
+          entityId: action.id, details: { employeeId: employee.id, type: action.type },
         },
       })
 

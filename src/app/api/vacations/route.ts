@@ -1,95 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { createVacationSchema, validateRequest } from '@/lib/validations'
+import type { NextRequest } from 'next/server'
+import { z } from 'zod'
+import { WorkforceService, WorkforceServiceError } from '@/features/employees/workforce.service'
+import { createVacationSchema } from '@/lib/validations'
+import { authorizeApiRequest } from '@/lib/auth/authorization'
+import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
+
+const yearSchema = z.coerce.number().int().min(2000).max(2200)
 
 export async function GET(request: NextRequest) {
-  try {
-    const yearParam = request.nextUrl.searchParams.get('year')
-    const parsedYear = yearParam ? Number.parseInt(yearParam, 10) : new Date().getFullYear()
-    const targetYear = Number.isFinite(parsedYear) ? parsedYear : new Date().getFullYear()
-    const startOfYear = new Date(targetYear, 0, 1)
-    const endOfYear = new Date(targetYear, 11, 31, 23, 59, 59, 999)
-
-    const vacations = await prisma.vacation.findMany({
-      where: {
-        startDate: {
-          lte: endOfYear,
-        },
-        endDate: {
-          gte: startOfYear,
-        },
-      },
-      orderBy: {
-        startDate: 'asc',
-      },
-      include: {
-        employee: {
-          select: {
-            id: true,
-            fullName: true,
-            department: true,
-          },
-        },
-      },
-    })
-
-    return NextResponse.json(vacations)
-  } catch (error) {
-    console.error('Error fetching vacations:', error)
-    return NextResponse.json(
-      { error: 'Ошибка при загрузке отпусков' },
-      { status: 500 }
-    )
-  }
+  const auth = await authorizeApiRequest(request)
+  if (auth.response) return auth.response
+  const year = yearSchema.safeParse(request.nextUrl.searchParams.get('year') || new Date().getFullYear())
+  if (!year.success) return apiValidationError(year.error)
+  return apiData(await WorkforceService.listVacations(year.data))
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  if (auth.response) return auth.response
+  const input = createVacationSchema.safeParse(await request.json())
+  if (!input.success) return apiValidationError(input.error)
   try {
-    const body = await request.json()
-    const validation = validateRequest(createVacationSchema, body)
-
-    if (!validation.success) {
-      return NextResponse.json(
-        { error: validation.error },
-        { status: 400 }
-      )
-    }
-
-    const data = validation.data
-    const startDate = new Date(data.startDate)
-    const endDate = new Date(data.endDate)
-
-    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime()) || startDate > endDate) {
-      return NextResponse.json(
-        { error: 'Некорректные даты отпуска' },
-        { status: 400 }
-      )
-    }
-
-    const vacation = await prisma.vacation.create({
-      data: {
-        employeeId: data.employeeId,
-        startDate,
-        endDate,
-        type: data.type || 'VACATION',
-      },
-      include: {
-        employee: {
-          select: {
-            id: true,
-            fullName: true,
-            department: true,
-          },
-        },
-      },
-    })
-
-    return NextResponse.json(vacation)
+    return apiData(await WorkforceService.saveVacation(undefined, input.data, auth.user.id, auth.requestId), { status: 201 })
   } catch (error) {
-    console.error('Error creating vacation:', error)
-    return NextResponse.json(
-      { error: 'Ошибка при добавлении отпуска' },
-      { status: 500 }
-    )
+    if (error instanceof WorkforceServiceError) return apiError(error.code, 'Некорректные даты отпуска', 422)
+    throw error
   }
 }

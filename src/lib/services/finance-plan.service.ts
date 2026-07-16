@@ -233,6 +233,56 @@ export const getFinancePlanErrorMeta = (error: unknown) => {
 }
 
 export class FinancePlanService {
+  static async getSalaryTable(year: number) {
+    const employees = await prisma.employee.findMany({
+      where: { status: { not: 'DISMISSED' } },
+      orderBy: [{ department: 'asc' }, { fullName: 'asc' }],
+      include: {
+        staffSchedule: { select: { id: true, position: true, department: true, rate: true, salary: true } },
+      },
+    })
+    const employeeIds = employees.map((employee) => employee.id)
+    const entries = employeeIds.length ? await prisma.financePlanEntry.findMany({
+      where: {
+        year, projectId: { not: null }, type: { in: [FinancePlanType.OKLAD, FinancePlanType.NADBAVKA] },
+        employeeId: { in: employeeIds },
+      },
+      include: { project: { select: { id: true, code: true, name: true } } },
+    }) : []
+    const grouped = new Map<string, Array<{ amount: number; projectCode: string; typeLabel: string }>>()
+    for (const entry of entries) {
+      const key = `${entry.employeeId}:${entry.month}`
+      const values = grouped.get(key) || []
+      values.push({
+        amount: Number(entry.amount),
+        projectCode: entry.project?.code || '',
+        typeLabel: entry.type === FinancePlanType.OKLAD ? 'Оклад' : 'Надбавка',
+      })
+      grouped.set(key, values)
+    }
+    const rows = employees.map((employee) => ({
+      employeeId: employee.id,
+      fullName: employee.fullName,
+      department: employee.staffSchedule?.department || employee.department || '—',
+      position: employee.staffSchedule?.position || '—',
+      rate: Number(employee.employmentRate ?? 0).toFixed(2),
+      salary: employee.staffSchedule
+        ? (Number(employee.staffSchedule.salary) * Number(employee.employmentRate ?? 0)).toFixed(2)
+        : '0.00',
+      months: Object.fromEntries(Array.from({ length: 12 }, (_, index) => {
+        const month = index + 1
+        const values = grouped.get(`${employee.id}:${month}`) || []
+        const projectCodes = Array.from(new Set(values.map((value) => value.projectCode).filter(Boolean)))
+        return [String(month), {
+          amount: values.reduce((sum, value) => sum + value.amount, 0).toFixed(2),
+          projectId: null, projectCode: '', projectName: '', projectLabel: projectCodes.join(', '),
+          details: values.map((value) => ({ ...value, amount: value.amount.toFixed(2) })),
+        }]
+      })),
+    }))
+    return { year, rows, projects: [] }
+  }
+
   static async getTable(type: FinancePlanType, year: number) {
     const employees = await prisma.employee.findMany({
       where: {

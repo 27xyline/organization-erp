@@ -8,15 +8,17 @@ import {
   ProjectPayrollService,
 } from '@/lib/services/project-payroll.service'
 import { validateRequest } from '@/lib/validations'
+import { authorizeApiRequest } from '@/lib/auth/authorization'
 
 export const dynamic = 'force-dynamic'
 
 const getCurrentYear = () => new Date().getFullYear()
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const auth = await authorizeApiRequest(request)
+  if (auth.response) return auth.response
+
+  const params = await props.params;
   try {
     const yearParam = request.nextUrl.searchParams.get('year')
     const year = yearParam ? Number.parseInt(yearParam, 10) : getCurrentYear()
@@ -49,10 +51,11 @@ export async function GET(
   }
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  if (auth.response) return auth.response
+
+  const params = await props.params;
   try {
     const data = await request.json()
     const validation = validateRequest(projectPayrollSaveSchema, data)
@@ -89,10 +92,11 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  if (auth.response) return auth.response
+
+  const params = await props.params;
   try {
     const data = await request.json()
     const validation = validateRequest(projectPayrollDeleteSchema, data)

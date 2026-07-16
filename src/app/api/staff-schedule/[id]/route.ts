@@ -1,121 +1,35 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getStaffScheduleRateSummary } from '@/lib/employees'
+import type { NextRequest } from 'next/server'
+import { WorkforceService, WorkforceServiceError } from '@/features/employees/workforce.service'
+import { createStaffScheduleSchema } from '@/lib/validations'
+import { authorizeApiRequest } from '@/lib/auth/authorization'
+import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
 
-// PUT /api/staff-schedule/[id] - Update position
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+const mapError = (error: WorkforceServiceError) => error.code === 'NOT_FOUND'
+  ? apiError(error.code, 'Должность не найдена', 404)
+  : apiError(error.code, error.code === 'POSITION_IN_USE'
+    ? 'Нельзя удалить должность с назначенными сотрудниками'
+    : 'Нельзя уменьшить количество ставок ниже занятого значения', 409)
+
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  if (auth.response) return auth.response
+  const input = createStaffScheduleSchema.safeParse(await request.json())
+  if (!input.success) return apiValidationError(input.error)
   try {
-    const data = await request.json()
-    const rate = Number(data.rate)
-    const salary = Number(data.salary)
-
-    if (!data.position || !data.department) {
-      return NextResponse.json(
-        { error: 'Заполните должность и подразделение' },
-        { status: 400 }
-      )
-    }
-
-    if (!Number.isFinite(rate) || rate <= 0) {
-      return NextResponse.json(
-        { error: 'Количество ставок должно быть больше нуля' },
-        { status: 400 }
-      )
-    }
-
-    if (!Number.isFinite(salary) || salary < 0) {
-      return NextResponse.json(
-        { error: 'Оклад за одну ставку не может быть отрицательным' },
-        { status: 400 }
-      )
-    }
-
-    const rateSummary = await getStaffScheduleRateSummary(prisma, params.id)
-
-    if (!rateSummary) {
-      return NextResponse.json(
-        { error: 'Должность не найдена' },
-        { status: 404 }
-      )
-    }
-
-    if (rate < rateSummary.occupiedRate) {
-      return NextResponse.json(
-        { error: 'Нельзя уменьшить количество ставок ниже уже занятого значения' },
-        { status: 400 }
-      )
-    }
-    
-    const position = await prisma.staffSchedule.update({
-      where: { id: params.id },
-      data: {
-        position: data.position.trim(),
-        department: data.department,
-        rate,
-        salary,
-      },
-    })
-    
-    return NextResponse.json(position)
+    return apiData(await WorkforceService.updatePosition((await params).id, input.data, auth.user.id, auth.requestId))
   } catch (error) {
-    console.error('Error updating staff position:', error)
-    return NextResponse.json(
-      { error: 'Failed to update staff position' },
-      { status: 500 }
-    )
+    if (error instanceof WorkforceServiceError) return mapError(error)
+    throw error
   }
 }
 
-// DELETE /api/staff-schedule/[id] - Delete position
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  if (auth.response) return auth.response
   try {
-    // Check if position has employees
-    const position = await prisma.staffSchedule.findUnique({
-      where: { id: params.id },
-      include: {
-        employees: {
-          where: {
-            status: {
-              not: 'DISMISSED',
-            },
-          },
-        },
-      },
-    })
-    
-    if (position && position.employees.length > 0) {
-      return NextResponse.json(
-        { error: 'Нельзя удалить должность, пока по ней есть назначенные сотрудники' },
-        { status: 400 }
-      )
-    }
-
-    await prisma.employee.updateMany({
-      where: {
-        staffScheduleId: params.id,
-        status: 'DISMISSED',
-      },
-      data: {
-        staffScheduleId: null,
-      },
-    })
-    
-    await prisma.staffSchedule.delete({
-      where: { id: params.id },
-    })
-    
-    return NextResponse.json({ success: true })
+    return apiData(await WorkforceService.deletePosition((await params).id, auth.user.id, auth.requestId))
   } catch (error) {
-    console.error('Error deleting staff position:', error)
-    return NextResponse.json(
-      { error: 'Failed to delete staff position' },
-      { status: 500 }
-    )
+    if (error instanceof WorkforceServiceError) return mapError(error)
+    throw error
   }
 }

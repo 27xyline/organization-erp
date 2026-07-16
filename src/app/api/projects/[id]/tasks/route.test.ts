@@ -2,6 +2,12 @@ import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { prisma } from '@/lib/prisma'
 
+vi.mock('@/lib/auth/authorization', () => ({
+  authorizeApiRequest: vi.fn(async () => ({
+    user: { id: 'admin-1', username: 'admin', name: 'Admin', role: 'ADMIN' },
+  })),
+}))
+
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     projectMember: {
@@ -41,11 +47,11 @@ describe('projects/[id]/tasks route', () => {
           level: 1,
         }),
       }) as never,
-      { params: { id: 'project-1' } }
+      { params: Promise.resolve({ id: 'project-1' }) }
     )
     const body = await response.json()
 
-    expect(response.status).toBe(200)
+    expect(response.status).toBe(201)
     expect(prisma.task.findUnique).not.toHaveBeenCalled()
     expect(prisma.task.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -57,7 +63,7 @@ describe('projects/[id]/tasks route', () => {
         }),
       })
     )
-    expect(body).toEqual(
+    expect(body.data).toEqual(
       expect.objectContaining({
         id: 'task-1',
         name: 'Корневая задача',
@@ -92,11 +98,11 @@ describe('projects/[id]/tasks route', () => {
           parentId: 'task-1',
         }),
       }) as never,
-      { params: { id: 'project-1' } }
+      { params: Promise.resolve({ id: 'project-1' }) }
     )
     const body = await response.json()
 
-    expect(response.status).toBe(200)
+    expect(response.status).toBe(201)
     expect(prisma.task.findUnique).toHaveBeenCalledWith({
       where: { id: 'task-1' },
       select: {
@@ -113,7 +119,7 @@ describe('projects/[id]/tasks route', () => {
         }),
       })
     )
-    expect(body).toEqual(
+    expect(body.data).toEqual(
       expect.objectContaining({
         id: 'task-2',
         parentId: 'task-1',
@@ -134,12 +140,12 @@ describe('projects/[id]/tasks route', () => {
           level: 2,
         }),
       }) as never,
-      { params: { id: 'project-1' } }
+      { params: Promise.resolve({ id: 'project-1' }) }
     )
     const body = await response.json()
 
-    expect(response.status).toBe(400)
-    expect(body).toEqual({ error: 'Корневая задача должна иметь уровень 1' })
+    expect(response.status).toBe(422)
+    expect(body).toMatchObject({ error: { message: 'Корневая задача должна иметь уровень 1' } })
     expect(prisma.projectMember.findMany).not.toHaveBeenCalled()
     expect(prisma.task.create).not.toHaveBeenCalled()
   })
@@ -159,12 +165,12 @@ describe('projects/[id]/tasks route', () => {
           parentId: 'missing-task',
         }),
       }) as never,
-      { params: { id: 'project-1' } }
+      { params: Promise.resolve({ id: 'project-1' }) }
     )
     const body = await response.json()
 
-    expect(response.status).toBe(400)
-    expect(body).toEqual({ error: 'Родительская задача не найдена' })
+    expect(response.status).toBe(422)
+    expect(body).toMatchObject({ error: { message: 'Родительская задача не найдена' } })
     expect(prisma.projectMember.findMany).not.toHaveBeenCalled()
     expect(prisma.task.create).not.toHaveBeenCalled()
   })
@@ -187,12 +193,12 @@ describe('projects/[id]/tasks route', () => {
           parentId: 'task-level-3',
         }),
       }) as never,
-      { params: { id: 'project-1' } }
+      { params: Promise.resolve({ id: 'project-1' }) }
     )
     const body = await response.json()
 
-    expect(response.status).toBe(400)
-    expect(body).toEqual({ error: 'Нельзя создать подзадачу глубже третьего уровня' })
+    expect(response.status).toBe(422)
+    expect(body).toMatchObject({ error: { message: 'Нельзя создать подзадачу глубже третьего уровня' } })
     expect(prisma.task.findUnique).toHaveBeenCalledWith({
       where: { id: 'task-level-3' },
       select: {
@@ -222,12 +228,12 @@ describe('projects/[id]/tasks route', () => {
           parentId: 'task-from-another-project',
         }),
       }) as never,
-      { params: { id: 'project-1' } }
+      { params: Promise.resolve({ id: 'project-1' }) }
     )
     const body = await response.json()
 
-    expect(response.status).toBe(400)
-    expect(body).toEqual({ error: 'Родительская задача должна принадлежать этому проекту' })
+    expect(response.status).toBe(422)
+    expect(body).toMatchObject({ error: { message: 'Родительская задача должна принадлежать этому проекту' } })
     expect(prisma.projectMember.findMany).not.toHaveBeenCalled()
     expect(prisma.task.create).not.toHaveBeenCalled()
   })
@@ -250,12 +256,12 @@ describe('projects/[id]/tasks route', () => {
           parentId: 'task-1',
         }),
       }) as never,
-      { params: { id: 'project-1' } }
+      { params: Promise.resolve({ id: 'project-1' }) }
     )
     const body = await response.json()
 
-    expect(response.status).toBe(400)
-    expect(body).toEqual({ error: 'Уровень подзадачи должен быть на один больше уровня родительской задачи' })
+    expect(response.status).toBe(422)
+    expect(body).toMatchObject({ error: { message: 'Уровень подзадачи должен быть на один больше уровня родительской задачи' } })
     expect(prisma.projectMember.findMany).not.toHaveBeenCalled()
     expect(prisma.task.create).not.toHaveBeenCalled()
   })
@@ -274,12 +280,12 @@ describe('projects/[id]/tasks route', () => {
           employeeIds: ['emp-1'],
         }),
       }) as never,
-      { params: { id: 'project-1' } }
+      { params: Promise.resolve({ id: 'project-1' }) }
     )
     const body = await response.json()
 
-    expect(response.status).toBe(400)
-    expect(body).toEqual({ error: 'Можно назначать только активных участников проекта' })
+    expect(response.status).toBe(422)
+    expect(body).toMatchObject({ error: { message: 'Можно назначать только активных участников проекта' } })
   })
 
   it('returns normalized assignees on GET', async () => {
@@ -304,12 +310,12 @@ describe('projects/[id]/tasks route', () => {
 
     const response = await GET(
       new NextRequest('http://localhost/api/projects/project-1/tasks'),
-      { params: { id: 'project-1' } }
+      { params: Promise.resolve({ id: 'project-1' }) }
     )
     const body = await response.json()
 
     expect(response.status).toBe(200)
-    expect(body[0].assignees).toEqual([
+    expect(body.data[0].assignees).toEqual([
       {
         employeeId: 'emp-1',
         fullName: 'Иван Иванов',
