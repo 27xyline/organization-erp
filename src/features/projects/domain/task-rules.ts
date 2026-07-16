@@ -3,8 +3,8 @@ import { ServiceError } from '@/lib/errors/service-error'
 type TaskErrorCode = 'TASK_NOT_FOUND' | 'INVALID_HIERARCHY' | 'INVALID_ASSIGNEES'
 
 export class TaskServiceError extends ServiceError<TaskErrorCode> {
-  constructor(code: TaskErrorCode, public readonly message: string) {
-    super(code)
+  constructor(code: TaskErrorCode, message: string) {
+    super(code, message)
   }
 }
 
