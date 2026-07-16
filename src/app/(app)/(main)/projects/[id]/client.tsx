@@ -18,7 +18,7 @@ export function ProjectDetailClient({ projectId, initialTasks, view }: ProjectDe
       const response = await fetch(`/api/projects/${projectId}/tasks`)
       if (response.ok) {
         const data = await response.json()
-        setTasks(data)
+        setTasks(data.data || [])
       }
     } catch (error) {
       console.error('Error fetching tasks:', error)

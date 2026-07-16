@@ -10,9 +10,9 @@ import { EmployeeDialog } from '@/components/employees/employee-dialog'
 import { StaffDialog } from '@/components/employees/staff-dialog'
 import { VacationDialog } from '@/components/employees/vacation-dialog'
 import { ActionDialog } from '@/components/employees/action-dialog'
-import { useEmployeesPage } from '@/app/employees/use-employees-page'
+import { useEmployeesPage, type EmployeesInitialData } from './use-employees-page'
 
-export default function EmployeesPage() {
+export function EmployeesClient({ initialData, canEdit }: { initialData: EmployeesInitialData; canEdit: boolean }) {
   const {
     loading,
     vacationsLoading,
@@ -66,7 +66,7 @@ export default function EmployeesPage() {
     handleActionTypeChange,
     handleActionEmployeeChange,
     handleActionPositionChange,
-  } = useEmployeesPage()
+  } = useEmployeesPage(initialData)
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -75,7 +75,7 @@ export default function EmployeesPage() {
           <h1 className="text-2xl font-bold">Сотрудники</h1>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        {canEdit && <div className="flex flex-wrap gap-2">
           <Button onClick={() => openEmployeeDialog()}>
             <Plus className="mr-2 h-4 w-4" />
             Сотрудник
@@ -92,7 +92,7 @@ export default function EmployeesPage() {
             <Plus className="mr-2 h-4 w-4" />
             Действие
           </Button>
-        </div>
+        </div>}
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:min-h-[980px] xl:grid-cols-4 xl:items-stretch">
@@ -118,6 +118,7 @@ export default function EmployeesPage() {
         staffSchedule={staffSchedule}
         onEditStaff={openStaffDialog}
         onDeleteStaff={handleDeleteStaff}
+        canEdit={canEdit}
       />
 
       <EmployeesTable
@@ -127,6 +128,7 @@ export default function EmployeesPage() {
         onEditEmployee={openEmployeeDialog}
         onDismissEmployee={(employee) => openActionDialog(employee, 'DISMISS')}
         getLiveStatus={getLiveEmployeeStatus}
+        canEdit={canEdit}
       />
 
       <EmployeeDialog

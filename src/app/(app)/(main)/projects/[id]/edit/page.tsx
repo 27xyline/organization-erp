@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/ui/toast'
 import Link from 'next/link'
@@ -17,7 +17,7 @@ import { ProjectStatus, ProjectStatusLabels } from '@/types'
 import { formatCurrency } from '@/lib/utils'
 
 interface EditProjectPageProps {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
 interface ProjectSummary {
@@ -60,7 +60,8 @@ const getPlanningPeriods = (startDate: string, endDate: string) => {
   return result
 }
 
-export default function EditProjectPage({ params }: EditProjectPageProps) {
+export default function EditProjectPage(props: EditProjectPageProps) {
+  const params = use(props.params);
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
@@ -88,7 +89,8 @@ export default function EditProjectPage({ params }: EditProjectPageProps) {
       try {
         const response = await fetch(`/api/projects/${params.id}`)
         if (response.ok) {
-          const project = await response.json()
+          const payload = await response.json()
+          const project = payload.data
           setFormData({
             code: project.code,
             name: project.name,

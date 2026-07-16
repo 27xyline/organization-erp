@@ -1,4 +1,3 @@
-import { prisma } from '@/lib/prisma'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -6,18 +5,17 @@ import Link from 'next/link'
 import { Plus, FolderKanban, Calendar, Wallet } from 'lucide-react'
 import { ProjectStatusLabels } from '@/types'
 import { formatDate, formatCurrency } from '@/lib/utils'
+import { ProjectService } from '@/features/projects/project.service'
+import { requirePageUser } from '@/lib/auth/authorization'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ProjectsPage() {
-  const projects = await prisma.project.findMany({
-    orderBy: { createdAt: 'desc' },
-    include: {
-      _count: {
-        select: { assets: true, tasksList: true }
-      }
-    }
-  })
+  const [user, result] = await Promise.all([
+    requirePageUser(),
+    ProjectService.list({ page: 1, pageSize: 100 }),
+  ])
+  const projects = result.projects
 
   return (
     <main className="container mx-auto py-8 px-4">
@@ -28,12 +26,12 @@ export default async function ProjectsPage() {
             Управление проектами и задачами
           </p>
         </div>
-        <Button asChild className="shrink-0">
+        {user.role !== 'VIEWER' && <Button asChild className="shrink-0">
           <Link href="/projects/new">
             <Plus className="mr-2 h-4 w-4" />
             Новый проект
           </Link>
-        </Button>
+        </Button>}
       </div>
 
       {projects.length === 0 ? (

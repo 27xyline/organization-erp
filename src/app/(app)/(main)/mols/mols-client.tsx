@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -22,11 +22,12 @@ import {
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Plus, Edit, Trash2, Upload, User, Search, X } from "lucide-react"
+import type { Mol } from '@/types'
 
-export default function MolsPage() {
-  const [mols, setMols] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [editingMol, setEditingMol] = useState<any>(null)
+export function MolsClient({ initialMols, canEdit }: { initialMols: Mol[]; canEdit: boolean }) {
+  const [mols, setMols] = useState<Mol[]>(initialMols)
+  const [loading, setLoading] = useState(false)
+  const [editingMol, setEditingMol] = useState<Mol | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [formData, setFormData] = useState({
@@ -38,15 +39,11 @@ export default function MolsPage() {
   })
   const [previewImage, setPreviewImage] = useState<string | null>(null)
 
-  useEffect(() => {
-    loadMols()
-  }, [])
-
   const loadMols = async () => {
     try {
       const res = await fetch('/api/mols')
       const data = await res.json()
-      setMols(data)
+      setMols(data.data || [])
       setLoading(false)
     } catch (error) {
       console.error('Error loading MOLs:', error)
@@ -92,7 +89,7 @@ export default function MolsPage() {
     }
   }
 
-  const handleEdit = (mol: any) => {
+  const handleEdit = (mol: Mol) => {
     setEditingMol(mol)
     setFormData({
       code: mol.code,
@@ -125,7 +122,7 @@ export default function MolsPage() {
     setIsDialogOpen(true)
   }
 
-  const filteredMols = mols.filter((mol: any) => {
+  const filteredMols = mols.filter((mol) => {
     if (!searchTerm) return true
     const searchLower = searchTerm.toLowerCase()
     return (
@@ -144,10 +141,10 @@ export default function MolsPage() {
             Управление ответственными лицами и их подразделениями
           </p>
         </div>
-        <Button onClick={handleAddNew}>
+        {canEdit && <Button onClick={handleAddNew}>
           <Plus className="mr-2 h-4 w-4" />
           Добавить МОЛ
-        </Button>
+        </Button>}
       </div>
 
       {/* Поиск */}
@@ -203,11 +200,11 @@ export default function MolsPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredMols.map((mol: any) => (
+                filteredMols.map((mol) => (
                   <TableRow key={mol.id}>
                     <TableCell>
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src={mol.photo} alt={mol.fullName} />
+                        <AvatarImage src={mol.photo || undefined} alt={mol.fullName} />
                         <AvatarFallback>
                           <User className="h-5 w-5" />
                         </AvatarFallback>
@@ -218,7 +215,7 @@ export default function MolsPage() {
                     <TableCell>{mol.department}</TableCell>
                     <TableCell className="text-muted-foreground">{mol.storageLocation}</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                      {canEdit && <div className="flex justify-end gap-2">
                         <Button 
                           variant="ghost" 
                           size="icon"
@@ -233,7 +230,7 @@ export default function MolsPage() {
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
-                      </div>
+                      </div>}
                     </TableCell>
                   </TableRow>
                 ))

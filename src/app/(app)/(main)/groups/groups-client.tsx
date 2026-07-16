@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -10,7 +10,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import {
   Table,
@@ -20,13 +19,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Plus, Edit, Trash2 } from "lucide-react"
+import type { AssetGroup } from '@/types'
 
-export default function GroupsPage() {
-  const [groups, setGroups] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [editingGroup, setEditingGroup] = useState<any>(null)
+export function GroupsClient({ initialGroups, canEdit }: { initialGroups: AssetGroup[]; canEdit: boolean }) {
+  const [groups, setGroups] = useState<AssetGroup[]>(initialGroups)
+  const [loading, setLoading] = useState(false)
+  const [editingGroup, setEditingGroup] = useState<AssetGroup | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [formData, setFormData] = useState({
     name: '',
@@ -34,15 +34,11 @@ export default function GroupsPage() {
     description: '',
   })
 
-  useEffect(() => {
-    loadGroups()
-  }, [])
-
   const loadGroups = async () => {
     try {
       const res = await fetch('/api/groups')
       const data = await res.json()
-      setGroups(data)
+      setGroups(data.data || [])
       setLoading(false)
     } catch (error) {
       console.error('Error loading groups:', error)
@@ -74,7 +70,7 @@ export default function GroupsPage() {
     }
   }
 
-  const handleEdit = (group: any) => {
+  const handleEdit = (group: AssetGroup) => {
     setEditingGroup(group)
     setFormData({
       name: group.name,
@@ -112,10 +108,10 @@ export default function GroupsPage() {
             Управление категориями и классификацией имущества
           </p>
         </div>
-        <Button onClick={handleAddNew}>
+        {canEdit && <Button onClick={handleAddNew}>
           <Plus className="mr-2 h-4 w-4" />
           Добавить группу
-        </Button>
+        </Button>}
       </div>
 
       <Card>
@@ -147,7 +143,7 @@ export default function GroupsPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                groups.map((group: any) => (
+                groups.map((group) => (
                   <TableRow key={group.id}>
                     <TableCell className="font-mono">{group.code}</TableCell>
                     <TableCell className="font-medium">{group.name}</TableCell>
@@ -155,7 +151,7 @@ export default function GroupsPage() {
                       {group.description || '-'}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                      {canEdit && <div className="flex justify-end gap-2">
                         <Button 
                           variant="ghost" 
                           size="icon"
@@ -170,7 +166,7 @@ export default function GroupsPage() {
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
-                      </div>
+                      </div>}
                     </TableCell>
                   </TableRow>
                 ))

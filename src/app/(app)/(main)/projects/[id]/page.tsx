@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { FinancePlanType } from '@prisma/client'
-import { prisma } from '@/lib/prisma'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -26,67 +25,18 @@ import {
 } from '@/components/ui/table'
 import { ProjectStatusLabels } from '@/types'
 import { formatDate, formatCurrency, formatDateTime } from '@/lib/utils'
-import { ProjectGantt } from './gantt-client'
+import { LazyProjectGantt } from './lazy-gantt'
 import { ProjectPayrollSection } from '@/components/projects/project-payroll-section'
+import { ProjectService } from '@/features/projects/project.service'
+import { requirePageUser } from '@/lib/auth/authorization'
 
 interface ProjectPageProps {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
-export default async function ProjectPage({ params }: ProjectPageProps) {
-  const project = await prisma.project.findUnique({
-    where: { id: params.id },
-    include: {
-      tasksList: {
-        orderBy: { createdAt: 'asc' },
-        include: {
-          assignees: {
-            include: {
-              employee: {
-                select: {
-                  id: true,
-                  fullName: true,
-                },
-              },
-            },
-          },
-        },
-      },
-      assets: {
-        include: {
-          mol: true,
-          group: true,
-          operations: {
-            where: {
-              type: {
-                in: ['RECEIPT', 'DISPOSAL'],
-              },
-            },
-            orderBy: {
-              date: 'desc',
-            },
-          },
-        },
-      },
-      financePlanEntries: {
-        include: {
-          employee: {
-            select: {
-              id: true,
-              fullName: true,
-              department: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      },
-      _count: {
-        select: { assets: true, tasksList: true, financePlanEntries: true }
-      }
-    }
-  })
+export default async function ProjectPage(props: ProjectPageProps) {
+  const [user, params] = await Promise.all([requirePageUser(), props.params])
+  const project = await ProjectService.getDetail(params.id)
 
   if (!project) {
     notFound()
@@ -208,19 +158,19 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
           </div>
           <p className="text-muted-foreground">{project.code}</p>
         </div>
-        <Link href={`/projects/${project.id}/edit`}>
+        {user.role !== 'VIEWER' && <Link href={`/projects/${project.id}/edit`}>
           <Button variant="outline">
             <Edit className="mr-2 h-4 w-4" />
             Редактировать
           </Button>
-        </Link>
+        </Link>}
       </div>
 
       {/* Main layout: Gantt left, Info right */}
       <div className="grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-4">
         {/* Left side - Gantt Chart with task table */}
         <div className="min-h-[700px] min-w-0 overflow-hidden xl:col-span-3">
-          <ProjectGantt 
+          <LazyProjectGantt
             projectId={project.id}
             tasks={project.tasksList.map((task) => ({
               ...task,
