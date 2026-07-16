@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import { changePasswordSchema } from '@/features/users/schemas'
+import { changePasswordSchema } from '@/features/users/contracts/schemas'
 import { UserService, UserServiceError } from '@/features/users/user.service'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'

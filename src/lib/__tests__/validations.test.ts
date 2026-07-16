@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createAssetSchema, createMolSchema, createGroupSchema } from '../validations'
+import { createAssetSchema, createMolSchema, createGroupSchema } from '@/features/assets/contracts/schemas'
 
 describe('Zod Validations', () => {
   describe('createMolSchema', () => {

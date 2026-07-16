@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { WorkforceService, WorkforceServiceError } from '@/features/employees/workforce.service'
-import { createVacationSchema } from '@/lib/validations'
+import { createVacationSchema } from '@/features/employees/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
 

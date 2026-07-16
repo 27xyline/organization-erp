@@ -5,8 +5,8 @@ import {
   hrError,
   resolveAssignablePosition,
 } from '@/lib/services/hr-domain'
-import { UpdateEmployeeInput } from '@/lib/schemas/employee'
-import type { CreateEmployeeInput } from '@/lib/validations'
+import { UpdateEmployeeInput } from '@/features/employees/contracts/employee'
+import type { CreateEmployeeInput } from '@/features/employees/contracts/schemas'
 import { getStartOfToday } from '@/lib/employees'
 import { parseOptionalDate, parseRequiredDate } from '@/lib/services/hr-domain'
 

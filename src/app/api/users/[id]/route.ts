@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
-import { updateUserSchema } from '@/features/users/schemas'
+import { updateUserSchema } from '@/features/users/contracts/schemas'
 import { UserService, UserServiceError } from '@/features/users/user.service'
 
 const userErrorMessages: Record<string, [string, number]> = {

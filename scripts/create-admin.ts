@@ -2,7 +2,7 @@ import { hash } from '@node-rs/argon2'
 import { createInterface } from 'node:readline/promises'
 import { stdin, stdout } from 'node:process'
 import { getDb } from '../src/lib/prisma'
-import { createUserSchema } from '../src/features/users/schemas'
+import { createUserSchema } from '../src/features/users/contracts/schemas'
 
 async function readHidden(prompt: string): Promise<string> {
   if (!stdin.isTTY || !stdin.setRawMode) {

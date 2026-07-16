@@ -1,6 +1,6 @@
 import type { Asset } from '@/types'
 import { AssetService } from '@/features/assets/asset.service'
-import { assetsQuerySchema } from '@/features/assets/schemas'
+import { assetsQuerySchema } from '@/features/assets/contracts/schemas'
 import { requirePageUser } from '@/lib/auth/authorization'
 import { AssetsPageClient } from './assets-page-client'
 

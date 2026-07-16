@@ -9,7 +9,7 @@ import {
 import {
   ProjectPayrollDeleteInput,
   ProjectPayrollSaveInput,
-} from '@/lib/schemas/project-payroll'
+} from '@/features/finance/contracts/project-payroll'
 
 type ProjectPayrollEntry = {
   type: FinancePlanType

@@ -10,7 +10,7 @@ import {
   parseRequiredDate,
   resolveAssignablePosition,
 } from '@/lib/services/hr-domain'
-import { CreatePersonnelActionInput } from '@/lib/validations'
+import { CreatePersonnelActionInput } from '@/features/employees/contracts/schemas'
 import { ensureExpiredContractArchiveActions } from '@/lib/employees'
 
 const personnelActionPriority: Record<string, number> = {

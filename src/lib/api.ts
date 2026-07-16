@@ -11,7 +11,7 @@ import {
 import {
   type CreateEmployeeInput,
   type UpdateEmployeeInput
-} from '@/lib/schemas/employee'
+} from '@/features/employees/contracts/employee'
 
 /**
  * Standard paginated response interface

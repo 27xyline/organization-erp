@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client'
 import { getDb } from '@/lib/prisma'
 import { ServiceError } from '@/lib/services/service-error'
-import type { CreateGroupInput, CreateMolInput } from '@/lib/validations'
+import type { CreateGroupInput, CreateMolInput } from '@/features/assets/contracts/schemas'
 
 type CatalogErrorCode = 'NOT_FOUND' | 'CODE_EXISTS' | 'IN_USE'
 export class CatalogServiceError extends ServiceError<CatalogErrorCode> {}

@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { CatalogService, CatalogServiceError } from '@/features/assets/catalog.service'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
-import { createMolSchema } from '@/lib/validations'
+import { createMolSchema } from '@/features/assets/contracts/schemas'
 
 const catalogError = (error: CatalogServiceError) => error.code === 'NOT_FOUND'
   ? apiError(error.code, 'МОЛ не найден', 404)

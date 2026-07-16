@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client'
 import { getDb } from '@/lib/prisma'
 import { ServiceError } from '@/lib/services/service-error'
-import type { CreateProjectInput } from '@/lib/validations'
+import type { CreateProjectInput } from '@/features/projects/contracts/project'
 
 type ProjectErrorCode = 'PROJECT_NOT_FOUND' | 'PROJECT_CODE_EXISTS'
 export class ProjectServiceError extends ServiceError<ProjectErrorCode> {}

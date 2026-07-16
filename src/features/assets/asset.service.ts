@@ -1,8 +1,8 @@
 import { AssetStatus, OperationType, Prisma } from '@prisma/client'
-import type { CreateAssetInput } from '@/lib/validations'
+import type { CreateAssetInput } from '@/features/assets/contracts/schemas'
 import { getDb } from '@/lib/prisma'
 import { ServiceError } from '@/lib/services/service-error'
-import type { AssetsQuery, DisposeAssetInput, OperationsQuery, TransferAssetInput, UpdateAssetInput } from './schemas'
+import type { AssetsQuery, DisposeAssetInput, OperationsQuery, TransferAssetInput, UpdateAssetInput } from './contracts/schemas'
 
 type AssetServiceErrorCode =
   | 'ASSET_NOT_FOUND'

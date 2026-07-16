@@ -1,7 +1,7 @@
 import { FinancePlanType, Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { ServiceError } from '@/lib/services/service-error'
-import { FinancePlanDeleteInput, FinancePlanSaveInput } from '@/lib/schemas/finance-plan'
+import { FinancePlanDeleteInput, FinancePlanSaveInput } from '@/features/finance/contracts/finance-plan'
 
 export type FinancePlanRouteType = 'oklad' | 'nadbavka'
 

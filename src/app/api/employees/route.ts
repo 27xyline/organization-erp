@@ -5,7 +5,7 @@ import { EmployeeService } from '@/lib/services/employee.service'
 import { getEmployeeRouteErrorMeta } from '@/lib/services/hr-domain'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiList, apiValidationError } from '@/lib/http/api-response'
-import { createEmployeeSchema } from '@/lib/validations'
+import { createEmployeeSchema } from '@/features/employees/contracts/schemas'
 
 const querySchema = z.object({
   scope: z.enum(['active', 'archive', 'expired', 'all']).default('all'),

@@ -1,5 +1,45 @@
 import { z } from 'zod'
-import { createAssetSchema } from '@/lib/validations'
+
+export const createAssetSchema = z.object({
+  name: z.string().min(1, 'Наименование обязательно').max(500),
+  inventoryNumber: z.string().min(1, 'Инвентарный номер обязателен').max(100),
+  unitPrice: z.coerce.number().positive('Цена должна быть больше нуля'),
+  unitOfMeasure: z.string().min(1, 'Единица измерения обязательна').max(50),
+  quantity: z.coerce.number().positive('Количество должно быть больше нуля'),
+  molId: z.string().min(1, 'МОЛ обязателен'),
+  groupId: z.string().min(1, 'Группа обязательна'),
+  projectId: z.string().nullable().optional(),
+  contractCode: z.string().max(100).optional(),
+  internalFundingCode: z.string().max(100).optional(),
+  isExistingAsset: z.boolean().optional().default(false),
+  recordingDate: z.string().min(1, 'Дата поступления обязательна'),
+  documentType: z.string().min(1, 'Тип документа обязателен').max(200),
+  documentDetails: z.string().min(1, 'Данные документа обязательны').max(500),
+  documentFiles: z.array(z.string()).optional().default([]),
+  status: z.enum([
+    'IN_STOCK', 'IN_USE', 'UNDER_REPAIR',
+    'PLANNED_FOR_DISPOSAL', 'PARTIALLY_DISPOSED', 'FULLY_DISPOSED',
+  ]).optional().default('IN_STOCK'),
+  notes: z.string().max(2000).optional().nullable(),
+  plannedDisposalDate: z.string().optional().nullable(),
+  plannedDisposalReason: z.string().max(500).optional().nullable(),
+  photos: z.array(z.string()).optional().default([]),
+  accountingForm: z.enum(['145', '367']).optional().default('145'),
+})
+
+export const createMolSchema = z.object({
+  code: z.string().min(1, 'Код МОЛ обязателен').max(50),
+  department: z.string().min(1, 'Подразделение обязательно').max(200),
+  fullName: z.string().min(1, 'ФИО обязательно').max(200),
+  storageLocation: z.string().min(1, 'Место хранения обязательно').max(300),
+  photo: z.string().optional().nullable(),
+})
+
+export const createGroupSchema = z.object({
+  name: z.string().min(1, 'Наименование обязательно').max(200),
+  code: z.string().min(1, 'Код обязателен').max(50),
+  description: z.string().max(500).optional().nullable(),
+})
 
 const operationDocumentSchema = z.object({
   date: z.coerce.date(),
@@ -63,3 +103,6 @@ export type DisposeAssetInput = z.infer<typeof disposeAssetSchema>
 export type UpdateAssetInput = z.infer<typeof updateAssetSchema>
 export type AssetsQuery = z.infer<typeof assetsQuerySchema>
 export type OperationsQuery = z.infer<typeof operationsQuerySchema>
+export type CreateAssetInput = z.infer<typeof createAssetSchema>
+export type CreateMolInput = z.infer<typeof createMolSchema>
+export type CreateGroupInput = z.infer<typeof createGroupSchema>

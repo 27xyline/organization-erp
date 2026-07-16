@@ -1,7 +1,7 @@
 import { getDb } from '@/lib/prisma'
 import { getStaffScheduleRateSummary, toRateNumber } from '@/lib/employees'
 import { ServiceError } from '@/lib/services/service-error'
-import type { CreateStaffScheduleInput, CreateVacationInput } from '@/lib/validations'
+import type { CreateStaffScheduleInput, CreateVacationInput } from '@/features/employees/contracts/schemas'
 
 type WorkforceErrorCode = 'NOT_FOUND' | 'INVALID_DATES' | 'RATE_BELOW_OCCUPIED' | 'POSITION_IN_USE'
 export class WorkforceServiceError extends ServiceError<WorkforceErrorCode> {}

@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import {
   projectPayrollDeleteSchema,
   projectPayrollSaveSchema,
-} from '@/lib/schemas/project-payroll'
+} from '@/features/finance/contracts/project-payroll'
 import {
   getProjectPayrollErrorMeta,
   ProjectPayrollService,
 } from '@/lib/services/project-payroll.service'
-import { validateRequest } from '@/lib/validations'
+import { validateRequest } from '@/lib/http/validate-request'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 
 export const dynamic = 'force-dynamic'

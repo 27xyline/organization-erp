@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server'
 import { WorkforceService, WorkforceServiceError } from '@/features/employees/workforce.service'
-import { createStaffScheduleSchema } from '@/lib/validations'
+import { createStaffScheduleSchema } from '@/features/employees/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
 
