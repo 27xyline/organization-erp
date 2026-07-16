@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { prisma } from '@/lib/prisma'
 
+vi.mock('@/lib/auth/authorization', () => ({
+  authorizeApiRequest: vi.fn(async () => ({
+    user: { id: 'admin-1', username: 'admin', name: 'Admin', role: 'ADMIN' },
+  })),
+}))
+
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     projectMember: {
@@ -32,12 +38,12 @@ describe('tasks/[id] route', () => {
           name: 'Обновлённая задача',
         }),
       }) as never,
-      { params: { id: 'task-1' } }
+      { params: Promise.resolve({ id: 'task-1' }) }
     )
     const body = await response.json()
 
     expect(response.status).toBe(404)
-    expect(body).toEqual({ error: 'Задача не найдена' })
+    expect(body).toEqual({ error: { code: 'TASK_NOT_FOUND', message: 'Задача не найдена' } })
   })
 
   it('rejects update when assignee is outside active project members', async () => {
@@ -57,11 +63,11 @@ describe('tasks/[id] route', () => {
           employeeIds: ['emp-1'],
         }),
       }) as never,
-      { params: { id: 'task-1' } }
+      { params: Promise.resolve({ id: 'task-1' }) }
     )
     const body = await response.json()
 
-    expect(response.status).toBe(400)
-    expect(body).toEqual({ error: 'Можно назначать только активных участников проекта' })
+    expect(response.status).toBe(422)
+    expect(body).toEqual({ error: { code: 'INVALID_ASSIGNEES', message: 'Можно назначать только активных участников проекта' } })
   })
 })

@@ -2,6 +2,12 @@ import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ServiceError } from '@/lib/services/service-error'
 
+vi.mock('@/lib/auth/authorization', () => ({
+  authorizeApiRequest: vi.fn(async () => ({
+    user: { id: 'admin-1', username: 'admin', name: 'Admin', role: 'ADMIN' },
+  })),
+}))
+
 vi.mock('@/lib/services/project-payroll.service', async () => {
   const actual = await vi.importActual<typeof import('@/lib/services/project-payroll.service')>('@/lib/services/project-payroll.service')
 
@@ -25,7 +31,7 @@ describe('projects/[id]/payroll route', () => {
 
     const response = await GET(
       new NextRequest('http://localhost/api/projects/project-1/payroll?year=1900'),
-      { params: { id: 'project-1' } }
+      { params: Promise.resolve({ id: 'project-1' }) }
     )
     const body = await response.json()
 
@@ -51,7 +57,7 @@ describe('projects/[id]/payroll route', () => {
           nadbavkaAmount: 'abc',
         }),
       }) as never,
-      { params: { id: 'project-1' } }
+      { params: Promise.resolve({ id: 'project-1' }) }
     )
     const body = await response.json()
 

@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ServiceError } from '@/lib/services/service-error'
 
+vi.mock('@/lib/auth/authorization', () => ({
+  authorizeApiRequest: vi.fn(async () => ({
+    user: { id: 'admin-1', username: 'admin', name: 'Admin', role: 'ADMIN' },
+  })),
+}))
+
 vi.mock('@/lib/services/employee.service', () => ({
   EmployeeService: {
     updateEmployee: vi.fn(),
@@ -50,11 +56,11 @@ describe('employees/[id] route', () => {
       }),
     })
 
-    const response = await PUT(request as never, { params: { id: 'emp-1' } })
+    const response = await PUT(request as never, { params: Promise.resolve({ id: 'emp-1' }) })
     const body = await response.json()
 
     expect(response.status).toBe(400)
-    expect(body).toEqual({ error: 'Должность из штатного расписания обязательна' })
+    expect(body).toEqual({ error: { code: 'EMPLOYEE_DOMAIN_ERROR', message: 'Должность из штатного расписания обязательна' } })
   })
 
   it('maps duplicate employee code errors to HTTP 400', async () => {
@@ -74,10 +80,10 @@ describe('employees/[id] route', () => {
       }),
     })
 
-    const response = await PUT(request as never, { params: { id: 'emp-1' } })
+    const response = await PUT(request as never, { params: Promise.resolve({ id: 'emp-1' }) })
     const body = await response.json()
 
-    expect(response.status).toBe(400)
-    expect(body).toEqual({ error: 'Сотрудник с таким табельным номером уже существует' })
+    expect(response.status).toBe(409)
+    expect(body).toEqual({ error: { code: 'EMPLOYEE_CODE_EXISTS', message: 'Сотрудник с таким табельным номером уже существует' } })
   })
 })

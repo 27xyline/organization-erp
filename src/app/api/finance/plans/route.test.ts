@@ -2,6 +2,12 @@ import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ServiceError } from '@/lib/services/service-error'
 
+vi.mock('@/lib/auth/authorization', () => ({
+  authorizeApiRequest: vi.fn(async () => ({
+    user: { id: 'admin-1', username: 'admin', name: 'Admin', role: 'ADMIN' },
+  })),
+}))
+
 vi.mock('@/lib/services/finance-plan.service', async () => {
   const actual = await vi.importActual<typeof import('@/lib/services/finance-plan.service')>('@/lib/services/finance-plan.service')
 
