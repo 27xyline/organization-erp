@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import { TaskService, TaskServiceError } from '@/features/projects/task.service'
+import { TaskService, TaskServiceError } from '@/features/projects/application/task.service'
 import { createTaskSchema } from '@/features/projects/contracts/task'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'

@@ -6,7 +6,7 @@ import {
 import {
   getProjectPayrollErrorMeta,
   ProjectPayrollService,
-} from '@/lib/services/project-payroll.service'
+} from '@/features/finance/application/project-payroll.service'
 import { validateRequest } from '@/lib/http/validate-request'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 

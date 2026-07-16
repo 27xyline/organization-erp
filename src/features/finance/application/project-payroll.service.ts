@@ -5,7 +5,7 @@ import {
   calculateBudgetAdjustments,
   getCurrentYear,
   getNormalizedAmount,
-} from '@/lib/services/finance-plan.service'
+} from '@/features/finance/domain/finance-plan'
 import {
   ProjectPayrollDeleteInput,
   ProjectPayrollSaveInput,

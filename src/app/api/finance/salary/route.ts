@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
-import { FinancePlanService } from '@/lib/services/finance-plan.service'
+import { FinancePlanService } from '@/features/finance/application/finance-plan.service'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiValidationError } from '@/lib/http/api-response'
 

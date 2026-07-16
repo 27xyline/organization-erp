@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import { ProjectService, ProjectServiceError } from '@/features/projects/project.service'
+import { ProjectService, ProjectServiceError } from '@/features/projects/application/project.service'
 import { createProjectSchema } from '@/features/projects/contracts/project'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'

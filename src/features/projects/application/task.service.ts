@@ -1,13 +1,8 @@
 import { prisma } from '@/lib/prisma'
-import { ServiceError } from '@/lib/errors/service-error'
 import type { CreateTaskInput, UpdateTaskInput } from '@/features/projects/contracts/task'
+import { ensureValidTaskHierarchy, TaskServiceError } from '../domain/task-rules'
 
-type TaskErrorCode = 'TASK_NOT_FOUND' | 'INVALID_HIERARCHY' | 'INVALID_ASSIGNEES'
-export class TaskServiceError extends ServiceError<TaskErrorCode> {
-  constructor(code: TaskErrorCode, public readonly message: string) {
-    super(code)
-  }
-}
+export { TaskServiceError } from '../domain/task-rules'
 
 const taskAssigneeInclude = {
   assignees: {
@@ -56,16 +51,10 @@ export class TaskService {
   }
 
   static async create(projectId: string, input: CreateTaskInput) {
-    if (!input.parentId && input.level !== 1) {
-      throw new TaskServiceError('INVALID_HIERARCHY', 'Корневая задача должна иметь уровень 1')
-    }
-    if (input.parentId) {
-      const parent = await prisma.task.findUnique({ where: { id: input.parentId }, select: { projectId: true, level: true } })
-      if (!parent) throw new TaskServiceError('INVALID_HIERARCHY', 'Родительская задача не найдена')
-      if (parent.projectId !== projectId) throw new TaskServiceError('INVALID_HIERARCHY', 'Родительская задача должна принадлежать этому проекту')
-      if (parent.level >= 3) throw new TaskServiceError('INVALID_HIERARCHY', 'Нельзя создать подзадачу глубже третьего уровня')
-      if (input.level !== parent.level + 1) throw new TaskServiceError('INVALID_HIERARCHY', 'Уровень подзадачи должен быть на один больше уровня родительской задачи')
-    }
+    const parent = input.parentId
+      ? await prisma.task.findUnique({ where: { id: input.parentId }, select: { projectId: true, level: true } })
+      : null
+    ensureValidTaskHierarchy({ projectId, level: input.level, parentId: input.parentId, parent })
     const members = await activeMembers(projectId, input.employeeIds)
     if (members.length !== input.employeeIds.length) {
       throw new TaskServiceError('INVALID_ASSIGNEES', 'Можно назначать только активных участников проекта')

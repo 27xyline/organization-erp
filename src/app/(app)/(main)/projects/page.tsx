@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Plus, FolderKanban, Calendar, Wallet } from 'lucide-react'
 import { ProjectStatusLabels } from '@/types'
 import { formatDate, formatCurrency } from '@/lib/utils'
-import { ProjectService } from '@/features/projects/project.service'
+import { ProjectService } from '@/features/projects/application/project.service'
 import { requirePageUser } from '@/lib/auth/authorization'
 
 export const dynamic = 'force-dynamic'

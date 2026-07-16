@@ -3,7 +3,7 @@ import { FinancePlanType } from '@prisma/client'
 import {
   buildNormalizedAllocations,
   calculateBudgetAdjustments,
-} from '@/lib/services/finance-plan.service'
+} from '@/features/finance/domain/finance-plan'
 
 describe('finance-plan.service helpers', () => {
   it('requires project for oklad allocation', () => {

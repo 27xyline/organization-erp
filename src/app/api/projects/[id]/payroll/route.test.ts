@@ -8,8 +8,8 @@ vi.mock('@/lib/auth/authorization', () => ({
   })),
 }))
 
-vi.mock('@/lib/services/project-payroll.service', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/services/project-payroll.service')>('@/lib/services/project-payroll.service')
+vi.mock('@/features/finance/application/project-payroll.service', async () => {
+  const actual = await vi.importActual<typeof import('@/features/finance/application/project-payroll.service')>('@/features/finance/application/project-payroll.service')
 
   return {
     ...actual,
@@ -40,7 +40,7 @@ describe('projects/[id]/payroll route', () => {
   })
 
   it('maps payroll service errors to api response', async () => {
-    const { ProjectPayrollService } = await import('@/lib/services/project-payroll.service')
+    const { ProjectPayrollService } = await import('@/features/finance/application/project-payroll.service')
     const { PUT } = await import('@/app/api/projects/[id]/payroll/route')
 
     vi.mocked(ProjectPayrollService.saveCell).mockRejectedValueOnce(new ServiceError('INVALID_NADBAVKA_AMOUNT'))

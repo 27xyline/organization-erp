@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { financePlanDeleteSchema, financePlanSaveSchema } from '@/features/finance/contracts/finance-plan'
 import {
   FinancePlanService,
-  getCurrentYear,
   getFinancePlanErrorMeta,
-  getPlanType,
-} from '@/lib/services/finance-plan.service'
+} from '@/features/finance/application/finance-plan.service'
+import { getCurrentYear, getPlanType } from '@/features/finance/domain/finance-plan'
 import { validateRequest } from '@/lib/http/validate-request'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 

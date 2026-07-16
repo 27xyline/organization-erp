@@ -3,7 +3,7 @@ import { projectMemberCreateSchema } from '@/features/projects/contracts/project
 import {
   getProjectMemberErrorMeta,
   ProjectMemberService,
-} from '@/lib/services/project-member.service'
+} from '@/features/projects/application/project-member.service'
 import { validateRequest } from '@/lib/http/validate-request'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 
