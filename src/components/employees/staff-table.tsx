@@ -14,13 +14,15 @@ interface StaffTableProps {
   staffSchedule: StaffSchedule[]
   onEditStaff: (position: StaffSchedule) => void
   onDeleteStaff: (id: string) => void
+  canEdit?: boolean
 }
 
 export function StaffTable({
   loading,
   staffSchedule,
   onEditStaff,
-  onDeleteStaff
+  onDeleteStaff,
+  canEdit = true,
 }: StaffTableProps) {
   const totalRates = useMemo(
     () => staffSchedule.reduce((sum, position) => sum + position.rate, 0),
@@ -110,7 +112,7 @@ export function StaffTable({
                     <TableCell>{formatDecimal(position.freeRate)}</TableCell>
                     <TableCell>{formatDecimal(position.occupiedRate)}</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
+                      {canEdit && <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEditStaff(position)}>
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -122,7 +124,7 @@ export function StaffTable({
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
-                      </div>
+                      </div>}
                     </TableCell>
                   </TableRow>
                 ))

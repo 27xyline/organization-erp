@@ -23,7 +23,9 @@ import {
   Archive,
   UserCog,
   Tag,
-  LogOut
+  LogOut,
+  KeyRound,
+  ShieldCheck,
 } from "lucide-react"
 
 interface Project {
@@ -104,7 +106,7 @@ export function FinderSidebar() {
         const response = await fetch('/api/projects')
         if (response.ok && isMounted) {
           const data = await response.json()
-          setProjects(data.slice(0, 5)) // Show only first 5 projects
+          setProjects((data.data || []).slice(0, 5)) // Show only first 5 projects
         }
       } catch (error) {
         console.error('Error fetching projects:', error)
@@ -242,7 +244,7 @@ export function FinderSidebar() {
   }
 
   return (
-    <div className="w-72 h-full bg-muted/30 border-r flex flex-col">
+    <div className="hidden w-72 h-full bg-muted/30 border-r md:flex flex-col">
       <div className="p-4 border-b">
         <h1 className="text-lg font-semibold">Consilium</h1>
         <p className="text-xs text-muted-foreground">Управление активами</p>
@@ -263,9 +265,21 @@ export function FinderSidebar() {
                 {session.user.name}
               </span>
               <span className="text-xs text-muted-foreground mt-1 truncate">
-                Доступ: {session.user.role === 'admin' ? 'Администратор' : 'Чтение'}
+                Доступ: {session.user.role === 'ADMIN' ? 'Администратор' : session.user.role === 'EDITOR' ? 'Редактор' : 'Чтение'}
               </span>
             </div>
+          </div>
+          <div className="grid gap-1">
+            <Link href="/account/password" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent">
+              <KeyRound className="h-4 w-4" />
+              Изменить пароль
+            </Link>
+            {session.user.role === 'ADMIN' && (
+              <Link href="/admin/users" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent">
+                <ShieldCheck className="h-4 w-4" />
+                Пользователи
+              </Link>
+            )}
           </div>
           <button
             onClick={() => signOut({ callbackUrl: '/login' })}
