@@ -23,11 +23,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { ProjectStatusLabels } from '@/types'
+import { ProjectStatusLabels } from '@/features/projects/contracts/types'
 import { formatDate, formatCurrency, formatDateTime } from '@/lib/utils'
-import { LazyProjectGantt } from './lazy-gantt'
-import { ProjectPayrollSection } from '@/components/projects/project-payroll-section'
-import { ProjectService } from '@/features/projects/project.service'
+import { LazyProjectGantt } from '@/features/projects/ui/lazy-gantt'
+import { ProjectPayrollSection } from '@/features/finance/ui/project-payroll-section'
+import { ProjectService } from '@/features/projects/application/project.service'
 import { requirePageUser } from '@/lib/auth/authorization'
 
 interface ProjectPageProps {

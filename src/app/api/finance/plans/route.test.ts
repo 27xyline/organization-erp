@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ServiceError } from '@/lib/services/service-error'
+import { ServiceError } from '@/lib/errors/service-error'
 
 vi.mock('@/lib/auth/authorization', () => ({
   authorizeApiRequest: vi.fn(async () => ({
@@ -8,8 +8,8 @@ vi.mock('@/lib/auth/authorization', () => ({
   })),
 }))
 
-vi.mock('@/lib/services/finance-plan.service', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/services/finance-plan.service')>('@/lib/services/finance-plan.service')
+vi.mock('@/features/finance/application/finance-plan.service', async () => {
+  const actual = await vi.importActual<typeof import('@/features/finance/application/finance-plan.service')>('@/features/finance/application/finance-plan.service')
 
   return {
     ...actual,
@@ -37,7 +37,7 @@ describe('finance/plans route', () => {
   })
 
   it('maps finance service errors to preserved API messages', async () => {
-    const { FinancePlanService } = await import('@/lib/services/finance-plan.service')
+    const { FinancePlanService } = await import('@/features/finance/application/finance-plan.service')
     const { POST } = await import('@/app/api/finance/plans/route')
 
     vi.mocked(FinancePlanService.saveCell).mockRejectedValueOnce(new ServiceError('PROJECT_REQUIRED'))

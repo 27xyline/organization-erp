@@ -1,10 +1,10 @@
 import { Prisma } from '@prisma/client'
 import type { NextRequest } from 'next/server'
-import { AssetService } from '@/features/assets/asset.service'
-import { assetsQuerySchema } from '@/features/assets/schemas'
+import { AssetService } from '@/features/assets/application/asset.service'
+import { assetsQuerySchema } from '@/features/assets/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiList, apiValidationError } from '@/lib/http/api-response'
-import { createAssetSchema } from '@/lib/validations'
+import { createAssetSchema } from '@/features/assets/contracts/schemas'
 
 export async function GET(request: NextRequest) {
   const auth = await authorizeApiRequest(request)

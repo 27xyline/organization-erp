@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server'
-import { AssetService, AssetServiceError } from '@/features/assets/asset.service'
-import { archiveAssetSchema } from '@/features/assets/schemas'
+import { AssetService, AssetServiceError } from '@/features/assets/application/asset.service'
+import { archiveAssetSchema } from '@/features/assets/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
 

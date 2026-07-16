@@ -1,5 +1,9 @@
 import { defineConfig, devices } from '@playwright/test'
 
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000'
+const serverUrl = new URL(baseURL)
+const serverPort = serverUrl.port || (serverUrl.protocol === 'https:' ? '443' : '80')
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -8,14 +12,14 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
   globalSetup: './e2e/global-setup.ts',
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3000',
+    baseURL,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: 'npm run dev',
-    url: 'http://127.0.0.1:3000/api/health/live',
+    command: `npm run dev -- --hostname ${serverUrl.hostname} --port ${serverPort}`,
+    url: `${baseURL}/api/health/live`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
-import { ProjectService, ProjectServiceError } from '@/features/projects/project.service'
-import { createProjectSchema } from '@/lib/validations'
+import { ProjectService, ProjectServiceError } from '@/features/projects/application/project.service'
+import { createProjectSchema } from '@/features/projects/contracts/project'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiList, apiValidationError } from '@/lib/http/api-response'
 

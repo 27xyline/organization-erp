@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
-import { PersonnelActionService } from '@/lib/services/personnel-action.service'
-import { getPersonnelActionRouteErrorMeta } from '@/lib/services/hr-domain'
-import { createPersonnelActionSchema } from '@/lib/validations'
+import { PersonnelActionService } from '@/features/employees/application/personnel-action.service'
+import { getPersonnelActionRouteErrorMeta } from '@/features/employees/application/error-mapping'
+import { createPersonnelActionSchema } from '@/features/employees/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiList, apiValidationError } from '@/lib/http/api-response'
 

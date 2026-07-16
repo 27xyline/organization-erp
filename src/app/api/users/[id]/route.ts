@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
-import { updateUserSchema } from '@/features/users/schemas'
-import { UserService, UserServiceError } from '@/features/users/user.service'
+import { updateUserSchema } from '@/features/users/contracts/schemas'
+import { UserService, UserServiceError } from '@/features/users/application/user.service'
 
 const userErrorMessages: Record<string, [string, number]> = {
   USER_NOT_FOUND: ['Пользователь не найден', 404],

@@ -1,8 +1,8 @@
 import { Prisma } from '@prisma/client'
 import type { NextRequest } from 'next/server'
-import { EmployeeService } from '@/lib/services/employee.service'
-import { getEmployeeRouteErrorMeta } from '@/lib/services/hr-domain'
-import { updateEmployeeSchema } from '@/lib/schemas/employee'
+import { EmployeeService } from '@/features/employees/application/employee.service'
+import { getEmployeeRouteErrorMeta } from '@/features/employees/application/error-mapping'
+import { updateEmployeeSchema } from '@/features/employees/contracts/employee'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
 

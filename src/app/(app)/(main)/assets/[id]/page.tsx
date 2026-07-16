@@ -3,10 +3,10 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate, formatCurrency, formatDecimal } from '@/lib/utils'
-import { AssetStatusLabels } from '@/types'
+import { AssetStatusLabels } from '@/features/assets/contracts/types'
 import { ArrowLeft, Edit, ArrowRightLeft, FileText, Calendar, Image as ImageIcon } from 'lucide-react'
-import { AssetOperationsHistory } from '@/components/asset-operations-history'
-import { AssetService } from '@/features/assets/asset.service'
+import { AssetOperationsHistory } from '@/features/assets/ui/asset-operations-history'
+import { AssetService } from '@/features/assets/application/asset.service'
 import { requirePageUser } from '@/lib/auth/authorization'
 
 interface AssetDetailPageProps {

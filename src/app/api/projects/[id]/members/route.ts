@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { projectMemberCreateSchema } from '@/lib/schemas/project-members'
+import { projectMemberCreateSchema } from '@/features/projects/contracts/project-members'
 import {
   getProjectMemberErrorMeta,
   ProjectMemberService,
-} from '@/lib/services/project-member.service'
-import { validateRequest } from '@/lib/validations'
+} from '@/features/projects/application/project-member.service'
+import { validateRequest } from '@/lib/http/validate-request'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 
 export const dynamic = 'force-dynamic'

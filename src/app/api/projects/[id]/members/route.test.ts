@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ServiceError } from '@/lib/services/service-error'
+import { ServiceError } from '@/lib/errors/service-error'
 
 vi.mock('@/lib/auth/authorization', () => ({
   authorizeApiRequest: vi.fn(async () => ({
@@ -8,8 +8,8 @@ vi.mock('@/lib/auth/authorization', () => ({
   })),
 }))
 
-vi.mock('@/lib/services/project-member.service', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/services/project-member.service')>('@/lib/services/project-member.service')
+vi.mock('@/features/projects/application/project-member.service', async () => {
+  const actual = await vi.importActual<typeof import('@/features/projects/application/project-member.service')>('@/features/projects/application/project-member.service')
 
   return {
     ...actual,
@@ -27,7 +27,7 @@ describe('projects/[id]/members route', () => {
   })
 
   it('maps project member service errors to api response', async () => {
-    const { ProjectMemberService } = await import('@/lib/services/project-member.service')
+    const { ProjectMemberService } = await import('@/features/projects/application/project-member.service')
     const { POST } = await import('@/app/api/projects/[id]/members/route')
 
     vi.mocked(ProjectMemberService.addMember).mockRejectedValueOnce(new ServiceError('EMPLOYEE_DISMISSED'))
@@ -66,7 +66,7 @@ describe('projects/[id]/members route', () => {
   })
 
   it('passes through GET to member service', async () => {
-    const { ProjectMemberService } = await import('@/lib/services/project-member.service')
+    const { ProjectMemberService } = await import('@/features/projects/application/project-member.service')
     const { GET } = await import('@/app/api/projects/[id]/members/route')
 
     vi.mocked(ProjectMemberService.getMembers).mockResolvedValueOnce({

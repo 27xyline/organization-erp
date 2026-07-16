@@ -1,6 +1,6 @@
-import { AssetForm } from '@/components/asset-form'
-import { AssetService } from '@/features/assets/asset.service'
-import { ProjectService } from '@/features/projects/project.service'
+import { AssetForm } from '@/features/assets/ui/asset-form'
+import { AssetService } from '@/features/assets/application/asset.service'
+import { ProjectService } from '@/features/projects/application/project.service'
 import { requirePageUser } from '@/lib/auth/authorization'
 
 export const dynamic = 'force-dynamic'

@@ -1,6 +1,6 @@
-import { EmployeeReadService } from '@/features/employees/employee-read.service'
+import { EmployeeReadService } from '@/features/employees/application/employee-read.service'
 import { requirePageUser } from '@/lib/auth/authorization'
-import { EmployeesClient } from './employees-client'
+import { EmployeesClient } from '@/features/employees/ui/employees-client'
 
 export default async function EmployeesPage() {
   const [user, initialData] = await Promise.all([

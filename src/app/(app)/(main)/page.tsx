@@ -1,8 +1,8 @@
-import type { Asset } from '@/types'
-import { AssetService } from '@/features/assets/asset.service'
-import { assetsQuerySchema } from '@/features/assets/schemas'
+import type { Asset } from '@/features/assets/contracts/types'
+import { AssetService } from '@/features/assets/application/asset.service'
+import { assetsQuerySchema } from '@/features/assets/contracts/schemas'
 import { requirePageUser } from '@/lib/auth/authorization'
-import { AssetsPageClient } from './assets-page-client'
+import { AssetsPageClient } from '@/features/assets/ui/assets-page-client'
 
 interface AssetsPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>

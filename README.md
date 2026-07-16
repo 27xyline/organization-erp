@@ -1,6 +1,6 @@
 # Project1 Accounting
 
-Внутренняя система учёта имущества, сотрудников, проектов и финансового планирования. Это модульный Next.js-монолит; приложение, Prisma-схема и эксплуатационные файлы находятся в корне репозитория.
+Внутренняя система учёта имущества, сотрудников, проектов и финансового планирования. Это модульный Next.js-монолит; приложение, Prisma-схема и эксплуатационные файлы находятся в корне репозитория. Правила модулей и направлений зависимостей описаны в [архитектурной документации](docs/architecture.md).
 
 ## Стек и требования
 
@@ -108,10 +108,11 @@ Release B после стабильного периода:
 
 ```text
 prisma/                 схема и миграции
-src/app/                route groups и HTTP API
-src/features/           доменные сервисы и UI модулей
-src/components/         общие компоненты
-src/lib/                auth, DB, HTTP, logger и инфраструктура
+src/app/                тонкие route groups, страницы-композиции и HTTP API
+src/features/           contracts, domain, application, infrastructure и UI модулей
+src/components/         общий UI-kit, layout и навигация
+src/lib/                auth, DB, HTTP, logger и общая инфраструктура
+docs/                   архитектурные и эксплуатационные документы
 e2e/                    Playwright smoke/E2E
 .github/workflows/      CI
 Dockerfile              multi-stage production image

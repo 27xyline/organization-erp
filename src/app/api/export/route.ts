@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import ExcelJS from 'exceljs'
 import { PassThrough, Readable } from 'node:stream'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { ExportService } from '@/features/exports/export.service'
+import { ExportService } from '@/features/exports/application/export.service'
 import { apiError } from '@/lib/http/api-response'
 
 export const dynamic = 'force-dynamic'

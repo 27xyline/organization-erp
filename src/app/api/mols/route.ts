@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server'
-import { CatalogService, CatalogServiceError } from '@/features/assets/catalog.service'
+import { CatalogService, CatalogServiceError } from '@/features/assets/application/catalog.service'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
-import { createMolSchema } from '@/lib/validations'
+import { createMolSchema } from '@/features/assets/contracts/schemas'
 
 export async function GET(request: NextRequest) {
   const auth = await authorizeApiRequest(request)

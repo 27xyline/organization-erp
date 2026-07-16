@@ -1,6 +1,6 @@
-import { CatalogService } from '@/features/assets/catalog.service'
+import { CatalogService } from '@/features/assets/application/catalog.service'
 import { requirePageUser } from '@/lib/auth/authorization'
-import { MolsClient } from './mols-client'
+import { MolsClient } from '@/features/assets/ui/mols-client'
 
 export default async function MolsPage() {
   const [user, mols] = await Promise.all([requirePageUser(), CatalogService.listMols()])
