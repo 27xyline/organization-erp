@@ -103,7 +103,14 @@ const createInitialActionForm = (employee?: Employee | null, type: PersonnelActi
   newContractEndDate: '',
 })
 
-export function useEmployeesPage() {
+export interface EmployeesInitialData {
+  employees: Employee[]
+  staffSchedule: StaffSchedule[]
+  vacations: Vacation[]
+  personnelActions: PersonnelAction[]
+}
+
+export function useEmployeesPage(initialData?: EmployeesInitialData) {
   const { toast } = useToast()
   const actualCurrentYear = useMemo(() => new Date().getFullYear(), [])
   const startOfToday = useMemo(() => {
@@ -111,15 +118,16 @@ export function useEmployeesPage() {
     today.setHours(0, 0, 0, 0)
     return today
   }, [])
-  const [employees, setEmployees] = useState<Employee[]>([])
-  const [staffSchedule, setStaffSchedule] = useState<StaffSchedule[]>([])
-  const [vacations, setVacations] = useState<Vacation[]>([])
-  const [liveStatusVacations, setLiveStatusVacations] = useState<Vacation[]>([])
-  const [personnelActions, setPersonnelActions] = useState<PersonnelAction[]>([])
-  const [loading, setLoading] = useState(true)
-  const [vacationsLoading, setVacationsLoading] = useState(true)
+  const [employees, setEmployees] = useState<Employee[]>(initialData?.employees || [])
+  const [staffSchedule, setStaffSchedule] = useState<StaffSchedule[]>(initialData?.staffSchedule || [])
+  const [vacations, setVacations] = useState<Vacation[]>(initialData?.vacations || [])
+  const [liveStatusVacations, setLiveStatusVacations] = useState<Vacation[]>(initialData?.vacations || [])
+  const [personnelActions, setPersonnelActions] = useState<PersonnelAction[]>(initialData?.personnelActions || [])
+  const [loading, setLoading] = useState(!initialData)
+  const [vacationsLoading, setVacationsLoading] = useState(!initialData)
   const [selectedYear, setSelectedYear] = useState(actualCurrentYear)
-  const hasInitializedVacations = useRef(false)
+  const hasInitializedVacations = useRef(Boolean(initialData))
+  const hasRenderedInitialYear = useRef(false)
 
   const [isEmployeeDialogOpen, setIsEmployeeDialogOpen] = useState(false)
   const [isStaffDialogOpen, setIsStaffDialogOpen] = useState(false)
@@ -151,7 +159,7 @@ export function useEmployeesPage() {
 
       if (staffResponse.ok) {
         const data = await staffResponse.json()
-        setStaffSchedule(data.map(normalizeStaffSchedule))
+        setStaffSchedule((data.data || []).map(normalizeStaffSchedule))
       }
 
       const actionsResponse = await fetch('/api/personnel-actions')
@@ -180,7 +188,7 @@ export function useEmployeesPage() {
 
       if (selectedYearResponse.ok) {
         const data = await selectedYearResponse.json()
-        const normalizedVacations = data.map(normalizeVacation)
+        const normalizedVacations = (data.data || []).map(normalizeVacation)
         setVacations(normalizedVacations)
 
         if (year === actualCurrentYear) {
@@ -190,7 +198,7 @@ export function useEmployeesPage() {
 
       if (liveStatusResponse?.ok) {
         const data = await liveStatusResponse.json()
-        setLiveStatusVacations(data.map(normalizeVacation))
+        setLiveStatusVacations((data.data || []).map(normalizeVacation))
       }
     } catch (error) {
       console.error('Error loading vacations:', error)
@@ -200,6 +208,7 @@ export function useEmployeesPage() {
   }, [actualCurrentYear])
 
   useEffect(() => {
+    if (initialData) return
     const initializePage = async () => {
       await Promise.all([
         loadBaseData(),
@@ -209,10 +218,14 @@ export function useEmployeesPage() {
     }
 
     void initializePage()
-  }, [actualCurrentYear, loadBaseData, loadVacationsForYear])
+  }, [actualCurrentYear, initialData, loadBaseData, loadVacationsForYear])
 
   useEffect(() => {
     if (!hasInitializedVacations.current) return
+    if (!hasRenderedInitialYear.current) {
+      hasRenderedInitialYear.current = true
+      return
+    }
     void loadVacationsForYear(selectedYear)
   }, [selectedYear, loadVacationsForYear])
 

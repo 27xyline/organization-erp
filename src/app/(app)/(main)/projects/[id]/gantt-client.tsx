@@ -123,7 +123,7 @@ export function ProjectGantt({ projectId, tasks }: ProjectGanttProps) {
 
       if (!response.ok) {
         const body = await response.json().catch(() => ({ error: 'Ошибка при сохранении задачи' }))
-        toast.error(body.error || 'Ошибка при сохранении задачи')
+        toast.error(body.error?.message || body.error || 'Ошибка при сохранении задачи')
         return
       }
 
@@ -171,7 +171,7 @@ export function ProjectGantt({ projectId, tasks }: ProjectGanttProps) {
 
       if (!response.ok) {
         const body = await response.json().catch(() => ({ error: 'Ошибка при создании задачи' }))
-        toast.error(body.error || 'Ошибка при создании задачи')
+        toast.error(body.error?.message || body.error || 'Ошибка при создании задачи')
         return
       }
 

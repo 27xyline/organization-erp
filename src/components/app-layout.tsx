@@ -1,4 +1,5 @@
 import { FinderSidebar } from "@/components/finder-sidebar"
+import { MobileNavigation } from "@/components/mobile-navigation"
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -6,9 +7,10 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   return (
-    <div className="h-screen flex overflow-hidden bg-background">
+    <div className="relative flex h-dvh overflow-hidden bg-background">
+      <MobileNavigation />
       <FinderSidebar />
-      <main className="flex-1 min-w-0 overflow-auto">
+      <main className="min-w-0 flex-1 overflow-auto pt-14 md:pt-0">
         {children}
       </main>
     </div>

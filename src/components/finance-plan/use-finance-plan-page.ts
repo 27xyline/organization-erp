@@ -74,7 +74,8 @@ export function useFinancePlanPage(type: FinanceSectionType) {
         throw new Error('Failed to fetch finance table')
       }
 
-      const data = await response.json()
+      const payload = await response.json()
+      const data = payload.data || payload
       setRows(data.rows)
       setProjects(data.projects || [])
     } catch (error) {

@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Skeleton } from '@/components/ui/skeleton'
 import { Search, Edit, UserMinus, Users } from 'lucide-react'
 import { formatDate, formatDecimal } from '@/lib/utils'
 import { EmployeesTableSkeleton } from './employees-table-skeleton'
@@ -26,6 +25,7 @@ interface EmployeesTableProps {
   onEditEmployee: (employee: Employee) => void
   onDismissEmployee: (employee: Employee) => void
   getLiveStatus: (employee: Employee) => { label: string; className: string }
+  canEdit?: boolean
 }
 
 export function EmployeesTable({
@@ -34,7 +34,8 @@ export function EmployeesTable({
   startOfToday,
   onEditEmployee,
   onDismissEmployee,
-  getLiveStatus
+  getLiveStatus,
+  canEdit = true,
 }: EmployeesTableProps) {
   const [searchTerm, setSearchTerm] = useState('')
 
@@ -160,7 +161,7 @@ export function EmployeesTable({
                       <TableCell>{employee.contractSignedDate ? formatDate(employee.contractSignedDate) : '—'}</TableCell>
                       <TableCell>{employee.contractNumber || '—'}</TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
+                        {canEdit && <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEditEmployee(employee)}>
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -174,7 +175,7 @@ export function EmployeesTable({
                           >
                             <UserMinus className="h-4 w-4" />
                           </Button>
-                        </div>
+                        </div>}
                       </TableCell>
                     </TableRow>
                   )
