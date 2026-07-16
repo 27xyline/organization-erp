@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation'
-import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -7,26 +6,17 @@ import { formatDate, formatCurrency, formatDecimal } from '@/lib/utils'
 import { AssetStatusLabels } from '@/types'
 import { ArrowLeft, Edit, ArrowRightLeft, FileText, Calendar, Image as ImageIcon } from 'lucide-react'
 import { AssetOperationsHistory } from '@/components/asset-operations-history'
+import { AssetService } from '@/features/assets/asset.service'
+import { requirePageUser } from '@/lib/auth/authorization'
 
 interface AssetDetailPageProps {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }
 
-export default async function AssetDetailPage({ params }: AssetDetailPageProps) {
-  const asset = await prisma.asset.findUnique({
-    where: { id: params.id },
-    include: {
-      mol: true,
-      group: true,
-      operations: {
-        include: {
-          fromMol: true,
-          toMol: true,
-        },
-        orderBy: { date: 'desc' },
-      },
-    },
-  })
+export default async function AssetDetailPage(props: AssetDetailPageProps) {
+  await requirePageUser()
+  const params = await props.params
+  const asset = await AssetService.get(params.id)
 
   if (!asset) {
     notFound()
@@ -92,30 +82,37 @@ export default async function AssetDetailPage({ params }: AssetDetailPageProps) 
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground">МОЛ</p>
-                <p className="font-medium">{asset.mol.fullName}</p>
-                <p className="text-sm text-muted-foreground">{asset.mol.department}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Место хранения</p>
-                <p className="font-medium">{asset.mol.storageLocation}</p>
+            <div>
+              <p className="text-sm text-muted-foreground mb-2">Остатки по МОЛ</p>
+              <div className="space-y-2">
+                {asset.holdings.map((holding) => (
+                  <div key={holding.id} className="flex items-start justify-between rounded-md border p-3">
+                    <div>
+                      <p className="font-medium">{holding.mol.fullName}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {holding.mol.department} · {holding.mol.storageLocation}
+                      </p>
+                    </div>
+                    <p className="font-medium">
+                      {formatDecimal(holding.quantity.toString())} {asset.unitOfMeasure}
+                    </p>
+                  </div>
+                ))}
               </div>
             </div>
 
             <div className="grid grid-cols-3 gap-4 pt-4 border-t">
               <div>
                 <p className="text-sm text-muted-foreground">Цена за ед.</p>
-                <p className="font-medium">{formatCurrency(Number(asset.unitPrice))}</p>
+                <p className="font-medium">{formatCurrency(asset.unitPrice.toString())}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Количество</p>
-                <p className="font-medium">{formatDecimal(Number(asset.quantity))} {asset.unitOfMeasure}</p>
+                <p className="font-medium">{formatDecimal(asset.quantity.toString())} {asset.unitOfMeasure}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Общая стоимость</p>
-                <p className="font-medium">{formatCurrency(Number(asset.totalCost))}</p>
+                <p className="font-medium">{formatCurrency(asset.totalCost.toString())}</p>
               </div>
             </div>
           </CardContent>

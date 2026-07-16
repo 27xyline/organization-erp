@@ -1,376 +1,184 @@
 'use client'
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { Archive, Search, Filter, X, RotateCcw, Eye, FileSpreadsheet } from "lucide-react"
-import Link from "next/link"
-import { formatDate, formatCurrency, formatDecimal } from "@/lib/utils"
-
-interface Filters {
-  search: string
-  molId: string
-  groupId: string
-  status: string
-}
-
-const initialFilters: Filters = {
-  search: "",
-  molId: "",
-  groupId: "",
-  status: "",
-}
+import { useState } from 'react'
+import Link from 'next/link'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { Archive, Eye, FileSpreadsheet, Filter, RotateCcw, Search, X } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { formatDecimal } from '@/lib/utils'
+import type { Asset, AssetGroup, Mol } from '@/types'
 
 const statusLabels: Record<string, { label: string; color: string }> = {
-  IN_STOCK: { label: "В наличии", color: "bg-green-100 text-green-800" },
-  IN_USE: { label: "В эксплуатации", color: "bg-blue-100 text-blue-800" },
-  UNDER_REPAIR: { label: "На ремонте", color: "bg-yellow-100 text-yellow-800" },
-  PLANNED_FOR_DISPOSAL: { label: "К списанию", color: "bg-orange-100 text-orange-800" },
-  PARTIALLY_DISPOSED: { label: "Частично списан", color: "bg-gray-100 text-gray-800" },
-  FULLY_DISPOSED: { label: "Полностью списан", color: "bg-red-100 text-red-800" },
+  IN_STOCK: { label: 'В наличии', color: 'bg-green-100 text-green-800' },
+  IN_USE: { label: 'В эксплуатации', color: 'bg-blue-100 text-blue-800' },
+  UNDER_REPAIR: { label: 'На ремонте', color: 'bg-yellow-100 text-yellow-800' },
+  PLANNED_FOR_DISPOSAL: { label: 'К списанию', color: 'bg-orange-100 text-orange-800' },
+  PARTIALLY_DISPOSED: { label: 'Частично списан', color: 'bg-gray-100 text-gray-800' },
+  FULLY_DISPOSED: { label: 'Полностью списан', color: 'bg-red-100 text-red-800' },
 }
 
-export default function ArchivePage() {
-  const [assets, setAssets] = useState([])
-  const [mols, setMols] = useState([])
-  const [groups, setGroups] = useState([])
-  const [filters, setFilters] = useState<Filters>(initialFilters)
-  const [showFilters, setShowFilters] = useState(true)
-  const [loading, setLoading] = useState(true)
+interface ArchiveClientProps {
+  assets: Asset[]
+  mols: Mol[]
+  groups: AssetGroup[]
+  pagination: { page: number; pageSize: number; total: number; totalPages: number }
+  filters: { search?: string; molId?: string; groupId?: string; status?: string }
+  canEdit: boolean
+}
+
+export function ArchiveClient({ assets, mols, groups, pagination, filters, canEdit }: ArchiveClientProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [search, setSearch] = useState(filters.search || '')
   const [exporting, setExporting] = useState(false)
+  const [error, setError] = useState('')
 
-  useEffect(() => {
-    loadData()
-  }, [])
+  const updateQuery = (changes: Record<string, string | number | undefined>) => {
+    const next = new URLSearchParams(searchParams.toString())
+    for (const [key, value] of Object.entries(changes)) {
+      if (value === undefined || value === '') next.delete(key)
+      else next.set(key, String(value))
+    }
+    if (!Object.prototype.hasOwnProperty.call(changes, 'page')) next.delete('page')
+    router.push(`${pathname}${next.size ? `?${next.toString()}` : ''}`)
+  }
 
-  const loadData = async () => {
-    try {
-      const [assetsRes, molsRes, groupsRes] = await Promise.all([
-        fetch('/api/assets?isArchived=true'),
-        fetch('/api/mols'),
-        fetch('/api/groups'),
-      ])
-      
-      const [assetsData, molsData, groupsData] = await Promise.all([
-        assetsRes.json(),
-        molsRes.json(),
-        groupsRes.json(),
-      ])
-      
-      setAssets(assetsData.data || [])
-      setMols(molsData)
-      setGroups(groupsData)
-      setLoading(false)
-    } catch (error) {
-      console.error('Error loading data:', error)
+  const handleRestore = async (assetId: string) => {
+    if (!confirm('Вы уверены, что хотите восстановить объект из архива?')) return
+    setError('')
+    const response = await fetch(`/api/assets/${assetId}/restore`, { method: 'POST' })
+    if (response.ok) router.refresh()
+    else {
+      const payload = await response.json()
+      setError(payload.error?.message || 'Не удалось восстановить объект')
     }
   }
 
   const handleExport = async () => {
     setExporting(true)
     try {
-      const response = await fetch('/api/export?type=assets')
-      
-      if (response.ok) {
-        const blob = await response.blob()
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `archive_export_${new Date().toISOString().split('T')[0]}.xlsx`
-        document.body.appendChild(a)
-        a.click()
-        window.URL.revokeObjectURL(url)
-        document.body.removeChild(a)
-      }
-    } catch (error) {
-      console.error('Export error:', error)
+      const response = await fetch('/api/export?type=assets&archived=true')
+      if (!response.ok) throw new Error('export failed')
+      const url = URL.createObjectURL(await response.blob())
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `archive_export_${new Date().toISOString().slice(0, 10)}.xlsx`
+      anchor.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setError('Не удалось сформировать экспорт')
     } finally {
       setExporting(false)
     }
   }
 
-  const handleRestore = async (assetId: string) => {
-    if (!confirm('Вы уверены, что хотите восстановить объект из архива?')) return
-    
-    try {
-      const res = await fetch(`/api/assets/${assetId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          isArchived: false,
-          status: 'IN_STOCK'
-        }),
-      })
-      
-      if (res.ok) {
-        loadData()
-      }
-    } catch (error) {
-      console.error('Error restoring asset:', error)
-    }
-  }
-
-  const filteredAssets = assets.filter((asset: any) => {
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase()
-      const matchesSearch = 
-        asset.name.toLowerCase().includes(searchLower) ||
-        asset.inventoryNumber.toLowerCase().includes(searchLower)
-      if (!matchesSearch) return false
-    }
-
-    if (filters.molId && asset.molId !== filters.molId) return false
-    if (filters.groupId && asset.groupId !== filters.groupId) return false
-    if (filters.status && asset.status !== filters.status) return false
-
-    return true
-  })
-
-  const activeFiltersCount = Object.values(filters).filter(v => v !== "").length
+  const activeFiltersCount = Object.values(filters).filter(Boolean).length
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Шапка */}
+    <div className="flex h-full flex-col">
       <div className="border-b bg-card px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Archive className="h-6 w-6" />
-              Архив
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Списанные и архивированные объекты
-            </p>
+            <h1 className="flex items-center gap-2 text-2xl font-bold"><Archive className="h-6 w-6" />Архив</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Списанные и вручную архивированные объекты</p>
           </div>
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              onClick={handleExport}
-              disabled={exporting}
-            >
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
-              {exporting ? 'Экспорт...' : 'Экспорт в Excel'}
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <Filter className="mr-2 h-4 w-4" />
-              Фильтры
-              {activeFiltersCount > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {activeFiltersCount}
-                </Badge>
-              )}
-            </Button>
-          </div>
+          <Button variant="outline" disabled={exporting} onClick={handleExport}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" />{exporting ? 'Экспорт...' : 'Экспорт в Excel'}
+          </Button>
         </div>
-
-        {/* Поиск */}
-        <div className="mt-4 flex gap-2">
-          <div className="relative flex-1 max-w-xl">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Поиск по архиву..."
-              value={filters.search}
-              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              className="pl-10"
-            />
+        <form
+          className="mt-4 flex max-w-3xl gap-2"
+          onSubmit={(event) => {
+            event.preventDefault()
+            updateQuery({ search })
+          }}
+        >
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input className="pl-10" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по архиву..." />
           </div>
+          <Button type="submit" variant="outline">Найти</Button>
           {activeFiltersCount > 0 && (
-            <Button 
-              variant="ghost" 
-              onClick={() => setFilters(initialFilters)}
-            >
-              <X className="mr-2 h-4 w-4" />
-              Сбросить
+            <Button type="button" variant="ghost" onClick={() => { setSearch(''); router.push(pathname) }}>
+              <X className="mr-2 h-4 w-4" />Сбросить
             </Button>
           )}
-        </div>
+        </form>
       </div>
 
-      {/* Основной контент */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Боковая панель фильтров */}
-        {showFilters && (
-          <Card className="w-72 m-4 rounded-lg border-r-0 mr-0">
-            <CardContent className="p-4 space-y-4">
-              <div className="space-y-2">
-                <Label className="text-xs">МОЛ</Label>
-                <Select
-                  value={filters.molId}
-                  onValueChange={(value) => setFilters({ ...filters, molId: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Все МОЛ" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mols.map((mol: any) => (
-                      <SelectItem key={mol.id} value={mol.id}>
-                        {mol.code} - {mol.fullName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+      <div className="flex flex-1 overflow-hidden">
+        <Card className="m-4 mr-0 w-72 rounded-lg border-r-0">
+          <CardContent className="space-y-4 p-4">
+            <p className="flex items-center text-sm font-medium"><Filter className="mr-2 h-4 w-4" />Фильтры</p>
+            <ArchiveSelect label="МОЛ" value={filters.molId} placeholder="Все МОЛ" onChange={(value) => updateQuery({ molId: value })} options={mols.map((mol) => ({ value: mol.id, label: `${mol.code} — ${mol.fullName}` }))} />
+            <ArchiveSelect label="Группа" value={filters.groupId} placeholder="Все группы" onChange={(value) => updateQuery({ groupId: value })} options={groups.map((group) => ({ value: group.id, label: `${group.code} — ${group.name}` }))} />
+            <ArchiveSelect label="Статус" value={filters.status} placeholder="Все статусы" onChange={(value) => updateQuery({ status: value })} options={Object.entries(statusLabels).map(([value, status]) => ({ value, label: status.label }))} />
+          </CardContent>
+        </Card>
 
-              <div className="space-y-2">
-                <Label className="text-xs">Группа имущества</Label>
-                <Select
-                  value={filters.groupId}
-                  onValueChange={(value) => setFilters({ ...filters, groupId: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Все группы" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {groups.map((group: any) => (
-                      <SelectItem key={group.id} value={group.id}>
-                        {group.code} - {group.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-xs">Статус</Label>
-                <Select
-                  value={filters.status}
-                  onValueChange={(value) => setFilters({ ...filters, status: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Все статусы" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="IN_STOCK">В наличии</SelectItem>
-                    <SelectItem value="IN_USE">В эксплуатации</SelectItem>
-                    <SelectItem value="UNDER_REPAIR">На ремонте</SelectItem>
-                    <SelectItem value="PLANNED_FOR_DISPOSAL">К списанию</SelectItem>
-                    <SelectItem value="PARTIALLY_DISPOSED">Частично списан</SelectItem>
-                    <SelectItem value="FULLY_DISPOSED">Полностью списан</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Таблица */}
-        <div className="flex-1 p-4 overflow-auto">
-          <div className="mb-4 flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">
-              Показано {filteredAssets.length} из {assets.length} объектов
-            </span>
-            <Badge variant="secondary">
-              Всего в архиве: {assets.length}
-            </Badge>
+        <div className="flex-1 overflow-auto p-4">
+          {error && <p className="mb-4 rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
+          <div className="mb-4 flex items-center justify-between text-sm text-muted-foreground">
+            <span>Показано {assets.length} из {pagination.total}</span>
+            <Badge variant="secondary">Всего в архиве: {pagination.total}</Badge>
           </div>
-
-          {loading ? (
-            <div className="space-y-4">
-              <Skeleton className="h-10 w-full" />
-              {Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton key={i} className="h-14 w-full" />
-              ))}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="p-0">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-12 text-center">№</TableHead>
-                      <TableHead>Наименование</TableHead>
-                      <TableHead>Инв. номер</TableHead>
-                      <TableHead>Группа</TableHead>
-                      <TableHead>МОЛ</TableHead>
-                      <TableHead className="text-right">Кол-во</TableHead>
-                      <TableHead>Статус</TableHead>
-                      <TableHead className="text-right">Действия</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredAssets.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                          Архив пуст
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredAssets.map((asset: any, index: number) => {
-                        const status = statusLabels[asset.status] || { label: asset.status, color: "" }
-                        
-                        return (
-                          <TableRow key={asset.id}>
-                            <TableCell className="text-center font-medium">{index + 1}</TableCell>
-                            <TableCell className="font-medium">{asset.name}</TableCell>
-                            <TableCell className="font-mono text-sm">{asset.inventoryNumber}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="text-xs">
-                                {asset.group?.code}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              <div className="text-sm">{asset.mol?.fullName}</div>
-                              <div className="text-xs text-muted-foreground">{asset.mol?.code}</div>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              {formatDecimal(asset.quantity)} {asset.unitOfMeasure}
-                            </TableCell>
-                            <TableCell>
-                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${status.color}`}>
-                                {status.label}
-                              </span>
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <div className="flex justify-end gap-2">
-                                <Link href={`/assets/${asset.id}`}>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                                    <Eye className="h-4 w-4" />
-                                  </Button>
-                                </Link>
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  className="h-8 w-8"
-                                  onClick={() => handleRestore(asset.id)}
-                                  title="Восстановить"
-                                >
-                                  <RotateCcw className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          )}
+          <Card><CardContent className="p-0">
+            <Table>
+              <TableHeader><TableRow>
+                <TableHead>Наименование</TableHead><TableHead>Инв. номер</TableHead><TableHead>Группа</TableHead>
+                <TableHead>Остатки по МОЛ</TableHead><TableHead className="text-right">Кол-во</TableHead>
+                <TableHead>Статус</TableHead><TableHead className="text-right">Действия</TableHead>
+              </TableRow></TableHeader>
+              <TableBody>
+                {assets.length === 0 ? (
+                  <TableRow><TableCell colSpan={7} className="py-8 text-center text-muted-foreground">Архив пуст</TableCell></TableRow>
+                ) : assets.map((asset) => {
+                  const status = statusLabels[asset.status] || { label: asset.status, color: '' }
+                  return <TableRow key={asset.id}>
+                    <TableCell className="font-medium">{asset.name}</TableCell>
+                    <TableCell className="font-mono text-sm">{asset.inventoryNumber}</TableCell>
+                    <TableCell><Badge variant="outline">{asset.group?.code}</Badge></TableCell>
+                    <TableCell>{asset.holdings?.map((holding) => <div key={holding.id}>{holding.mol.fullName} · {formatDecimal(holding.quantity)}</div>)}</TableCell>
+                    <TableCell className="text-right">{formatDecimal(asset.quantity)} {asset.unitOfMeasure}</TableCell>
+                    <TableCell><span className={`rounded-full px-2 py-1 text-xs font-medium ${status.color}`}>{status.label}</span></TableCell>
+                    <TableCell className="text-right">
+                      <Link href={`/assets/${asset.id}`}><Button variant="ghost" size="icon"><Eye className="h-4 w-4" /></Button></Link>
+                      {canEdit && <Button variant="ghost" size="icon" disabled={asset.status === 'FULLY_DISPOSED'} onClick={() => handleRestore(asset.id)} title={asset.status === 'FULLY_DISPOSED' ? 'Полностью списанный объект нельзя восстановить' : 'Восстановить'}><RotateCcw className="h-4 w-4" /></Button>}
+                    </TableCell>
+                  </TableRow>
+                })}
+              </TableBody>
+            </Table>
+          </CardContent></Card>
+          {pagination.totalPages > 1 && <div className="mt-4 flex justify-end gap-2">
+            <Button variant="outline" disabled={pagination.page <= 1} onClick={() => updateQuery({ page: pagination.page - 1 })}>Назад</Button>
+            <Button variant="outline" disabled={pagination.page >= pagination.totalPages} onClick={() => updateQuery({ page: pagination.page + 1 })}>Далее</Button>
+          </div>}
         </div>
       </div>
     </div>
   )
+}
+
+function ArchiveSelect({ label, value, placeholder, options, onChange }: {
+  label: string
+  value?: string
+  placeholder: string
+  options: { value: string; label: string }[]
+  onChange: (value: string) => void
+}) {
+  return <div className="space-y-2">
+    <Label className="text-xs">{label}</Label>
+    <Select value={value || ''} onValueChange={onChange}>
+      <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
+      <SelectContent>{options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
+    </Select>
+  </div>
 }

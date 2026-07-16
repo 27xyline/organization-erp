@@ -1,6 +1,5 @@
 "use client"
 
-import { useState } from "react"
 import {
   Table,
   TableBody,
@@ -29,6 +28,7 @@ interface AssetsDataTableProps {
   totalCount: number
   filteredCount: number
   onArchive?: (assetId: string) => void
+  canEdit?: boolean
 }
 
 const statusLabels: Record<string, { label: string; color: string }> = {
@@ -40,14 +40,16 @@ const statusLabels: Record<string, { label: string; color: string }> = {
   FULLY_DISPOSED: { label: "Полностью списан", color: "bg-red-100 text-red-800" },
 }
 
-export function AssetsDataTable({ assets, totalCount, filteredCount, onArchive }: AssetsDataTableProps) {
-  const [selectedRows, setSelectedRows] = useState<Set<string>>(new Set())
-
+export function AssetsDataTable({ assets, totalCount, filteredCount, onArchive, canEdit = true }: AssetsDataTableProps) {
   const handleArchive = async (assetId: string) => {
     if (!confirm("Вы уверены, что хотите переместить объект в архив?")) return
     
     try {
-      const res = await fetch(`/api/assets/${assetId}`, { method: "DELETE" })
+      const res = await fetch(`/api/assets/${assetId}/archive`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: "Ручное архивирование" }),
+      })
       if (res.ok) {
         onArchive?.(assetId)
       }
@@ -63,9 +65,6 @@ export function AssetsDataTable({ assets, totalCount, filteredCount, onArchive }
         <span>
           Показано {filteredCount} из {totalCount} объектов
         </span>
-        {selectedRows.size > 0 && (
-          <span>Выбрано: {selectedRows.size}</span>
-        )}
       </div>
 
       {/* Таблица */}
@@ -105,7 +104,6 @@ export function AssetsDataTable({ assets, totalCount, filteredCount, onArchive }
                 return (
                   <TableRow 
                     key={asset.id}
-                    className={selectedRows.has(asset.id) ? "bg-accent" : ""}
                   >
                     <TableCell className="text-center font-medium">
                       {index + 1}
@@ -143,8 +141,12 @@ export function AssetsDataTable({ assets, totalCount, filteredCount, onArchive }
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm">{asset.mol?.fullName}</div>
-                      <div className="text-xs text-muted-foreground">{asset.mol?.code}</div>
+                      {(asset.holdings?.length ? asset.holdings : [{ mol: asset.mol, quantity: asset.quantity }]).map((holding) => (
+                        <div key={holding.mol.id} className="text-sm">
+                          {holding.mol.fullName}
+                          <span className="text-xs text-muted-foreground"> · {formatDecimal(holding.quantity)}</span>
+                        </div>
+                      ))}
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge variant="outline" className="text-xs font-mono">
@@ -191,24 +193,28 @@ export function AssetsDataTable({ assets, totalCount, filteredCount, onArchive }
                             <Eye className="h-4 w-4" />
                           </Button>
                         </Link>
-                        <Link href={`/assets/${asset.id}/edit`}>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                        <Link href={`/assets/${asset.id}/transfer`}>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <ArrowRightLeft className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="h-8 w-8"
-                          onClick={() => handleArchive(asset.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {canEdit && (
+                          <>
+                            <Link href={`/assets/${asset.id}/edit`}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                            <Link href={`/assets/${asset.id}/transfer`}>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <ArrowRightLeft className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleArchive(asset.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

@@ -1,327 +1,228 @@
-"use client"
+'use client'
 
-import { useState, useEffect, useCallback } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Label } from "@/components/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { AssetsDataTable } from "@/components/assets-data-table"
-import { ExportButton } from "@/components/export-button"
-import { Plus, Search, Filter, X } from "lucide-react"
-import Link from "next/link"
-import type { Asset, Mol, AssetGroup } from "@/types"
+import { useState } from 'react'
+import Link from 'next/link'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { Filter, Plus, Search, X } from 'lucide-react'
+import { AssetsDataTable } from '@/components/assets-data-table'
+import { ExportButton } from '@/components/export-button'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import type { Asset, AssetGroup, Mol } from '@/types'
 
-interface Filters {
-  search: string
-  molId: string
-  groupId: string
-  status: string
-  accountingForm: string
-  dateFrom: string
-  dateTo: string
+interface AssetsPageClientProps {
+  assets: Asset[]
+  mols: Mol[]
+  groups: AssetGroup[]
+  pagination: { page: number; pageSize: number; total: number; totalPages: number }
+  filters: {
+    search?: string
+    molId?: string
+    groupId?: string
+    status?: string
+    accountingForm?: string
+    dateFrom?: string
+    dateTo?: string
+  }
+  canEdit: boolean
 }
 
-const initialFilters: Filters = {
-  search: "",
-  molId: "",
-  groupId: "",
-  status: "",
-  accountingForm: "",
-  dateFrom: "",
-  dateTo: "",
-}
-
-export default function AssetsPage() {
-  const [filters, setFilters] = useState<Filters>(initialFilters)
+export function AssetsPageClient({
+  assets,
+  mols,
+  groups,
+  pagination,
+  filters,
+  canEdit,
+}: AssetsPageClientProps) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [showFilters, setShowFilters] = useState(true)
-  const [assets, setAssets] = useState<Asset[]>([])
-  const [mols, setMols] = useState<Mol[]>([])
-  const [groups, setGroups] = useState<AssetGroup[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
+  const [search, setSearch] = useState(filters.search || '')
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
-    setError("")
-
-    try {
-      const [assetsResponse, molsResponse, groupsResponse] = await Promise.all([
-        fetch('/api/assets'),
-        fetch('/api/mols'),
-        fetch('/api/groups'),
-      ])
-
-      if (!assetsResponse.ok || !molsResponse.ok || !groupsResponse.ok) {
-        throw new Error('Не удалось загрузить данные')
-      }
-
-      const [assetsData, molsData, groupsData] = await Promise.all([
-        assetsResponse.json(),
-        molsResponse.json(),
-        groupsResponse.json(),
-      ])
-
-      setAssets(assetsData.data || [])
-      setMols(molsData)
-      setGroups(groupsData)
-    } catch (error) {
-      console.error('Error loading assets page:', error)
-      setError('Не удалось загрузить данные. Проверьте вход в систему и доступность API.')
-    } finally {
-      setLoading(false)
+  const updateQuery = (changes: Record<string, string | number | undefined>) => {
+    const next = new URLSearchParams(searchParams.toString())
+    for (const [key, value] of Object.entries(changes)) {
+      if (value === undefined || value === '') next.delete(key)
+      else next.set(key, String(value))
     }
-  }, [])
+    if (!Object.prototype.hasOwnProperty.call(changes, 'page')) next.delete('page')
+    router.push(`${pathname}${next.size ? `?${next.toString()}` : ''}`)
+  }
 
-  useEffect(() => {
-    void loadData()
-  }, [loadData])
-
-  const filteredAssets = assets.filter((asset) => {
-    // Поиск по тексту
-    if (filters.search) {
-      const searchLower = filters.search.toLowerCase()
-      const matchesSearch = 
-        asset.name.toLowerCase().includes(searchLower) ||
-        asset.inventoryNumber.toLowerCase().includes(searchLower) ||
-        (asset.documentDetails || '').toLowerCase().includes(searchLower)
-      if (!matchesSearch) return false
-    }
-
-    // Фильтр по МОЛ
-    if (filters.molId && asset.molId !== filters.molId) return false
-
-    // Фильтр по группе
-    if (filters.groupId && asset.groupId !== filters.groupId) return false
-
-    // Фильтр по статусу
-    if (filters.status && asset.status !== filters.status) return false
-
-    // Фильтр по форме учета
-    if (filters.accountingForm && asset.accountingForm !== filters.accountingForm) return false
-
-    // Фильтр по дате
-    if (filters.dateFrom) {
-      const assetDate = new Date(asset.recordingDate)
-      const fromDate = new Date(filters.dateFrom)
-      if (assetDate < fromDate) return false
-    }
-
-    if (filters.dateTo) {
-      const assetDate = new Date(asset.recordingDate)
-      const toDate = new Date(filters.dateTo)
-      if (assetDate > toDate) return false
-    }
-
-    return true
-  })
-
-  const activeFiltersCount = Object.values(filters).filter(v => v !== "" && v !== null).length
+  const activeFiltersCount = Object.values(filters).filter(Boolean).length
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Шапка */}
+    <div className="flex h-full flex-col">
       <div className="border-b bg-card px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold">Имущество</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Учет материальных ценностей и активов
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">Учет материальных ценностей и активов</p>
           </div>
           <div className="flex gap-2">
             <ExportButton />
-            <Button 
-              variant="outline" 
-              onClick={() => setShowFilters(!showFilters)}
-            >
+            <Button variant="outline" onClick={() => setShowFilters((visible) => !visible)}>
               <Filter className="mr-2 h-4 w-4" />
               Фильтры
-              {activeFiltersCount > 0 && (
-                <Badge variant="secondary" className="ml-2">
-                  {activeFiltersCount}
-                </Badge>
-              )}
+              {activeFiltersCount > 0 && <Badge className="ml-2" variant="secondary">{activeFiltersCount}</Badge>}
             </Button>
-            <Link href="/assets/new">
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Добавить
-              </Button>
-            </Link>
+            {canEdit && (
+              <Link href="/assets/new">
+                <Button><Plus className="mr-2 h-4 w-4" />Добавить</Button>
+              </Link>
+            )}
           </div>
         </div>
 
-        {/* Поиск */}
-        <div className="mt-4 flex gap-2">
-          <div className="relative flex-1 max-w-xl">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <form
+          className="mt-4 flex gap-2"
+          onSubmit={(event) => {
+            event.preventDefault()
+            updateQuery({ search })
+          }}
+        >
+          <div className="relative max-w-xl flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Поиск по наименованию, инв. номеру или документу..."
-              value={filters.search}
-              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
               className="pl-10"
+              placeholder="Поиск по наименованию, инв. номеру или документу..."
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
             />
           </div>
+          <Button type="submit" variant="outline">Найти</Button>
           {activeFiltersCount > 0 && (
-            <Button 
-              variant="ghost" 
-              onClick={() => setFilters(initialFilters)}
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setSearch('')
+                router.push(pathname)
+              }}
             >
-              <X className="mr-2 h-4 w-4" />
-              Сбросить
+              <X className="mr-2 h-4 w-4" />Сбросить
             </Button>
           )}
-        </div>
+        </form>
       </div>
 
-      {/* Основной контент */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Боковая панель фильтров */}
+      <div className="flex flex-1 overflow-hidden">
         {showFilters && (
-          <Card className="w-72 m-4 rounded-lg border-r-0 mr-0">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium">Фильтры</CardTitle>
-            </CardHeader>
+          <Card className="m-4 mr-0 w-72 rounded-lg border-r-0">
+            <CardHeader className="pb-3"><CardTitle className="text-sm font-medium">Фильтры</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label className="text-xs">МОЛ</Label>
-                <Select
-                  value={filters.molId}
-                  onValueChange={(value) => setFilters({ ...filters, molId: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Все МОЛ" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {mols.map((mol: any) => (
-                      <SelectItem key={mol.id} value={mol.id}>
-                        {mol.code} - {mol.fullName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-xs">Группа имущества</Label>
-                <Select
-                  value={filters.groupId}
-                  onValueChange={(value) => setFilters({ ...filters, groupId: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Все группы" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {groups.map((group: any) => (
-                      <SelectItem key={group.id} value={group.id}>
-                        {group.code} - {group.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-xs">Статус</Label>
-                <Select
-                  value={filters.status}
-                  onValueChange={(value) => setFilters({ ...filters, status: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Все статусы" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="IN_STOCK">В наличии</SelectItem>
-                    <SelectItem value="IN_USE">В эксплуатации</SelectItem>
-                    <SelectItem value="UNDER_REPAIR">На ремонте</SelectItem>
-                    <SelectItem value="PLANNED_FOR_DISPOSAL">К списанию</SelectItem>
-                    <SelectItem value="PARTIALLY_DISPOSED">Частично списан</SelectItem>
-                    <SelectItem value="FULLY_DISPOSED">Полностью списан</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
+              <FilterSelect
+                label="МОЛ"
+                value={filters.molId}
+                placeholder="Все МОЛ"
+                onChange={(value) => updateQuery({ molId: value })}
+                options={mols.map((mol) => ({ value: mol.id, label: `${mol.code} — ${mol.fullName}` }))}
+              />
+              <FilterSelect
+                label="Группа имущества"
+                value={filters.groupId}
+                placeholder="Все группы"
+                onChange={(value) => updateQuery({ groupId: value })}
+                options={groups.map((group) => ({ value: group.id, label: `${group.code} — ${group.name}` }))}
+              />
+              <FilterSelect
+                label="Статус"
+                value={filters.status}
+                placeholder="Все статусы"
+                onChange={(value) => updateQuery({ status: value })}
+                options={[
+                  { value: 'IN_STOCK', label: 'В наличии' },
+                  { value: 'IN_USE', label: 'В эксплуатации' },
+                  { value: 'UNDER_REPAIR', label: 'На ремонте' },
+                  { value: 'PLANNED_FOR_DISPOSAL', label: 'К списанию' },
+                  { value: 'PARTIALLY_DISPOSED', label: 'Частично списан' },
+                  { value: 'FULLY_DISPOSED', label: 'Полностью списан' },
+                ]}
+              />
               <div className="space-y-2">
                 <Label className="text-xs">Форма учета</Label>
                 <div className="flex gap-2">
-                  <Button
-                    variant={filters.accountingForm === "145" ? "default" : "outline"}
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => setFilters({ ...filters, accountingForm: filters.accountingForm === "145" ? "" : "145" })}
-                  >
-                    145
-                  </Button>
-                  <Button
-                    variant={filters.accountingForm === "367" ? "default" : "outline"}
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => setFilters({ ...filters, accountingForm: filters.accountingForm === "367" ? "" : "367" })}
-                  >
-                    367
-                  </Button>
+                  {['145', '367'].map((form) => (
+                    <Button
+                      key={form}
+                      className="flex-1"
+                      size="sm"
+                      variant={filters.accountingForm === form ? 'default' : 'outline'}
+                      onClick={() => updateQuery({ accountingForm: filters.accountingForm === form ? undefined : form })}
+                    >
+                      {form}
+                    </Button>
+                  ))}
                 </div>
               </div>
-
               <div className="space-y-2">
                 <Label className="text-xs">Период поступления</Label>
                 <div className="grid grid-cols-2 gap-2">
-                  <Input
-                    type="date"
-                    value={filters.dateFrom}
-                    onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
-                    placeholder="С"
-                  />
-                  <Input
-                    type="date"
-                    value={filters.dateTo}
-                    onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
-                    placeholder="По"
-                  />
+                  <Input type="date" value={filters.dateFrom || ''} onChange={(event) => updateQuery({ dateFrom: event.target.value })} />
+                  <Input type="date" value={filters.dateTo || ''} onChange={(event) => updateQuery({ dateTo: event.target.value })} />
                 </div>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Таблица */}
-        <div className="flex-1 p-4 overflow-auto">
-          {error && (
-            <Card className="mb-4 border-destructive/30 bg-destructive/5">
-              <CardContent className="flex items-center justify-between gap-4 p-4">
-                <p className="text-sm text-destructive">{error}</p>
-                <Button variant="outline" onClick={() => void loadData()}>
-                  Повторить
+        <div className="flex-1 overflow-auto p-4">
+          <AssetsDataTable
+            assets={assets}
+            totalCount={pagination.total}
+            filteredCount={assets.length}
+            canEdit={canEdit}
+            onArchive={() => router.refresh()}
+          />
+          {pagination.totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">
+                Страница {pagination.page} из {pagination.totalPages}
+              </span>
+              <div className="flex gap-2">
+                <Button variant="outline" disabled={pagination.page <= 1} onClick={() => updateQuery({ page: pagination.page - 1 })}>
+                  Назад
                 </Button>
-              </CardContent>
-            </Card>
-          )}
-          {loading ? (
-            <div className="space-y-4">
-              <Skeleton className="h-10 w-full" />
-              {Array.from({ length: 8 }).map((_, i) => (
-                <Skeleton key={i} className="h-14 w-full" />
-              ))}
+                <Button variant="outline" disabled={pagination.page >= pagination.totalPages} onClick={() => updateQuery({ page: pagination.page + 1 })}>
+                  Далее
+                </Button>
+              </div>
             </div>
-          ) : (
-            <AssetsDataTable 
-              assets={filteredAssets} 
-              totalCount={assets.length}
-              filteredCount={filteredAssets.length}
-              onArchive={() => loadData()}
-            />
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+function FilterSelect({
+  label,
+  value,
+  placeholder,
+  options,
+  onChange,
+}: {
+  label: string
+  value?: string
+  placeholder: string
+  options: { value: string; label: string }[]
+  onChange: (value: string) => void
+}) {
+  return (
+    <div className="space-y-2">
+      <Label className="text-xs">{label}</Label>
+      <Select value={value || ''} onValueChange={onChange}>
+        <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
+        <SelectContent>
+          {options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+        </SelectContent>
+      </Select>
     </div>
   )
 }

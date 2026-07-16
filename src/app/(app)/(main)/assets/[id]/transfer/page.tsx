@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/ui/toast'
 import { Button } from '@/components/ui/button'
@@ -13,36 +13,58 @@ import { ArrowLeft, ArrowRightLeft } from 'lucide-react'
 import Link from 'next/link'
 import { formatCurrency, formatDecimal } from '@/lib/utils'
 
-interface TransferPageProps {
-  params: { id: string }
+interface MolSummary {
+  id: string
+  code: string
+  fullName: string
+  department: string
 }
 
-async function getAsset(id: string) {
+interface AssetHoldingSummary {
+  molId: string
+  quantity: string
+  mol: MolSummary
+}
+
+interface TransferAssetSummary {
+  id: string
+  name: string
+  inventoryNumber: string
+  unitOfMeasure: string
+  unitPrice: string
+  totalCost: string
+  holdings: AssetHoldingSummary[]
+}
+
+async function getAsset(id: string): Promise<TransferAssetSummary> {
   const res = await fetch(`/api/assets/${id}`, {
     cache: 'no-store',
   })
   if (!res.ok) throw new Error('Failed to fetch asset')
-  return res.json()
+  const body = await res.json() as { data: TransferAssetSummary }
+  return body.data
 }
 
-async function getMols() {
+async function getMols(): Promise<MolSummary[]> {
   const res = await fetch('/api/mols', {
     cache: 'no-store',
   })
   if (!res.ok) throw new Error('Failed to fetch MOLs')
-  return res.json()
+  const body = await res.json() as { data: MolSummary[] }
+  return body.data
 }
 
-export default function TransferPage({ params }: { params: { id: string } }) {
+export default function TransferPage(props: { params: Promise<{ id: string }> }) {
+  const params = use(props.params)
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
-  const [asset, setAsset] = useState<any>(null)
-  const [mols, setMols] = useState<any[]>([])
+  const [asset, setAsset] = useState<TransferAssetSummary | null>(null)
+  const [mols, setMols] = useState<MolSummary[]>([])
   const [formData, setFormData] = useState({
+    fromMolId: '',
     toMolId: '',
     quantity: '',
-    unitPrice: '',
     date: new Date().toISOString().split('T')[0],
     documentType: 'Акт передачи',
     documentDetails: '',
@@ -61,11 +83,12 @@ export default function TransferPage({ params }: { params: { id: string } }) {
         }
 
         setAsset(assetData)
-        setMols(molsData.filter((m: any) => m.id !== assetData.molId))
+        const initialHolding = assetData.holdings[0]
+        setMols(molsData)
         setFormData(prev => ({
           ...prev,
-          quantity: assetData.quantity.toString(),
-          unitPrice: assetData.unitPrice.toString(),
+          fromMolId: initialHolding?.molId || '',
+          quantity: initialHolding?.quantity || '',
         }))
       } catch (error) {
         console.error('Error loading transfer page:', error)
@@ -85,16 +108,15 @@ export default function TransferPage({ params }: { params: { id: string } }) {
     setLoading(true)
 
     try {
-      const res = await fetch('/api/operations', {
+      const res = await fetch(`/api/assets/${params.id}/transfers`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'TRANSFER',
           assetId: params.id,
-          fromMolId: asset?.molId,
+          fromMolId: formData.fromMolId,
           toMolId: formData.toMolId,
           quantity: parseFloat(formData.quantity),
-          unitPrice: parseFloat(formData.unitPrice),
           date: formData.date,
           documentType: formData.documentType,
           documentDetails: formData.documentDetails,
@@ -128,7 +150,9 @@ export default function TransferPage({ params }: { params: { id: string } }) {
     )
   }
 
-  const totalCost = parseFloat(formData.quantity || '0') * parseFloat(formData.unitPrice || '0')
+  const sourceHolding = asset.holdings.find((holding) => holding.molId === formData.fromMolId)
+  const availableQuantity = Number(sourceHolding?.quantity || 0)
+  const totalCost = parseFloat(formData.quantity || '0') * Number(asset.unitPrice)
 
   return (
     <main className="container mx-auto py-8 px-4 max-w-2xl">
@@ -151,10 +175,10 @@ export default function TransferPage({ params }: { params: { id: string } }) {
           <p className="font-medium">{asset.name}</p>
           <p className="text-sm text-muted-foreground">
             Инв. номер: {asset.inventoryNumber} | 
-            Текущий МОЛ: {asset.mol?.fullName}
+            Остатки: {asset.holdings.map((holding) => `${holding.mol.fullName}: ${formatDecimal(holding.quantity)}`).join('; ')}
           </p>
           <p className="text-sm text-muted-foreground mt-2">
-            Доступно: {formatDecimal(asset.quantity)} {asset.unitOfMeasure} ({formatCurrency(asset.totalCost)})
+            Всего: {formatDecimal(asset.holdings.reduce((sum, holding) => sum + Number(holding.quantity), 0))} {asset.unitOfMeasure} ({formatCurrency(asset.totalCost)})
           </p>
         </CardContent>
       </Card>
@@ -166,6 +190,30 @@ export default function TransferPage({ params }: { params: { id: string } }) {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
+              <Label htmlFor="fromMolId">Отправитель (МОЛ) *</Label>
+              <Select
+                value={formData.fromMolId}
+                onValueChange={(value) => {
+                  const holding = asset.holdings.find((item) => item.molId === value)
+                  setFormData({
+                    ...formData,
+                    fromMolId: value,
+                    toMolId: formData.toMolId === value ? '' : formData.toMolId,
+                    quantity: holding?.quantity || '',
+                  })
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Выберите отправителя" /></SelectTrigger>
+                <SelectContent>
+                  {asset.holdings.map((holding) => (
+                    <SelectItem key={holding.molId} value={holding.molId}>
+                      {holding.mol.code} — {holding.mol.fullName} ({formatDecimal(holding.quantity)})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="toMolId">Получатель (МОЛ) *</Label>
               <Select
                 value={formData.toMolId}
@@ -175,7 +223,7 @@ export default function TransferPage({ params }: { params: { id: string } }) {
                   <SelectValue placeholder="Выберите получателя" />
                 </SelectTrigger>
                 <SelectContent>
-                  {mols.map((mol) => (
+                  {mols.filter((mol) => mol.id !== formData.fromMolId).map((mol) => (
                     <SelectItem key={mol.id} value={mol.id}>
                       {mol.code} - {mol.fullName} ({mol.department})
                     </SelectItem>
@@ -184,33 +232,22 @@ export default function TransferPage({ params }: { params: { id: string } }) {
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="quantity">Количество *</Label>
                 <Input
                   id="quantity"
                   type="number"
                   step="0.01"
-                  max={asset.quantity}
+                  min="0.01"
+                  max={availableQuantity}
                   value={formData.quantity}
                   onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  Максимум: {formatDecimal(asset.quantity)}
+                  Максимум: {formatDecimal(availableQuantity)}
                 </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="unitPrice">Цена за единицу *</Label>
-                <Input
-                  id="unitPrice"
-                  type="number"
-                  step="0.01"
-                  value={formData.unitPrice}
-                  onChange={(e) => setFormData({ ...formData, unitPrice: e.target.value })}
-                  required
-                />
               </div>
             </div>
 
