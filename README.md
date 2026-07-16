@@ -1,6 +1,6 @@
 # Project1 Accounting
 
-Внутренняя система учёта имущества, сотрудников, проектов и финансового планирования. Это модульный Next.js-монолит; приложение, Prisma-схема и эксплуатационные файлы находятся в корне репозитория. Правила модулей и направлений зависимостей описаны в [архитектурной документации](docs/architecture.md).
+Внутренняя система учёта имущества, сотрудников, проектов и финансового планирования. Это модульный Next.js-монолит; приложение, Prisma-схема и эксплуатационные файлы находятся в корне репозитория.
 
 ## Стек и требования
 
@@ -32,6 +32,36 @@ npm run dev
 - `VIEWER` — чтение и экспорт.
 
 `proxy.ts` выполняет только раннее перенаправление. Server Components и API повторно проверяют активного пользователя в PostgreSQL. Мутации требуют допустимую роль и same-origin, пароли хранятся как Argon2id, после пяти неверных попыток вход блокируется на 15 минут.
+
+## Архитектура
+
+Приложение разделено на предметные модули `assets`, `employees`, `projects`, `finance`, `users` и `exports`. Внутри модуля используются только необходимые слои:
+
+```text
+src/features/<feature>/
+├── contracts/       Zod-схемы, DTO и публичные типы
+├── domain/          чистые бизнес-правила и доменные ошибки
+├── application/     запросы, команды и транзакционные сценарии
+├── infrastructure/  сложные Prisma-запросы и helpers
+└── ui/              предметные React-компоненты и hooks
+```
+
+Направление зависимостей:
+
+```text
+app ──► feature/application ──► feature/domain
+ │               └───────────► feature/infrastructure ──► lib/prisma
+ └──► feature/ui
+```
+
+Основные правила:
+
+- `src/app` содержит маршрутизацию, авторизацию, HTTP-адаптацию и композицию экранов;
+- `src/lib` содержит общую инфраструктуру и не зависит от `features` или `app`;
+- domain-код не зависит от application, infrastructure, UI, Next.js и Prisma client;
+- UI не обращается напрямую к Prisma или infrastructure;
+- межмодульный обмен выполняется через `contracts`, а композиция модулей — в `app`;
+- HTTP URL, JSON-контракты, роли и Prisma-схема считаются стабильными внешними границами.
 
 ## Проверки
 
@@ -112,7 +142,6 @@ src/app/                тонкие route groups, страницы-композ
 src/features/           contracts, domain, application, infrastructure и UI модулей
 src/components/         общий UI-kit, layout и навигация
 src/lib/                auth, DB, HTTP, logger и общая инфраструктура
-docs/                   архитектурные и эксплуатационные документы
 e2e/                    Playwright smoke/E2E
 .github/workflows/      CI
 Dockerfile              multi-stage production image
