@@ -8,19 +8,20 @@ datasource db {
 }
 
 model Mol {
-  id          String   @id @default(cuid())
-  code        String   @unique
-  department  String
-  fullName    String
+  id              String   @id @default(cuid())
+  code            String   @unique
+  department      String
+  fullName        String
   storageLocation String
-  photo       String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  assets      Asset[]
-  operationsFrom Operation[] @relation("FromMol")
-  operationsTo   Operation[] @relation("ToMol")
-  
+  photo           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  assets         Asset[]
+  holdings       AssetHolding[]
+  operationsFrom Operation[]    @relation("FromMol")
+  operationsTo   Operation[]    @relation("ToMol")
+
   @@map("mols")
 }
 
@@ -31,67 +32,68 @@ model AssetGroup {
   description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
-  assets      Asset[]
-  
+
+  assets Asset[]
+
   @@map("asset_groups")
 }
 
 model Asset {
-  id              String   @id @default(cuid())
-  orderNumber     Int      @default(autoincrement())
+  id              String  @id @default(cuid())
+  orderNumber     Int     @default(autoincrement())
   name            String
-  inventoryNumber String   @unique
-  unitPrice       Decimal  @db.Decimal(10, 2)
+  inventoryNumber String  @unique
+  unitPrice       Decimal @db.Decimal(10, 2)
   unitOfMeasure   String
-  quantity        Decimal  @db.Decimal(10, 2)
-  totalCost       Decimal  @db.Decimal(12, 2)
-  
-  molId           String
-  mol             Mol      @relation(fields: [molId], references: [id])
-  
-  groupId         String
-  group           AssetGroup @relation(fields: [groupId], references: [id])
-  
+  quantity        Decimal @db.Decimal(10, 2)
+  totalCost       Decimal @db.Decimal(12, 2)
+
+  molId String
+  mol   Mol    @relation(fields: [molId], references: [id])
+
+  groupId String
+  group   AssetGroup @relation(fields: [groupId], references: [id])
+
   // Project relation
-  projectId       String?
-  project         Project? @relation(fields: [projectId], references: [id])
-  
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id])
+
   // Source of purchase
-  contractCode    String?
+  contractCode        String?
   internalFundingCode String?
-  isExistingAsset Boolean  @default(false)
-  
+  isExistingAsset     Boolean @default(false)
+
   // Basis for recording
   recordingDate   DateTime
   documentType    String
   documentDetails String
-  
+
   // Yandex.Disk file references
-  documentFiles   String[] @default([])
-  
+  documentFiles String[] @default([])
+
   // Status
-  status          AssetStatus @default(IN_STOCK)
-  
+  status AssetStatus @default(IN_STOCK)
+
   // Archive flag
-  isArchived      Boolean  @default(false)
-  
+  isArchived Boolean @default(false)
+
   // Planning
-  plannedDisposalDate DateTime?
+  plannedDisposalDate   DateTime?
   plannedDisposalReason String?
-  
+
   // Photos and notes
-  photos          String[] @default([])
-  notes           String?
-  
+  photos String[] @default([])
+  notes  String?
+
   // Accounting form (145 or 367)
-  accountingForm  String   @default("145")
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  operations      Operation[]
-  
+  accountingForm String @default("145")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  operations Operation[]
+  holdings   AssetHolding[]
+
   @@index([molId])
   @@index([groupId])
   @@index([status])
@@ -107,7 +109,7 @@ enum AssetStatus {
   PLANNED_FOR_DISPOSAL
   PARTIALLY_DISPOSED
   FULLY_DISPOSED
-  
+
   @@map("asset_status")
 }
 
@@ -116,54 +118,102 @@ enum OperationType {
   TRANSFER
   DISPOSAL
   STATUS_CHANGE
-  
+
   @@map("operation_type")
 }
 
 model Operation {
-  id          String   @id @default(cuid())
-  type        OperationType
-  
-  assetId     String
-  asset       Asset    @relation(fields: [assetId], references: [id])
-  
+  id   String        @id @default(cuid())
+  type OperationType
+
+  assetId String
+  asset   Asset  @relation(fields: [assetId], references: [id])
+
   // For transfers
-  fromMolId   String?
-  fromMol     Mol?     @relation("FromMol", fields: [fromMolId], references: [id])
-  
-  toMolId     String?
-  toMol       Mol?     @relation("ToMol", fields: [toMolId], references: [id])
-  
+  fromMolId String?
+  fromMol   Mol?    @relation("FromMol", fields: [fromMolId], references: [id])
+
+  toMolId String?
+  toMol   Mol?    @relation("ToMol", fields: [toMolId], references: [id])
+
   // Quantities
-  quantity    Decimal  @db.Decimal(10, 2)
-  unitPrice   Decimal  @db.Decimal(10, 2)
-  totalCost   Decimal  @db.Decimal(12, 2)
-  
+  quantity  Decimal @db.Decimal(10, 2)
+  unitPrice Decimal @db.Decimal(10, 2)
+  totalCost Decimal @db.Decimal(12, 2)
+
   // Document info
-  date        DateTime
-  reason      String?
-  documentType String
+  date            DateTime
+  reason          String?
+  documentType    String
   documentDetails String
-  documentFiles String[] @default([])
-  
+  documentFiles   String[] @default([])
+
   // Status change
-  oldStatus   AssetStatus?
-  newStatus   AssetStatus?
-  
-  createdAt   DateTime @default(now())
-  
+  oldStatus AssetStatus?
+  newStatus AssetStatus?
+
+  createdAt DateTime @default(now())
+
+  @@index([assetId, date])
+  @@index([type, date])
   @@map("operations")
 }
 
+model AssetHolding {
+  id        String   @id @default(cuid())
+  assetId   String
+  asset     Asset    @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  molId     String
+  mol       Mol      @relation(fields: [molId], references: [id], onDelete: Restrict)
+  quantity  Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([assetId, molId])
+  @@index([molId, assetId])
+  @@map("asset_holdings")
+}
+
+enum UserRole {
+  ADMIN
+  EDITOR
+  VIEWER
+
+  @@map("user_role")
+}
+
+model User {
+  id                  String     @id @default(cuid())
+  username            String     @unique
+  name                String
+  passwordHash        String
+  role                UserRole   @default(VIEWER)
+  isActive            Boolean    @default(true)
+  mustChangePassword  Boolean    @default(true)
+  failedLoginAttempts Int        @default(0)
+  lockedUntil         DateTime?
+  lastLoginAt         DateTime?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  auditLogs           AuditLog[]
+
+  @@index([isActive, role])
+  @@map("users")
+}
+
 model AuditLog {
-  id          String   @id @default(cuid())
-  userId      String?
-  action      String
-  entityType  String
-  entityId    String
-  details     String?
-  createdAt   DateTime @default(now())
-  
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String
+  entityType String
+  entityId   String
+  details    Json?
+  requestId  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([entityType, entityId, createdAt])
   @@map("audit_logs")
 }
 
@@ -172,58 +222,58 @@ enum ProjectStatus {
   ACTIVE
   COMPLETED
   ARCHIVED
-  
+
   @@map("project_status")
 }
 
 model Project {
-  id          String   @id @default(cuid())
-  code        String   @unique
+  id          String  @id @default(cuid())
+  code        String  @unique
   name        String
   description String?
   goals       String?
   tasks       String?
   results     String?
-  
+
   // Dates
-  startDate   DateTime?
-  endDate     DateTime?
-  
+  startDate DateTime?
+  endDate   DateTime?
+
   // Status
-  status      ProjectStatus @default(ACTIVE)
-  
+  status ProjectStatus @default(ACTIVE)
+
   // Budget
-  plannedBudget Decimal  @db.Decimal(12, 2) @default(0)
-  actualBudget  Decimal  @db.Decimal(12, 2) @default(0)
-  
+  plannedBudget Decimal @default(0) @db.Decimal(12, 2)
+  actualBudget  Decimal @default(0) @db.Decimal(12, 2)
+
   // Relations
-  assets      Asset[]
-  tasksList   Task[]
+  assets             Asset[]
+  tasksList          Task[]
   financePlanEntries FinancePlanEntry[]
-  projectMembers ProjectMember[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  projectMembers     ProjectMember[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@map("projects")
 }
 
 model ProjectMember {
-  id          String   @id @default(cuid())
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  employeeId  String
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  id            String         @id @default(cuid())
+  projectId     String
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  employeeId    String
+  employee      Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   taskAssignees TaskAssignee[]
-  department  String
-  position    String
-  rate        Decimal  @db.Decimal(5, 2)
-  salary      Decimal  @db.Decimal(12, 2)
-  isArchived  Boolean  @default(false)
-  archivedAt  DateTime?
+  department    String
+  position      String
+  rate          Decimal        @db.Decimal(5, 2)
+  salary        Decimal        @db.Decimal(12, 2)
+  isArchived    Boolean        @default(false)
+  archivedAt    DateTime?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([projectId, employeeId])
   @@index([projectId, isArchived])
@@ -233,49 +283,50 @@ model ProjectMember {
 
 // Tasks with 3-level hierarchy
 model Task {
-  id          String   @id @default(cuid())
-  name        String
-  
+  id   String @id @default(cuid())
+  name String
+
   // Hierarchy (Level 1, 2, 3)
-  level       Int      @default(1) // 1, 2, or 3
-  parentId    String?
-  parent      Task?    @relation("TaskChildren", fields: [parentId], references: [id])
-  children    Task[]   @relation("TaskChildren")
-  
+  level    Int     @default(1) // 1, 2, or 3
+  parentId String?
+  parent   Task?   @relation("TaskChildren", fields: [parentId], references: [id])
+  children Task[]  @relation("TaskChildren")
+
   // Dates and duration
-  startDate   DateTime?
-  endDate     DateTime?
-  duration    Int?     // in days
-  
+  startDate DateTime?
+  endDate   DateTime?
+  duration  Int? // in days
+
   // Progress
-  progress    Int      @default(0) // 0-100%
-  
+  progress Int @default(0) // 0-100%
+
   // Legacy responsible person field kept for backwards-compatible display.
   responsible String?
   assignees   TaskAssignee[]
-  
+
   // Status
-  status      TaskStatus @default(NOT_STARTED)
-  
+  status TaskStatus @default(NOT_STARTED)
+
   // Project relation
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId, parentId])
   @@map("tasks")
 }
 
 model TaskAssignee {
-  id              String        @id @default(cuid())
+  id              String         @id @default(cuid())
   taskId          String
-  task            Task          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  task            Task           @relation(fields: [taskId], references: [id], onDelete: Cascade)
   employeeId      String
-  employee        Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee        Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   projectMemberId String?
   projectMember   ProjectMember? @relation(fields: [projectMemberId], references: [id], onDelete: SetNull)
-  createdAt       DateTime      @default(now())
+  createdAt       DateTime       @default(now())
 
   @@unique([taskId, employeeId])
   @@index([employeeId])
@@ -294,40 +345,40 @@ enum TaskStatus {
 
 // Employees and HR
 model Employee {
-  id          String   @id @default(cuid())
-  code        String   @unique // Табельный номер
-  fullName    String
-  department  String
-  photo       String?
-  contractType EmploymentContractType @default(PRIMARY)
+  id                 String                 @id @default(cuid())
+  code               String                 @unique // Табельный номер
+  fullName           String
+  department         String
+  photo              String?
+  contractType       EmploymentContractType @default(PRIMARY)
   contractSignedDate DateTime?
-  contractEndDate DateTime?
-  contractNumber String?
-  
+  contractEndDate    DateTime?
+  contractNumber     String?
+
   // Contact info
-  phone       String?
-  email       String?
-  
+  phone String?
+  email String?
+
   // Staff schedule position
   staffScheduleId String?
   staffSchedule   StaffSchedule? @relation(fields: [staffScheduleId], references: [id])
-  employmentRate  Decimal @default(1) @db.Decimal(5, 2) // Количество ставок сотрудника
-  
+  employmentRate  Decimal        @default(1) @db.Decimal(5, 2) // Количество ставок сотрудника
+
   // Status
-  status      EmployeeStatus @default(ACTIVE)
-  
+  status EmployeeStatus @default(ACTIVE)
+
   // Relations
-  vacations   Vacation[]
-  actions     PersonnelAction[]
-  salaryEntries SalaryEntry[]
+  vacations          Vacation[]
+  actions            PersonnelAction[]
+  salaryEntries      SalaryEntry[]
   financePlanEntries FinancePlanEntry[]
-  projectMembers ProjectMember[]
-  taskAssignees TaskAssignee[]
-  
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  projectMembers     ProjectMember[]
+  taskAssignees      TaskAssignee[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, fullName])
   @@map("employees")
 }
 
@@ -336,7 +387,7 @@ enum EmployeeStatus {
   ON_VACATION
   ON_SICK_LEAVE
   DISMISSED
-  
+
   @@map("employee_status")
 }
 
@@ -349,31 +400,31 @@ enum EmploymentContractType {
 }
 
 model StaffSchedule {
-  id          String   @id @default(cuid())
-  position    String   // Название должности
-  department  String   // Отдел
-  rate        Decimal  @db.Decimal(5, 2) // Количество ставок
-  salary      Decimal  @db.Decimal(10, 2) // Зарплата
-  
+  id         String  @id @default(cuid())
+  position   String // Название должности
+  department String // Отдел
+  rate       Decimal @db.Decimal(5, 2) // Количество ставок
+  salary     Decimal @db.Decimal(10, 2) // Зарплата
+
   // Relations
-  employees   Employee[]
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
+  employees Employee[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   @@map("staff_schedule")
 }
 
 model SalaryEntry {
-  id          String   @id @default(cuid())
-  employeeId  String
-  employee    Employee @relation(fields: [employeeId], references: [id])
-  year        Int
-  month       Int
-  amount      Decimal  @db.Decimal(12, 2)
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  year       Int
+  month      Int
+  amount     Decimal  @db.Decimal(12, 2)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([employeeId, year, month])
   @@index([year, month])
@@ -388,18 +439,18 @@ enum FinancePlanType {
 }
 
 model FinancePlanEntry {
-  id          String          @id @default(cuid())
-  employeeId  String
-  employee    Employee        @relation(fields: [employeeId], references: [id])
-  projectId   String?
-  project     Project?        @relation(fields: [projectId], references: [id])
-  year        Int
-  month       Int
-  type        FinancePlanType
-  amount      Decimal         @db.Decimal(12, 2)
+  id         String          @id @default(cuid())
+  employeeId String
+  employee   Employee        @relation(fields: [employeeId], references: [id])
+  projectId  String?
+  project    Project?        @relation(fields: [projectId], references: [id])
+  year       Int
+  month      Int
+  type       FinancePlanType
+  amount     Decimal         @db.Decimal(12, 2)
 
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([employeeId, year, month, type, projectId])
   @@index([employeeId, year, month, type])
@@ -408,25 +459,26 @@ model FinancePlanEntry {
 }
 
 model PersonnelAction {
-  id          String   @id @default(cuid())
+  id          String              @id @default(cuid())
   type        PersonnelActionType
   date        DateTime
   description String?
-  
+
   // Employee
-  employeeId  String
-  employee    Employee @relation(fields: [employeeId], references: [id])
-  
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id])
+
   // Additional data
-  oldDepartment String?
-  newDepartment String?
-  oldPosition   String?
-  newPosition   String?
+  oldDepartment      String?
+  newDepartment      String?
+  oldPosition        String?
+  newPosition        String?
   oldContractEndDate DateTime?
   newContractEndDate DateTime?
-  
-  createdAt   DateTime @default(now())
-  
+
+  createdAt DateTime @default(now())
+
+  @@index([employeeId, date])
   @@map("personnel_actions")
 }
 
@@ -438,22 +490,23 @@ enum PersonnelActionType {
   EXTEND
   PROMOTE
   EDIT
-  
+
   @@map("personnel_action_type")
 }
 
 model Vacation {
-  id          String   @id @default(cuid())
-  startDate   DateTime
-  endDate     DateTime
-  type        VacationType @default(VACATION)
-  
+  id        String       @id @default(cuid())
+  startDate DateTime
+  endDate   DateTime
+  type      VacationType @default(VACATION)
+
   // Employee
-  employeeId  String
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  
-  createdAt   DateTime @default(now())
-  
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([employeeId, startDate])
   @@map("vacations")
 }
 
@@ -462,6 +515,6 @@ enum VacationType {
   SICK_LEAVE
   BUSINESS_TRIP
   UNPAID_LEAVE
-  
+
   @@map("vacation_type")
 }
