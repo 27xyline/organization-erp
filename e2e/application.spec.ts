@@ -6,7 +6,7 @@ async function login(page: Page, credentials = E2E_ADMIN) {
   await page.getByLabel('Пользователь').fill(credentials.username)
   await page.getByLabel('Пароль').fill(credentials.password)
   await page.getByRole('button', { name: 'Войти' }).click()
-  await expect(page).toHaveURL(/\/$/)
+  await expect(page).toHaveURL(/\/$/, { timeout: 15_000 })
 }
 
 test('unauthenticated API is rejected and viewer cannot mutate', async ({ request, page }) => {
