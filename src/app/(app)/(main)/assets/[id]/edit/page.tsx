@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { AssetForm } from '@/components/asset-form'
 import { OperationsHistory } from '@/components/operations-history'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { AssetService } from '@/features/assets/asset.service'
+import { AssetService } from '@/features/assets/application/asset.service'
 import { ProjectService } from '@/features/projects/project.service'
 import { requirePageUser } from '@/lib/auth/authorization'
 

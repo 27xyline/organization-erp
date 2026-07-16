@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import { CatalogService, CatalogServiceError } from '@/features/assets/catalog.service'
+import { CatalogService, CatalogServiceError } from '@/features/assets/application/catalog.service'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
 import { createGroupSchema } from '@/features/assets/contracts/schemas'

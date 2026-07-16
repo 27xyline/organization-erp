@@ -1,7 +1,7 @@
 import { hash, verify } from '@node-rs/argon2'
 import type { Prisma, UserRole } from '@prisma/client'
 import { getDb } from '@/lib/prisma'
-import { ServiceError } from '@/lib/services/service-error'
+import { ServiceError } from '@/lib/errors/service-error'
 import type { ChangePasswordInput, CreateUserInput, UpdateUserInput } from './contracts/schemas'
 
 type UserServiceErrorCode =

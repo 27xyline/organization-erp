@@ -19,7 +19,7 @@ import {
   normalizeStaffSchedule,
   normalizeVacation,
   normalizePersonnelAction,
-} from '@/lib/normalize'
+} from '@/features/employees/contracts/normalizers'
 
 const sortEmployeesByName = (a: Employee, b: Employee) =>
   a.fullName.localeCompare(b.fullName, 'ru', { sensitivity: 'base' })

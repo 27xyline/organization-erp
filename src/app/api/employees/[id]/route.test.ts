@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ServiceError } from '@/lib/services/service-error'
+import { ServiceError } from '@/lib/errors/service-error'
 
 vi.mock('@/lib/auth/authorization', () => ({
   authorizeApiRequest: vi.fn(async () => ({
@@ -7,7 +7,7 @@ vi.mock('@/lib/auth/authorization', () => ({
   })),
 }))
 
-vi.mock('@/lib/services/employee.service', () => ({
+vi.mock('@/features/employees/application/employee.service', () => ({
   EmployeeService: {
     updateEmployee: vi.fn(),
     dismissEmployee: vi.fn(),
@@ -43,7 +43,7 @@ describe('employees/[id] route', () => {
   })
 
   it('maps domain position requirement errors to HTTP 400', async () => {
-    const { EmployeeService } = await import('@/lib/services/employee.service')
+    const { EmployeeService } = await import('@/features/employees/application/employee.service')
     const { PUT } = await import('@/app/api/employees/[id]/route')
 
     vi.mocked(EmployeeService.updateEmployee).mockRejectedValueOnce(new ServiceError('POSITION_REQUIRED'))
@@ -64,7 +64,7 @@ describe('employees/[id] route', () => {
   })
 
   it('maps duplicate employee code errors to HTTP 400', async () => {
-    const { EmployeeService } = await import('@/lib/services/employee.service')
+    const { EmployeeService } = await import('@/features/employees/application/employee.service')
     const { Prisma } = await import('@prisma/client')
     const { PUT } = await import('@/app/api/employees/[id]/route')
 

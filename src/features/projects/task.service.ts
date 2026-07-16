@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { ServiceError } from '@/lib/services/service-error'
+import { ServiceError } from '@/lib/errors/service-error'
 import type { CreateTaskInput, UpdateTaskInput } from '@/features/projects/contracts/task'
 
 type TaskErrorCode = 'TASK_NOT_FOUND' | 'INVALID_HIERARCHY' | 'INVALID_ASSIGNEES'

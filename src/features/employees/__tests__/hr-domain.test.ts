@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   ensureValidContractDateRange,
   ensureValidEmploymentRate,
-  resolveAssignablePosition,
-} from '@/lib/services/hr-domain'
+} from '@/features/employees/domain/hr-domain'
+import { resolveAssignablePosition } from '@/features/employees/infrastructure/employee.repository'
 
 describe('hr-domain', () => {
   it('rejects non-positive employment rate', () => {

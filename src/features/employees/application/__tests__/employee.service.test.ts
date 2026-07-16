@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { prisma } from '@/lib/prisma'
-import { EmployeeService } from '@/lib/services/employee.service'
+import { EmployeeService } from '@/features/employees/application/employee.service'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {

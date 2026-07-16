@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { prisma } from '@/lib/prisma'
-import { hrError, resolveAssignablePosition } from '@/lib/services/hr-domain'
-import { PersonnelActionService } from '@/lib/services/personnel-action.service'
+import { hrError } from '@/features/employees/domain/hr-domain'
+import { resolveAssignablePosition } from '@/features/employees/infrastructure/employee.repository'
+import { PersonnelActionService } from '@/features/employees/application/personnel-action.service'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -9,13 +10,9 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
-vi.mock('@/lib/services/hr-domain', async () => {
-  const actual = await vi.importActual<typeof import('@/lib/services/hr-domain')>('@/lib/services/hr-domain')
-
-  return {
-    ...actual,
-    resolveAssignablePosition: vi.fn(actual.resolveAssignablePosition),
-  }
+vi.mock('@/features/employees/infrastructure/employee.repository', async () => {
+  const actual = await vi.importActual<typeof import('@/features/employees/infrastructure/employee.repository')>('@/features/employees/infrastructure/employee.repository')
+  return { ...actual, resolveAssignablePosition: vi.fn(actual.resolveAssignablePosition) }
 })
 
 describe('PersonnelActionService.createAction', () => {

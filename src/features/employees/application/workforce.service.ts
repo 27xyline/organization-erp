@@ -1,6 +1,6 @@
 import { getDb } from '@/lib/prisma'
-import { getStaffScheduleRateSummary, toRateNumber } from '@/lib/employees'
-import { ServiceError } from '@/lib/services/service-error'
+import { getStaffScheduleRateSummary, toRateNumber } from '@/features/employees/infrastructure/workforce.repository'
+import { ServiceError } from '@/lib/errors/service-error'
 import type { CreateStaffScheduleInput, CreateVacationInput } from '@/features/employees/contracts/schemas'
 
 type WorkforceErrorCode = 'NOT_FOUND' | 'INVALID_DATES' | 'RATE_BELOW_OCCUPIED' | 'POSITION_IN_USE'

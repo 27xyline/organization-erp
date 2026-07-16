@@ -1,11 +1,11 @@
 import { getDb } from '@/lib/prisma'
-import { employeeSelect } from '@/lib/services/hr-domain'
+import { employeeSelect } from '@/features/employees/infrastructure/employee.repository'
 import {
   normalizeEmployee,
   normalizePersonnelAction,
   normalizeStaffSchedule,
   normalizeVacation,
-} from '@/lib/normalize'
+} from '@/features/employees/contracts/normalizers'
 
 export class EmployeeReadService {
   static async dashboard(year: number) {

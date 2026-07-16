@@ -1,6 +1,5 @@
 import { prisma } from '@/lib/prisma'
 import {
-  employeeSelect,
   ensurePositionRequired,
   ensureValidActionDate,
   ensureValidContractDateRange,
@@ -8,10 +7,10 @@ import {
   hrError,
   parseOptionalDate,
   parseRequiredDate,
-  resolveAssignablePosition,
-} from '@/lib/services/hr-domain'
+} from '@/features/employees/domain/hr-domain'
+import { employeeSelect, resolveAssignablePosition } from '@/features/employees/infrastructure/employee.repository'
 import { CreatePersonnelActionInput } from '@/features/employees/contracts/schemas'
-import { ensureExpiredContractArchiveActions } from '@/lib/employees'
+import { ensureExpiredContractArchiveActions } from '@/features/employees/infrastructure/workforce.repository'
 
 const personnelActionPriority: Record<string, number> = {
   HIRE: 0, DISMISS: 1, ARCHIVE: 2, EXTEND: 3, TRANSFER: 4, PROMOTE: 5, EDIT: 6,

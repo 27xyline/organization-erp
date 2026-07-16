@@ -1,21 +1,11 @@
 import { AssetStatus, OperationType, Prisma } from '@prisma/client'
 import type { CreateAssetInput } from '@/features/assets/contracts/schemas'
 import { getDb } from '@/lib/prisma'
-import { ServiceError } from '@/lib/services/service-error'
-import type { AssetsQuery, DisposeAssetInput, OperationsQuery, TransferAssetInput, UpdateAssetInput } from './contracts/schemas'
+import type { AssetsQuery, DisposeAssetInput, OperationsQuery, TransferAssetInput, UpdateAssetInput } from '../contracts/schemas'
+import { AssetServiceError } from '../domain/errors'
+import { serializableTransaction } from '../infrastructure/serializable-transaction'
 
-type AssetServiceErrorCode =
-  | 'ASSET_NOT_FOUND'
-  | 'ASSET_ARCHIVED'
-  | 'HOLDING_NOT_FOUND'
-  | 'INSUFFICIENT_QUANTITY'
-  | 'MOL_NOT_FOUND'
-  | 'QUANTITY_OPERATION_REQUIRED'
-  | 'MOL_TRANSFER_REQUIRED'
-  | 'FULLY_DISPOSED_RESTORE_FORBIDDEN'
-  | 'CONCURRENT_UPDATE'
-
-export class AssetServiceError extends ServiceError<AssetServiceErrorCode> {}
+export { AssetServiceError } from '../domain/errors'
 
 const assetInclude = {
   mol: true,
@@ -52,27 +42,6 @@ function snapshot(asset: {
     status: asset.status,
     isArchived: asset.isArchived,
   }
-}
-
-async function serializableTransaction<T>(
-  operation: (tx: Prisma.TransactionClient) => Promise<T>,
-): Promise<T> {
-  const db = getDb()
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
-    try {
-      return await db.$transaction(operation, {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-      })
-    } catch (error) {
-      const retryable =
-        error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034'
-      if (!retryable || attempt === 3) {
-        if (retryable) throw new AssetServiceError('CONCURRENT_UPDATE')
-        throw error
-      }
-    }
-  }
-  throw new AssetServiceError('CONCURRENT_UPDATE')
 }
 
 export class AssetService {

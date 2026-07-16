@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import { PersonnelActionService } from '@/lib/services/personnel-action.service'
+import { PersonnelActionService } from '@/features/employees/application/personnel-action.service'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData } from '@/lib/http/api-response'
 

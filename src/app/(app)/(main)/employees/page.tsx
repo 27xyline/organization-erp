@@ -1,4 +1,4 @@
-import { EmployeeReadService } from '@/features/employees/employee-read.service'
+import { EmployeeReadService } from '@/features/employees/application/employee-read.service'
 import { requirePageUser } from '@/lib/auth/authorization'
 import { EmployeesClient } from './employees-client'
 

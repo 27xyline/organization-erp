@@ -1,6 +1,6 @@
 import { FinancePlanType, Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
-import { ServiceError } from '@/lib/services/service-error'
+import { ServiceError } from '@/lib/errors/service-error'
 import {
   calculateBudgetAdjustments,
   getCurrentYear,

@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import { WorkforceService, WorkforceServiceError } from '@/features/employees/workforce.service'
+import { WorkforceService, WorkforceServiceError } from '@/features/employees/application/workforce.service'
 import { createVacationSchema } from '@/features/employees/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
