@@ -1,8 +1,8 @@
 export class ServiceError<TCode extends string = string> extends Error {
   readonly code: TCode
 
-  constructor(code: TCode) {
-    super(code)
+  constructor(code: TCode, message?: string) {
+    super(message || code)
     this.name = 'ServiceError'
     this.code = code
   }
