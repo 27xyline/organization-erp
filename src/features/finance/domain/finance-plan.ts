@@ -110,14 +110,30 @@ export const calculateBudgetAdjustments = (
   existingEntries: Array<{ projectId: string | null; amount: Prisma.Decimal | number }>,
   nextAllocations: NormalizedFinanceAllocation[],
 ) => {
-  const decrements = new Map<string, string>()
-  const increments = new Map<string, string>()
+  const projectDeltas = new Map<string, number>()
+
   existingEntries.forEach((entry) => {
     if (!entry.projectId) return
-    decrements.set(entry.projectId, (Number(decrements.get(entry.projectId) || '0') + Number(entry.amount)).toFixed(2))
+    const current = projectDeltas.get(entry.projectId) || 0
+    projectDeltas.set(entry.projectId, current - Number(entry.amount))
   })
+
   nextAllocations.forEach((allocation) => {
-    increments.set(allocation.projectId, (Number(increments.get(allocation.projectId) || '0') + Number(allocation.amount)).toFixed(2))
+    const current = projectDeltas.get(allocation.projectId) || 0
+    projectDeltas.set(allocation.projectId, current + Number(allocation.amount))
   })
+
+  const decrements = new Map<string, string>()
+  const increments = new Map<string, string>()
+
+  projectDeltas.forEach((delta, projectId) => {
+    const fixedDelta = Number(delta.toFixed(2))
+    if (fixedDelta > 0) {
+      increments.set(projectId, fixedDelta.toFixed(2))
+    } else if (fixedDelta < 0) {
+      decrements.set(projectId, Math.abs(fixedDelta).toFixed(2))
+    }
+  })
+
   return { decrements, increments }
 }
