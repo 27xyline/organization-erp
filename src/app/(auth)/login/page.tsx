@@ -74,7 +74,7 @@ export default function LoginPage() {
         router.push(toRouterPath(res?.url || safeCallbackUrl))
         router.refresh()
       }
-    } catch (err) {
+    } catch {
       setError('Произошла ошибка при входе')
     } finally {
       setLoading(false)
@@ -90,7 +90,7 @@ export default function LoginPage() {
               <Mountain className="h-8 w-8 text-primary" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-semibold tracking-tight">MC Accounting</CardTitle>
+          <CardTitle className="text-2xl font-semibold tracking-tight">Consilium</CardTitle>
           <CardDescription>Введите данные для входа в систему</CardDescription>
         </CardHeader>
         <CardContent>
@@ -132,7 +132,7 @@ export default function LoginPage() {
           </form>
         </CardContent>
         <CardFooter className="flex justify-center text-sm text-muted-foreground pt-4 border-t">
-          <p>По умолчанию: admin / admin</p>
+          <p>Для получения доступа обратитесь к администратору системы.</p>
         </CardFooter>
       </Card>
     </div>

@@ -1,6 +1,20 @@
-import { PrismaClient } from '@prisma/client'
+import { Prisma, PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
+
+async function upsertAsset(data: Prisma.AssetUncheckedCreateInput) {
+  const asset = await prisma.asset.upsert({
+    where: { inventoryNumber: data.inventoryNumber },
+    update: {},
+    create: data,
+  })
+  await prisma.assetHolding.upsert({
+    where: { assetId_molId: { assetId: asset.id, molId: asset.molId } },
+    update: { quantity: asset.quantity },
+    create: { assetId: asset.id, molId: asset.molId, quantity: asset.quantity },
+  })
+  return asset
+}
 
 async function main() {
   // Create default MOLs
@@ -52,10 +66,7 @@ async function main() {
   const matGroup = await prisma.assetGroup.findUnique({ where: { code: 'MAT' } })
 
   if (osGroup && mol1) {
-    await prisma.asset.upsert({
-      where: { inventoryNumber: 'INV-2024-001' },
-      update: {},
-      create: {
+    await upsertAsset({
         name: 'Компьютер Dell OptiPlex 7090',
         inventoryNumber: 'INV-2024-001',
         unitPrice: 85000.00,
@@ -69,15 +80,11 @@ async function main() {
         documentType: 'Товарная накладная',
         documentDetails: '№ 156 от 15.01.2024, ООО "ТехноСнаб"',
         status: 'IN_USE',
-      },
     })
   }
 
   if (imGroup && mol1) {
-    await prisma.asset.upsert({
-      where: { inventoryNumber: 'INV-2024-002' },
-      update: {},
-      create: {
+    await upsertAsset({
         name: 'Монитор Dell 27" P2722H',
         inventoryNumber: 'INV-2024-002',
         unitPrice: 45000.00,
@@ -91,15 +98,11 @@ async function main() {
         documentType: 'Товарная накладная',
         documentDetails: '№ 156 от 15.01.2024, ООО "ТехноСнаб"',
         status: 'IN_STOCK',
-      },
     })
   }
 
   if (matGroup && mol2) {
-    await prisma.asset.upsert({
-      where: { inventoryNumber: 'INV-2024-003' },
-      update: {},
-      create: {
+    await upsertAsset({
         name: 'Бумага А4 для принтера',
         inventoryNumber: 'INV-2024-003',
         unitPrice: 350.00,
@@ -113,15 +116,11 @@ async function main() {
         documentType: 'Приходный ордер',
         documentDetails: '№ 45 от 01.02.2024',
         status: 'IN_STOCK',
-      },
     })
   }
 
   if (osGroup && mol2) {
-    await prisma.asset.upsert({
-      where: { inventoryNumber: 'INV-2024-004' },
-      update: {},
-      create: {
+    await upsertAsset({
         name: 'МФУ Canon imageRUNNER C3025',
         inventoryNumber: 'INV-2024-004',
         unitPrice: 120000.00,
@@ -135,7 +134,6 @@ async function main() {
         documentType: 'Акт приемки',
         documentDetails: '№ 12 от 10.02.2024, ООО "ОфисТехника"',
         status: 'IN_USE',
-      },
     })
   }
 

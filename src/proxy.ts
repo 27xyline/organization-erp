@@ -2,15 +2,30 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const token = await getToken({ req: request })
   const isAuthPage = request.nextUrl.pathname.startsWith('/login')
+  const requestId = request.headers.get('x-request-id')?.slice(0, 128) || crypto.randomUUID()
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-request-id', requestId)
+
+  const continueRequest = () => {
+    const response = NextResponse.next({ request: { headers: requestHeaders } })
+    response.headers.set('x-request-id', requestId)
+    return response
+  }
+
+  const redirectWithRequestId = (url: URL) => {
+    const response = NextResponse.redirect(url)
+    response.headers.set('x-request-id', requestId)
+    return response
+  }
 
   if (isAuthPage) {
     if (token) {
-      return NextResponse.redirect(new URL('/', request.url))
+      return redirectWithRequestId(new URL('/', request.url))
     }
-    return NextResponse.next()
+    return continueRequest()
   }
 
   // Protect all API routes and pages
@@ -21,15 +36,16 @@ export async function middleware(request: NextRequest) {
     }
 
     if (request.nextUrl.pathname.startsWith('/api')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json(
+        { error: { code: 'UNAUTHENTICATED', message: 'Требуется вход в систему' } },
+        { status: 401, headers: { 'x-request-id': requestId } },
+      )
     }
 
-    return NextResponse.redirect(
-      new URL(`/login?from=${encodeURIComponent(from)}`, request.url)
-    )
+    return redirectWithRequestId(new URL(`/login?from=${encodeURIComponent(from)}`, request.url))
   }
 
-  return NextResponse.next()
+  return continueRequest()
 }
 
 export const config = {
@@ -41,6 +57,6 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      */
-    '/((?!api/auth|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api/auth|api/health|_next/static|_next/image|favicon.ico).*)',
   ],
 }
