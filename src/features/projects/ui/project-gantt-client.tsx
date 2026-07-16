@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/ui/toast'
-import { CustomGantt } from '@/features/projects/ui/custom-gantt'
+import { CustomGantt } from './custom-gantt'
 import { Task } from '@/features/projects/contracts/types'
 import { Button } from '@/components/ui/button'
 import {
@@ -21,8 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { TaskAssigneeSelector } from '@/features/projects/ui/task-assignee-selector'
-import { useProjectTaskMembers } from '@/features/projects/ui/use-project-task-members'
+import { TaskAssigneeSelector } from './task-assignee-selector'
+import { useProjectTaskMembers } from './use-project-task-members'
 
 interface ProjectGanttProps {
   projectId: string

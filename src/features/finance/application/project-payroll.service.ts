@@ -5,11 +5,11 @@ import {
   calculateBudgetAdjustments,
   getCurrentYear,
   getNormalizedAmount,
-} from '@/features/finance/domain/finance-plan'
+} from '../domain/finance-plan'
 import {
   ProjectPayrollDeleteInput,
   ProjectPayrollSaveInput,
-} from '@/features/finance/contracts/project-payroll'
+} from '../contracts/project-payroll'
 
 type ProjectPayrollEntry = {
   type: FinancePlanType

@@ -3,7 +3,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrency, formatDecimal } from '@/lib/utils'
-import { emptyCell, monthLabels, stickyColumnStyles } from '@/features/finance/ui/config'
+import { emptyCell, monthLabels, stickyColumnStyles } from './config'
 import { FinanceMonthCell, FinancePlanRow } from '@/features/finance/contracts/ui-types'
 
 interface FinancePlanTableProps {

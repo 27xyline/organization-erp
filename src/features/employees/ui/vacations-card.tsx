@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
-import { VacationGantt } from '@/features/employees/ui/vacation-gantt'
+import { VacationGantt } from './vacation-gantt'
 import { Skeleton } from '@/components/ui/skeleton'
 import { type Employee, type Vacation } from '@/features/employees/contracts/types'
 

@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn, formatCurrency } from '@/lib/utils'
-import { createEmptyAllocation, monthLabels } from '@/features/finance/ui/config'
+import { createEmptyAllocation, monthLabels } from './config'
 import {
   FinanceAllocationRow,
   FinanceProjectOption,

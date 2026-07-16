@@ -2,14 +2,14 @@
 
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
-import { PersonnelTimeline } from '@/features/employees/ui/personnel-timeline'
-import { StaffTable } from '@/features/employees/ui/staff-table'
-import { EmployeesTable } from '@/features/employees/ui/employees-table'
-import { VacationsCard } from '@/features/employees/ui/vacations-card'
-import { EmployeeDialog } from '@/features/employees/ui/employee-dialog'
-import { StaffDialog } from '@/features/employees/ui/staff-dialog'
-import { VacationDialog } from '@/features/employees/ui/vacation-dialog'
-import { ActionDialog } from '@/features/employees/ui/action-dialog'
+import { PersonnelTimeline } from './personnel-timeline'
+import { StaffTable } from './staff-table'
+import { EmployeesTable } from './employees-table'
+import { VacationsCard } from './vacations-card'
+import { EmployeeDialog } from './employee-dialog'
+import { StaffDialog } from './staff-dialog'
+import { VacationDialog } from './vacation-dialog'
+import { ActionDialog } from './action-dialog'
 import { useEmployeesPage, type EmployeesInitialData } from './use-employees-page'
 
 export function EmployeesClient({ initialData, canEdit }: { initialData: EmployeesInitialData; canEdit: boolean }) {

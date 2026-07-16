@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { Task } from '@/features/projects/contracts/types'
-import { TaskTree } from '@/features/projects/ui/task-tree'
+import { TaskTree } from './task-tree'
 
 interface ProjectDetailClientProps {
   projectId: string

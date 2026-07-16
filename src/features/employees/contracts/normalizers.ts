@@ -1,4 +1,4 @@
-import type { Employee, StaffSchedule, Vacation, PersonnelAction } from '@/features/employees/contracts/types'
+import type { Employee, StaffSchedule, Vacation, PersonnelAction } from './types'
 
 export const normalizeEmployee = (employee: any): Employee => ({
   id: employee.id,

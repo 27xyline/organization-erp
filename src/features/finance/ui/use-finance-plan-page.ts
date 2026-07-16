@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useToast } from '@/components/ui/toast'
-import { pageConfig, createEmptyAllocation, emptyCell, formatAmountValue } from '@/features/finance/ui/config'
+import { pageConfig, createEmptyAllocation, emptyCell, formatAmountValue } from './config'
 import {
   FinanceAllocationRow,
   FinancePlanRow,

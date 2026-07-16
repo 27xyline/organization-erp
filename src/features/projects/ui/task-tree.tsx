@@ -8,8 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { ChevronRight, ChevronDown, Plus, Trash2, Edit2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { TaskAssigneeSelector } from '@/features/projects/ui/task-assignee-selector'
-import { useProjectTaskMembers } from '@/features/projects/ui/use-project-task-members'
+import { TaskAssigneeSelector } from './task-assignee-selector'
+import { useProjectTaskMembers } from './use-project-task-members'
 
 interface TaskTreeProps {
   tasks: Task[]

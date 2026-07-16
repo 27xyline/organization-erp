@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import type { CreateTaskInput, UpdateTaskInput } from '@/features/projects/contracts/task'
+import type { CreateTaskInput, UpdateTaskInput } from '../contracts/task'
 import { ensureValidTaskHierarchy, TaskServiceError } from '../domain/task-rules'
 
 export { TaskServiceError } from '../domain/task-rules'

@@ -3,12 +3,12 @@ import {
   ensureValidContractDateRange,
   ensureValidEmploymentRate,
   hrError,
-} from '@/features/employees/domain/hr-domain'
-import { resolveAssignablePosition } from '@/features/employees/infrastructure/employee.repository'
-import { UpdateEmployeeInput } from '@/features/employees/contracts/employee'
-import type { CreateEmployeeInput } from '@/features/employees/contracts/schemas'
-import { getStartOfToday } from '@/features/employees/infrastructure/workforce.repository'
-import { parseOptionalDate, parseRequiredDate } from '@/features/employees/domain/hr-domain'
+} from '../domain/hr-domain'
+import { resolveAssignablePosition } from '../infrastructure/employee.repository'
+import { UpdateEmployeeInput } from '../contracts/employee'
+import type { CreateEmployeeInput } from '../contracts/schemas'
+import { getStartOfToday } from '../infrastructure/workforce.repository'
+import { parseOptionalDate, parseRequiredDate } from '../domain/hr-domain'
 
 export class EmployeeService {
   static async list(input: { scope: 'active' | 'archive' | 'expired' | 'all'; page: number; pageSize: number }) {

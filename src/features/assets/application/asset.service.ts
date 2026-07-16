@@ -1,5 +1,5 @@
 import { AssetStatus, OperationType, Prisma } from '@prisma/client'
-import type { CreateAssetInput } from '@/features/assets/contracts/schemas'
+import type { CreateAssetInput } from '../contracts/schemas'
 import { getDb } from '@/lib/prisma'
 import type { AssetsQuery, DisposeAssetInput, OperationsQuery, TransferAssetInput, UpdateAssetInput } from '../contracts/schemas'
 import { AssetServiceError } from '../domain/errors'

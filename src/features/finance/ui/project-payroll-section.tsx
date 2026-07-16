@@ -30,8 +30,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { useToast } from '@/components/ui/toast'
-import { FinancePlanTable } from '@/features/finance/ui/finance-plan-table'
-import { monthLabels } from '@/features/finance/ui/config'
+import { FinancePlanTable } from './finance-plan-table'
+import { monthLabels } from './config'
 import {
   ProjectMemberOption,
   ProjectMemberRow,

@@ -3,9 +3,9 @@
 import { Wallet } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { FinancePlanCellDialog } from '@/features/finance/ui/finance-plan-cell-dialog'
-import { FinancePlanTable } from '@/features/finance/ui/finance-plan-table'
-import { useFinancePlanPage } from '@/features/finance/ui/use-finance-plan-page'
+import { FinancePlanCellDialog } from './finance-plan-cell-dialog'
+import { FinancePlanTable } from './finance-plan-table'
+import { useFinancePlanPage } from './use-finance-plan-page'
 import { FinanceSectionType } from '@/features/finance/contracts/ui-types'
 
 export function FinancePlanPage({ type }: { type: FinanceSectionType }) {

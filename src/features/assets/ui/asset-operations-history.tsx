@@ -1,6 +1,6 @@
 'use client'
 
-import { OperationsHistory } from '@/features/assets/ui/operations-history'
+import { OperationsHistory } from './operations-history'
 
 interface AssetOperationsHistoryProps {
   operations: any[]

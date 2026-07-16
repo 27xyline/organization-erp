@@ -7,10 +7,10 @@ import {
   hrError,
   parseOptionalDate,
   parseRequiredDate,
-} from '@/features/employees/domain/hr-domain'
-import { employeeSelect, resolveAssignablePosition } from '@/features/employees/infrastructure/employee.repository'
-import { CreatePersonnelActionInput } from '@/features/employees/contracts/schemas'
-import { ensureExpiredContractArchiveActions } from '@/features/employees/infrastructure/workforce.repository'
+} from '../domain/hr-domain'
+import { employeeSelect, resolveAssignablePosition } from '../infrastructure/employee.repository'
+import { CreatePersonnelActionInput } from '../contracts/schemas'
+import { ensureExpiredContractArchiveActions } from '../infrastructure/workforce.repository'
 
 const personnelActionPriority: Record<string, number> = {
   HIRE: 0, DISMISS: 1, ARCHIVE: 2, EXTEND: 3, TRANSFER: 4, PROMOTE: 5, EDIT: 6,
