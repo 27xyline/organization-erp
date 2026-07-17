@@ -80,8 +80,8 @@ const getIsoWeekNumber = (date: Date) => {
 
 export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTaskAdd }: CustomGanttProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const minimumRowHeight = 64
-  const ganttBarHeight = 21
+  const rowHeight = 56
+  const ganttBarHeight = 22
   const [containerWidth, setContainerWidth] = useState(0)
   const [leftPanelWidth, setLeftPanelWidth] = useState(defaultLeftPanelWidth)
   const [isResizing, setIsResizing] = useState(false)
@@ -400,60 +400,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
     }
   }
 
-  const estimateLineCount = (value: string, width: number) => {
-    if (width <= 0) return 1
-
-    const charsPerLine = Math.max(Math.floor((width - 24) / 5.2), 4)
-
-    return value.split('\n').reduce((sum, rawLine) => {
-      const line = rawLine.trim()
-      if (line.length === 0) return sum + 1
-
-      let lines = 1
-      let currentLength = 0
-
-      line.split(/\s+/).forEach((word) => {
-        const wordLength = word.length
-
-        if (wordLength >= charsPerLine) {
-          if (currentLength > 0) {
-            lines += 1
-            currentLength = 0
-          }
-          lines += Math.ceil(wordLength / charsPerLine) - 1
-          currentLength = wordLength % charsPerLine
-          return
-        }
-
-        const separator = currentLength === 0 ? 0 : 1
-        if (currentLength + separator + wordLength <= charsPerLine) {
-          currentLength += separator + wordLength
-        } else {
-          lines += 1
-          currentLength = wordLength
-        }
-      })
-
-      return sum + lines
-    }, 0)
-  }
-
-  const rowHeights = useMemo(() => {
-    return organizedTasks.map((task) => {
-      const taskTextWidth = Math.max(columns.task - (48 + (task.level - 1) * 24), 120)
-      const taskLines = estimateLineCount(task.name || '', taskTextWidth)
-      const taskHeight = taskLines * 28 + 36
-
-      const responsibleEntries = getTaskAssigneeNames(task)
-      const responsibleText = responsibleEntries.length > 0 ? responsibleEntries.join('\n') : '—'
-      const responsibleLines = columns.responsible > 0
-        ? estimateLineCount(responsibleText, Math.max(columns.responsible - 24, 80))
-        : 1
-      const responsibleHeight = responsibleLines * 28 + 36
-
-      return Math.max(minimumRowHeight, taskHeight, responsibleHeight)
-    })
-  }, [organizedTasks, columns])
+  // Dynamic height calculations removed in favor of a clean, stable fixed row height (56px)
   
   return (
     <div className="min-w-0 border rounded-lg bg-white shadow-sm h-full" ref={containerRef}>
@@ -516,15 +463,14 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
                   <div 
                     key={task.id}
                     className="flex border-b hover:bg-blue-50/50 transition-colors"
-                    style={{ height: `${rowHeights[idx] || minimumRowHeight}px` }}
+                    style={{ height: `${rowHeight}px` }}
                   >
                     <div 
                       className="flex-shrink-0 min-w-0 px-4 border-r flex items-center text-sm"
                       style={{ width: `${columns.task}px`, paddingLeft: `${16 + (task.level - 1) * 24}px` }}
                     >
                       <span 
-                        className={`block w-full py-1 text-left whitespace-normal leading-snug ${task.level === 1 ? 'font-semibold text-gray-900' : 'text-gray-700'}`}
-                        style={{ overflowWrap: 'anywhere' }}
+                        className={`block w-full py-1 text-left truncate leading-snug ${task.level === 1 ? 'font-semibold text-gray-900' : 'text-gray-700'}`}
                         title={task.name}
                       >
                         {task.name}
@@ -542,19 +488,18 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
                     )}
                     {columns.responsible > 0 && (
                       <div
-                        className="flex-shrink-0 px-3 py-1 border-r flex items-center text-left text-sm text-gray-700"
-                        style={{ width: `${columns.responsible}px`, overflowWrap: 'anywhere' }}
+                        className="flex-shrink-0 px-3 border-r flex items-center text-left text-sm text-gray-700"
+                        style={{ width: `${columns.responsible}px` }}
                       >
                         {responsibleEntries.length > 0 ? (
-                          <ol className="w-full list-decimal pl-4 space-y-1 marker:text-gray-500">
-                            {responsibleEntries.map((responsibleEntry, responsibleIdx) => (
-                              <li key={`${task.id}-responsible-${responsibleIdx}`} className="leading-snug">
-                                {responsibleEntry}
-                              </li>
-                            ))}
-                          </ol>
+                          <span 
+                            className="block w-full truncate text-slate-600" 
+                            title={responsibleEntries.join(', ')}
+                          >
+                            {responsibleEntries.join(', ')}
+                          </span>
                         ) : (
-                          '—'
+                          <span className="text-muted-foreground">—</span>
                         )}
                       </div>
                     )}
@@ -667,12 +612,11 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
             {/* Полосы задач */}
             <div className="relative">
               {organizedTasks.map((task, idx) => {
-                const currentRowHeight = rowHeights[idx] || minimumRowHeight
                 const position = getTaskPosition(task)
                 if (!position) return (
                   <div 
                     key={task.id}
-                    style={{ height: `${currentRowHeight}px` }}
+                    style={{ height: `${rowHeight}px` }}
                     className="border-b"
                   />
                 )
@@ -681,7 +625,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
                   <div 
                     key={task.id}
                     className="border-b relative"
-                    style={{ height: `${currentRowHeight}px` }}
+                    style={{ height: `${rowHeight}px` }}
                   >
                     <div
                       className="absolute rounded-full shadow-sm"
