@@ -404,7 +404,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
   
   return (
     <div className="min-w-0 border rounded-lg bg-white shadow-sm h-full" ref={containerRef}>
-      <div className="h-full overflow-hidden">
+      <div className="h-full overflow-x-auto overflow-y-hidden">
         {organizedTasks.length === 0 ? (
           <div className="flex h-full min-h-[280px] items-center justify-center px-6 py-10">
             <div className="max-w-sm text-center">
@@ -427,7 +427,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
             </div>
           </div>
         ) : (
-        <div className="flex h-full min-w-0" style={{ boxSizing: 'border-box' }}>
+        <div className="flex h-full min-w-[800px]" style={{ boxSizing: 'border-box' }}>
         {/* Левая часть - Таблица задач */}
         <div className="flex-shrink-0 border-r bg-gray-50/50 overflow-hidden" style={{ width: `${currentLeftPanelWidth}px` }}>
           <div>
