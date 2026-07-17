@@ -32,5 +32,5 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=nextjs:nodejs /app/next.config.ts ./next.config.ts
 USER nextjs
-EXPOSE 3000
+EXPOSE 3001
 CMD ["npm", "run", "start"]

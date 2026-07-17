@@ -35,7 +35,7 @@ npm run user:create-admin
 npm run dev
 ```
 
-После запуска приложение доступно по адресу <http://localhost:3000>. Команда `user:create-admin` интерактивно запрашивает логин, имя и скрытый временный пароль длиной не менее 12 символов. После первого входа администратор обязан изменить пароль.
+После запуска приложение доступно по адресу <http://localhost:3001>. Команда `user:create-admin` интерактивно запрашивает логин, имя и скрытый временный пароль длиной не менее 12 символов. После первого входа администратор обязан изменить пароль.
 
 `db:seed` создаёт справочники и демонстрационные записи. Выполняйте эту команду только в локальной или тестовой БД, не в production.
 
@@ -50,12 +50,12 @@ npm run dev
 | `POSTGRES_DB` | имя основной БД | `project1` |
 | `POSTGRES_PORT` | порт PostgreSQL на хосте только для dev-overlay | `5434` |
 | `DATABASE_URL` | подключение Prisma-команд и приложения на хосте | `postgresql://...@localhost:5434/project1` |
-| `NEXTAUTH_URL` | канонический URL приложения для NextAuth | `http://localhost:3000` |
+| `NEXTAUTH_URL` | канонический URL приложения для NextAuth | `http://localhost:3001` |
 | `NEXTAUTH_SECRET` | секрет подписи сессий, минимум 32 символа | уникальный локальный секрет |
-| `NEXT_PUBLIC_APP_URL` | публичный URL приложения | `http://localhost:3000` |
-| `PORT` | порт приложения при запуске на хосте | `3000` |
-| `APP_PORT` | публикация порта контейнера `app` | `3000` |
-| `PLAYWRIGHT_BASE_URL` | URL приложения для E2E | `http://127.0.0.1:3000` |
+| `NEXT_PUBLIC_APP_URL` | публичный URL приложения | `http://localhost:3001` |
+| `PORT` | порт приложения при запуске на хосте | `3001` |
+| `APP_PORT` | публикация порта контейнера `app` | `3001` |
+| `PLAYWRIGHT_BASE_URL` | URL приложения для E2E | `http://127.0.0.1:3001` |
 
 Сгенерировать секрет для NextAuth можно так:
 
@@ -257,7 +257,7 @@ DATABASE_URL="postgresql://project1:change-this-local-password@localhost:5434/pr
   npm run db:migrate:deploy
 
 DATABASE_URL="postgresql://project1:change-this-local-password@localhost:5434/project1_test" \
-PLAYWRIGHT_BASE_URL="http://127.0.0.1:3000" \
+PLAYWRIGHT_BASE_URL="http://127.0.0.1:3001" \
   npm run test:e2e
 ```
 
@@ -329,8 +329,8 @@ Compose запускает сервисы в таком порядке:
 ```bash
 docker compose logs --tail=100 migrate
 docker compose logs -f app
-curl --fail http://127.0.0.1:3000/api/health/live
-curl --fail http://127.0.0.1:3000/api/health/ready
+curl --fail http://127.0.0.1:3001/api/health/live
+curl --fail http://127.0.0.1:3001/api/health/ready
 ```
 
 - `GET /api/health/live` — процесс приложения отвечает;
@@ -365,9 +365,9 @@ chmod 600 .env
 - замените `POSTGRES_PASSWORD` на длинный уникальный пароль;
 - сгенерируйте новый `NEXTAUTH_SECRET` минимум из 32 символов;
 - задайте одинаковый публичный HTTPS origin в `NEXTAUTH_URL` и `NEXT_PUBLIC_APP_URL`, например `https://accounting.example.org`;
-- ограничьте порт приложения loopback-интерфейсом, если reverse proxy работает на том же сервере: `APP_PORT=127.0.0.1:3000`;
+- ограничьте порт приложения loopback-интерфейсом, если reverse proxy работает на том же сервере: `APP_PORT=127.0.0.1:3001`;
 - не подключайте `docker-compose.dev.yml` и не публикуйте порт PostgreSQL;
-- завершайте TLS на внешнем reverse proxy и проксируйте запросы на `127.0.0.1:3000`.
+- завершайте TLS на внешнем reverse proxy и проксируйте запросы на `127.0.0.1:3001`.
 
 Проверьте итоговую конфигурацию локально на сервере, не сохраняя и не публикуя вывод:
 
@@ -383,8 +383,8 @@ docker compose up -d
 docker compose ps
 docker compose logs --tail=100 migrate
 docker compose logs --tail=100 app
-curl --fail http://127.0.0.1:3000/api/health/live
-curl --fail http://127.0.0.1:3000/api/health/ready
+curl --fail http://127.0.0.1:3001/api/health/live
+curl --fail http://127.0.0.1:3001/api/health/ready
 ```
 
 Если `migrate` завершился с ошибкой, `app` не должен запускаться. Изучите логи, исправьте причину и только затем повторите `docker compose up -d`.
@@ -434,8 +434,8 @@ docker compose up -d
 ```bash
 docker compose logs --tail=100 migrate
 docker compose ps
-curl --fail http://127.0.0.1:3000/api/health/live
-curl --fail http://127.0.0.1:3000/api/health/ready
+curl --fail http://127.0.0.1:3001/api/health/live
+curl --fail http://127.0.0.1:3001/api/health/ready
 ```
 
 6. Выполните проверку данных из одноразового management-контейнера:
@@ -473,7 +473,7 @@ docker compose run --rm \
   -v "$PWD/src:/app/src:ro" \
   -v "$PWD/scripts:/app/scripts:ro" \
   migrate npm run db:verify
-curl --fail http://127.0.0.1:3000/api/health/ready
+curl --fail http://127.0.0.1:3001/api/health/ready
 ```
 
 Затем выполните smoke-тест и только после успешной проверки откройте пользовательский доступ.
