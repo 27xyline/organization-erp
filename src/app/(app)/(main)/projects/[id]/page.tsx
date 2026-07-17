@@ -297,7 +297,7 @@ export default async function ProjectPage(props: ProjectPageProps) {
         </Card>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-stretch">
-          <Card className="overflow-hidden xl:h-full">
+          <Card className="flex flex-col overflow-hidden xl:h-full">
             <CardHeader className="border-b bg-slate-50/80">
               <CardTitle className="flex items-center gap-2 text-base">
                 <ArrowRightLeft className="h-4 w-4" />
@@ -307,19 +307,19 @@ export default async function ProjectPage(props: ProjectPageProps) {
                 Последние операции по активам, привязанным к этому проекту.
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-6">
+            <CardContent className="flex flex-1 flex-col p-6">
               <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
                 <div className="rounded-lg border bg-muted/30 p-4">
                   <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Поступления</p>
-                  <p className="mt-2 text-sm font-medium">{formatCurrency(receiptTotal)}</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-900">{formatCurrency(receiptTotal)}</p>
                 </div>
                 <div className="rounded-lg border bg-muted/30 p-4">
                   <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Списания</p>
-                  <p className="mt-2 text-sm font-medium">{formatCurrency(disposalTotal)}</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-900">{formatCurrency(disposalTotal)}</p>
                 </div>
                 <div className="rounded-lg border bg-muted/30 p-4">
                   <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Записей</p>
-                  <p className="mt-2 text-sm font-medium">{projectJournalEntries.length}</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-900">{projectJournalEntries.length}</p>
                 </div>
               </div>
 
@@ -371,7 +371,7 @@ export default async function ProjectPage(props: ProjectPageProps) {
                   </Table>
                 </div>
               ) : (
-                <div className="mt-6 flex min-h-[320px] items-center justify-center rounded-xl border border-dashed bg-slate-50/70 p-6 text-center">
+                <div className="mt-6 flex flex-1 items-center justify-center rounded-xl border border-dashed bg-slate-50/70 p-6 text-center">
                   <div>
                     <p className="text-sm font-medium text-slate-900">Пока нет операций по поступлениям и списаниям</p>
                     <p className="mt-2 text-sm text-muted-foreground">
@@ -383,7 +383,7 @@ export default async function ProjectPage(props: ProjectPageProps) {
             </CardContent>
           </Card>
 
-          <Card className="overflow-hidden xl:h-full">
+          <Card className="flex flex-col overflow-hidden xl:h-full">
             <CardHeader className="border-b bg-slate-50/80">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Wallet className="h-4 w-4" />
@@ -393,23 +393,23 @@ export default async function ProjectPage(props: ProjectPageProps) {
                 Начисления по сотрудникам из разделов `Оклад` и `Надбавка`, связанные с этим проектом.
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-6">
+            <CardContent className="flex flex-1 flex-col p-6">
               <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-2">
                 <div className="rounded-lg border bg-muted/30 p-4">
                   <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Всего действий</p>
-                  <p className="mt-2 text-sm font-medium">{project._count.financePlanEntries}</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-900">{project._count.financePlanEntries}</p>
                 </div>
                 <div className="rounded-lg border bg-muted/30 p-4">
                   <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Оклад</p>
-                  <p className="mt-2 text-sm font-medium">{formatCurrency(okladTotal)}</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-900">{formatCurrency(okladTotal)}</p>
                 </div>
                 <div className="rounded-lg border bg-muted/30 p-4">
                   <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Надбавка</p>
-                  <p className="mt-2 text-sm font-medium">{formatCurrency(nadbavkaTotal)}</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-900">{formatCurrency(nadbavkaTotal)}</p>
                 </div>
                 <div className="rounded-lg border bg-muted/30 p-4">
                   <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Итого</p>
-                  <p className="mt-2 text-sm font-medium">{formatCurrency(financeTotal)}</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-900">{formatCurrency(financeTotal)}</p>
                 </div>
               </div>
 
@@ -449,7 +449,7 @@ export default async function ProjectPage(props: ProjectPageProps) {
                   ))}
                 </div>
               ) : (
-                <div className="mt-6 flex min-h-[220px] items-center justify-center rounded-xl border border-dashed bg-slate-50/70 p-6 text-center">
+                <div className="mt-6 flex flex-1 items-center justify-center rounded-xl border border-dashed bg-slate-50/70 p-6 text-center">
                   <div>
                     <p className="text-sm font-medium text-slate-900">Пока нет финансовых действий по этому проекту</p>
                     <p className="mt-2 text-sm text-muted-foreground">

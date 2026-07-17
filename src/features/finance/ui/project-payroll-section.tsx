@@ -546,6 +546,7 @@ export function ProjectPayrollSection({ projectId }: ProjectPayrollSectionProps)
               monthTotals={summary.monthTotals}
               editable
               onCellClick={(row, month) => openCellDialog(row as ProjectPayrollRow, month)}
+              emptyDescription="Добавьте сотрудников в состав проекта выше, чтобы запланировать выплаты."
             />
           </div>
         </div>

@@ -5,6 +5,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { formatCurrency, formatDecimal } from '@/lib/utils'
 import { emptyCell, monthLabels, stickyColumnStyles } from './config'
 import { FinanceMonthCell, FinancePlanRow } from '@/features/finance/contracts/ui-types'
+import { Users } from 'lucide-react'
 
 interface FinancePlanTableProps {
   loading: boolean
@@ -14,6 +15,7 @@ interface FinancePlanTableProps {
   monthTotals: Record<string, string>
   editable: boolean
   onCellClick: (row: FinancePlanRow, month: number) => void
+  emptyDescription?: string
 }
 
 const renderCellValue = (cell: FinanceMonthCell) => {
@@ -39,10 +41,26 @@ export function FinancePlanTable({
   monthTotals,
   editable,
   onCellClick,
+  emptyDescription = 'Нет сотрудников для отображения',
 }: FinancePlanTableProps) {
+  if (!loading && rows.length === 0) {
+    return (
+      <div className="flex min-h-[220px] flex-col items-center justify-center rounded-xl border border-dashed bg-slate-50/50 p-8 text-center">
+        <Users className="h-8 w-8 text-muted-foreground mb-3" />
+        <p className="text-sm font-medium text-slate-900">Нет сотрудников для отображения</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {emptyDescription}
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="rounded-xl border">
-      <Table className="w-[2540px] min-w-[2540px] table-fixed border-separate border-spacing-0">
+      <Table 
+        className="w-[2540px] min-w-[2540px] table-fixed border-separate border-spacing-0"
+        style={{ width: '2540px', minWidth: '2540px' }}
+      >
         <TableHeader className="bg-slate-50/80">
           <TableRow>
             <TableHead className="sticky left-0 z-30 box-border border-r bg-slate-50" style={{ width: stickyColumnStyles.fullName.width, minWidth: stickyColumnStyles.fullName.width, maxWidth: stickyColumnStyles.fullName.width }}>
@@ -87,19 +105,19 @@ export function FinancePlanTable({
           ) : (
             rows.map((row) => (
               <TableRow key={row.employeeId} className="group">
-                <TableCell className="sticky left-0 z-20 box-border border-r bg-white font-medium text-slate-900 group-hover:bg-white" style={{ width: stickyColumnStyles.fullName.width, minWidth: stickyColumnStyles.fullName.width, maxWidth: stickyColumnStyles.fullName.width }}>
+                <TableCell className="sticky left-0 z-20 box-border border-r bg-white font-medium text-slate-900 group-hover:bg-slate-50" style={{ width: stickyColumnStyles.fullName.width, minWidth: stickyColumnStyles.fullName.width, maxWidth: stickyColumnStyles.fullName.width }}>
                   {row.fullName}
                 </TableCell>
-                <TableCell className="sticky z-20 box-border border-r bg-white group-hover:bg-white" style={{ left: stickyColumnStyles.department.left, width: stickyColumnStyles.department.width, minWidth: stickyColumnStyles.department.width, maxWidth: stickyColumnStyles.department.width }}>
+                <TableCell className="sticky z-20 box-border border-r bg-white group-hover:bg-slate-50" style={{ left: stickyColumnStyles.department.left, width: stickyColumnStyles.department.width, minWidth: stickyColumnStyles.department.width, maxWidth: stickyColumnStyles.department.width }}>
                   {row.department}
                 </TableCell>
-                <TableCell className="sticky z-20 box-border border-r bg-white group-hover:bg-white" style={{ left: stickyColumnStyles.position.left, width: stickyColumnStyles.position.width, minWidth: stickyColumnStyles.position.width, maxWidth: stickyColumnStyles.position.width }}>
+                <TableCell className="sticky z-20 box-border border-r bg-white group-hover:bg-slate-50" style={{ left: stickyColumnStyles.position.left, width: stickyColumnStyles.position.width, minWidth: stickyColumnStyles.position.width, maxWidth: stickyColumnStyles.position.width }}>
                   {row.position}
                 </TableCell>
-                <TableCell className="sticky z-20 box-border border-r bg-white group-hover:bg-white" style={{ left: stickyColumnStyles.rate.left, width: stickyColumnStyles.rate.width, minWidth: stickyColumnStyles.rate.width, maxWidth: stickyColumnStyles.rate.width }}>
+                <TableCell className="sticky z-20 box-border border-r bg-white group-hover:bg-slate-50" style={{ left: stickyColumnStyles.rate.left, width: stickyColumnStyles.rate.width, minWidth: stickyColumnStyles.rate.width, maxWidth: stickyColumnStyles.rate.width }}>
                   {formatDecimal(row.rate)}
                 </TableCell>
-                <TableCell className="sticky z-20 box-border border-r bg-white shadow-[1px_0_0_0_rgba(203,213,225,1)] group-hover:bg-white" style={{ left: stickyColumnStyles.salary.left, width: stickyColumnStyles.salary.width, minWidth: stickyColumnStyles.salary.width, maxWidth: stickyColumnStyles.salary.width }}>
+                <TableCell className="sticky z-20 box-border border-r bg-white shadow-[1px_0_0_0_rgba(203,213,225,1)] group-hover:bg-slate-50" style={{ left: stickyColumnStyles.salary.left, width: stickyColumnStyles.salary.width, minWidth: stickyColumnStyles.salary.width, maxWidth: stickyColumnStyles.salary.width }}>
                   {formatCurrency(row.salary)}
                 </TableCell>
                 {monthLabels.map((_, index) => {
