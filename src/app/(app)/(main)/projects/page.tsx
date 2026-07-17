@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { Plus, FolderKanban, Calendar, Wallet } from 'lucide-react'
 import { ProjectStatusLabels } from '@/features/projects/contracts/types'
-import { formatDate, formatCurrency } from '@/lib/utils'
+import { formatDate, formatCurrency, cn } from '@/lib/utils'
 import { ProjectService } from '@/features/projects/application/project.service'
 import { requirePageUser } from '@/lib/auth/authorization'
 
@@ -47,11 +47,19 @@ export default async function ProjectsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {projects.map((project) => (
-            <Link key={project.id} href={`/projects/${project.id}`}>
-              <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
+            <Link key={project.id} href={`/projects/${project.id}`} className="group">
+              <Card className="relative overflow-hidden hover:-translate-y-1 hover:shadow-lg hover:border-slate-350 transition-all duration-300 cursor-pointer h-full pt-1">
+                <div 
+                  className={cn(
+                    "absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r transition-all duration-300",
+                    project.status === 'ACTIVE' 
+                      ? 'from-blue-500 to-indigo-500' 
+                      : 'from-slate-200 to-slate-300'
+                  )} 
+                />
                 <CardHeader className="pb-3">
                   <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg">{project.name}</CardTitle>
+                    <CardTitle className="text-lg group-hover:text-primary transition-colors">{project.name}</CardTitle>
                     <Badge 
                       variant={project.status === 'ACTIVE' ? 'default' : 'secondary'}
                     >
