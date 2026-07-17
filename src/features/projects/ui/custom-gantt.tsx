@@ -94,43 +94,26 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
   const rightPanelWidth = Math.max(containerWidth - currentLeftPanelWidth - resizeHandleWidth, 0)
 
   const columns = useMemo(() => {
-    const orderedColumns = [
-      { key: 'start', width: 120 },
-      { key: 'end', width: 120 },
-      { key: 'responsible', width: 210 },
-      { key: 'status', width: 150 },
-      { key: 'actions', width: 120 },
-    ] as const
-
-    const widths = {
-      start: 0,
-      end: 0,
-      responsible: 0,
-      status: 0,
-      actions: 0,
+    const minWidths = {
+      task: 240,
+      start: 110,
+      end: 110,
+      responsible: 180,
+      status: 120,
+      actions: 110,
     }
 
-    const available = Math.max(currentLeftPanelWidth - minimumTaskColumnWidth, 0)
-    let used = 0
-
-    for (const column of orderedColumns) {
-      if (available >= used + column.width) {
-        widths[column.key] = column.width
-        used += column.width
-      } else {
-        break
-      }
-    }
-
-    const task = Math.max(currentLeftPanelWidth - used, minimumTaskColumnWidth)
+    const totalMinWidth = minWidths.task + minWidths.start + minWidths.end + minWidths.responsible + minWidths.status + minWidths.actions
+    const extra = Math.max(currentLeftPanelWidth - totalMinWidth, 0)
 
     return {
-      task,
-      start: widths.start,
-      end: widths.end,
-      responsible: widths.responsible,
-      status: widths.status,
-      actions: widths.actions,
+      task: minWidths.task + extra,
+      start: minWidths.start,
+      end: minWidths.end,
+      responsible: minWidths.responsible,
+      status: minWidths.status,
+      actions: minWidths.actions,
+      totalWidth: totalMinWidth + extra,
     }
   }, [currentLeftPanelWidth])
 
@@ -429,8 +412,8 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
         ) : (
         <div className="flex h-full min-w-[800px]" style={{ boxSizing: 'border-box' }}>
         {/* Левая часть - Таблица задач */}
-        <div className="flex-shrink-0 border-r bg-gray-50/50 overflow-hidden" style={{ width: `${currentLeftPanelWidth}px` }}>
-          <div>
+        <div className="flex-shrink-0 border-r bg-gray-50/50 overflow-x-auto overflow-y-hidden" style={{ width: `${currentLeftPanelWidth}px` }}>
+          <div style={{ width: `${columns.totalWidth}px` }}>
             {/* Заголовки таблицы */}
             <div
               className="flex bg-gray-100 border-b font-semibold text-sm"
