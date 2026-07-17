@@ -52,12 +52,12 @@ export function PasswordForm() {
           id="newPassword"
           type="password"
           autoComplete="new-password"
-          minLength={12}
+          minLength={7}
           value={newPassword}
           onChange={(event) => setNewPassword(event.target.value)}
           required
         />
-        <p className="text-xs text-muted-foreground">Минимум 12 символов.</p>
+        <p className="text-xs text-muted-foreground">Минимум 7 символов.</p>
       </div>
       <Button type="submit" disabled={saving}>{saving ? 'Сохранение…' : 'Изменить пароль'}</Button>
     </form>

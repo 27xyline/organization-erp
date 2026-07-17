@@ -139,7 +139,7 @@ export function UsersManager({ initialUsers }: { initialUsers: UserRow[] }) {
               <Input
                 id="temporaryPassword"
                 type="password"
-                minLength={12}
+                minLength={7}
                 value={createForm.temporaryPassword}
                 onChange={(event) => setCreateForm((form) => ({ ...form, temporaryPassword: event.target.value }))}
                 required

@@ -12,7 +12,7 @@ const usernameSchema = z
 
 const passwordSchema = z
   .string()
-  .min(12, 'Пароль должен содержать минимум 12 символов')
+  .min(7, 'Пароль должен содержать минимум 7 символов')
   .max(512)
 
 export const createUserSchema = z.object({
