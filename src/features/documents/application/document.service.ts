@@ -82,8 +82,9 @@ const STATUS_TRANSITIONS: Record<DocumentStatus, readonly DocumentStatus[]> = {
 }
 
 function serializeVersion(version: DocumentWithDetails['versions'][number]) {
+  const { storageKey: _storageKey, ...safeVersion } = version
   return {
-    ...version,
+    ...safeVersion,
     sizeBytes: version.sizeBytes.toString(),
   }
 }
@@ -217,10 +218,10 @@ export class DocumentService {
     return {
       documents: documents.map((document) => ({
         ...document,
-        versions: document.versions.map((version) => ({
-          ...version,
-          sizeBytes: version.sizeBytes.toString(),
-        })),
+        versions: document.versions.map((version) => {
+          const { storageKey: _storageKey, ...safeVersion } = version
+          return { ...safeVersion, sizeBytes: version.sizeBytes.toString() }
+        }),
       })),
       total,
     }
@@ -598,4 +599,3 @@ export function getDocumentService(): DocumentService {
 export function setDocumentServiceForTests(value: DocumentService | undefined): void {
   service = value
 }
-

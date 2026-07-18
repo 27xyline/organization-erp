@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { signOut } from 'next-auth/react'
-import { Archive, Briefcase, DollarSign, KeyRound, LogOut, Menu, Network, Package, ShieldCheck, UserCog, Users } from 'lucide-react'
+import { Archive, Briefcase, DollarSign, Files, KeyRound, LogOut, Menu, Network, Package, ShieldCheck, UserCog, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import type { AppRole, Permission } from '@/lib/auth/permissions'
@@ -15,6 +15,7 @@ const links = [
   { href: '/employees', label: 'Сотрудники', icon: Users, permission: 'employees.read' },
   { href: '/mols', label: 'МОЛ', icon: UserCog, permission: 'mols.read' },
   { href: '/finance/salary', label: 'Финансы', icon: DollarSign, permission: 'finance.salary.read' },
+  { href: '/documents', label: 'Документы', icon: Files, permission: 'documents.read' },
 ]
 
 export function MobileNavigation({ currentUser }: {
