@@ -16,6 +16,7 @@ const links = [
   { href: '/employees', label: 'Сотрудники', icon: Users, permission: 'employees.read' },
   { href: '/mols', label: 'МОЛ', icon: UserCog, permission: 'mols.read' },
   { href: '/finance/salary', label: 'Финансы', icon: DollarSign, permission: 'finance.salary.read' },
+  { href: '/finance/payroll', label: 'Расчёт зарплаты', icon: DollarSign, permission: 'payroll.read' },
   { href: '/documents', label: 'Документы', icon: Files, permission: 'documents.read' },
   { href: '/approvals', label: 'Согласования', icon: ClipboardCheck, permission: 'approvals.read' },
   { href: '/timekeeping', label: 'Табель', icon: CalendarClock, permission: 'timekeeping.read' },
