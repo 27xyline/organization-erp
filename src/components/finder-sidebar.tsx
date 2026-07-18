@@ -30,6 +30,7 @@ import {
   Files,
 } from "lucide-react"
 import { ROLE_LABELS, type AppRole, type Permission } from "@/lib/auth/permissions"
+import { NotificationBell } from "@/features/notifications/ui/notification-bell"
 
 interface Project {
   id: string
@@ -306,9 +307,12 @@ export function FinderSidebar({ currentUser }: {
 
   return (
     <div className="hidden w-72 h-full bg-muted/30 border-r md:flex flex-col">
-      <div className="p-4 border-b">
-        <h1 className="text-lg font-semibold">Consilium</h1>
-        <p className="text-xs text-muted-foreground">Управление активами</p>
+      <div className="flex items-center justify-between border-b p-4">
+        <div>
+          <h1 className="text-lg font-semibold">Consilium</h1>
+          <p className="text-xs text-muted-foreground">Управление активами</p>
+        </div>
+        <NotificationBell />
       </div>
       
       <div className="flex-1 overflow-y-auto p-2 space-y-1">

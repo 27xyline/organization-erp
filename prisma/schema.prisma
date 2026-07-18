@@ -253,6 +253,9 @@ model User {
   roleAssignments     UserRoleAssignment[]
   createdDocuments    Document[]           @relation("DocumentCreatedBy")
   uploadedVersions    DocumentVersion[]    @relation("DocumentVersionUploadedBy")
+  notifications       Notification[]
+  notificationPreferences NotificationPreference[]
+  notificationOutbox  NotificationOutbox[]
 
   @@index([isActive, role])
   @@map("users")
@@ -316,6 +319,91 @@ model AuditLog {
   @@index([userId, createdAt])
   @@index([entityType, entityId, createdAt])
   @@map("audit_logs")
+}
+
+enum NotificationEventType {
+  SYSTEM
+  CONTRACT_EXPIRING
+  TASK_OVERDUE
+  ASSET_DISPOSAL_DUE
+  BUDGET_OVERRUN
+
+  @@map("notification_event_type")
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+
+  @@map("notification_channel")
+}
+
+enum NotificationOutboxStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  SKIPPED
+
+  @@map("notification_outbox_status")
+}
+
+model Notification {
+  id         String                @id @default(cuid())
+  userId     String
+  user       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventType  NotificationEventType
+  channel    NotificationChannel
+  title      String
+  body       String
+  targetUrl  String?
+  entityType String?
+  entityId   String?
+  dedupeKey  String
+  readAt     DateTime?
+  deletedAt  DateTime?
+  createdAt  DateTime              @default(now())
+  outbox     NotificationOutbox?
+
+  @@unique([userId, dedupeKey, channel])
+  @@index([userId, channel, deletedAt, readAt, createdAt])
+  @@index([eventType, createdAt])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id        String                @id @default(cuid())
+  userId    String
+  user      User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  eventType NotificationEventType
+  channel   NotificationChannel
+  enabled   Boolean               @default(true)
+  createdAt DateTime              @default(now())
+  updatedAt DateTime              @updatedAt
+
+  @@unique([userId, eventType, channel])
+  @@index([userId, channel])
+  @@map("notification_preferences")
+}
+
+model NotificationOutbox {
+  id             String                   @id @default(cuid())
+  notificationId String                   @unique
+  notification   Notification             @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status         NotificationOutboxStatus @default(PENDING)
+  payload        Json
+  attempts       Int                      @default(0)
+  availableAt    DateTime                 @default(now())
+  processedAt    DateTime?
+  lastError      String?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  @@index([status, availableAt, createdAt])
+  @@index([userId, createdAt])
+  @@map("notification_outbox")
 }
 
 // Projects
