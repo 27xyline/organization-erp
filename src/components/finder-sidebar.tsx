@@ -29,6 +29,7 @@ import {
   Network,
   Files,
   ClipboardCheck,
+  CalendarClock,
 } from "lucide-react"
 import { ROLE_LABELS, type AppRole, type Permission } from "@/lib/auth/permissions"
 import { NotificationBell } from "@/features/notifications/ui/notification-bell"
@@ -78,6 +79,11 @@ const staticMenuItems: Omit<MenuItem, 'children'>[] = [
     id: "approvals",
     label: "Согласования",
     icon: <ClipboardCheck className="h-5 w-5" />,
+  },
+  {
+    id: "timekeeping",
+    label: "Табель",
+    icon: <CalendarClock className="h-5 w-5" />,
   },
 ]
 
@@ -240,6 +246,10 @@ export function FinderSidebar({ currentUser }: {
       case 'approvals':
         return permissionSet.has('approvals.read')
           ? [{ id: 'approvals-list', label: 'Все согласования', icon: <ClipboardCheck className="h-4 w-4" />, href: '/approvals' }]
+          : []
+      case 'timekeeping':
+        return permissionSet.has('timekeeping.read')
+          ? [{ id: 'timekeeping-list', label: 'Рабочее время', icon: <CalendarClock className="h-4 w-4" />, href: '/timekeeping' }]
           : []
       default: return []
     }

@@ -527,6 +527,7 @@ model Project {
   userScopes         UserProjectScope[]
   documents          Document[]
   approvalRequests   ApprovalRequest[]
+  timeEntries        TimeEntry[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -587,6 +588,7 @@ model Task {
   comments     TaskComment[]
   predecessors TaskDependency[]    @relation("TaskSuccessors")
   successors   TaskDependency[]    @relation("TaskPredecessors")
+  timeEntries  TimeEntry[]
 
   // Status
   status TaskStatus @default(NOT_STARTED)
@@ -733,6 +735,7 @@ model Employee {
   skills             EmployeeSkill[]
   certificates       EmployeeCertificate[]
   mol                Mol?
+  timeEntries        TimeEntry[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -788,6 +791,38 @@ enum EmploymentContractType {
   EXTERNAL
 
   @@map("employment_contract_type")
+}
+
+enum TimeEntryType {
+  REGULAR
+  VACATION
+  SICK_LEAVE
+  BUSINESS_TRIP
+  OVERTIME
+
+  @@map("time_entry_type")
+}
+
+model TimeEntry {
+  id         String        @id @default(cuid())
+  employeeId String
+  employee   Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  projectId  String?
+  project    Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  taskId     String?
+  task       Task?         @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  workDate   DateTime      @db.Date
+  type       TimeEntryType @default(REGULAR)
+  hours      Decimal       @db.Decimal(5, 2)
+  note       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workDate, employeeId])
+  @@index([projectId, workDate])
+  @@index([taskId, workDate])
+  @@map("time_entries")
 }
 
 model StaffSchedule {
