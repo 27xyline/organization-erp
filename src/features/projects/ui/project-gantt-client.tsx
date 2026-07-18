@@ -27,9 +27,10 @@ import { useProjectTaskMembers } from './use-project-task-members'
 interface ProjectGanttProps {
   projectId: string
   tasks: Task[]
+  canEdit: boolean
 }
 
-export function ProjectGantt({ projectId, tasks }: ProjectGanttProps) {
+export function ProjectGantt({ projectId, tasks, canEdit }: ProjectGanttProps) {
   const router = useRouter()
   const { toast } = useToast()
   const { members, loading: membersLoading, error: membersError, refresh: refreshMembers } = useProjectTaskMembers(projectId)
@@ -191,12 +192,12 @@ export function ProjectGantt({ projectId, tasks }: ProjectGanttProps) {
       <CustomGantt
         tasks={tasks}
         projectId={projectId}
-        onTaskEdit={handleTaskEdit}
-        onTaskDelete={handleTaskDelete}
-        onTaskAdd={handleTaskAdd}
+        onTaskEdit={canEdit ? handleTaskEdit : undefined}
+        onTaskDelete={canEdit ? handleTaskDelete : undefined}
+        onTaskAdd={canEdit ? handleTaskAdd : undefined}
       />
 
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      {canEdit && <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Редактировать задачу</DialogTitle>
@@ -273,9 +274,9 @@ export function ProjectGantt({ projectId, tasks }: ProjectGanttProps) {
             </form>
           ) : null}
         </DialogContent>
-      </Dialog>
+      </Dialog>}
 
-      <Dialog
+      {canEdit && <Dialog
         open={isAddDialogOpen}
         onOpenChange={(open) => {
           setIsAddDialogOpen(open)
@@ -339,7 +340,7 @@ export function ProjectGantt({ projectId, tasks }: ProjectGanttProps) {
             </div>
           </form>
         </DialogContent>
-      </Dialog>
+      </Dialog>}
     </>
   )
 }

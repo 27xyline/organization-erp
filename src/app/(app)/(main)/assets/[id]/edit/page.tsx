@@ -4,19 +4,24 @@ import { OperationsHistory } from '@/features/assets/ui/operations-history'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { AssetService } from '@/features/assets/application/asset.service'
 import { ProjectService } from '@/features/projects/application/project.service'
-import { requirePageUser } from '@/lib/auth/authorization'
+import { requirePagePermission } from '@/lib/auth/authorization'
+import { assetTarget } from '@/lib/auth/resource-scopes'
 
 interface EditAssetPageProps {
   params: Promise<{ id: string }>
 }
 
 export default async function EditAssetPage(props: EditAssetPageProps) {
-  await requirePageUser(['ADMIN', 'EDITOR'])
   const params = await props.params
+  const target = await assetTarget(params.id)
+  if (!target) notFound()
+  const user = await requirePagePermission('assets.update', {
+    departmentIds: target.departmentIds,
+  })
   const [asset, { mols, groups }, { projects }] = await Promise.all([
-    AssetService.get(params.id),
-    AssetService.listCatalogs(),
-    ProjectService.list({ page: 1, pageSize: 100, status: 'ACTIVE' }),
+    AssetService.get(params.id, user.access),
+    AssetService.listCatalogs(user.access),
+    ProjectService.listReferences({ page: 1, pageSize: 100, status: 'ACTIVE' }, user.access),
   ])
 
   if (!asset) {

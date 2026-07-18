@@ -8,7 +8,13 @@ import { FinancePlanTable } from './finance-plan-table'
 import { useFinancePlanPage } from './use-finance-plan-page'
 import { FinanceSectionType } from '@/features/finance/contracts/ui-types'
 
-export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
+export function FinancePlanPage({
+  type,
+  canEdit,
+}: {
+  type: FinanceSectionType
+  canEdit?: boolean
+}) {
   const {
     config,
     currentYear,
@@ -33,7 +39,8 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
 
   const selectedProjectCaption = selectedCell?.cell.projectLabel || selectedCell?.cell.projectCode || ''
   const isSalarySection = type === 'salary'
-  const canClearCell = Boolean(selectedCell && Number(selectedCell.cell.amount) > 0 && config.editable)
+  const editable = config.editable && canEdit !== false
+  const canClearCell = Boolean(selectedCell && Number(selectedCell.cell.amount) > 0 && editable)
 
   return (
     <div className="container mx-auto px-4 py-6">
@@ -64,7 +71,7 @@ export function FinancePlanPage({ type }: { type: FinanceSectionType }) {
             totalRate={totalRate}
             totalSalary={totalSalary}
             monthTotals={monthTotals}
-            editable={config.editable}
+            editable={editable}
             onCellClick={openCellDialog}
           />
         </CardContent>

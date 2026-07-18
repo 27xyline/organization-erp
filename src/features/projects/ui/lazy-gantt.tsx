@@ -11,6 +11,14 @@ const ProjectGantt = dynamic(
   },
 )
 
-export function LazyProjectGantt({ projectId, tasks }: { projectId: string; tasks: Task[] }) {
-  return <ProjectGantt projectId={projectId} tasks={tasks} />
+export function LazyProjectGantt({
+  projectId,
+  tasks,
+  canEdit,
+}: {
+  projectId: string
+  tasks: Task[]
+  canEdit: boolean
+}) {
+  return <ProjectGantt projectId={projectId} tasks={tasks} canEdit={canEdit} />
 }

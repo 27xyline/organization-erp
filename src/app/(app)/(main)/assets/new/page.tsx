@@ -1,15 +1,15 @@
 import { AssetForm } from '@/features/assets/ui/asset-form'
 import { AssetService } from '@/features/assets/application/asset.service'
 import { ProjectService } from '@/features/projects/application/project.service'
-import { requirePageUser } from '@/lib/auth/authorization'
+import { requirePagePermission } from '@/lib/auth/authorization'
 
 export const dynamic = 'force-dynamic'
 
 export default async function NewAssetPage() {
-  await requirePageUser(['ADMIN', 'EDITOR'])
+  const user = await requirePagePermission('assets.create')
   const [{ mols, groups }, { projects }] = await Promise.all([
-    AssetService.listCatalogs(),
-    ProjectService.list({ page: 1, pageSize: 100, status: 'ACTIVE' }),
+    AssetService.listCatalogs(user.access),
+    ProjectService.listReferences({ page: 1, pageSize: 100, status: 'ACTIVE' }, user.access),
   ])
 
   return (

@@ -18,6 +18,7 @@ interface MolSummary {
   code: string
   fullName: string
   department: string
+  departmentId: string
 }
 
 interface AssetHoldingSummary {
@@ -54,7 +55,10 @@ async function getMols(): Promise<MolSummary[]> {
   return body.data
 }
 
-export default function TransferPage(props: { params: Promise<{ id: string }> }) {
+export default function TransferPage(props: {
+  params: Promise<{ id: string }>
+  allowedDepartmentIds: string[]
+}) {
   const params = use(props.params)
   const router = useRouter()
   const { toast } = useToast()
@@ -83,7 +87,9 @@ export default function TransferPage(props: { params: Promise<{ id: string }> })
         }
 
         setAsset(assetData)
-        const initialHolding = assetData.holdings[0]
+        const initialHolding = assetData.holdings.find((holding) =>
+          props.allowedDepartmentIds.includes(holding.mol.departmentId)
+        )
         setMols(molsData)
         setFormData(prev => ({
           ...prev,
@@ -101,7 +107,7 @@ export default function TransferPage(props: { params: Promise<{ id: string }> })
     return () => {
       isMounted = false
     }
-  }, [params.id, toast])
+  }, [params.id, props.allowedDepartmentIds, toast])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -151,6 +157,9 @@ export default function TransferPage(props: { params: Promise<{ id: string }> })
   }
 
   const sourceHolding = asset.holdings.find((holding) => holding.molId === formData.fromMolId)
+  const transferableHoldings = asset.holdings.filter((holding) =>
+    props.allowedDepartmentIds.includes(holding.mol.departmentId)
+  )
   const availableQuantity = Number(sourceHolding?.quantity || 0)
   const totalCost = parseFloat(formData.quantity || '0') * Number(asset.unitPrice)
 
@@ -205,7 +214,7 @@ export default function TransferPage(props: { params: Promise<{ id: string }> })
               >
                 <SelectTrigger><SelectValue placeholder="Выберите отправителя" /></SelectTrigger>
                 <SelectContent>
-                  {asset.holdings.map((holding) => (
+                  {transferableHoldings.map((holding) => (
                     <SelectItem key={holding.molId} value={holding.molId}>
                       {holding.mol.code} — {holding.mol.fullName} ({formatDecimal(holding.quantity)})
                     </SelectItem>

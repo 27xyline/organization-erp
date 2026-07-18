@@ -6,15 +6,13 @@ import { Plus, FolderKanban, Calendar, Wallet } from 'lucide-react'
 import { ProjectStatusLabels } from '@/features/projects/contracts/types'
 import { formatDate, formatCurrency, cn } from '@/lib/utils'
 import { ProjectService } from '@/features/projects/application/project.service'
-import { requirePageUser } from '@/lib/auth/authorization'
+import { requirePagePermission } from '@/lib/auth/authorization'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ProjectsPage() {
-  const [user, result] = await Promise.all([
-    requirePageUser(),
-    ProjectService.list({ page: 1, pageSize: 100 }),
-  ])
+  const user = await requirePagePermission('projects.read')
+  const result = await ProjectService.list({ page: 1, pageSize: 100 }, user.access)
   const projects = result.projects
 
   return (
@@ -26,7 +24,7 @@ export default async function ProjectsPage() {
             Управление проектами и задачами
           </p>
         </div>
-        {user.role !== 'VIEWER' && <Button asChild className="shrink-0">
+        {user.access.has('projects.create') && <Button asChild className="shrink-0">
           <Link href="/projects/new">
             <Plus className="mr-2 h-4 w-4" />
             Новый проект

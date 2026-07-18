@@ -7,20 +7,33 @@ import { AssetStatusLabels } from '@/features/assets/contracts/types'
 import { ArrowLeft, Edit, ArrowRightLeft, FileText, Calendar, Image as ImageIcon } from 'lucide-react'
 import { AssetOperationsHistory } from '@/features/assets/ui/asset-operations-history'
 import { AssetService } from '@/features/assets/application/asset.service'
-import { requirePageUser } from '@/lib/auth/authorization'
+import { requirePagePermission } from '@/lib/auth/authorization'
 
 interface AssetDetailPageProps {
   params: Promise<{ id: string }>
 }
 
 export default async function AssetDetailPage(props: AssetDetailPageProps) {
-  await requirePageUser()
-  const params = await props.params
-  const asset = await AssetService.get(params.id)
+  const [user, params] = await Promise.all([
+    requirePagePermission('assets.read'),
+    props.params,
+  ])
+  const asset = await AssetService.get(params.id, user.access)
 
   if (!asset) {
     notFound()
   }
+
+  const departmentIds = Array.from(
+    new Set([
+      asset.mol.departmentId,
+      ...asset.holdings.map((holding) => holding.mol.departmentId),
+    ]),
+  )
+  const canEdit = user.access.allows('assets.update', { departmentIds })
+  const canTransfer = departmentIds.some((departmentId) =>
+    user.access.allows('assets.transfer', { departmentId })
+  )
 
   return (
     <main className="container mx-auto py-8 px-4">
@@ -42,18 +55,18 @@ export default async function AssetDetailPage(props: AssetDetailPageProps) {
           </p>
         </div>
         <div className="flex gap-2">
-          <Link href={`/assets/${asset.id}/edit`}>
+          {canEdit && <Link href={`/assets/${asset.id}/edit`}>
             <Button variant="outline">
               <Edit className="mr-2 h-4 w-4" />
               Редактировать
             </Button>
-          </Link>
-          <Link href={`/assets/${asset.id}/transfer`}>
+          </Link>}
+          {canTransfer && <Link href={`/assets/${asset.id}/transfer`}>
             <Button variant="outline">
               <ArrowRightLeft className="mr-2 h-4 w-4" />
               Передать
             </Button>
-          </Link>
+          </Link>}
         </div>
       </div>
 

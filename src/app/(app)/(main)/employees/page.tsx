@@ -1,11 +1,15 @@
 import { EmployeeReadService } from '@/features/employees/application/employee-read.service'
-import { requirePageUser } from '@/lib/auth/authorization'
+import { requirePagePermission } from '@/lib/auth/authorization'
 import { EmployeesClient } from '@/features/employees/ui/employees-client'
 
 export default async function EmployeesPage() {
-  const [user, initialData] = await Promise.all([
-    requirePageUser(),
-    EmployeeReadService.dashboard(new Date().getFullYear()),
-  ])
-  return <EmployeesClient initialData={initialData} canEdit={user.role !== 'VIEWER'} />
+  const user = await requirePagePermission('employees.read')
+  const initialData = await EmployeeReadService.dashboard(new Date().getFullYear(), user.access)
+  const canEdit = user.access.has('employees.create') ||
+    user.access.has('employees.update') ||
+    user.access.has('staffSchedule.update') ||
+    user.access.has('vacations.update') ||
+    user.access.has('personnelActions.create')
+
+  return <EmployeesClient initialData={initialData} canEdit={canEdit} />
 }
