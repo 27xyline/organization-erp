@@ -8,6 +8,7 @@ export interface Employee {
   code: string
   fullName: string
   department: string
+  departmentId: string
   phone?: string
   email?: string
   photo?: string
@@ -22,6 +23,8 @@ export interface Employee {
     id: string
     position: string
     department: string
+    departmentId: string
+    departmentActive: boolean
     rate: number
     salary: number
   } | null
@@ -31,6 +34,8 @@ export interface StaffSchedule {
   id: string
   position: string
   department: string
+  departmentId: string
+  departmentActive: boolean
   rate: number
   salary: number
   occupiedRate: number

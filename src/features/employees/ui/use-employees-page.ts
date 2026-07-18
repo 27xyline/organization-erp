@@ -81,6 +81,7 @@ const createInitialEmployeeForm = () => ({
 const createInitialStaffForm = () => ({
   position: '',
   department: '',
+  departmentId: '',
   rate: 1,
   salary: 0,
 })
@@ -106,6 +107,7 @@ const createInitialActionForm = (employee?: Employee | null, type: PersonnelActi
 export interface EmployeesInitialData {
   employees: Employee[]
   staffSchedule: StaffSchedule[]
+  departments: Array<{ id: string; code: string; name: string; isActive: boolean }>
   vacations: Vacation[]
   personnelActions: PersonnelAction[]
 }
@@ -120,6 +122,7 @@ export function useEmployeesPage(initialData?: EmployeesInitialData) {
   }, [])
   const [employees, setEmployees] = useState<Employee[]>(initialData?.employees || [])
   const [staffSchedule, setStaffSchedule] = useState<StaffSchedule[]>(initialData?.staffSchedule || [])
+  const [departments, setDepartments] = useState(initialData?.departments || [])
   const [vacations, setVacations] = useState<Vacation[]>(initialData?.vacations || [])
   const [liveStatusVacations, setLiveStatusVacations] = useState<Vacation[]>(initialData?.vacations || [])
   const [personnelActions, setPersonnelActions] = useState<PersonnelAction[]>(initialData?.personnelActions || [])
@@ -147,9 +150,10 @@ export function useEmployeesPage(initialData?: EmployeesInitialData) {
     try {
       setLoading(true)
 
-      const [employeesResponse, staffResponse] = await Promise.all([
+      const [employeesResponse, staffResponse, departmentsResponse] = await Promise.all([
         fetch('/api/employees?scope=active'),
         fetch('/api/staff-schedule'),
+        fetch('/api/departments'),
       ])
 
       if (employeesResponse.ok) {
@@ -160,6 +164,16 @@ export function useEmployeesPage(initialData?: EmployeesInitialData) {
       if (staffResponse.ok) {
         const data = await staffResponse.json()
         setStaffSchedule((data.data || []).map(normalizeStaffSchedule))
+      }
+
+      if (departmentsResponse.ok) {
+        const data = await departmentsResponse.json()
+        setDepartments((data.data || []).map((department: any) => ({
+          id: department.id,
+          code: department.code,
+          name: department.name,
+          isActive: department.isActive,
+        })))
       }
 
       const actionsResponse = await fetch('/api/personnel-actions')
@@ -272,7 +286,9 @@ export function useEmployeesPage(initialData?: EmployeesInitialData) {
   const employeePositionOptions = useMemo(
     () =>
       staffSchedule.filter(
-        (position) => getAssignableRateForPosition(position, editingEmployee?.id) > 0 || position.id === editingEmployee?.staffScheduleId
+        (position) =>
+          (position.departmentActive && getAssignableRateForPosition(position, editingEmployee?.id) > 0)
+          || position.id === editingEmployee?.staffScheduleId
       ),
     [editingEmployee?.id, editingEmployee?.staffScheduleId, staffSchedule]
   )
@@ -280,9 +296,11 @@ export function useEmployeesPage(initialData?: EmployeesInitialData) {
   const transferPositionOptions = useMemo(
     () =>
       staffSchedule.filter(
-        (position) => getAssignableRateForPosition(position, selectedActionEmployee?.id) > 0 || position.id === selectedActionEmployee?.staffScheduleId
+        (position) =>
+          position.departmentActive
+          && getAssignableRateForPosition(position, selectedActionEmployee?.id) > 0
       ),
-    [selectedActionEmployee?.id, selectedActionEmployee?.staffScheduleId, staffSchedule]
+    [selectedActionEmployee?.id, staffSchedule]
   )
 
   const getLiveEmployeeStatus = useCallback((employee: Employee) => {
@@ -644,6 +662,7 @@ export function useEmployeesPage(initialData?: EmployeesInitialData) {
       setStaffForm({
         position: position.position,
         department: position.department,
+        departmentId: position.departmentId,
         rate: position.rate,
         salary: position.salary,
       })
@@ -738,6 +757,7 @@ export function useEmployeesPage(initialData?: EmployeesInitialData) {
     vacationsLoading,
     activeEmployees,
     staffSchedule,
+    departments,
     vacations,
     personnelActions,
     startOfToday,

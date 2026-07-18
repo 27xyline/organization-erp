@@ -14,6 +14,16 @@ describe('Zod Validations', () => {
       expect(result.success).toBe(true)
     })
 
+    it('accepts a normalized department ID without a legacy name', () => {
+      const result = createMolSchema.safeParse({
+        code: 'M002',
+        departmentId: 'department-1',
+        fullName: 'Пётр Петров',
+        storageLocation: 'Офис 2',
+      })
+      expect(result.success).toBe(true)
+    })
+
     it('should fail when code is missing', () => {
       const invalidMol = {
         department: 'IT',

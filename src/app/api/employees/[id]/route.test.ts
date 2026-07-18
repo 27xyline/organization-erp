@@ -86,4 +86,26 @@ describe('employees/[id] route', () => {
     expect(response.status).toBe(409)
     expect(body).toEqual({ error: { code: 'EMPLOYEE_CODE_EXISTS', message: 'Сотрудник с таким табельным номером уже существует' } })
   })
+
+  it('maps an unknown department reference to HTTP 404', async () => {
+    const { EmployeeService } = await import('@/features/employees/application/employee.service')
+    const { DepartmentReferenceError } = await import('@/lib/organization/department-reference')
+    const { PUT } = await import('@/app/api/employees/[id]/route')
+
+    vi.mocked(EmployeeService.updateEmployee).mockRejectedValueOnce(
+      new DepartmentReferenceError('NOT_FOUND'),
+    )
+
+    const request = new Request('http://localhost/api/employees/emp-1', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ department: 'Несуществующее подразделение' }),
+    })
+
+    const response = await PUT(request as never, { params: Promise.resolve({ id: 'emp-1' }) })
+    expect(response.status).toBe(404)
+    expect(await response.json()).toEqual({
+      error: { code: 'NOT_FOUND', message: 'Подразделение не найдено' },
+    })
+  })
 })

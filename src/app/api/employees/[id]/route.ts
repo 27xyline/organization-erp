@@ -5,8 +5,16 @@ import { getEmployeeRouteErrorMeta } from '@/features/employees/application/erro
 import { updateEmployeeSchema } from '@/features/employees/contracts/employee'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
+import {
+  DepartmentReferenceError,
+  getDepartmentReferenceErrorMeta,
+} from '@/lib/organization/department-reference'
 
 function mapEmployeeError(error: unknown) {
+  if (error instanceof DepartmentReferenceError) {
+    const meta = getDepartmentReferenceErrorMeta(error.code)
+    return apiError(error.code, meta.message, meta.status)
+  }
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
     return apiError('EMPLOYEE_CODE_EXISTS', 'Сотрудник с таким табельным номером уже существует', 409)
   }

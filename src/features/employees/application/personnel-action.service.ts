@@ -8,9 +8,14 @@ import {
   parseOptionalDate,
   parseRequiredDate,
 } from '../domain/hr-domain'
-import { employeeSelect, resolveAssignablePosition } from '../infrastructure/employee.repository'
+import {
+  clearEmployeeDepartmentLeadership,
+  employeeSelect,
+  resolveAssignablePosition,
+} from '../infrastructure/employee.repository'
 import { CreatePersonnelActionInput } from '../contracts/schemas'
 import { ensureExpiredContractArchiveActions } from '../infrastructure/workforce.repository'
+import { withOrganizationMutation } from '@/lib/organization/organization-mutation'
 
 const personnelActionPriority: Record<string, number> = {
   HIRE: 0, DISMISS: 1, ARCHIVE: 2, EXTEND: 3, TRANSFER: 4, PROMOTE: 5, EDIT: 6,
@@ -58,7 +63,7 @@ export class PersonnelActionService {
   static async createAction(data: CreatePersonnelActionInput, actorId?: string, requestId?: string) {
     const actionDate = ensureValidActionDate(data.date)
 
-    return prisma.$transaction(async (tx) => {
+    return withOrganizationMutation(prisma, async (tx) => {
       if (data.type === 'HIRE') {
         if (!data.employeeData?.code || !data.employeeData?.fullName) {
           throw hrError('INVALID_HIRE_PAYLOAD')
@@ -89,6 +94,7 @@ export class PersonnelActionService {
             code: data.employeeData.code,
             fullName: data.employeeData.fullName,
             department: hirePosition?.department || '',
+            departmentId: hirePosition!.departmentId,
             phone: data.employeeData.phone || null,
             email: data.employeeData.email || null,
             photo: data.employeeData.photo || null,
@@ -167,10 +173,14 @@ export class PersonnelActionService {
             ? await tx.staffSchedule.findUnique({ where: { id: data.staffScheduleId } })
             : null
 
-      let newDepartment = data.newDepartment || oldDepartment
+      // Department changes are only allowed through a normalized staff position
+      // in TRANSFER/PROMOTE. Other actions must not desynchronize the legacy
+      // snapshot from employee.departmentId.
+      let newDepartment = oldDepartment
       let newPosition = data.newPosition || nextPosition?.position || oldPosition
       let nextStatus = employee.status
       let nextStaffScheduleId = employee.staffScheduleId
+      let nextDepartmentId = employee.departmentId
       let nextContractEndDate = employee.contractEndDate || null
       let nextEmploymentRate = currentEmploymentRate
 
@@ -185,7 +195,8 @@ export class PersonnelActionService {
           ensurePositionRequired(data.staffScheduleId, 'ACTIVE')
           nextStatus = 'ACTIVE'
           nextStaffScheduleId = data.staffScheduleId || employee.staffScheduleId || null
-          newDepartment = data.newDepartment || nextPosition?.department || employee.department
+          newDepartment = nextPosition!.department
+          nextDepartmentId = nextPosition!.departmentId
           newPosition = data.newPosition || nextPosition?.position || employee.staffSchedule?.position || null
           nextEmploymentRate = requestedEmploymentRate
           break
@@ -207,7 +218,8 @@ export class PersonnelActionService {
         case 'PROMOTE':
           nextStatus = 'ACTIVE'
           nextStaffScheduleId = data.staffScheduleId || employee.staffScheduleId || null
-          newDepartment = data.newDepartment || nextPosition?.department || employee.department
+          newDepartment = nextPosition!.department
+          nextDepartmentId = nextPosition!.departmentId
           newPosition = data.newPosition || nextPosition?.position || employee.staffSchedule?.position || null
           nextEmploymentRate = requestedEmploymentRate
           break
@@ -239,17 +251,26 @@ export class PersonnelActionService {
         where: { id: employee.id },
         data: {
           department: newDepartment || employee.department,
+          departmentId: nextDepartmentId,
           status: nextStatus,
           staffScheduleId: nextStaffScheduleId,
           contractEndDate: nextContractEndDate,
           employmentRate: nextEmploymentRate,
         },
       })
+      const clearedDepartmentHeads = data.type === 'DISMISS'
+        ? await clearEmployeeDepartmentLeadership(tx, employee.id)
+        : []
 
       if (actorId) await tx.auditLog.create({
         data: {
           userId: actorId, requestId, action: 'PERSONNEL_ACTION_CREATE', entityType: 'PersonnelAction',
-          entityId: action.id, details: { employeeId: employee.id, type: action.type },
+          entityId: action.id,
+          details: {
+            employeeId: employee.id,
+            type: action.type,
+            clearedDepartmentHeads,
+          },
         },
       })
 

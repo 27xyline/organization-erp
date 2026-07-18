@@ -2,6 +2,8 @@ import { Prisma } from '@prisma/client'
 import { getDb } from '@/lib/prisma'
 import { ServiceError } from '@/lib/errors/service-error'
 import type { CreateGroupInput, CreateMolInput } from '../contracts/schemas'
+import { resolveDepartment } from '@/lib/organization/department-reference'
+import { withOrganizationMutation } from '@/lib/organization/organization-mutation'
 
 type CatalogErrorCode = 'NOT_FOUND' | 'CODE_EXISTS' | 'IN_USE'
 export class CatalogServiceError extends ServiceError<CatalogErrorCode> {}
@@ -96,12 +98,30 @@ export class CatalogService {
 
   static async createMol(input: CreateMolInput, actorId: string, requestId?: string) {
     try {
-      return await getDb().$transaction(async (tx) => {
-        const mol = await tx.mol.create({ data: input })
+      return await withOrganizationMutation(getDb(), async (tx) => {
+        const department = await resolveDepartment(tx, input)
+        const mol = await tx.mol.create({
+          data: {
+            code: input.code,
+            fullName: input.fullName,
+            storageLocation: input.storageLocation,
+            photo: input.photo,
+            department: department.name,
+            departmentId: department.id,
+          },
+        })
         await tx.auditLog.create({
           data: {
             userId: actorId, requestId, action: 'MOL_CREATE', entityType: 'Mol', entityId: mol.id,
-            details: { after: { id: mol.id, code: mol.code, fullName: mol.fullName } },
+            details: {
+              after: {
+                id: mol.id,
+                code: mol.code,
+                fullName: mol.fullName,
+                departmentId: mol.departmentId,
+                department: mol.department,
+              },
+            },
           },
         })
         return mol
@@ -114,16 +134,39 @@ export class CatalogService {
 
   static async updateMol(id: string, input: CreateMolInput, actorId: string, requestId?: string) {
     try {
-      return await getDb().$transaction(async (tx) => {
+      return await withOrganizationMutation(getDb(), async (tx) => {
         const current = await tx.mol.findUnique({ where: { id } })
         if (!current) throw new CatalogServiceError('NOT_FOUND')
-        const mol = await tx.mol.update({ where: { id }, data: input })
+        const department = await resolveDepartment(tx, input, {
+          allowInactiveDepartmentId: current.departmentId,
+        })
+        const mol = await tx.mol.update({
+          where: { id },
+          data: {
+            code: input.code,
+            fullName: input.fullName,
+            storageLocation: input.storageLocation,
+            photo: input.photo,
+            department: department.name,
+            departmentId: department.id,
+          },
+        })
         await tx.auditLog.create({
           data: {
             userId: actorId, requestId, action: 'MOL_UPDATE', entityType: 'Mol', entityId: id,
             details: {
-              before: { code: current.code, fullName: current.fullName },
-              after: { code: mol.code, fullName: mol.fullName },
+              before: {
+                code: current.code,
+                fullName: current.fullName,
+                departmentId: current.departmentId,
+                department: current.department,
+              },
+              after: {
+                code: mol.code,
+                fullName: mol.fullName,
+                departmentId: mol.departmentId,
+                department: mol.department,
+              },
             },
           },
         })
@@ -137,14 +180,21 @@ export class CatalogService {
 
   static async deleteMol(id: string, actorId: string, requestId?: string) {
     try {
-      return await getDb().$transaction(async (tx) => {
+      return await withOrganizationMutation(getDb(), async (tx) => {
         const current = await tx.mol.findUnique({ where: { id } })
         if (!current) throw new CatalogServiceError('NOT_FOUND')
         await tx.mol.delete({ where: { id } })
         await tx.auditLog.create({
           data: {
             userId: actorId, requestId, action: 'MOL_DELETE', entityType: 'Mol', entityId: id,
-            details: { before: { code: current.code, fullName: current.fullName } },
+            details: {
+              before: {
+                code: current.code,
+                fullName: current.fullName,
+                departmentId: current.departmentId,
+                department: current.department,
+              },
+            },
           },
         })
         return { success: true }

@@ -7,6 +7,7 @@ export interface Mol {
   id: string
   code: string
   department: string
+  departmentId: string
   fullName: string
   storageLocation: string
   photo?: string | null

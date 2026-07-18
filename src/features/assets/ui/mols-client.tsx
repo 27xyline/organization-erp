@@ -21,10 +21,20 @@ import {
 } from "@/components/ui/table"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Plus, Edit, Trash2, Upload, User, Search, X } from "lucide-react"
 import type { Mol } from '@/features/assets/contracts/types'
+import type { DepartmentListItem } from '@/features/departments/contracts/types'
 
-export function MolsClient({ initialMols, canEdit }: { initialMols: Mol[]; canEdit: boolean }) {
+export function MolsClient({
+  initialMols,
+  departments,
+  canEdit,
+}: {
+  initialMols: Mol[]
+  departments: DepartmentListItem[]
+  canEdit: boolean
+}) {
   const [mols, setMols] = useState<Mol[]>(initialMols)
   const [loading, setLoading] = useState(false)
   const [editingMol, setEditingMol] = useState<Mol | null>(null)
@@ -33,6 +43,7 @@ export function MolsClient({ initialMols, canEdit }: { initialMols: Mol[]; canEd
   const [formData, setFormData] = useState({
     code: '',
     department: '',
+    departmentId: '',
     fullName: '',
     storageLocation: '',
     photo: '',
@@ -80,7 +91,7 @@ export function MolsClient({ initialMols, canEdit }: { initialMols: Mol[]; canEd
       if (res.ok) {
         setIsDialogOpen(false)
         setEditingMol(null)
-        setFormData({ code: '', department: '', fullName: '', storageLocation: '', photo: '' })
+        setFormData({ code: '', department: '', departmentId: '', fullName: '', storageLocation: '', photo: '' })
         setPreviewImage(null)
         loadMols()
       }
@@ -94,6 +105,7 @@ export function MolsClient({ initialMols, canEdit }: { initialMols: Mol[]; canEd
     setFormData({
       code: mol.code,
       department: mol.department,
+      departmentId: mol.departmentId,
       fullName: mol.fullName,
       storageLocation: mol.storageLocation,
       photo: mol.photo || '',
@@ -117,7 +129,7 @@ export function MolsClient({ initialMols, canEdit }: { initialMols: Mol[]; canEd
 
   const handleAddNew = () => {
     setEditingMol(null)
-    setFormData({ code: '', department: '', fullName: '', storageLocation: '', photo: '' })
+    setFormData({ code: '', department: '', departmentId: '', fullName: '', storageLocation: '', photo: '' })
     setPreviewImage(null)
     setIsDialogOpen(true)
   }
@@ -300,13 +312,33 @@ export function MolsClient({ initialMols, canEdit }: { initialMols: Mol[]; canEd
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="department">Подразделение *</Label>
-                  <Input
-                    id="department"
-                    value={formData.department}
-                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    placeholder="Отдел информационных технологий"
-                    required
-                  />
+                  <Select
+                    value={formData.departmentId}
+                    onValueChange={(value) => {
+                      const department = departments.find((item) => item.id === value)
+                      setFormData({
+                        ...formData,
+                        departmentId: value,
+                        department: department?.name || formData.department,
+                      })
+                    }}
+                  >
+                    <SelectTrigger id="department">
+                      <SelectValue placeholder="Выберите подразделение" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departments.map((department) => (
+                        <SelectItem
+                          key={department.id}
+                          value={department.id}
+                          disabled={!department.isActive && department.id !== editingMol?.departmentId}
+                        >
+                          {department.name} ({department.code})
+                          {!department.isActive ? ' · неактивно' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="storageLocation">Место хранения *</Label>

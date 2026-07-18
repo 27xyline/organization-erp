@@ -18,9 +18,13 @@ export const createEmployeeSchema = z.object({
 
 export const createStaffScheduleSchema = z.object({
   position: z.string().min(1, 'Название должности обязательно').max(200),
-  department: z.string().min(1, 'Подразделение обязательно').max(200),
+  departmentId: z.string().trim().min(1).max(100).optional(),
+  department: z.string().trim().min(1, 'Подразделение обязательно').max(200).optional(),
   rate: z.coerce.number().positive('Количество ставок должно быть больше нуля'),
   salary: z.coerce.number().min(0, 'Оклад не может быть отрицательным'),
+}).refine((value) => value.departmentId || value.department, {
+  path: ['departmentId'],
+  message: 'Подразделение обязательно',
 })
 
 export const createVacationSchema = z.object({

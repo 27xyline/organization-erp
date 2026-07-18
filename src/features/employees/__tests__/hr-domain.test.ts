@@ -42,7 +42,11 @@ describe('hr-domain', () => {
   it('rejects assignment when free rate is insufficient', async () => {
     const db = {
       staffSchedule: {
-        findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', rate: 1 }),
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'staff-1',
+          rate: 1,
+          departmentRef: { isActive: true },
+        }),
       },
       employee: {
         aggregate: vi.fn().mockResolvedValue({ _sum: { employmentRate: 0.75 } }),

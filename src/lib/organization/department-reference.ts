@@ -1,0 +1,62 @@
+import { Prisma, type PrismaClient } from '@prisma/client'
+import { ServiceError } from '@/lib/errors/service-error'
+
+export type DepartmentReferenceErrorCode =
+  | 'NOT_FOUND'
+  | 'DEPARTMENT_REQUIRED'
+  | 'INACTIVE_DEPARTMENT'
+
+export class DepartmentReferenceError extends ServiceError<DepartmentReferenceErrorCode> {}
+
+const referenceErrorMeta: Record<
+  DepartmentReferenceErrorCode,
+  { message: string; status: 404 | 409 | 422 }
+> = {
+  NOT_FOUND: { message: 'Подразделение не найдено', status: 404 },
+  DEPARTMENT_REQUIRED: { message: 'Подразделение обязательно', status: 422 },
+  INACTIVE_DEPARTMENT: { message: 'Нельзя назначить неактивное подразделение', status: 409 },
+}
+
+export function getDepartmentReferenceErrorMeta(code: DepartmentReferenceErrorCode) {
+  return referenceErrorMeta[code]
+}
+
+type DepartmentDbClient =
+  | Pick<PrismaClient, 'department'>
+  | Prisma.TransactionClient
+
+interface DepartmentReference {
+  departmentId?: string | null
+  department?: string | null
+}
+
+export async function resolveDepartment(
+  db: DepartmentDbClient,
+  reference: DepartmentReference,
+  options: {
+    allowInactiveDepartmentId?: string | null
+  } = {},
+) {
+  const departmentId = reference.departmentId?.trim()
+  const legacyName = reference.department?.trim()
+  if (!departmentId && !legacyName) throw new DepartmentReferenceError('DEPARTMENT_REQUIRED')
+
+  const department = departmentId
+    ? await db.department.findUnique({
+        where: { id: departmentId },
+        select: { id: true, name: true, isActive: true },
+      })
+    : await db.department.findFirst({
+        where: { name: { equals: legacyName, mode: 'insensitive' } },
+        select: { id: true, name: true, isActive: true },
+      })
+
+  if (!department) throw new DepartmentReferenceError('NOT_FOUND')
+  const preservesAllowedInactiveDepartment =
+    options.allowInactiveDepartmentId != null
+    && department.id === options.allowInactiveDepartmentId
+  if (!department.isActive && !preservesAllowedInactiveDepartment) {
+    throw new DepartmentReferenceError('INACTIVE_DEPARTMENT')
+  }
+  return department
+}

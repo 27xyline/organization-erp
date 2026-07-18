@@ -4,11 +4,16 @@ import {
   ensureValidEmploymentRate,
   hrError,
 } from '../domain/hr-domain'
-import { resolveAssignablePosition } from '../infrastructure/employee.repository'
+import {
+  clearEmployeeDepartmentLeadership,
+  resolveAssignablePosition,
+} from '../infrastructure/employee.repository'
 import { UpdateEmployeeInput } from '../contracts/employee'
 import type { CreateEmployeeInput } from '../contracts/schemas'
 import { getStartOfToday } from '../infrastructure/workforce.repository'
 import { parseOptionalDate, parseRequiredDate } from '../domain/hr-domain'
+import { resolveDepartment } from '@/lib/organization/department-reference'
+import { withOrganizationMutation } from '@/lib/organization/organization-mutation'
 
 export class EmployeeService {
   static async list(input: { scope: 'active' | 'archive' | 'expired' | 'all'; page: number; pageSize: number }) {
@@ -27,7 +32,11 @@ export class EmployeeService {
       prisma.employee.findMany({
         where,
         orderBy: input.scope === 'all' ? { createdAt: 'desc' } : { fullName: 'asc' },
-        include: { staffSchedule: true },
+        include: {
+          staffSchedule: {
+            include: { departmentRef: { select: { isActive: true } } },
+          },
+        },
         skip: (input.page - 1) * input.pageSize,
         take: input.pageSize,
       }),
@@ -43,7 +52,7 @@ export class EmployeeService {
     ensureValidEmploymentRate(employmentRate)
     ensureValidContractDateRange(contractSignedDate, contractEndDate)
 
-    return prisma.$transaction(async (tx) => {
+    return withOrganizationMutation(prisma, async (tx) => {
       const position = await resolveAssignablePosition(tx, {
         staffScheduleId: data.staffScheduleId,
         employmentRate,
@@ -54,6 +63,7 @@ export class EmployeeService {
           code: data.code,
           fullName: data.fullName,
           department: position!.department,
+          departmentId: position!.departmentId,
           photo: data.photo,
           phone: data.phone,
           email: data.email,
@@ -88,7 +98,7 @@ export class EmployeeService {
   }
 
   static async updateEmployee(id: string, data: UpdateEmployeeInput, actorId?: string, requestId?: string) {
-    return prisma.$transaction(async (tx) => {
+    return withOrganizationMutation(prisma, async (tx) => {
       const existingEmployee = await tx.employee.findUnique({
         where: { id },
         include: {
@@ -119,14 +129,25 @@ export class EmployeeService {
         employeeId: id,
         employmentRate,
         status,
+        allowInactiveCurrentPosition:
+          existingEmployee.status !== 'DISMISSED'
+          && positionId === existingEmployee.staffScheduleId,
       })
+      const targetDepartment = position
+        ? { id: position.departmentId, name: position.department }
+        : data.department
+          ? await resolveDepartment(tx, { department: data.department }, {
+              allowInactiveDepartmentId: existingEmployee.departmentId,
+            })
+          : { id: existingEmployee.departmentId, name: existingEmployee.department }
 
       const updatedEmployee = await tx.employee.update({
         where: { id },
         data: {
           code: data.code,
           fullName: data.fullName,
-          department: position?.department || data.department || undefined,
+          department: targetDepartment.name,
+          departmentId: targetDepartment.id,
           photo: data.photo,
           phone: data.phone,
           email: data.email,
@@ -142,8 +163,12 @@ export class EmployeeService {
           staffSchedule: true,
         },
       })
+      const clearedDepartmentHeads =
+        existingEmployee.status !== 'DISMISSED' && updatedEmployee.status === 'DISMISSED'
+        ? await clearEmployeeDepartmentLeadership(tx, updatedEmployee.id)
+        : []
 
-      const newDepartment = position?.department || data.department || existingEmployee.department
+      const newDepartment = targetDepartment.name
       const changedFields: string[] = []
 
       // Audit logic
@@ -173,7 +198,10 @@ export class EmployeeService {
           ...(actorId ? [tx.auditLog.create({
             data: {
               userId: actorId, requestId, action: 'EMPLOYEE_UPDATE', entityType: 'Employee', entityId: id,
-              details: { changedFields },
+              details: {
+                changedFields,
+                clearedDepartmentHeads,
+              },
             },
           })] : []),
         ])
@@ -184,7 +212,7 @@ export class EmployeeService {
   }
 
   static async dismissEmployee(id: string, actorId?: string, requestId?: string) {
-    return prisma.$transaction(async (tx) => {
+    return withOrganizationMutation(prisma, async (tx) => {
       const employee = await tx.employee.findUnique({
         where: { id },
         include: {
@@ -202,6 +230,7 @@ export class EmployeeService {
           status: 'DISMISSED',
         },
       })
+      const clearedDepartmentHeads = await clearEmployeeDepartmentLeadership(tx, employee.id)
 
       await Promise.all([
         tx.personnelAction.create({
@@ -215,7 +244,11 @@ export class EmployeeService {
         ...(actorId ? [tx.auditLog.create({
           data: {
             userId: actorId, requestId, action: 'EMPLOYEE_DISMISS', entityType: 'Employee', entityId: id,
-            details: { before: { status: employee.status }, after: { status: 'DISMISSED' } },
+            details: {
+              before: { status: employee.status },
+              after: { status: 'DISMISSED' },
+              clearedDepartmentHeads,
+            },
           },
         })] : []),
       ])

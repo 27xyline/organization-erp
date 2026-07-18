@@ -3,9 +3,15 @@ import { WorkforceService, WorkforceServiceError } from '@/features/employees/ap
 import { createStaffScheduleSchema } from '@/features/employees/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
+import {
+  DepartmentReferenceError,
+  getDepartmentReferenceErrorMeta,
+} from '@/lib/organization/department-reference'
 
 const mapError = (error: WorkforceServiceError) => error.code === 'NOT_FOUND'
   ? apiError(error.code, 'Должность не найдена', 404)
+  : error.code === 'POSITION_DEPARTMENT_CHANGE_IN_USE'
+    ? apiError(error.code, 'Нельзя изменить подразделение должности с назначенными сотрудниками', 409)
   : apiError(error.code, error.code === 'POSITION_IN_USE'
     ? 'Нельзя удалить должность с назначенными сотрудниками'
     : 'Нельзя уменьшить количество ставок ниже занятого значения', 409)
@@ -19,6 +25,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     return apiData(await WorkforceService.updatePosition((await params).id, input.data, auth.user.id, auth.requestId))
   } catch (error) {
     if (error instanceof WorkforceServiceError) return mapError(error)
+    if (error instanceof DepartmentReferenceError) {
+      const meta = getDepartmentReferenceErrorMeta(error.code)
+      return apiError(error.code, meta.message, meta.status)
+    }
     throw error
   }
 }

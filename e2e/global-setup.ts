@@ -24,9 +24,28 @@ export default async function globalSetup() {
         },
       })
     }
+    const qaDepartment = await db.department.upsert({
+      where: { name: 'QA' },
+      update: { isActive: true },
+      create: { code: 'DEP-QA', name: 'QA' },
+    })
     await Promise.all([
-      db.mol.upsert({ where: { code: 'E2E-MOL-1' }, update: {}, create: { code: 'E2E-MOL-1', fullName: 'E2E Отправитель', department: 'QA', storageLocation: 'Склад 1' } }),
-      db.mol.upsert({ where: { code: 'E2E-MOL-2' }, update: {}, create: { code: 'E2E-MOL-2', fullName: 'E2E Получатель', department: 'QA', storageLocation: 'Склад 2' } }),
+      db.mol.upsert({
+        where: { code: 'E2E-MOL-1' },
+        update: { departmentId: qaDepartment.id, department: qaDepartment.name },
+        create: {
+          code: 'E2E-MOL-1', fullName: 'E2E Отправитель',
+          departmentId: qaDepartment.id, department: qaDepartment.name, storageLocation: 'Склад 1',
+        },
+      }),
+      db.mol.upsert({
+        where: { code: 'E2E-MOL-2' },
+        update: { departmentId: qaDepartment.id, department: qaDepartment.name },
+        create: {
+          code: 'E2E-MOL-2', fullName: 'E2E Получатель',
+          departmentId: qaDepartment.id, department: qaDepartment.name, storageLocation: 'Склад 2',
+        },
+      }),
       db.assetGroup.upsert({ where: { code: 'E2E' }, update: {}, create: { code: 'E2E', name: 'E2E группа' } }),
     ])
   } finally {

@@ -1,6 +1,16 @@
 import { Prisma, PrismaClient } from '@prisma/client'
+import { createHash } from 'node:crypto'
+import { withOrganizationMutation } from '../src/lib/organization/organization-mutation'
 
 const prisma = new PrismaClient()
+
+function stableDepartmentIdentity(name: string) {
+  const digest = createHash('md5').update(name.toLocaleLowerCase('ru')).digest('hex')
+  return {
+    id: `dept_${digest}`,
+    code: `DEP-${digest.slice(0, 8).toUpperCase()}`,
+  }
+}
 
 async function upsertAsset(data: Prisma.AssetUncheckedCreateInput) {
   const asset = await prisma.asset.upsert({
@@ -17,27 +27,60 @@ async function upsertAsset(data: Prisma.AssetUncheckedCreateInput) {
 }
 
 async function main() {
-  // Create default MOLs
-  const mol1 = await prisma.mol.upsert({
-    where: { code: 'MOL-001' },
-    update: {},
-    create: {
-      code: 'MOL-001',
-      department: 'Отдел информационных технологий',
-      fullName: 'Иванов Иван Иванович',
-      storageLocation: 'Кабинет 101, 1 этаж',
-    },
-  })
+  const { mol1, mol2 } = await withOrganizationMutation(prisma, async (tx) => {
+    const itDepartmentIdentity = stableDepartmentIdentity('Отдел информационных технологий')
+    const itDepartment = await tx.department.upsert({
+      where: { id: itDepartmentIdentity.id },
+      // Seed reruns must not overwrite a user-managed name, code, or status.
+      update: {},
+      create: {
+        ...itDepartmentIdentity,
+        name: 'Отдел информационных технологий',
+      },
+    })
+    const accountingDepartmentIdentity = stableDepartmentIdentity('Бухгалтерия')
+    const accountingDepartment = await tx.department.upsert({
+      where: { id: accountingDepartmentIdentity.id },
+      update: {},
+      create: {
+        ...accountingDepartmentIdentity,
+        name: 'Бухгалтерия',
+      },
+    })
 
-  const mol2 = await prisma.mol.upsert({
-    where: { code: 'MOL-002' },
-    update: {},
-    create: {
-      code: 'MOL-002',
-      department: 'Бухгалтерия',
-      fullName: 'Петрова Мария Сергеевна',
-      storageLocation: 'Кабинет 205, 2 этаж',
-    },
+    // Keep MOL compatibility snapshots aligned with the current canonical
+    // department values, including user-managed department renames.
+    const mol1 = await tx.mol.upsert({
+      where: { code: 'MOL-001' },
+      update: {
+        department: itDepartment.name,
+        departmentId: itDepartment.id,
+      },
+      create: {
+        code: 'MOL-001',
+        department: itDepartment.name,
+        departmentId: itDepartment.id,
+        fullName: 'Иванов Иван Иванович',
+        storageLocation: 'Кабинет 101, 1 этаж',
+      },
+    })
+
+    const mol2 = await tx.mol.upsert({
+      where: { code: 'MOL-002' },
+      update: {
+        department: accountingDepartment.name,
+        departmentId: accountingDepartment.id,
+      },
+      create: {
+        code: 'MOL-002',
+        department: accountingDepartment.name,
+        departmentId: accountingDepartment.id,
+        fullName: 'Петрова Мария Сергеевна',
+        storageLocation: 'Кабинет 205, 2 этаж',
+      },
+    })
+
+    return { mol1, mol2 }
   })
 
   console.log('Created MOLs:', { mol1, mol2 })
