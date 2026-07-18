@@ -19,6 +19,7 @@ export default async function NotificationsPage() {
         createdAt: notification.createdAt.toISOString(),
       }))}
       initialPreferences={preferences}
+      canGenerateAlerts={user.permissions.includes('access.users.update')}
     />
   )
 }
