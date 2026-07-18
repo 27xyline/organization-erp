@@ -31,6 +31,7 @@ import {
   type DocumentView,
 } from '../contracts/ui-types'
 import { DocumentUploadDialog } from './document-upload-dialog'
+import { DocumentGenerateDialog } from './document-generate-dialog'
 
 interface DocumentsPageClientProps {
   documents: DocumentView[]
@@ -121,7 +122,15 @@ export function DocumentsPageClient({
             Версии, согласование и защищённое локальное хранение файлов.
           </p>
         </div>
-        {canEdit && <DocumentUploadDialog onUploaded={() => router.refresh()} />}
+        {canEdit && (
+          <div className="flex flex-wrap gap-2">
+            <DocumentGenerateDialog
+              projectId={filters.projectId}
+              onGenerated={() => router.refresh()}
+            />
+            <DocumentUploadDialog onUploaded={() => router.refresh()} />
+          </div>
+        )}
       </div>
 
       <Card>
