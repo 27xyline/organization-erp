@@ -38,9 +38,10 @@ const NONE_VALUE = '__none__'
 
 interface DocumentUploadDialogProps {
   onUploaded: () => void
+  fixedProject?: { id: string; code: string; name: string }
 }
 
-export function DocumentUploadDialog({ onUploaded }: DocumentUploadDialogProps) {
+export function DocumentUploadDialog({ onUploaded, fixedProject }: DocumentUploadDialogProps) {
   const { toast } = useToast()
   const [open, setOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -75,7 +76,7 @@ export function DocumentUploadDialog({ onUploaded }: DocumentUploadDialogProps) 
   function changeOpen(value: boolean) {
     if (submitting) return
     setOpen(value)
-    if (value) void loadOptions()
+    if (value && !fixedProject) void loadOptions()
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -98,7 +99,7 @@ export function DocumentUploadDialog({ onUploaded }: DocumentUploadDialogProps) 
         title: String(data.get('title') || ''),
         description: String(data.get('description') || '') || undefined,
         category: String(data.get('category') || 'GENERAL'),
-        projectId: optionalSelection('projectId'),
+        projectId: fixedProject?.id || optionalSelection('projectId'),
         employeeId: optionalSelection('employeeId'),
         assetId: optionalSelection('assetId'),
         filename: file.name,
@@ -176,18 +177,23 @@ export function DocumentUploadDialog({ onUploaded }: DocumentUploadDialogProps) 
             </p>
           </div>
 
-          {optionsLoading && (
+          {!fixedProject && optionsLoading && (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Загружаем справочники…
             </p>
           )}
-          {optionsError && (
+          {!fixedProject && optionsError && (
             <p className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
               {optionsError}. Документ можно загрузить без привязки.
             </p>
           )}
 
-          <div className="grid gap-4 sm:grid-cols-3">
+          {fixedProject ? (
+            <div className="rounded-md border bg-muted/30 p-3 text-sm">
+              <span className="text-muted-foreground">Проект:</span>{' '}
+              <span className="font-medium">{fixedProject.code} · {fixedProject.name}</span>
+            </div>
+          ) : <div className="grid gap-4 sm:grid-cols-3">
             <div className="grid min-w-0 gap-2">
               <Label>Проект</Label>
               <Select name="projectId" defaultValue={NONE_VALUE}>
@@ -230,7 +236,7 @@ export function DocumentUploadDialog({ onUploaded }: DocumentUploadDialogProps) 
                 </SelectContent>
               </Select>
             </div>
-          </div>
+          </div>}
           <DialogFooter>
             <Button type="button" variant="outline" disabled={submitting} onClick={() => setOpen(false)}>
               Отмена

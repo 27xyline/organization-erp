@@ -23,6 +23,7 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
     search: first(params.search),
     status: first(params.status),
     category: first(params.category),
+    projectId: first(params.projectId),
     archived: first(params.archived),
   })
   const query = parsed.success ? parsed.data : documentsQuerySchema.parse({})
@@ -51,6 +52,7 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
         search: query.search,
         status: query.status,
         category: query.category,
+        projectId: query.projectId,
         archived: query.archived,
       }}
       canEdit={user.permissions.includes('documents.create')}
