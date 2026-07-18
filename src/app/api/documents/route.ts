@@ -16,7 +16,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
-  const auth = await authorizeApiRequest(request)
+  const auth = await authorizeApiRequest(request, 'documents.read')
   if (auth.response) return auth.response
 
   const query = documentsQuerySchema.safeParse(
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
   try {
     const result = await getDocumentService().list(query.data, {
       id: auth.user.id,
-      role: auth.user.role,
+      access: auth.access,
     })
     return apiList(result.documents, {
       page: query.data.page,
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  const auth = await authorizeApiRequest(request, 'documents.create')
   if (auth.response) return auth.response
 
   try {
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
           ...upload,
           filename: metadata.filename,
         },
-        { id: auth.user.id, role: auth.user.role },
+        { id: auth.user.id, access: auth.access },
         auth.requestId,
       ),
       { status: 201 },
@@ -62,4 +62,3 @@ export async function POST(request: NextRequest) {
     return documentApiError(error)
   }
 }
-

@@ -64,10 +64,12 @@ function statusVariant(status: DocumentStatusValue) {
 
 export function DocumentDetailClient({
   document,
-  canEdit,
+  canUpdate,
+  canArchive,
 }: {
   document: DocumentView
-  canEdit: boolean
+  canUpdate: boolean
+  canArchive: boolean
 }) {
   const router = useRouter()
   const { toast } = useToast()
@@ -178,7 +180,7 @@ export function DocumentDetailClient({
               Скачать текущую
             </a>
           </Button>
-          {canEdit && document.status !== 'ARCHIVED' && (
+          {canUpdate && document.status !== 'ARCHIVED' && (
             <DocumentVersionDialog
               documentId={document.id}
               lockVersion={document.lockVersion}
@@ -248,9 +250,9 @@ export function DocumentDetailClient({
                   </p>
                 )}
               </div>
-            ) : canEdit ? (
+            ) : canUpdate || canArchive ? (
               <>
-                {allowedTransitions.length > 0 && (
+                {canUpdate && allowedTransitions.length > 0 && (
                   <div className="grid gap-2">
                     <label htmlFor="document-next-status" className="text-sm font-medium">
                       Следующий статус
@@ -275,26 +277,28 @@ export function DocumentDetailClient({
                     </Button>
                   </div>
                 )}
-                {allowedTransitions.length === 0 && (
+                {canUpdate && allowedTransitions.length === 0 && (
                   <p className="text-sm text-muted-foreground">
                     Документ подписан. Доступно только архивирование.
                   </p>
                 )}
-                <Button
-                  variant="outline"
-                  className="w-full text-destructive"
-                  disabled={pendingAction !== null}
-                  onClick={archiveDocument}
-                >
-                  {pendingAction === 'archive'
-                    ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    : <Archive className="mr-2 h-4 w-4" />}
-                  В архив
-                </Button>
+                {canArchive && (
+                  <Button
+                    variant="outline"
+                    className="w-full text-destructive"
+                    disabled={pendingAction !== null}
+                    onClick={archiveDocument}
+                  >
+                    {pendingAction === 'archive'
+                      ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      : <Archive className="mr-2 h-4 w-4" />}
+                    В архив
+                  </Button>
+                )}
               </>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Для изменения статуса нужны права редактора.
+                Для изменения статуса нужны соответствующие права.
               </p>
             )}
           </CardContent>

@@ -16,7 +16,7 @@ interface RouteContext {
 export const runtime = 'nodejs'
 
 export async function POST(request: NextRequest, context: RouteContext) {
-  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  const auth = await authorizeApiRequest(request, 'documents.update')
   if (auth.response) return auth.response
   const { id } = await context.params
 
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         id,
         metadata,
         { ...upload, filename: metadata.filename },
-        { id: auth.user.id, role: auth.user.role },
+        { id: auth.user.id, access: auth.access },
         auth.requestId,
       ),
       { status: 201 },
@@ -37,4 +37,3 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return documentApiError(error)
   }
 }
-

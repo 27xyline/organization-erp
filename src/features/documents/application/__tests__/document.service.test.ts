@@ -5,6 +5,8 @@ import {
   canTransitionDocumentStatus,
   DocumentService,
 } from '../document.service'
+import { AccessContext } from '@/lib/auth/access-context'
+import type { AppRole, ScopeMode } from '@/lib/auth/permissions'
 
 function storageMock() {
   return {
@@ -26,6 +28,34 @@ const metadata = {
   filename: 'contract.pdf',
 }
 
+function actor(
+  role: AppRole,
+  options: {
+    departmentMode?: ScopeMode
+    projectMode?: ScopeMode
+    departmentIds?: string[]
+    projectIds?: string[]
+    employeeId?: string | null
+  } = {},
+) {
+  return {
+    id: 'user-1',
+    access: new AccessContext({
+      userId: 'user-1',
+      employeeId: options.employeeId ?? null,
+      employeeDepartmentId: null,
+      memberProjectIds: [],
+    }, [{
+      assignmentId: `assignment-${role}`,
+      role,
+      departmentScopeMode: options.departmentMode ?? (role === 'ADMIN' ? 'ALL' : 'NONE'),
+      projectScopeMode: options.projectMode ?? (role === 'ADMIN' ? 'ALL' : 'NONE'),
+      departmentIds: options.departmentIds || [],
+      projectIds: options.projectIds || [],
+    }]),
+  }
+}
+
 describe('DocumentService', () => {
   it('removes a stored object when the database transaction fails', async () => {
     const storage = storageMock()
@@ -42,7 +72,7 @@ describe('DocumentService', () => {
       filename: metadata.filename,
       mimeType: 'application/pdf',
       declaredSizeBytes: 4,
-    }, { id: 'admin-1', role: 'ADMIN' })).rejects.toThrow('database unavailable')
+    }, actor('ADMIN'))).rejects.toThrow('database unavailable')
 
     expect(storage.delete).toHaveBeenCalledWith(
       'ab/cd/123e4567-e89b-12d3-a456-426614174000',
@@ -57,7 +87,11 @@ describe('DocumentService', () => {
       filename: metadata.filename,
       mimeType: 'application/pdf',
       declaredSizeBytes: 4,
-    }, { id: 'viewer-1', role: 'VIEWER' })).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    }, actor('EMPLOYEE', {
+      departmentMode: 'SELF',
+      projectMode: 'SELF',
+      employeeId: 'employee-1',
+    }))).rejects.toMatchObject({ code: 'FORBIDDEN' })
     expect(storage.write).not.toHaveBeenCalled()
   })
 
@@ -81,7 +115,7 @@ describe('DocumentService', () => {
       filename: 'next.pdf',
       mimeType: 'application/pdf',
       declaredSizeBytes: 4,
-    }, { id: 'editor-1', role: 'EDITOR' })).rejects.toMatchObject({
+    }, actor('ADMIN'))).rejects.toMatchObject({
       code: 'OPTIMISTIC_LOCK_CONFLICT',
     })
     expect(storage.write).not.toHaveBeenCalled()
@@ -92,5 +126,40 @@ describe('DocumentService', () => {
     expect(canTransitionDocumentStatus(DocumentStatus.DRAFT, DocumentStatus.SIGNED)).toBe(false)
     expect(canTransitionDocumentStatus(DocumentStatus.SIGNED, DocumentStatus.APPROVED)).toBe(false)
     expect(canTransitionDocumentStatus(DocumentStatus.ARCHIVED, DocumentStatus.DRAFT)).toBe(false)
+  })
+
+  it('does not combine document scopes from different role assignments', () => {
+    const access = new AccessContext({
+      userId: 'user-1',
+      employeeId: null,
+      employeeDepartmentId: null,
+      memberProjectIds: [],
+    }, [
+      {
+        assignmentId: 'hr',
+        role: 'HR',
+        departmentScopeMode: 'ASSIGNED',
+        projectScopeMode: 'NONE',
+        departmentIds: ['department-a'],
+        projectIds: [],
+      },
+      {
+        assignmentId: 'pm',
+        role: 'PROJECT_MANAGER',
+        departmentScopeMode: 'NONE',
+        projectScopeMode: 'ASSIGNED',
+        departmentIds: [],
+        projectIds: ['project-b'],
+      },
+    ])
+
+    expect(access.allows('documents.read', {
+      documentEmployeeId: 'employee-a',
+      documentEmployeeDepartmentId: 'department-a',
+      documentProjectId: 'project-b',
+    })).toBe(false)
+    expect(access.allows('documents.read', {
+      documentProjectId: 'project-b',
+    })).toBe(true)
   })
 })

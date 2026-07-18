@@ -21,7 +21,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest, context: RouteContext) {
-  const auth = await authorizeApiRequest(request)
+  const auth = await authorizeApiRequest(request, 'documents.download')
   if (auth.response) return auth.response
   const { id } = await context.params
   const query = querySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams))
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const download = await getDocumentService().download(
       id,
       query.data.version,
-      { id: auth.user.id, role: auth.user.role },
+      { id: auth.user.id, access: auth.access },
       auth.requestId,
     )
     return new Response(Readable.toWeb(download.stream) as ReadableStream, {
@@ -49,4 +49,3 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return documentApiError(error)
   }
 }
-

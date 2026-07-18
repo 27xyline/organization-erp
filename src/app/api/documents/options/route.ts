@@ -7,17 +7,13 @@ import { apiData } from '@/lib/http/api-response'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
-  const auth = await authorizeApiRequest(request)
+  const auth = await authorizeApiRequest(request, 'documents.create')
   if (auth.response) return auth.response
   try {
     return apiData(
-      await getDocumentService().listLinkOptions({
-        id: auth.user.id,
-        role: auth.user.role,
-      }),
+      await getDocumentService().listLinkOptions({ id: auth.user.id, access: auth.access }),
     )
   } catch (error) {
     return documentApiError(error)
   }
 }
-

@@ -1,8 +1,10 @@
 import type { Prisma } from '@prisma/client'
+import type { AccessContext, PermissionTarget } from '@/lib/auth/access-context'
+import type { Permission } from '@/lib/auth/permissions'
 
 export interface DocumentActor {
   id: string
-  role: string
+  access: AccessContext
 }
 
 export class DocumentAuthorizationError extends Error {
@@ -12,23 +14,21 @@ export class DocumentAuthorizationError extends Error {
   }
 }
 
-/**
- * Compatibility boundary for the legacy ADMIN / EDITOR / VIEWER roles.
- * Scoped RBAC can replace these three functions without changing storage,
- * transaction, or HTTP streaming code.
- */
-export function documentVisibilityWhere(_actor: DocumentActor): Prisma.DocumentWhereInput {
-  void _actor
-  return {}
+export function documentVisibilityWhere(
+  actor: DocumentActor,
+  permission: Extract<Permission, `documents.${string}`>,
+): Prisma.DocumentWhereInput {
+  if (!actor.access.has(permission)) throw new DocumentAuthorizationError()
+  return actor.access.documentWhere(permission) as Prisma.DocumentWhereInput
 }
 
-export function assertCanReadDocument(_actor: DocumentActor): void {
-  void _actor
-  // Every authenticated legacy role can read document metadata and bytes.
-}
-
-export function assertCanManageDocuments(actor: DocumentActor): void {
-  if (!['ADMIN', 'EDITOR'].includes(actor.role)) {
-    throw new DocumentAuthorizationError()
-  }
+export function assertDocumentPermission(
+  actor: DocumentActor,
+  permission: Extract<Permission, `documents.${string}`>,
+  target?: PermissionTarget,
+): void {
+  const allowed = target
+    ? actor.access.allows(permission, target)
+    : actor.access.has(permission)
+  if (!allowed) throw new DocumentAuthorizationError()
 }

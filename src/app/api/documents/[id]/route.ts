@@ -15,15 +15,12 @@ interface RouteContext {
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest, context: RouteContext) {
-  const auth = await authorizeApiRequest(request)
+  const auth = await authorizeApiRequest(request, 'documents.read')
   if (auth.response) return auth.response
   const { id } = await context.params
   try {
     return apiData(
-      await getDocumentService().get(id, {
-        id: auth.user.id,
-        role: auth.user.role,
-      }),
+      await getDocumentService().get(id, { id: auth.user.id, access: auth.access }),
     )
   } catch (error) {
     return documentApiError(error)
@@ -31,7 +28,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  const auth = await authorizeApiRequest(request, 'documents.update')
   if (auth.response) return auth.response
   const { id } = await context.params
 
@@ -42,7 +39,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
       await getDocumentService().changeStatus(
         id,
         input.data,
-        { id: auth.user.id, role: auth.user.role },
+        { id: auth.user.id, access: auth.access },
         auth.requestId,
       ),
     )
@@ -50,4 +47,3 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return documentApiError(error)
   }
 }
-

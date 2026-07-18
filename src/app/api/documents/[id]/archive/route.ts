@@ -13,7 +13,7 @@ interface RouteContext {
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
-  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  const auth = await authorizeApiRequest(request, 'documents.archive')
   if (auth.response) return auth.response
   const { id } = await context.params
 
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       await getDocumentService().archive(
         id,
         input.data.lockVersion,
-        { id: auth.user.id, role: auth.user.role },
+        { id: auth.user.id, access: auth.access },
         auth.requestId,
       ),
     )
@@ -32,4 +32,3 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return documentApiError(error)
   }
 }
-

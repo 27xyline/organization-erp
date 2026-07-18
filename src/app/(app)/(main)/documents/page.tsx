@@ -2,7 +2,7 @@ import { getDocumentService } from '@/features/documents/application/document.se
 import { documentsQuerySchema } from '@/features/documents/contracts/document'
 import type { DocumentView } from '@/features/documents/contracts/ui-types'
 import { DocumentsPageClient } from '@/features/documents/ui/documents-page-client'
-import { requirePageUser } from '@/lib/auth/authorization'
+import { requirePagePermission } from '@/lib/auth/authorization'
 
 interface DocumentsPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>
@@ -13,7 +13,10 @@ const first = (value: string | string[] | undefined) => Array.isArray(value) ? v
 export const dynamic = 'force-dynamic'
 
 export default async function DocumentsPage({ searchParams }: DocumentsPageProps) {
-  const [user, params] = await Promise.all([requirePageUser(), searchParams])
+  const [user, params] = await Promise.all([
+    requirePagePermission('documents.read'),
+    searchParams,
+  ])
   const parsed = documentsQuerySchema.safeParse({
     page: first(params.page),
     pageSize: first(params.pageSize),
@@ -23,7 +26,7 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
     archived: first(params.archived),
   })
   const query = parsed.success ? parsed.data : documentsQuerySchema.parse({})
-  const result = await getDocumentService().list(query, { id: user.id, role: user.role })
+  const result = await getDocumentService().list(query, { id: user.id, access: user.access })
   const documents = result.documents.map((document) => ({
     ...document,
     archivedAt: document.archivedAt?.toISOString() || null,
@@ -50,8 +53,7 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
         category: query.category,
         archived: query.archived,
       }}
-      canEdit={user.role !== 'VIEWER'}
+      canEdit={user.permissions.includes('documents.create')}
     />
   )
 }
-

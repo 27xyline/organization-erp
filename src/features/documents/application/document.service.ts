@@ -11,8 +11,7 @@ import type {
   DocumentsQuery,
 } from '../contracts/document'
 import {
-  assertCanManageDocuments,
-  assertCanReadDocument,
+  assertDocumentPermission,
   documentVisibilityWhere,
   DocumentAuthorizationError,
   type DocumentActor,
@@ -24,6 +23,8 @@ import {
 import { getDocumentStorage } from '../infrastructure/document-storage'
 import type { StoragePort } from '../infrastructure/storage.port'
 import { getDb } from '@/lib/prisma'
+import type { PermissionTarget } from '@/lib/auth/access-context'
+import type { Permission } from '@/lib/auth/permissions'
 
 const detailInclude = Prisma.validator<Prisma.DocumentInclude>()({
   project: { select: { id: true, code: true, name: true } },
@@ -134,17 +135,24 @@ export class DocumentService {
     private readonly storage: StoragePort = getDocumentStorage(),
   ) {}
 
-  private ensureRead(actor: DocumentActor): void {
+  private ensurePermission(
+    actor: DocumentActor,
+    permission: Extract<Permission, `documents.${string}`>,
+    target?: PermissionTarget,
+  ): void {
     try {
-      assertCanReadDocument(actor)
+      assertDocumentPermission(actor, permission, target)
     } catch (error) {
       mapAuthorizationError(error)
     }
   }
 
-  private ensureManage(actor: DocumentActor): void {
+  private visibility(
+    actor: DocumentActor,
+    permission: Extract<Permission, `documents.${string}`>,
+  ): Prisma.DocumentWhereInput {
     try {
-      assertCanManageDocuments(actor)
+      return documentVisibilityWhere(actor, permission)
     } catch (error) {
       mapAuthorizationError(error)
     }
@@ -154,16 +162,30 @@ export class DocumentService {
     projectId?: string
     employeeId?: string
     assetId?: string
-  }): Promise<void> {
+  }): Promise<PermissionTarget> {
     const [project, employee, asset] = await Promise.all([
       input.projectId
         ? this.db.project.findUnique({ where: { id: input.projectId }, select: { id: true } })
         : Promise.resolve(null),
       input.employeeId
-        ? this.db.employee.findUnique({ where: { id: input.employeeId }, select: { id: true } })
+        ? this.db.employee.findUnique({
+            where: { id: input.employeeId },
+            select: { id: true, departmentId: true },
+          })
         : Promise.resolve(null),
       input.assetId
-        ? this.db.asset.findUnique({ where: { id: input.assetId }, select: { id: true } })
+        ? this.db.asset.findUnique({
+            where: { id: input.assetId },
+            select: {
+              id: true,
+              projectId: true,
+              mol: { select: { departmentId: true } },
+              holdings: {
+                where: { quantity: { gt: 0 } },
+                select: { mol: { select: { departmentId: true } } },
+              },
+            },
+          })
         : Promise.resolve(null),
     ])
 
@@ -174,13 +196,24 @@ export class DocumentService {
     ) {
       throw new DocumentServiceError('LINK_NOT_FOUND')
     }
+    return {
+      documentProjectId: project?.id,
+      documentEmployeeId: employee?.id,
+      documentEmployeeDepartmentId: employee?.departmentId,
+      documentAssetProjectId: asset?.projectId || undefined,
+      documentAssetDepartmentIds: asset
+        ? Array.from(new Set([
+            asset.mol.departmentId,
+            ...asset.holdings.map((holding) => holding.mol.departmentId),
+          ]))
+        : [],
+    }
   }
 
   async list(query: DocumentsQuery, actor: DocumentActor) {
-    this.ensureRead(actor)
     const where: Prisma.DocumentWhereInput = {
       AND: [
-        documentVisibilityWhere(actor),
+        this.visibility(actor, 'documents.read'),
         query.archived
           ? { status: DocumentStatus.ARCHIVED }
           : { status: { not: DocumentStatus.ARCHIVED } },
@@ -243,11 +276,10 @@ export class DocumentService {
   }
 
   async get(documentId: string, actor: DocumentActor) {
-    this.ensureRead(actor)
     const document = await this.db.document.findFirst({
       where: {
         id: documentId,
-        ...documentVisibilityWhere(actor),
+        ...this.visibility(actor, 'documents.read'),
       },
       include: detailInclude,
     })
@@ -261,8 +293,8 @@ export class DocumentService {
     actor: DocumentActor,
     requestId?: string,
   ) {
-    this.ensureManage(actor)
-    await this.validateLinks(metadata)
+    const target = await this.validateLinks(metadata)
+    this.ensurePermission(actor, 'documents.create', target)
 
     const maxSizeBytes = getDocumentMaxFileSizeBytes()
     const file = validateDocumentFile({
@@ -335,10 +367,8 @@ export class DocumentService {
     actor: DocumentActor,
     requestId?: string,
   ) {
-    this.ensureManage(actor)
-
     const preflight = await this.db.document.findFirst({
-      where: { id: documentId, ...documentVisibilityWhere(actor) },
+      where: { id: documentId, ...this.visibility(actor, 'documents.update') },
       select: { id: true, status: true, lockVersion: true },
     })
     if (!preflight) throw new DocumentServiceError('NOT_FOUND')
@@ -362,7 +392,7 @@ export class DocumentService {
       const document = await this.db.$transaction(async (tx) => {
         await acquireDocumentLock(tx, documentId)
         const current = await tx.document.findFirst({
-          where: { id: documentId, ...documentVisibilityWhere(actor) },
+          where: { id: documentId, ...this.visibility(actor, 'documents.update') },
           select: {
             id: true,
             status: true,
@@ -432,11 +462,10 @@ export class DocumentService {
     actor: DocumentActor,
     requestId?: string,
   ) {
-    this.ensureManage(actor)
     return this.db.$transaction(async (tx) => {
       await acquireDocumentLock(tx, documentId)
       const current = await tx.document.findFirst({
-        where: { id: documentId, ...documentVisibilityWhere(actor) },
+        where: { id: documentId, ...this.visibility(actor, 'documents.update') },
         select: { id: true, status: true, lockVersion: true },
       })
       if (!current) throw new DocumentServiceError('NOT_FOUND')
@@ -475,11 +504,10 @@ export class DocumentService {
     actor: DocumentActor,
     requestId?: string,
   ) {
-    this.ensureManage(actor)
     return this.db.$transaction(async (tx) => {
       await acquireDocumentLock(tx, documentId)
       const current = await tx.document.findFirst({
-        where: { id: documentId, ...documentVisibilityWhere(actor) },
+        where: { id: documentId, ...this.visibility(actor, 'documents.archive') },
         select: { id: true, status: true, lockVersion: true },
       })
       if (!current) throw new DocumentServiceError('NOT_FOUND')
@@ -519,11 +547,9 @@ export class DocumentService {
     actor: DocumentActor,
     requestId?: string,
   ): Promise<DocumentDownload> {
-    this.ensureRead(actor)
-
     // Authorization and metadata lookup intentionally happen before any file is opened.
     const document = await this.db.document.findFirst({
-      where: { id: documentId, ...documentVisibilityWhere(actor) },
+      where: { id: documentId, ...this.visibility(actor, 'documents.download') },
       select: {
         id: true,
         currentVersion: true,
@@ -579,22 +605,37 @@ export class DocumentService {
   }
 
   async listLinkOptions(actor: DocumentActor) {
-    this.ensureRead(actor)
+    this.ensurePermission(actor, 'documents.create')
     const [projects, employees, assets] = await Promise.all([
       this.db.project.findMany({
-        where: { status: { not: 'ARCHIVED' } },
+        where: {
+          AND: [
+            actor.access.projectWhere('documents.create'),
+            { status: { not: 'ARCHIVED' } },
+          ],
+        },
         orderBy: { name: 'asc' },
         take: 200,
         select: { id: true, code: true, name: true },
       }),
       this.db.employee.findMany({
-        where: { status: { not: 'DISMISSED' } },
+        where: {
+          AND: [
+            actor.access.employeeWhere('documents.create'),
+            { status: { not: 'DISMISSED' } },
+          ],
+        },
         orderBy: { fullName: 'asc' },
         take: 500,
         select: { id: true, code: true, fullName: true },
       }),
       this.db.asset.findMany({
-        where: { isArchived: false },
+        where: {
+          AND: [
+            actor.access.assetWhere('documents.create'),
+            { isArchived: false },
+          ],
+        },
         orderBy: { name: 'asc' },
         take: 500,
         select: { id: true, inventoryNumber: true, name: true },

@@ -9,6 +9,7 @@ const service = {
 vi.mock('@/lib/auth/authorization', () => ({
   authorizeApiRequest: vi.fn(async () => ({
     user: { id: 'admin-1', role: 'ADMIN' },
+    access: {},
     requestId: 'request-1',
   })),
 }))

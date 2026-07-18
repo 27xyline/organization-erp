@@ -2,7 +2,8 @@ import { notFound } from 'next/navigation'
 import { DocumentServiceError, getDocumentService } from '@/features/documents/application/document.service'
 import type { DocumentView } from '@/features/documents/contracts/ui-types'
 import { DocumentDetailClient } from '@/features/documents/ui/document-detail-client'
-import { requirePageUser } from '@/lib/auth/authorization'
+import { requirePagePermission } from '@/lib/auth/authorization'
+import type { AccessContext } from '@/lib/auth/access-context'
 
 interface DocumentPageProps {
   params: Promise<{ id: string }>
@@ -10,7 +11,7 @@ interface DocumentPageProps {
 
 export const dynamic = 'force-dynamic'
 
-async function loadDocument(id: string, user: { id: string; role: string }) {
+async function loadDocument(id: string, user: { id: string; access: AccessContext }) {
   try {
     return await getDocumentService().get(id, user)
   } catch (error) {
@@ -20,8 +21,11 @@ async function loadDocument(id: string, user: { id: string; role: string }) {
 }
 
 export default async function DocumentPage({ params }: DocumentPageProps) {
-  const [user, { id }] = await Promise.all([requirePageUser(), params])
-  const document = await loadDocument(id, { id: user.id, role: user.role })
+  const [user, { id }] = await Promise.all([
+    requirePagePermission('documents.read'),
+    params,
+  ])
+  const document = await loadDocument(id, { id: user.id, access: user.access })
   const view = {
     ...document,
     archivedAt: document.archivedAt?.toISOString() || null,
@@ -32,5 +36,11 @@ export default async function DocumentPage({ params }: DocumentPageProps) {
       createdAt: version.createdAt.toISOString(),
     })),
   } as DocumentView
-  return <DocumentDetailClient document={view} canEdit={user.role !== 'VIEWER'} />
+  return (
+    <DocumentDetailClient
+      document={view}
+      canUpdate={user.permissions.includes('documents.update')}
+      canArchive={user.permissions.includes('documents.archive')}
+    />
+  )
 }

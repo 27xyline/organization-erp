@@ -7,6 +7,11 @@ export interface PermissionTarget {
   departmentIds?: readonly string[]
   projectId?: string
   projectIds?: readonly string[]
+  documentEmployeeId?: string
+  documentEmployeeDepartmentId?: string
+  documentProjectId?: string
+  documentAssetDepartmentIds?: readonly string[]
+  documentAssetProjectId?: string
 }
 
 export interface ScopeGrant {
@@ -121,6 +126,41 @@ export class AccessContext {
       if (kind === 'asset') {
         return this.departmentAnyAllowed(grant, departmentIds) ||
           this.projectAnyAllowed(grant, projectIds)
+      }
+      if (kind === 'document') {
+        const hasEmployeeLink = Boolean(target.documentEmployeeId)
+        const hasProjectLink = Boolean(target.documentProjectId)
+        const hasAssetLink = Boolean(
+          target.documentAssetProjectId || target.documentAssetDepartmentIds?.length,
+        )
+        if (!hasEmployeeLink && !hasProjectLink && !hasAssetLink) {
+          return ['ADMIN', 'AUDITOR'].includes(grant.role)
+            && grant.departmentScopeMode === 'ALL'
+            && grant.projectScopeMode === 'ALL'
+        }
+
+        const employeePass = !hasEmployeeLink || (
+          grant.departmentScopeMode === 'SELF'
+            ? target.documentEmployeeId === this.identity.employeeId
+            : this.departmentAllowed(
+                grant,
+                target.documentEmployeeDepartmentId
+                  ? [target.documentEmployeeDepartmentId]
+                  : [],
+              )
+        )
+        const projectPass = !hasProjectLink || this.projectAllowed(
+          grant,
+          target.documentProjectId ? [target.documentProjectId] : [],
+        )
+        const assetPass = !hasAssetLink || (
+          this.departmentAnyAllowed(grant, target.documentAssetDepartmentIds || [])
+          || this.projectAnyAllowed(
+            grant,
+            target.documentAssetProjectId ? [target.documentAssetProjectId] : [],
+          )
+        )
+        return employeePass && projectPass && assetPass
       }
       return false
     })
@@ -277,5 +317,94 @@ export class AccessContext {
     return clauses.some((clause) => Object.keys(clause).length === 0)
       ? {}
       : { OR: clauses.length ? clauses : [{ id: '__forbidden__' }] }
+  }
+
+  documentWhere(permission: Permission): Record<string, unknown> {
+    const forbidden = { id: '__forbidden__' }
+    const clauses = this.grantsFor(permission).map((grant) => {
+      if (
+        ['ADMIN', 'AUDITOR'].includes(grant.role)
+        && grant.departmentScopeMode === 'ALL'
+        && grant.projectScopeMode === 'ALL'
+      ) return {}
+
+      const employeeClause = (() => {
+        if (grant.departmentScopeMode === 'ALL') return { employeeId: { not: null } }
+        if (grant.departmentScopeMode === 'SELF' && this.identity.employeeId) {
+          return { employeeId: this.identity.employeeId }
+        }
+        if (grant.departmentScopeMode === 'ASSIGNED' && grant.departmentIds.length) {
+          return { employee: { departmentId: { in: grant.departmentIds } } }
+        }
+        return forbidden
+      })()
+
+      const projectClause = (() => {
+        if (grant.projectScopeMode === 'ALL') return { projectId: { not: null } }
+        const ids = grant.projectScopeMode === 'SELF'
+          ? this.identity.memberProjectIds
+          : grant.projectScopeMode === 'ASSIGNED'
+            ? grant.projectIds
+            : []
+        return ids.length ? { projectId: { in: ids } } : forbidden
+      })()
+
+      const assetScopeClauses: Record<string, unknown>[] = []
+      if (grant.departmentScopeMode === 'ALL') {
+        assetScopeClauses.push({ id: { not: '' } })
+      } else {
+        const departmentIds = grant.departmentScopeMode === 'SELF'
+          ? unique([this.identity.employeeDepartmentId || undefined])
+          : grant.departmentScopeMode === 'ASSIGNED'
+            ? grant.departmentIds
+            : []
+        if (departmentIds.length) {
+          assetScopeClauses.push({
+            OR: [
+              { mol: { departmentId: { in: departmentIds } } },
+              {
+                holdings: {
+                  some: {
+                    quantity: { gt: 0 },
+                    mol: { departmentId: { in: departmentIds } },
+                  },
+                },
+              },
+            ],
+          })
+        }
+      }
+      if (grant.projectScopeMode === 'ALL') {
+        assetScopeClauses.push({ projectId: { not: null } })
+      } else {
+        const projectIds = grant.projectScopeMode === 'SELF'
+          ? this.identity.memberProjectIds
+          : grant.projectScopeMode === 'ASSIGNED'
+            ? grant.projectIds
+            : []
+        if (projectIds.length) assetScopeClauses.push({ projectId: { in: projectIds } })
+      }
+      const assetClause = assetScopeClauses.length
+        ? { asset: { OR: assetScopeClauses } }
+        : forbidden
+
+      return {
+        AND: [
+          { OR: [{ employeeId: null }, employeeClause] },
+          { OR: [{ projectId: null }, projectClause] },
+          { OR: [{ assetId: null }, assetClause] },
+          {
+            OR: [
+              { employeeId: { not: null } },
+              { projectId: { not: null } },
+              { assetId: { not: null } },
+            ],
+          },
+        ],
+      }
+    })
+    return clauses.some((clause) => Object.keys(clause).length === 0)
+      ? {}
+      : { OR: clauses.length ? clauses : [forbidden] }
   }
 }

@@ -90,13 +90,18 @@ export const PERMISSIONS = [
   'mols.update',
   'mols.delete',
   'operations.read',
+  'documents.read',
+  'documents.create',
+  'documents.update',
+  'documents.archive',
+  'documents.download',
   'account.password.update',
   'auditLogs.read',
 ] as const
 
 export type Permission = (typeof PERMISSIONS)[number]
 
-type ScopeKind = 'none' | 'department' | 'employee' | 'project' | 'finance' | 'asset'
+type ScopeKind = 'none' | 'department' | 'employee' | 'project' | 'finance' | 'asset' | 'document'
 
 export const PERMISSION_SCOPE: Record<Permission, ScopeKind> = {
   'departments.read': 'department',
@@ -165,6 +170,11 @@ export const PERMISSION_SCOPE: Record<Permission, ScopeKind> = {
   'mols.update': 'department',
   'mols.delete': 'department',
   'operations.read': 'asset',
+  'documents.read': 'document',
+  'documents.create': 'document',
+  'documents.update': 'document',
+  'documents.archive': 'document',
+  'documents.download': 'document',
   'account.password.update': 'none',
   'auditLogs.read': 'none',
 }
@@ -193,6 +203,11 @@ export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
     'personnelActions.create',
     'personnelActions.delete',
     'personnelActions.sync',
+    'documents.read',
+    'documents.create',
+    'documents.update',
+    'documents.archive',
+    'documents.download',
     'account.password.update',
   ]),
   ACCOUNTANT: new Set([
@@ -202,6 +217,10 @@ export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
     'finance.salary.read',
     ...crud('financePlans'),
     ...crud('projectPayroll'),
+    'documents.read',
+    'documents.create',
+    'documents.update',
+    'documents.download',
     'account.password.update',
   ]),
   PROJECT_MANAGER: new Set([
@@ -215,6 +234,11 @@ export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
     ...crud('tasks'),
     'assets.read',
     'operations.read',
+    'documents.read',
+    'documents.create',
+    'documents.update',
+    'documents.archive',
+    'documents.download',
     'account.password.update',
   ]),
   ASSET_CUSTODIAN: new Set([
@@ -229,6 +253,11 @@ export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
     ...crud('assetGroups'),
     ...crud('mols'),
     'operations.read',
+    'documents.read',
+    'documents.create',
+    'documents.update',
+    'documents.archive',
+    'documents.download',
     'account.password.update',
   ]),
   DEPARTMENT_HEAD: new Set([
@@ -244,12 +273,15 @@ export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
     'assets.export',
     'mols.read',
     'operations.read',
+    'documents.read',
+    'documents.download',
     'account.password.update',
   ]),
   AUDITOR: new Set([
     ...businessReads,
     'assets.export',
     'auditLogs.read',
+    'documents.download',
     'account.password.update',
   ]),
   EMPLOYEE: new Set([
@@ -261,6 +293,8 @@ export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
     'projectMembers.read',
     'tasks.read',
     'finance.salary.read',
+    'documents.read',
+    'documents.download',
     'account.password.update',
   ]),
 }
