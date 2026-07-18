@@ -3,8 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('@/lib/auth/authorization', () => ({
   authorizeApiRequest: vi.fn(async () => ({
     user: { id: 'admin-1', username: 'admin', name: 'Admin', role: 'ADMIN' },
+    access: { allows: vi.fn(() => true) },
     requestId: 'request-1',
   })),
+}))
+
+vi.mock('@/lib/auth/resource-scopes', () => ({
+  staffPositionTarget: vi.fn(async () => ({ departmentId: 'department-current' })),
+  departmentForReference: vi.fn(async () => 'department-new'),
 }))
 
 vi.mock('@/features/employees/application/workforce.service', async () => {

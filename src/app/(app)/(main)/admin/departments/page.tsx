@@ -1,11 +1,18 @@
 import { DepartmentService } from '@/features/departments/application/department.service'
 import { DepartmentsClient } from '@/features/departments/ui/departments-client'
-import { requirePageUser } from '@/lib/auth/authorization'
+import { requirePagePermission } from '@/lib/auth/authorization'
 
 export default async function DepartmentsPage() {
-  await requirePageUser(['ADMIN'])
+  const user = await requirePagePermission({
+    allOf: [
+      'departments.read',
+      'departments.create',
+      'departments.update',
+      'departments.delete',
+    ],
+  })
   const [departments, headCandidates] = await Promise.all([
-    DepartmentService.list(),
+    DepartmentService.list({}, user.access),
     DepartmentService.listHeadCandidates(),
   ])
 

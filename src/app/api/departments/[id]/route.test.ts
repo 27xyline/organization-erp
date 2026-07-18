@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('@/lib/auth/authorization', () => ({
   authorizeApiRequest: vi.fn(async () => ({
     user: { id: 'admin-1', username: 'admin', name: 'Admin', role: 'ADMIN' },
+    access: { allows: vi.fn(() => true) },
     requestId: 'request-1',
   })),
 }))

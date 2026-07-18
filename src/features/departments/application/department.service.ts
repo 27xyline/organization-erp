@@ -10,6 +10,7 @@ import type {
   DepartmentListItem,
 } from '../contracts/types'
 import { withOrganizationMutation } from '@/lib/organization/organization-mutation'
+import type { AccessContext } from '@/lib/auth/access-context'
 
 export type DepartmentErrorCode =
   | 'NOT_FOUND'
@@ -137,9 +138,17 @@ async function ensureHeadExists(db: DepartmentDbClient, headEmployeeId: string |
 }
 
 export class DepartmentService {
-  static async list(input: { activeOnly?: boolean } = {}): Promise<DepartmentListItem[]> {
+  static async list(
+    input: { activeOnly?: boolean } = {},
+    access?: AccessContext,
+  ): Promise<DepartmentListItem[]> {
     const departments = await getDb().department.findMany({
-      where: input.activeOnly ? { isActive: true } : undefined,
+      where: {
+        AND: [
+          input.activeOnly ? { isActive: true } : {},
+          access ? access.departmentWhere('departments.read') : {},
+        ],
+      },
       orderBy: [{ name: 'asc' }],
       include: departmentInclude,
     })

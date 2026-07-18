@@ -7,7 +7,7 @@ export default async function MolsPage() {
   const user = await requirePagePermission('mols.read')
   const [mols, departments] = await Promise.all([
     CatalogService.listMols(user.access),
-    DepartmentService.list({ activeOnly: true }),
+    DepartmentService.list({ activeOnly: true }, user.access),
   ])
   const allowedDepartmentIds = user.access.allowedDepartmentIds('mols.read')
   const visibleDepartments = allowedDepartmentIds === null

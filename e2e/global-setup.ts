@@ -9,10 +9,10 @@ export default async function globalSetup() {
   const db = new PrismaClient()
   try {
     for (const fixture of [
-      { ...E2E_ADMIN, name: 'E2E Admin', role: 'ADMIN' as const },
-      { ...E2E_VIEWER, name: 'E2E Viewer', role: 'VIEWER' as const },
+      { ...E2E_ADMIN, name: 'E2E Admin', role: 'ADMIN' as const, appRole: 'ADMIN' as const },
+      { ...E2E_VIEWER, name: 'E2E Viewer', role: 'VIEWER' as const, appRole: 'AUDITOR' as const },
     ]) {
-      await db.user.upsert({
+      const user = await db.user.upsert({
         where: { username: fixture.username },
         update: {
           passwordHash: await hash(fixture.password), role: fixture.role,
@@ -23,6 +23,21 @@ export default async function globalSetup() {
           passwordHash: await hash(fixture.password), role: fixture.role, mustChangePassword: false,
         },
       })
+      await db.$transaction([
+        db.userRoleAssignment.deleteMany({
+          where: { userId: user.id, role: { not: fixture.appRole } },
+        }),
+        db.userRoleAssignment.upsert({
+          where: { userId_role: { userId: user.id, role: fixture.appRole } },
+          update: { departmentScopeMode: 'ALL', projectScopeMode: 'ALL' },
+          create: {
+            userId: user.id,
+            role: fixture.appRole,
+            departmentScopeMode: 'ALL',
+            projectScopeMode: 'ALL',
+          },
+        }),
+      ])
     }
     const qaDepartment = await db.department.upsert({
       where: { name: 'QA' },
