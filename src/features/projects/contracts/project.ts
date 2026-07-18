@@ -12,6 +12,7 @@ export const createProjectSchema = z.object({
   status: z.enum(['ACTIVE', 'COMPLETED', 'ARCHIVED']).optional().default('ACTIVE'),
   plannedBudget: z.coerce.number().min(0).optional().default(0),
   actualBudget: z.coerce.number().min(0).optional().default(0),
+  templateId: z.enum(['RESEARCH', 'PROCUREMENT']).optional().nullable(),
 }).refine((value) => !value.startDate || !value.endDate || value.startDate <= value.endDate, {
   path: ['endDate'],
   message: 'Дата окончания должна быть не раньше даты начала',

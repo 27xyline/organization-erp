@@ -22,7 +22,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const input = updateTaskSchema.safeParse(await request.json())
   if (!input.success) return apiValidationError(input.error)
   try {
-    return apiData(await TaskService.update(id, input.data))
+    return apiData(await TaskService.update(id, input.data, auth.user.id, auth.requestId))
   } catch (error) {
     if (error instanceof TaskServiceError) return mapError(error)
     throw error
@@ -38,7 +38,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     return apiError('FORBIDDEN', 'Недостаточно прав', 403)
   }
   try {
-    return apiData(await TaskService.delete(id))
+    return apiData(await TaskService.delete(id, auth.user.id, auth.requestId))
   } catch (error) {
     if (error instanceof TaskServiceError) return mapError(error)
     throw error

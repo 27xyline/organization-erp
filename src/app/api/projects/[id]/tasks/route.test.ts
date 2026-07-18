@@ -6,6 +6,18 @@ const authMocks = vi.hoisted(() => ({
   allows: vi.fn(() => true),
 }))
 
+const dbMocks = vi.hoisted(() => {
+  const db = {
+    projectMember: { findMany: vi.fn() },
+    task: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
+    auditLog: { create: vi.fn() },
+  }
+  return {
+    ...db,
+    $transaction: vi.fn(async (callback: (tx: typeof db) => unknown) => callback(db)),
+  }
+})
+
 vi.mock('@/lib/auth/authorization', () => ({
   authorizeApiRequest: vi.fn(async () => ({
     user: { id: 'admin-1', username: 'admin', name: 'Admin', role: 'ADMIN' },
@@ -14,18 +26,7 @@ vi.mock('@/lib/auth/authorization', () => ({
   })),
 }))
 
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    projectMember: {
-      findMany: vi.fn(),
-    },
-    task: {
-      findMany: vi.fn(),
-      findUnique: vi.fn(),
-      create: vi.fn(),
-    },
-  },
-}))
+vi.mock('@/lib/prisma', () => ({ prisma: dbMocks }))
 
 describe('projects/[id]/tasks route', () => {
   beforeEach(() => {

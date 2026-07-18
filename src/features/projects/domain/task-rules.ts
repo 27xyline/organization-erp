@@ -1,10 +1,40 @@
 import { ServiceError } from '@/lib/errors/service-error'
 
-type TaskErrorCode = 'TASK_NOT_FOUND' | 'INVALID_HIERARCHY' | 'INVALID_ASSIGNEES'
+type TaskErrorCode =
+  | 'TASK_NOT_FOUND'
+  | 'INVALID_HIERARCHY'
+  | 'INVALID_ASSIGNEES'
+  | 'INVALID_DEPENDENCY'
 
 export class TaskServiceError extends ServiceError<TaskErrorCode> {
   constructor(code: TaskErrorCode, message: string) {
     super(code, message)
+  }
+}
+
+export function ensureAcyclicDependencies(
+  taskIds: readonly string[],
+  edges: readonly { predecessorId: string; successorId: string }[],
+) {
+  const adjacency = new Map(taskIds.map((id) => [id, [] as string[]]))
+  edges.forEach((edge) => adjacency.get(edge.predecessorId)?.push(edge.successorId))
+  const visiting = new Set<string>()
+  const visited = new Set<string>()
+
+  const visit = (id: string): boolean => {
+    if (visiting.has(id)) return false
+    if (visited.has(id)) return true
+    visiting.add(id)
+    for (const next of adjacency.get(id) || []) {
+      if (!visit(next)) return false
+    }
+    visiting.delete(id)
+    visited.add(id)
+    return true
+  }
+
+  if (!taskIds.every(visit)) {
+    throw new TaskServiceError('INVALID_DEPENDENCY', 'Зависимости задач образуют цикл')
   }
 }
 
