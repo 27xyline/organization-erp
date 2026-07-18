@@ -18,10 +18,12 @@ export class DocumentAuthorizationError extends Error {
  * transaction, or HTTP streaming code.
  */
 export function documentVisibilityWhere(_actor: DocumentActor): Prisma.DocumentWhereInput {
+  void _actor
   return {}
 }
 
 export function assertCanReadDocument(_actor: DocumentActor): void {
+  void _actor
   // Every authenticated legacy role can read document metadata and bytes.
 }
 
@@ -30,4 +32,3 @@ export function assertCanManageDocuments(actor: DocumentActor): void {
     throw new DocumentAuthorizationError()
   }
 }
-

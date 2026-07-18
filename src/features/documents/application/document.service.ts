@@ -81,11 +81,27 @@ const STATUS_TRANSITIONS: Record<DocumentStatus, readonly DocumentStatus[]> = {
   ARCHIVED: [],
 }
 
+export function canTransitionDocumentStatus(
+  from: DocumentStatus,
+  to: DocumentStatus,
+): boolean {
+  return STATUS_TRANSITIONS[from].includes(to)
+}
+
 function serializeVersion(version: DocumentWithDetails['versions'][number]) {
-  const { storageKey: _storageKey, ...safeVersion } = version
   return {
-    ...safeVersion,
+    id: version.id,
+    documentId: version.documentId,
+    versionNumber: version.versionNumber,
+    originalFilename: version.originalFilename,
+    mimeType: version.mimeType,
+    extension: version.extension,
     sizeBytes: version.sizeBytes.toString(),
+    sha256: version.sha256,
+    comment: version.comment,
+    uploadedById: version.uploadedById,
+    uploadedBy: version.uploadedBy,
+    createdAt: version.createdAt,
   }
 }
 
@@ -107,7 +123,9 @@ async function acquireDocumentLock(
   tx: Prisma.TransactionClient,
   documentId: string,
 ): Promise<void> {
-  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtextextended(${documentId}, 0))`
+  await tx.$queryRaw`
+    SELECT pg_advisory_xact_lock(hashtextextended(${documentId}, 0))::text AS "lock"
+  `
 }
 
 export class DocumentService {
@@ -218,10 +236,7 @@ export class DocumentService {
     return {
       documents: documents.map((document) => ({
         ...document,
-        versions: document.versions.map((version) => {
-          const { storageKey: _storageKey, ...safeVersion } = version
-          return { ...safeVersion, sizeBytes: version.sizeBytes.toString() }
-        }),
+        versions: document.versions.map(serializeVersion),
       })),
       total,
     }
@@ -428,7 +443,7 @@ export class DocumentService {
       if (current.lockVersion !== input.lockVersion) {
         throw new DocumentServiceError('OPTIMISTIC_LOCK_CONFLICT')
       }
-      if (!STATUS_TRANSITIONS[current.status].includes(input.status)) {
+      if (!canTransitionDocumentStatus(current.status, input.status)) {
         throw new DocumentServiceError('INVALID_STATE')
       }
 

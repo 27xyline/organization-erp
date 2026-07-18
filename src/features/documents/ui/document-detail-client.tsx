@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -72,14 +72,13 @@ export function DocumentDetailClient({
   const router = useRouter()
   const { toast } = useToast()
   const allowedTransitions = TRANSITIONS[document.status]
-  const [nextStatus, setNextStatus] = useState<DocumentStatusValue | ''>(
+  const [selectedStatus, setSelectedStatus] = useState<DocumentStatusValue | ''>(
     allowedTransitions[0] || '',
   )
+  const nextStatus = allowedTransitions.includes(selectedStatus as DocumentStatusValue)
+    ? selectedStatus
+    : allowedTransitions[0] || ''
   const [pendingAction, setPendingAction] = useState<'status' | 'archive' | null>(null)
-
-  useEffect(() => {
-    setNextStatus(TRANSITIONS[document.status][0] || '')
-  }, [document.status])
 
   async function changeStatus() {
     if (!nextStatus) return
@@ -260,7 +259,7 @@ export function DocumentDetailClient({
                       id="document-next-status"
                       className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                       value={nextStatus}
-                      onChange={(event) => setNextStatus(event.target.value as DocumentStatusValue)}
+                      onChange={(event) => setSelectedStatus(event.target.value as DocumentStatusValue)}
                     >
                       {allowedTransitions.map((status) => (
                         <option key={status} value={status}>
@@ -364,4 +363,3 @@ export function DocumentDetailClient({
     </main>
   )
 }
-

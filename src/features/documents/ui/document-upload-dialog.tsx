@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type FormEvent } from 'react'
+import { useState, type FormEvent } from 'react'
 import { FileUp, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -53,34 +53,30 @@ export function DocumentUploadDialog({ onUploaded }: DocumentUploadDialogProps) 
   })
   const [optionsError, setOptionsError] = useState('')
 
-  useEffect(() => {
-    if (!open || optionsLoading || optionsLoaded) {
-      return
-    }
-    let cancelled = false
+  async function loadOptions() {
+    if (optionsLoading || optionsLoaded) return
     setOptionsLoading(true)
     setOptionsError('')
-    fetch('/api/documents/options', { cache: 'no-store' })
-      .then(async (response) => {
-        if (!response.ok) throw new Error(await responseErrorMessage(response, 'Не удалось загрузить справочники'))
-        return response.json()
-      })
-      .then((payload: { data: DocumentLinkOptions }) => {
-        if (!cancelled) setOptions(payload.data)
-      })
-      .catch((error: Error) => {
-        if (!cancelled) setOptionsError(error.message)
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setOptionsLoading(false)
-          setOptionsLoaded(true)
-        }
-      })
-    return () => {
-      cancelled = true
+    try {
+      const response = await fetch('/api/documents/options', { cache: 'no-store' })
+      if (!response.ok) {
+        throw new Error(await responseErrorMessage(response, 'Не удалось загрузить справочники'))
+      }
+      const payload = await response.json() as { data: DocumentLinkOptions }
+      setOptions(payload.data)
+    } catch (error) {
+      setOptionsError(error instanceof Error ? error.message : 'Не удалось загрузить справочники')
+    } finally {
+      setOptionsLoading(false)
+      setOptionsLoaded(true)
     }
-  }, [open, optionsLoaded, optionsLoading])
+  }
+
+  function changeOpen(value: boolean) {
+    if (submitting) return
+    setOpen(value)
+    if (value) void loadOptions()
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -131,7 +127,7 @@ export function DocumentUploadDialog({ onUploaded }: DocumentUploadDialogProps) 
   }
 
   return (
-    <Dialog open={open} onOpenChange={(value) => !submitting && setOpen(value)}>
+    <Dialog open={open} onOpenChange={changeOpen}>
       <DialogTrigger asChild>
         <Button>
           <FileUp className="mr-2 h-4 w-4" />

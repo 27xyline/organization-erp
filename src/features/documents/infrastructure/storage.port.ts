@@ -12,6 +12,7 @@ export interface OpenedDocumentObject {
 }
 
 export interface StoragePort {
+  healthCheck(): Promise<void>
   write(input: Readable, options: { maxSizeBytes: number }): Promise<StoredDocumentObject>
   open(
     storageKey: string,
@@ -23,4 +24,3 @@ export interface StoragePort {
   ): Promise<boolean>
   delete(storageKey: string): Promise<void>
 }
-

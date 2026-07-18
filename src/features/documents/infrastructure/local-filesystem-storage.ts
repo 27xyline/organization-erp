@@ -105,7 +105,9 @@ export class LocalFilesystemStorage implements StoragePort {
   private initializedRoot?: Promise<string>
 
   constructor(options: { root?: string; projectRoot?: string } = {}) {
-    this.projectRoot = path.resolve(options.projectRoot ?? process.cwd())
+    this.projectRoot = path.resolve(
+      options.projectRoot ?? /*turbopackIgnore: true*/ process.cwd(),
+    )
     this.root = path.resolve(
       options.root
         ?? process.env.DOCUMENT_STORAGE_ROOT
@@ -225,6 +227,11 @@ export class LocalFilesystemStorage implements StoragePort {
         })
       }
     }
+  }
+
+  async healthCheck(): Promise<void> {
+    const root = await this.ensureRoot()
+    await access(root, constants.R_OK | constants.W_OK)
   }
 
   async open(

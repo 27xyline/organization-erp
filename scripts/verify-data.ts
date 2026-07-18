@@ -1,4 +1,5 @@
 import { getDb } from '../src/lib/prisma'
+import { getDocumentStorage } from '../src/features/documents/infrastructure/document-storage'
 
 interface CountRow { count: bigint }
 
@@ -14,6 +15,8 @@ async function main() {
     duplicateDepartmentCodes,
     duplicateDepartmentNames,
     departmentSnapshotMismatch,
+    documentCurrentVersionMismatch,
+    unsafeDocumentMetadata,
   ] = await Promise.all([
     db.$queryRaw<CountRow[]>`
       SELECT COUNT(*)::bigint AS count
@@ -96,7 +99,32 @@ async function main() {
         WHERE mol."department" <> department."name"
       ) mismatches
     `,
+    db.$queryRaw<CountRow[]>`
+      SELECT COUNT(*)::bigint AS count
+      FROM "documents" document
+      LEFT JOIN "document_versions" version
+        ON version."documentId" = document."id"
+       AND version."versionNumber" = document."currentVersion"
+      WHERE version."id" IS NULL
+    `,
+    db.$queryRaw<CountRow[]>`
+      SELECT COUNT(*)::bigint AS count
+      FROM "document_versions"
+      WHERE "storageKey" !~ '^[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f-]{36}$'
+         OR "sha256" !~ '^[0-9a-f]{64}$'
+         OR "sizeBytes" <= 0
+    `,
   ])
+  const versions = await db.documentVersion.findMany({
+    select: { storageKey: true, sizeBytes: true, sha256: true },
+  })
+  const storage = getDocumentStorage()
+  let missingOrCorruptDocumentFiles = 0
+  for (const version of versions) {
+    if (!await storage.verify(version.storageKey, version)) {
+      missingOrCorruptDocumentFiles += 1
+    }
+  }
   const result = {
     holdingMismatch: Number(holdingMismatch[0]?.count || 0),
     negativeAssets: Number(negativeAssets[0]?.count || 0),
@@ -107,6 +135,9 @@ async function main() {
     duplicateDepartmentCodes: Number(duplicateDepartmentCodes[0]?.count || 0),
     duplicateDepartmentNames: Number(duplicateDepartmentNames[0]?.count || 0),
     departmentSnapshotMismatch: Number(departmentSnapshotMismatch[0]?.count || 0),
+    documentCurrentVersionMismatch: Number(documentCurrentVersionMismatch[0]?.count || 0),
+    unsafeDocumentMetadata: Number(unsafeDocumentMetadata[0]?.count || 0),
+    missingOrCorruptDocumentFiles,
   }
   console.info(JSON.stringify(result, null, 2))
   await db.$disconnect()
