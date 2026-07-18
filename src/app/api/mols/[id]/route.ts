@@ -3,6 +3,7 @@ import { CatalogService, CatalogServiceError } from '@/features/assets/applicati
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
 import { createMolSchema } from '@/features/assets/contracts/schemas'
+import { DepartmentReferenceError } from '@/lib/organization/department-reference'
 
 const catalogError = (error: CatalogServiceError) => error.code === 'NOT_FOUND'
   ? apiError(error.code, 'МОЛ не найден', 404)
@@ -26,6 +27,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     return apiData(await CatalogService.updateMol((await params).id, input.data, auth.user.id, auth.requestId))
   } catch (error) {
     if (error instanceof CatalogServiceError) return catalogError(error)
+    if (error instanceof DepartmentReferenceError) {
+      return apiError(
+        error.code,
+        error.code === 'INACTIVE_DEPARTMENT'
+          ? 'Нельзя назначить неактивное подразделение'
+          : 'Подразделение не найдено',
+        error.code === 'NOT_FOUND' ? 404 : 409,
+      )
+    }
     throw error
   }
 }

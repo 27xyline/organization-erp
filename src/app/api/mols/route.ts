@@ -3,6 +3,7 @@ import { CatalogService, CatalogServiceError } from '@/features/assets/applicati
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
 import { createMolSchema } from '@/features/assets/contracts/schemas'
+import { DepartmentReferenceError } from '@/lib/organization/department-reference'
 
 export async function GET(request: NextRequest) {
   const auth = await authorizeApiRequest(request)
@@ -20,6 +21,15 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof CatalogServiceError && error.code === 'CODE_EXISTS') {
       return apiError(error.code, 'МОЛ с таким кодом уже существует', 409)
+    }
+    if (error instanceof DepartmentReferenceError) {
+      return apiError(
+        error.code,
+        error.code === 'INACTIVE_DEPARTMENT'
+          ? 'Нельзя назначить неактивное подразделение'
+          : 'Подразделение не найдено',
+        error.code === 'NOT_FOUND' ? 404 : 409,
+      )
     }
     throw error
   }

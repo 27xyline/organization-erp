@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { signOut, useSession } from 'next-auth/react'
-import { Archive, Briefcase, DollarSign, KeyRound, LogOut, Menu, Package, ShieldCheck, UserCog, Users } from 'lucide-react'
+import { Archive, Briefcase, DollarSign, KeyRound, LogOut, Menu, Network, Package, ShieldCheck, UserCog, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 
@@ -42,9 +42,14 @@ export function MobileNavigation() {
               <KeyRound className="h-4 w-4" />Изменить пароль
             </Link>
             {session?.user.role === 'ADMIN' && (
-              <Link href="/admin/users" onClick={() => setOpen(false)} className="flex items-center gap-3 px-3 py-2 text-sm">
-                <ShieldCheck className="h-4 w-4" />Пользователи
-              </Link>
+              <>
+                <Link href="/admin/departments" onClick={() => setOpen(false)} className="flex items-center gap-3 px-3 py-2 text-sm">
+                  <Network className="h-4 w-4" />Подразделения
+                </Link>
+                <Link href="/admin/users" onClick={() => setOpen(false)} className="flex items-center gap-3 px-3 py-2 text-sm">
+                  <ShieldCheck className="h-4 w-4" />Пользователи
+                </Link>
+              </>
             )}
             <button onClick={() => signOut({ callbackUrl: '/login' })} className="flex items-center gap-3 px-3 py-2 text-sm text-destructive">
               <LogOut className="h-4 w-4" />Выйти

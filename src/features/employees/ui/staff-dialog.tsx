@@ -8,9 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button'
 import { type StaffSchedule } from '@/features/employees/contracts/types'
 
-// Known departments in the system
-const staffDepartments = ['НИО-904', 'Лаборатория №4'] as const
-
 interface StaffDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -18,6 +15,7 @@ interface StaffDialogProps {
   formData: any
   setFormData: React.Dispatch<React.SetStateAction<any>>
   onSave: (e: React.FormEvent) => void
+  departments: Array<{ id: string; code: string; name: string }>
 }
 
 const normalizeEmploymentRateInput = (value: string) => {
@@ -33,7 +31,8 @@ export function StaffDialog({
   editingStaff,
   formData,
   setFormData,
-  onSave
+  onSave,
+  departments,
 }: StaffDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -59,16 +58,23 @@ export function StaffDialog({
           <div className="space-y-2">
             <Label htmlFor="staff-department">Подразделение</Label>
             <Select
-              value={formData.department}
-              onValueChange={(value) => setFormData((prev: any) => ({ ...prev, department: value }))}
+              value={formData.departmentId}
+              onValueChange={(value) => {
+                const department = departments.find((item) => item.id === value)
+                setFormData((prev: any) => ({
+                  ...prev,
+                  departmentId: value,
+                  department: department?.name || prev.department,
+                }))
+              }}
             >
               <SelectTrigger id="staff-department">
                 <SelectValue placeholder="Выберите подразделение" />
               </SelectTrigger>
               <SelectContent>
-                {staffDepartments.map((dept) => (
-                  <SelectItem key={dept} value={dept}>
-                    {dept}
+                {departments.map((department) => (
+                  <SelectItem key={department.id} value={department.id}>
+                    {department.name} ({department.code})
                   </SelectItem>
                 ))}
               </SelectContent>

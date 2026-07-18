@@ -18,6 +18,7 @@ export function EmployeesClient({ initialData, canEdit }: { initialData: Employe
     vacationsLoading,
     activeEmployees,
     staffSchedule,
+    departments,
     vacations,
     personnelActions,
     startOfToday,
@@ -152,6 +153,7 @@ export function EmployeesClient({ initialData, canEdit }: { initialData: Employe
         formData={staffForm}
         setFormData={setStaffForm}
         onSave={handleSaveStaff}
+        departments={departments}
       />
 
       <VacationDialog

@@ -26,6 +26,7 @@ import {
   LogOut,
   KeyRound,
   ShieldCheck,
+  Network,
 } from "lucide-react"
 
 interface Project {
@@ -285,10 +286,16 @@ export function FinderSidebar() {
               Изменить пароль
             </Link>
             {session.user.role === 'ADMIN' && (
-              <Link href="/admin/users" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent">
-                <ShieldCheck className="h-4 w-4" />
-                Пользователи
-              </Link>
+              <>
+                <Link href="/admin/departments" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent">
+                  <Network className="h-4 w-4" />
+                  Подразделения
+                </Link>
+                <Link href="/admin/users" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent">
+                  <ShieldCheck className="h-4 w-4" />
+                  Пользователи
+                </Link>
+              </>
             )}
           </div>
           <button
