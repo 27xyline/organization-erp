@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client'
 import { getDb } from '@/lib/prisma'
 import { ServiceError } from '@/lib/errors/service-error'
 import type { CreateProjectInput } from '../contracts/project'
+import type { AccessContext } from '@/lib/auth/access-context'
 
 type ProjectErrorCode = 'PROJECT_NOT_FOUND' | 'PROJECT_CODE_EXISTS'
 export class ProjectServiceError extends ServiceError<ProjectErrorCode> {}
@@ -25,9 +26,15 @@ function projectData(input: CreateProjectInput) {
 }
 
 export class ProjectService {
-  static async list(input: { page: number; pageSize: number; status?: 'ACTIVE' | 'COMPLETED' | 'ARCHIVED' }) {
+  static async list(
+    input: { page: number; pageSize: number; status?: 'ACTIVE' | 'COMPLETED' | 'ARCHIVED' },
+    access?: AccessContext,
+  ) {
     const db = getDb()
-    const where = input.status ? { status: input.status } : undefined
+    const filters = input.status ? { status: input.status } : {}
+    const where: Prisma.ProjectWhereInput = access
+      ? { AND: [filters, access.projectWhere('projects.read') as Prisma.ProjectWhereInput] }
+      : filters
     const [projects, total] = await db.$transaction([
       db.project.findMany({
         where, include: projectListInclude, orderBy: { createdAt: 'desc' },
@@ -35,23 +42,71 @@ export class ProjectService {
       }),
       db.project.count({ where }),
     ])
+    if (access) {
+      for (const project of projects) {
+        if (!access.allows('tasks.read', { projectId: project.id })) {
+          project._count.tasksList = 0
+        }
+        if (!access.allows('assets.read', { projectId: project.id })) {
+          project._count.assets = 0
+        }
+      }
+    }
     return { projects, total }
   }
 
-  static getForApi(id: string) {
-    return getDb().project.findUnique({
-      where: { id },
+  static async listReferences(
+    input: { page: number; pageSize: number; status?: 'ACTIVE' | 'COMPLETED' | 'ARCHIVED' },
+    access: AccessContext,
+  ) {
+    if (!access.has('projects.reference.read') && !access.has('projects.read')) {
+      return { projects: [], total: 0 }
+    }
+    if (!access.has('projects.reference.read')) return this.list(input, access)
+
+    const db = getDb()
+    const where = input.status ? { status: input.status } : {}
+    const [projects, total] = await db.$transaction([
+      db.project.findMany({
+        where,
+        select: { id: true, code: true, name: true },
+        orderBy: { createdAt: 'desc' },
+        skip: (input.page - 1) * input.pageSize,
+        take: input.pageSize,
+      }),
+      db.project.count({ where }),
+    ])
+    return { projects, total }
+  }
+
+  static async getForApi(id: string, access?: AccessContext) {
+    const project = await getDb().project.findFirst({
+      where: access
+        ? { AND: [{ id }, access.projectWhere('projects.read') as Prisma.ProjectWhereInput] }
+        : { id },
       include: {
         tasksList: { orderBy: { createdAt: 'asc' }, include: { children: { include: { children: true } } } },
         assets: { include: { mol: true, group: true, holdings: { include: { mol: true } } } },
         ...projectListInclude,
       },
     })
+    if (!project || !access) return project
+    if (!access.allows('tasks.read', { projectId: id })) {
+      project.tasksList = []
+      project._count.tasksList = 0
+    }
+    if (!access.allows('assets.read', { projectId: id })) {
+      project.assets = []
+      project._count.assets = 0
+    }
+    return project
   }
 
-  static getDetail(id: string) {
-    return getDb().project.findUnique({
-      where: { id },
+  static async getDetail(id: string, access?: AccessContext) {
+    const project = await getDb().project.findFirst({
+      where: access
+        ? { AND: [{ id }, access.projectWhere('projects.read') as Prisma.ProjectWhereInput] }
+        : { id },
       include: {
         tasksList: {
           orderBy: { createdAt: 'asc' },
@@ -70,12 +125,43 @@ export class ProjectService {
         _count: { select: { assets: true, tasksList: true, financePlanEntries: true } },
       },
     })
+    if (!project || !access) return project
+    if (!access.allows('tasks.read', { projectId: id })) {
+      project.tasksList = []
+      project._count.tasksList = 0
+    }
+    if (!access.allows('assets.read', { projectId: id })) {
+      project.assets = []
+      project._count.assets = 0
+    }
+    if (!access.allows('projectPayroll.read', { projectId: id })) {
+      project.financePlanEntries = []
+      project._count.financePlanEntries = 0
+    }
+    return project
   }
 
-  static async create(input: CreateProjectInput, actorId: string, requestId?: string) {
+  static async create(
+    input: CreateProjectInput,
+    actorId: string,
+    requestId?: string,
+    access?: AccessContext,
+  ) {
     try {
       return await getDb().$transaction(async (tx) => {
         const project = await tx.project.create({ data: projectData(input) })
+        const scopedAssignments = access?.grantsFor('projects.create').filter(
+          (grant) => grant.projectScopeMode === 'ASSIGNED',
+        ) || []
+        if (scopedAssignments.length) {
+          await tx.userProjectScope.createMany({
+            data: scopedAssignments.map((grant) => ({
+              roleAssignmentId: grant.assignmentId,
+              projectId: project.id,
+            })),
+            skipDuplicates: true,
+          })
+        }
         await tx.auditLog.create({
           data: {
             userId: actorId, requestId, action: 'PROJECT_CREATE', entityType: 'Project', entityId: project.id,

@@ -1,7 +1,7 @@
 import type { Asset } from '@/features/assets/contracts/types'
 import { AssetService } from '@/features/assets/application/asset.service'
 import { assetsQuerySchema } from '@/features/assets/contracts/schemas'
-import { requirePageUser } from '@/lib/auth/authorization'
+import { requirePagePermission } from '@/lib/auth/authorization'
 import { ArchiveClient } from '@/features/assets/ui/archive-client'
 
 interface ArchivePageProps {
@@ -11,7 +11,7 @@ interface ArchivePageProps {
 const first = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value
 
 export default async function ArchivePage({ searchParams }: ArchivePageProps) {
-  const [user, params] = await Promise.all([requirePageUser(), searchParams])
+  const [user, params] = await Promise.all([requirePagePermission('assets.read'), searchParams])
   const parsed = assetsQuerySchema.safeParse({
     page: first(params.page),
     pageSize: first(params.pageSize),
@@ -23,8 +23,8 @@ export default async function ArchivePage({ searchParams }: ArchivePageProps) {
   })
   const query = parsed.success ? parsed.data : assetsQuerySchema.parse({ archived: 'true' })
   const [{ assets, total }, { mols, groups }] = await Promise.all([
-    AssetService.list(query),
-    AssetService.listCatalogs(),
+    AssetService.list(query, user.access),
+    AssetService.listCatalogs(user.access),
   ])
   const serializedAssets = assets.map((asset) => ({
     ...asset,
@@ -45,6 +45,6 @@ export default async function ArchivePage({ searchParams }: ArchivePageProps) {
       totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
     }}
     filters={{ search: query.search, molId: query.molId, groupId: query.groupId, status: query.status }}
-    canEdit={user.role !== 'VIEWER'}
+    canEdit={user.access.has('assets.restore')}
   />
 }

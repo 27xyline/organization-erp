@@ -1,8 +1,9 @@
 import type { Asset } from '@/features/assets/contracts/types'
 import { AssetService } from '@/features/assets/application/asset.service'
 import { assetsQuerySchema } from '@/features/assets/contracts/schemas'
-import { requirePageUser } from '@/lib/auth/authorization'
+import { defaultLandingPath, requirePageUser } from '@/lib/auth/authorization'
 import { AssetsPageClient } from '@/features/assets/ui/assets-page-client'
+import { redirect } from 'next/navigation'
 
 interface AssetsPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>
@@ -14,6 +15,7 @@ function first(value: string | string[] | undefined) {
 
 export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   const [user, params] = await Promise.all([requirePageUser(), searchParams])
+  if (!user.access.has('assets.read')) redirect(defaultLandingPath(user))
   const parsed = assetsQuerySchema.safeParse({
     page: first(params.page),
     pageSize: first(params.pageSize),
@@ -28,8 +30,8 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   })
   const query = parsed.success ? parsed.data : assetsQuerySchema.parse({ archived: 'false' })
   const [{ assets, total }, { mols, groups }] = await Promise.all([
-    AssetService.list(query),
-    AssetService.listCatalogs(),
+    AssetService.list(query, user.access),
+    AssetService.listCatalogs(user.access),
   ])
   const serializedAssets = assets.map((asset) => ({
     ...asset,
@@ -58,7 +60,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
         dateFrom: query.dateFrom,
         dateTo: query.dateTo,
       }}
-      canEdit={user.role !== 'VIEWER'}
+      canEdit={user.access.has('assets.update')}
     />
   )
 }

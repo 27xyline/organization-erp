@@ -4,6 +4,7 @@ import { AssetService, AssetServiceError } from '@/features/assets/application/a
 import { updateAssetSchema } from '@/features/assets/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
+import { assetTarget } from '@/lib/auth/resource-scopes'
 
 const errorMap: Record<string, { message: string; status: number }> = {
   ASSET_NOT_FOUND: { message: 'Объект имущества не найден', status: 404 },
@@ -24,10 +25,15 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await authorizeApiRequest(request)
+  const auth = await authorizeApiRequest(request, 'assets.read')
   if (auth.response) return auth.response
 
-  const asset = await AssetService.get((await params).id)
+  const id = (await params).id
+  const target = await assetTarget(id)
+  if (target && !auth.access.allows('assets.read', target)) {
+    return apiError('FORBIDDEN', 'Недостаточно прав', 403)
+  }
+  const asset = await AssetService.get(id, auth.access)
   return asset ? apiData(asset) : apiError('ASSET_NOT_FOUND', 'Объект имущества не найден', 404)
 }
 
@@ -35,14 +41,19 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  const auth = await authorizeApiRequest(request, 'assets.update')
   if (auth.response) return auth.response
 
   const input = updateAssetSchema.safeParse(await request.json())
   if (!input.success) return apiValidationError(input.error)
+  const id = (await params).id
+  const target = await assetTarget(id)
+  if (target && !auth.access.allows('assets.update', { departmentIds: target.departmentIds })) {
+    return apiError('FORBIDDEN', 'Недостаточно прав', 403)
+  }
 
   try {
-    return apiData(await AssetService.update((await params).id, input.data, auth.user.id, auth.requestId))
+    return apiData(await AssetService.update(id, input.data, auth.user.id, auth.requestId))
   } catch (error) {
     const mapped = mapAssetError(error)
     if (mapped) return mapped

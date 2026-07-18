@@ -70,7 +70,7 @@ const normalizeEmployee = (employee: any): Employee => ({
     : null,
 })
 
-export default function EmployeeArchivePage() {
+export default function EmployeeArchivePage({ canEdit }: { canEdit: boolean }) {
   const { toast } = useToast()
   const startOfToday = useMemo(() => {
     const today = new Date()
@@ -381,7 +381,7 @@ export default function EmployeeArchivePage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          {archiveStatus.key === 'expired' ? (
+                          {archiveStatus.key === 'expired' && canEdit ? (
                             <div className="flex justify-end gap-2">
                               <Button variant="outline" size="sm" onClick={() => openExtendDialog(employee)}>
                                 Восстановить

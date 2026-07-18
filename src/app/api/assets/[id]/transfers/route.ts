@@ -3,6 +3,7 @@ import { AssetService, AssetServiceError } from '@/features/assets/application/a
 import { transferAssetSchema } from '@/features/assets/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
+import { departmentForMol } from '@/lib/auth/resource-scopes'
 
 const messages: Record<string, [string, number]> = {
   ASSET_NOT_FOUND: ['Объект имущества не найден', 404],
@@ -17,10 +18,20 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  const auth = await authorizeApiRequest(request, 'assets.transfer')
   if (auth.response) return auth.response
   const input = transferAssetSchema.safeParse(await request.json())
   if (!input.success) return apiValidationError(input.error)
+  const [sourceDepartmentId, destinationDepartmentId] = await Promise.all([
+    departmentForMol(input.data.fromMolId),
+    departmentForMol(input.data.toMolId),
+  ])
+  const departmentIds = [sourceDepartmentId, destinationDepartmentId].filter(
+    (value): value is string => Boolean(value),
+  )
+  if (departmentIds.length && !auth.access.allows('assets.transfer', { departmentIds })) {
+    return apiError('FORBIDDEN', 'Недостаточно прав', 403)
+  }
 
   try {
     return apiData(await AssetService.transfer((await params).id, input.data, auth.user.id, auth.requestId), { status: 201 })

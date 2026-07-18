@@ -53,17 +53,21 @@ export const getStaffScheduleRateSummary = async (
   }
 }
 
-export const ensureExpiredContractArchiveActions = async (db: EmployeeDbClient) => {
+export const ensureExpiredContractArchiveActions = async (
+  db: EmployeeDbClient,
+  accessWhere: Prisma.EmployeeWhereInput = {},
+) => {
   const startOfToday = getStartOfToday()
 
   const expiredEmployees = await db.employee.findMany({
     where: {
-      status: {
-        not: 'DISMISSED',
-      },
-      contractEndDate: {
-        lt: startOfToday,
-      },
+      AND: [
+        {
+          status: { not: 'DISMISSED' },
+          contractEndDate: { lt: startOfToday },
+        },
+        accessWhere,
+      ],
     },
     include: {
       staffSchedule: {

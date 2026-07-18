@@ -57,7 +57,13 @@ async function main() {
   const input = createUserSchema.parse({
     username,
     name,
-    role: 'ADMIN',
+    assignments: [{
+      role: 'ADMIN',
+      departmentScopeMode: 'ALL',
+      projectScopeMode: 'ALL',
+      departmentIds: [],
+      projectIds: [],
+    }],
     temporaryPassword,
   })
   const passwordHash = await hash(input.temporaryPassword)
@@ -71,6 +77,13 @@ async function main() {
         role: 'ADMIN',
         passwordHash,
         mustChangePassword: true,
+        roleAssignments: {
+          create: {
+            role: 'ADMIN',
+            departmentScopeMode: 'ALL',
+            projectScopeMode: 'ALL',
+          },
+        },
       },
     })
     await tx.auditLog.create({

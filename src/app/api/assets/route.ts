@@ -5,9 +5,10 @@ import { assetsQuerySchema } from '@/features/assets/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiList, apiValidationError } from '@/lib/http/api-response'
 import { createAssetSchema } from '@/features/assets/contracts/schemas'
+import { departmentForMol } from '@/lib/auth/resource-scopes'
 
 export async function GET(request: NextRequest) {
-  const auth = await authorizeApiRequest(request)
+  const auth = await authorizeApiRequest(request, 'assets.read')
   if (auth.response) return auth.response
 
   const rawQuery = Object.fromEntries(request.nextUrl.searchParams)
@@ -20,16 +21,20 @@ export async function GET(request: NextRequest) {
   const query = assetsQuerySchema.safeParse(rawQuery)
   if (!query.success) return apiValidationError(query.error)
 
-  const result = await AssetService.list(query.data)
+  const result = await AssetService.list(query.data, auth.access)
   return apiList(result.assets, { page: query.data.page, pageSize: query.data.pageSize, total: result.total })
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  const auth = await authorizeApiRequest(request, 'assets.create')
   if (auth.response) return auth.response
 
   const input = createAssetSchema.safeParse(await request.json())
   if (!input.success) return apiValidationError(input.error)
+  const departmentId = await departmentForMol(input.data.molId)
+  if (departmentId && !auth.access.allows('assets.create', { departmentId })) {
+    return apiError('FORBIDDEN', 'Недостаточно прав', 403)
+  }
 
   try {
     return apiData(await AssetService.create(input.data, auth.user.id, auth.requestId), { status: 201 })

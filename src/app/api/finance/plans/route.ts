@@ -6,12 +6,12 @@ import {
 } from '@/features/finance/application/finance-plan.service'
 import { getCurrentYear, getPlanType } from '@/features/finance/domain/finance-plan'
 import { validateRequest } from '@/lib/http/validate-request'
-import { authorizeApiRequest } from '@/lib/auth/authorization'
+import { AuthorizationError, authorizeApiRequest } from '@/lib/auth/authorization'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
-  const auth = await authorizeApiRequest(request)
+  const auth = await authorizeApiRequest(request, 'financePlans.read')
   if (auth.response) return auth.response
 
   try {
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const result = await FinancePlanService.getTable(type, year)
+    const result = await FinancePlanService.getTable(type, year, auth.access)
 
     return NextResponse.json(result)
   } catch (error) {
@@ -46,7 +46,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  const auth = await authorizeApiRequest(request, {
+    anyOf: ['financePlans.create', 'financePlans.update'],
+  })
   if (auth.response) return auth.response
 
   try {
@@ -60,7 +62,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = await FinancePlanService.saveCell(validation.data)
+    const result = await FinancePlanService.saveCell(validation.data, auth.access)
 
     return NextResponse.json({
       success: true,
@@ -78,6 +80,9 @@ export async function POST(request: NextRequest) {
         { status: routeError.status }
       )
     }
+    if (error instanceof AuthorizationError) {
+      return NextResponse.json({ error: 'Недостаточно прав' }, { status: 403 })
+    }
 
     return NextResponse.json(
       { error: 'Failed to save finance plan cell' },
@@ -87,7 +92,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  const auth = await authorizeApiRequest(request, 'financePlans.delete')
   if (auth.response) return auth.response
 
   try {
@@ -101,11 +106,14 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    await FinancePlanService.clearCell(validation.data)
+    await FinancePlanService.clearCell(validation.data, auth.access)
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error deleting finance plan cell:', error)
+    if (error instanceof AuthorizationError) {
+      return NextResponse.json({ error: 'Недостаточно прав' }, { status: 403 })
+    }
     return NextResponse.json(
       { error: 'Failed to delete finance plan cell' },
       { status: 500 }

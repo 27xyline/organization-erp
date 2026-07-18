@@ -9,6 +9,11 @@ import {
   DepartmentReferenceError,
   getDepartmentReferenceErrorMeta,
 } from '@/lib/organization/department-reference'
+import {
+  departmentByName,
+  departmentForPosition,
+  employeeTarget,
+} from '@/lib/auth/resource-scopes'
 
 function mapEmployeeError(error: unknown) {
   if (error instanceof DepartmentReferenceError) {
@@ -23,12 +28,26 @@ function mapEmployeeError(error: unknown) {
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  const auth = await authorizeApiRequest(request, 'employees.update')
   if (auth.response) return auth.response
   const input = updateEmployeeSchema.safeParse(await request.json())
   if (!input.success) return apiValidationError(input.error)
+  const id = (await params).id
+  const [currentTarget, positionDepartmentId, legacyDepartmentId] = await Promise.all([
+    employeeTarget(id),
+    departmentForPosition(input.data.staffScheduleId),
+    departmentByName(input.data.department),
+  ])
+  const nextDepartmentId = positionDepartmentId || legacyDepartmentId
+  if (currentTarget && !auth.access.allows('employees.update', {
+    employeeId: currentTarget.employeeId,
+    departmentIds: [
+      ...(currentTarget.departmentId ? [currentTarget.departmentId] : []),
+      ...(nextDepartmentId ? [nextDepartmentId] : []),
+    ],
+  })) return apiError('FORBIDDEN', 'Недостаточно прав', 403)
   try {
-    return apiData(await EmployeeService.updateEmployee((await params).id, input.data, auth.user.id, auth.requestId))
+    return apiData(await EmployeeService.updateEmployee(id, input.data, auth.user.id, auth.requestId))
   } catch (error) {
     const mapped = mapEmployeeError(error)
     if (mapped) return mapped
@@ -37,10 +56,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  const auth = await authorizeApiRequest(request, 'employees.delete')
   if (auth.response) return auth.response
+  const id = (await params).id
+  const target = await employeeTarget(id)
+  if (target && !auth.access.allows('employees.delete', target)) {
+    return apiError('FORBIDDEN', 'Недостаточно прав', 403)
+  }
   try {
-    await EmployeeService.dismissEmployee((await params).id, auth.user.id, auth.requestId)
+    await EmployeeService.dismissEmployee(id, auth.user.id, auth.requestId)
     return apiData({ success: true, archived: true, status: 'DISMISSED' })
   } catch (error) {
     const mapped = mapEmployeeError(error)

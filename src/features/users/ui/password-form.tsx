@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { signOut } from 'next-auth/react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -26,6 +27,7 @@ export function PasswordForm() {
       setCurrentPassword('')
       setNewPassword('')
       toast.success('Пароль изменён')
+      await signOut({ callbackUrl: '/login?passwordChanged=1' })
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Не удалось изменить пароль')
     } finally {

@@ -31,6 +31,7 @@ export const authOptions: NextAuthOptions = {
         const db = getDb()
         const user = await db.user.findUnique({
           where: { username: parsed.data.username },
+          include: { roleAssignments: { select: { role: true } } },
         })
 
         if (!user) {
@@ -73,6 +74,8 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           username: user.username,
           role: user.role,
+          roles: user.roleAssignments.map((assignment) => assignment.role),
+          sessionVersion: user.sessionVersion,
         }
       },
     }),
@@ -86,7 +89,9 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id
         token.role = user.role
+        token.roles = user.roles
         token.username = user.username
+        token.sessionVersion = user.sessionVersion
       }
       return token
     },
@@ -94,7 +99,9 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.id || token.sub || ''
         session.user.role = token.role
+        session.user.roles = token.roles
         session.user.username = token.username
+        session.user.sessionVersion = token.sessionVersion
       }
       return session
     },

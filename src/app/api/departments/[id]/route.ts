@@ -16,13 +16,17 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await authorizeApiRequest(request, ['ADMIN'])
+  const auth = await authorizeApiRequest(request, 'departments.update')
   if (auth.response) return auth.response
   const input = updateDepartmentSchema.safeParse(await request.json())
   if (!input.success) return apiValidationError(input.error)
+  const id = (await params).id
+  if (!auth.access.allows('departments.update', { departmentId: id })) {
+    return apiError('FORBIDDEN', 'Недостаточно прав', 403)
+  }
   try {
     return apiData(
-      await DepartmentService.update((await params).id, input.data, auth.user.id, auth.requestId),
+      await DepartmentService.update(id, input.data, auth.user.id, auth.requestId),
     )
   } catch (error) {
     if (error instanceof DepartmentServiceError) return mapDepartmentError(error)
@@ -34,11 +38,15 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await authorizeApiRequest(request, ['ADMIN'])
+  const auth = await authorizeApiRequest(request, 'departments.delete')
   if (auth.response) return auth.response
+  const id = (await params).id
+  if (!auth.access.allows('departments.delete', { departmentId: id })) {
+    return apiError('FORBIDDEN', 'Недостаточно прав', 403)
+  }
   try {
     return apiData(
-      await DepartmentService.delete((await params).id, auth.user.id, auth.requestId),
+      await DepartmentService.delete(id, auth.user.id, auth.requestId),
     )
   } catch (error) {
     if (error instanceof DepartmentServiceError) return mapDepartmentError(error)

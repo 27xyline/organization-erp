@@ -43,6 +43,10 @@ import { cn, formatCurrency, formatDecimal } from '@/lib/utils'
 
 interface ProjectPayrollSectionProps {
   projectId: string
+  canReadMembers: boolean
+  canManageMembers: boolean
+  canReadPayroll: boolean
+  canEditPayroll: boolean
 }
 
 interface PayrollResponse {
@@ -184,7 +188,13 @@ function ProjectPayrollCellDialog({
   )
 }
 
-export function ProjectPayrollSection({ projectId }: ProjectPayrollSectionProps) {
+export function ProjectPayrollSection({
+  projectId,
+  canReadMembers,
+  canManageMembers,
+  canReadPayroll,
+  canEditPayroll,
+}: ProjectPayrollSectionProps) {
   const { toast } = useToast()
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear())
   const [members, setMembers] = useState<ProjectMemberRow[]>([])
@@ -229,13 +239,16 @@ export function ProjectPayrollSection({ projectId }: ProjectPayrollSectionProps)
     setLoading(true)
 
     try {
-      await Promise.all([loadMembers(), loadPayroll(year)])
+      await Promise.all([
+        ...(canReadMembers ? [loadMembers()] : []),
+        ...(canReadPayroll ? [loadPayroll(year)] : []),
+      ])
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Не удалось загрузить данные проекта')
     } finally {
       setLoading(false)
     }
-  }, [loadMembers, loadPayroll, toast])
+  }, [canReadMembers, canReadPayroll, loadMembers, loadPayroll, toast])
 
   useEffect(() => {
     void loadSection(currentYear)
@@ -263,14 +276,17 @@ export function ProjectPayrollSection({ projectId }: ProjectPayrollSectionProps)
       }
 
       setSelectedEmployeeId('')
-      await Promise.all([loadMembers(), loadPayroll(currentYear)])
+      await Promise.all([
+        loadMembers(),
+        ...(canReadPayroll ? [loadPayroll(currentYear)] : []),
+      ])
       toast.success('Сотрудник добавлен в состав проекта')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Не удалось добавить сотрудника')
     } finally {
       setSaving(false)
     }
-  }, [currentYear, loadMembers, loadPayroll, projectId, selectedEmployeeId, toast])
+  }, [canReadPayroll, currentYear, loadMembers, loadPayroll, projectId, selectedEmployeeId, toast])
 
   const handleArchiveMember = useCallback(async (memberId: string) => {
     setSaving(true)
@@ -288,14 +304,17 @@ export function ProjectPayrollSection({ projectId }: ProjectPayrollSectionProps)
         throw new Error(body.error || 'Не удалось архивировать сотрудника')
       }
 
-      await Promise.all([loadMembers(), loadPayroll(currentYear)])
+      await Promise.all([
+        loadMembers(),
+        ...(canReadPayroll ? [loadPayroll(currentYear)] : []),
+      ])
       toast.success('Сотрудник архивирован в составе проекта')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Не удалось архивировать сотрудника')
     } finally {
       setSaving(false)
     }
-  }, [currentYear, loadMembers, loadPayroll, projectId, toast])
+  }, [canReadPayroll, currentYear, loadMembers, loadPayroll, projectId, toast])
 
   const openCellDialog = useCallback((row: { employeeId: string; fullName: string; salary: string; months: Record<string, ProjectPayrollCell> }, month: number) => {
     const cell = row.months[String(month)]
@@ -397,12 +416,12 @@ export function ProjectPayrollSection({ projectId }: ProjectPayrollSectionProps)
           Таблица с планированием выплат заработной платы
         </CardTitle>
         <CardDescription>
-          Управление составом команды проекта и начислениями по месяцам на основе общих финансовых данных.
+          Состав команды проекта и доступное планирование начислений по месяцам.
         </CardDescription>
       </CardHeader>
 
       <div className="space-y-6 px-6 pb-6">
-        <div className="rounded-xl border bg-slate-50/60 p-4">
+        {canReadMembers && <div className="rounded-xl border bg-slate-50/60 p-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-1">
               <p className="flex items-center gap-2 text-sm font-medium text-slate-900">
@@ -414,7 +433,7 @@ export function ProjectPayrollSection({ projectId }: ProjectPayrollSectionProps)
               </p>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            {canManageMembers && <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
               <div className="min-w-[280px] space-y-2">
                 <Label htmlFor="project-member-select">Сотрудник</Label>
                 <Select value={selectedEmployeeId || '__none__'} onValueChange={(value) => setSelectedEmployeeId(value === '__none__' ? '' : value)}>
@@ -435,7 +454,7 @@ export function ProjectPayrollSection({ projectId }: ProjectPayrollSectionProps)
                 <Plus className="mr-2 h-4 w-4" />
                 Добавить в проект
               </Button>
-            </div>
+            </div>}
           </div>
 
           <div className="mt-4 rounded-lg border bg-white">
@@ -473,9 +492,9 @@ export function ProjectPayrollSection({ projectId }: ProjectPayrollSectionProps)
                       <TableCell>{member.department}</TableCell>
                       <TableCell>{member.position}</TableCell>
                       <TableCell>{formatDecimal(member.rate)}</TableCell>
-                      <TableCell>{formatCurrency(member.salary)}</TableCell>
+                      <TableCell>{canReadPayroll ? formatCurrency(member.salary) : '—'}</TableCell>
                       <TableCell className="text-right">
-                        <Button
+                        {canManageMembers ? <Button
                           type="button"
                           variant="ghost"
                           size="sm"
@@ -485,7 +504,7 @@ export function ProjectPayrollSection({ projectId }: ProjectPayrollSectionProps)
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Архивировать
-                        </Button>
+                        </Button> : <span className="text-sm text-muted-foreground">—</span>}
                       </TableCell>
                     </TableRow>
                   ))
@@ -499,9 +518,9 @@ export function ProjectPayrollSection({ projectId }: ProjectPayrollSectionProps)
               </TableBody>
             </Table>
           </div>
-        </div>
+        </div>}
 
-        <div className="rounded-xl border">
+        {canReadPayroll && <div className="rounded-xl border">
           <div className="flex flex-col gap-4 border-b bg-slate-50/60 px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="flex items-center gap-2 text-sm font-medium text-slate-900">
@@ -544,21 +563,23 @@ export function ProjectPayrollSection({ projectId }: ProjectPayrollSectionProps)
               totalRate={totalRate}
               totalSalary={totalSalary}
               monthTotals={summary.monthTotals}
-              editable
-              onCellClick={(row, month) => openCellDialog(row as ProjectPayrollRow, month)}
+              editable={canEditPayroll}
+              onCellClick={canEditPayroll
+                ? (row, month) => openCellDialog(row as ProjectPayrollRow, month)
+                : () => {}}
               emptyDescription="Добавьте сотрудников в состав проекта выше, чтобы запланировать выплаты."
             />
           </div>
-        </div>
+        </div>}
       </div>
 
-      <ProjectPayrollCellDialog
+      {canEditPayroll && <ProjectPayrollCellDialog
         selectedCell={selectedCell}
         saving={saving}
         onClose={closeCellDialog}
         onSave={handleSaveCell}
         onClear={handleClearCell}
-      />
+      />}
     </div>
   )
 }

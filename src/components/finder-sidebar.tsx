@@ -1,8 +1,8 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { usePathname } from "next/navigation"
-import { useSession, signOut } from "next-auth/react"
+import { signOut } from "next-auth/react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { 
@@ -28,6 +28,7 @@ import {
   ShieldCheck,
   Network,
 } from "lucide-react"
+import { ROLE_LABELS, type AppRole, type Permission } from "@/lib/auth/permissions"
 
 interface Project {
   id: string
@@ -88,9 +89,16 @@ const assetsChildren = [
   { id: "assets-archive", label: "Архив", icon: <Archive className="h-4 w-4" />, href: "/archive" },
 ]
 
-export function FinderSidebar() {
+export function FinderSidebar({ currentUser }: {
+  currentUser: {
+    name: string
+    roles: AppRole[]
+    permissions: Permission[]
+    accessKey: string
+  }
+}) {
   const pathname = usePathname()
-  const { data: session } = useSession()
+  const permissionSet = useMemo(() => new Set(currentUser.permissions), [currentUser.permissions])
   const [expandedItems, setExpandedItems] = useState<string[]>(() => {
     if (pathname === '/login') return []
     const itemsToExpand: string[] = []
@@ -118,22 +126,32 @@ export function FinderSidebar() {
       }
     }
   }
-  const [projects, setProjects] = useState<Project[]>([])
-  const hasFetchedProjectsRef = useRef(false)
+  const [projectResult, setProjectResult] = useState<{
+    accessKey: string | null
+    projects: Project[]
+  }>({ accessKey: null, projects: [] })
+  const fetchedProjectAccessRef = useRef<string | null>(null)
   const isProjectsExpanded = expandedItems.includes("projects")
 
   useEffect(() => {
-    if (!isProjectsExpanded || hasFetchedProjectsRef.current) return
+    if (!permissionSet.has('projects.read') || !isProjectsExpanded) {
+      fetchedProjectAccessRef.current = null
+      return
+    }
+    if (fetchedProjectAccessRef.current === currentUser.accessKey) return
 
     let isMounted = true
-    hasFetchedProjectsRef.current = true
+    fetchedProjectAccessRef.current = currentUser.accessKey
 
     async function fetchProjects() {
       try {
         const response = await fetch('/api/projects')
         if (response.ok && isMounted) {
           const data = await response.json()
-          setProjects((data.data || []).slice(0, 5)) // Show only first 5 projects
+          setProjectResult({
+            accessKey: currentUser.accessKey,
+            projects: (data.data || []).slice(0, 5),
+          })
         }
       } catch (error) {
         console.error('Error fetching projects:', error)
@@ -145,7 +163,7 @@ export function FinderSidebar() {
     return () => {
       isMounted = false
     }
-  }, [isProjectsExpanded])
+  }, [currentUser.accessKey, isProjectsExpanded, permissionSet])
 
 
 
@@ -166,7 +184,7 @@ export function FinderSidebar() {
 
   const projectChildren = [
     { id: "projects-list", label: "Все проекты", icon: <Building2 className="h-4 w-4" />, href: "/projects" },
-    ...projects.map(p => ({
+    ...(projectResult.accessKey === currentUser.accessKey ? projectResult.projects : []).map(p => ({
       id: `project-${p.id}`,
       label: p.name,
       icon: <Building2 className="h-4 w-4" />,
@@ -176,10 +194,30 @@ export function FinderSidebar() {
 
   const getMenuChildren = (id: string) => {
     switch (id) {
-      case 'projects': return projectChildren
-      case 'finance': return financeChildren
-      case 'employees': return employeesChildren
-      case 'assets': return assetsChildren
+      case 'projects':
+        return permissionSet.has('projects.read') ? projectChildren : []
+      case 'finance':
+        return financeChildren.filter((child) =>
+          child.id === 'salary'
+            ? permissionSet.has('finance.salary.read')
+            : child.id === 'oklad' || child.id === 'nadbavka'
+              ? permissionSet.has('financePlans.read')
+              : false
+        )
+      case 'employees':
+        return employeesChildren.filter((child) =>
+          child.id === 'mols'
+            ? permissionSet.has('mols.read')
+            : permissionSet.has('employees.read')
+        )
+      case 'assets':
+        return assetsChildren.filter((child) =>
+          child.id === 'assets-groups'
+            ? permissionSet.has('assetGroups.read')
+            : ['assets-registered', 'assets-archive'].includes(child.id)
+              ? permissionSet.has('assets.read')
+              : false
+        )
       default: return []
     }
   }
@@ -262,51 +300,49 @@ export function FinderSidebar() {
       </div>
       
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
-        {staticMenuItems.map(item => renderMenuItem(item))}
+        {staticMenuItems.filter((item) => getMenuChildren(item.id).length > 0).map(item => renderMenuItem(item))}
       </div>
       
-      {session?.user && (
-        <div className="p-4 border-t flex flex-col gap-3">
-          <div className="flex items-center gap-3 overflow-hidden">
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium shrink-0">
-              {session.user.name?.charAt(0) || 'U'}
-            </div>
-            <div className="flex flex-col truncate">
-              <span className="text-sm font-medium leading-none truncate">
-                {session.user.name}
-              </span>
-              <span className="text-xs text-muted-foreground mt-1 truncate">
-                Доступ: {session.user.role === 'ADMIN' ? 'Администратор' : session.user.role === 'EDITOR' ? 'Редактор' : 'Чтение'}
-              </span>
-            </div>
+      <div className="p-4 border-t flex flex-col gap-3">
+        <div className="flex items-center gap-3 overflow-hidden">
+          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium shrink-0">
+            {currentUser.name.charAt(0) || 'U'}
           </div>
-          <div className="grid gap-1">
-            <Link href="/account/password" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent">
-              <KeyRound className="h-4 w-4" />
-              Изменить пароль
-            </Link>
-            {session.user.role === 'ADMIN' && (
-              <>
-                <Link href="/admin/departments" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent">
-                  <Network className="h-4 w-4" />
-                  Подразделения
-                </Link>
-                <Link href="/admin/users" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent">
-                  <ShieldCheck className="h-4 w-4" />
-                  Пользователи
-                </Link>
-              </>
-            )}
+          <div className="flex flex-col truncate">
+            <span className="text-sm font-medium leading-none truncate">
+              {currentUser.name}
+            </span>
+            <span className="text-xs text-muted-foreground mt-1 truncate">
+              {currentUser.roles.map((role) => ROLE_LABELS[role]).join(', ') || 'Без роли'}
+            </span>
           </div>
-          <button
-            onClick={() => signOut({ callbackUrl: '/login' })}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-md transition-colors"
-          >
-            <LogOut className="h-4 w-4" />
-            Выйти
-          </button>
         </div>
-      )}
+        <div className="grid gap-1">
+          <Link href="/account/password" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent">
+            <KeyRound className="h-4 w-4" />
+            Изменить пароль
+          </Link>
+          {permissionSet.has('departments.create') && (
+            <Link href="/admin/departments" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent">
+              <Network className="h-4 w-4" />
+              Подразделения
+            </Link>
+          )}
+          {permissionSet.has('access.users.read') && (
+            <Link href="/admin/users" className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent">
+              <ShieldCheck className="h-4 w-4" />
+              Пользователи
+            </Link>
+          )}
+        </div>
+        <button
+          onClick={() => signOut({ callbackUrl: '/login' })}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+        >
+          <LogOut className="h-4 w-4" />
+          Выйти
+        </button>
+      </div>
     </div>
   )
 }

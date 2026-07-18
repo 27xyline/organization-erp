@@ -6,6 +6,7 @@ import { getEmployeeRouteErrorMeta } from '@/features/employees/application/erro
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiList, apiValidationError } from '@/lib/http/api-response'
 import { createEmployeeSchema } from '@/features/employees/contracts/schemas'
+import { departmentForPosition } from '@/lib/auth/resource-scopes'
 
 const querySchema = z.object({
   scope: z.enum(['active', 'archive', 'expired', 'all']).default('all'),
@@ -22,21 +23,25 @@ function mapEmployeeError(error: unknown) {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await authorizeApiRequest(request)
+  const auth = await authorizeApiRequest(request, 'employees.read')
   if (auth.response) return auth.response
   const raw = Object.fromEntries(request.nextUrl.searchParams)
   if (raw.limit && !raw.pageSize) raw.pageSize = raw.limit
   const query = querySchema.safeParse(raw)
   if (!query.success) return apiValidationError(query.error)
-  const result = await EmployeeService.list(query.data)
+  const result = await EmployeeService.list(query.data, auth.access)
   return apiList(result.employees, { ...query.data, total: result.total })
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  const auth = await authorizeApiRequest(request, 'employees.create')
   if (auth.response) return auth.response
   const input = createEmployeeSchema.safeParse(await request.json())
   if (!input.success) return apiValidationError(input.error)
+  const departmentId = await departmentForPosition(input.data.staffScheduleId)
+  if (departmentId && !auth.access.allows('employees.create', { departmentId })) {
+    return apiError('FORBIDDEN', 'Недостаточно прав', 403)
+  }
   try {
     return apiData(await EmployeeService.createEmployee(input.data, auth.user.id, auth.requestId), { status: 201 })
   } catch (error) {

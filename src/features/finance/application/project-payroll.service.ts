@@ -10,6 +10,8 @@ import {
   ProjectPayrollDeleteInput,
   ProjectPayrollSaveInput,
 } from '../contracts/project-payroll'
+import type { AccessContext } from '@/lib/auth/access-context'
+import { AuthorizationError } from '@/lib/auth/authorization'
 
 type ProjectPayrollEntry = {
   type: FinancePlanType
@@ -114,7 +116,14 @@ export const getProjectPayrollErrorMeta = (error: unknown) => {
 }
 
 export class ProjectPayrollService {
-  static async getTable(projectId: string, year: number = getCurrentYear()) {
+  static async getTable(
+    projectId: string,
+    year: number = getCurrentYear(),
+    access?: AccessContext,
+  ) {
+    if (access && !access.allows('projectPayroll.read', { projectId })) {
+      throw new AuthorizationError('FORBIDDEN', 403)
+    }
     const project = await prisma.project.findUnique({
       where: { id: projectId },
       select: {
@@ -203,7 +212,11 @@ export class ProjectPayrollService {
     }
   }
 
-  static async saveCell(projectId: string, input: ProjectPayrollSaveInput) {
+  static async saveCell(
+    projectId: string,
+    input: ProjectPayrollSaveInput,
+    access?: AccessContext,
+  ) {
     return prisma.$transaction(async (tx) => {
       const member = await tx.projectMember.findFirst({
         where: {
@@ -272,6 +285,13 @@ export class ProjectPayrollService {
         },
       })
 
+      if (access) {
+        const permission = existingEntries.length ? 'projectPayroll.update' : 'projectPayroll.create'
+        if (!access.allows(permission, { projectId })) {
+          throw new AuthorizationError('FORBIDDEN', 403)
+        }
+      }
+
       const adjustments = calculateBudgetAdjustments(
         existingEntries,
         nextEntries.map((entry) => ({
@@ -333,7 +353,11 @@ export class ProjectPayrollService {
     })
   }
 
-  static async clearCell(projectId: string, input: ProjectPayrollDeleteInput) {
+  static async clearCell(
+    projectId: string,
+    input: ProjectPayrollDeleteInput,
+    access?: AccessContext,
+  ) {
     await prisma.$transaction(async (tx) => {
       const existingEntries = await tx.financePlanEntry.findMany({
         where: {
@@ -349,6 +373,9 @@ export class ProjectPayrollService {
 
       if (existingEntries.length === 0) {
         return
+      }
+      if (access && !access.allows('projectPayroll.delete', { projectId })) {
+        throw new AuthorizationError('FORBIDDEN', 403)
       }
 
       const adjustments = calculateBudgetAdjustments(existingEntries, [])

@@ -16,21 +16,24 @@ import {
 import { CreatePersonnelActionInput } from '../contracts/schemas'
 import { ensureExpiredContractArchiveActions } from '../infrastructure/workforce.repository'
 import { withOrganizationMutation } from '@/lib/organization/organization-mutation'
+import type { AccessContext } from '@/lib/auth/access-context'
 
 const personnelActionPriority: Record<string, number> = {
   HIRE: 0, DISMISS: 1, ARCHIVE: 2, EXTEND: 3, TRANSFER: 4, PROMOTE: 5, EDIT: 6,
 }
 
 export class PersonnelActionService {
-  static async list(input: { page: number; pageSize: number }) {
+  static async list(input: { page: number; pageSize: number }, access?: AccessContext) {
+    const where = access ? { employee: access.employeeWhere('personnelActions.read') } : undefined
     const [actions, total] = await prisma.$transaction([
       prisma.personnelAction.findMany({
+        where,
         orderBy: { createdAt: 'desc' },
         include: { employee: { select: employeeSelect } },
         skip: (input.page - 1) * input.pageSize,
         take: input.pageSize,
       }),
-      prisma.personnelAction.count(),
+      prisma.personnelAction.count({ where }),
     ])
     const timeline = [...actions].sort((left, right) => {
       const dateDifference = right.createdAt.getTime() - left.createdAt.getTime()
@@ -56,8 +59,11 @@ export class PersonnelActionService {
     })
   }
 
-  static syncExpiredContracts() {
-    return ensureExpiredContractArchiveActions(prisma)
+  static syncExpiredContracts(access?: AccessContext) {
+    return ensureExpiredContractArchiveActions(
+      prisma,
+      access?.employeeWhere('personnelActions.sync') || {},
+    )
   }
 
   static async createAction(data: CreatePersonnelActionInput, actorId?: string, requestId?: string) {

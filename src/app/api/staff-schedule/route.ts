@@ -7,6 +7,7 @@ import {
   DepartmentReferenceError,
   getDepartmentReferenceErrorMeta,
 } from '@/lib/organization/department-reference'
+import { departmentForReference } from '@/lib/auth/resource-scopes'
 
 function mapDepartmentError(error: DepartmentReferenceError) {
   const meta = getDepartmentReferenceErrorMeta(error.code)
@@ -14,16 +15,20 @@ function mapDepartmentError(error: DepartmentReferenceError) {
 }
 
 export async function GET(request: NextRequest) {
-  const auth = await authorizeApiRequest(request)
+  const auth = await authorizeApiRequest(request, 'staffSchedule.read')
   if (auth.response) return auth.response
-  return apiData(await WorkforceService.listPositions())
+  return apiData(await WorkforceService.listPositions(auth.access))
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  const auth = await authorizeApiRequest(request, 'staffSchedule.create')
   if (auth.response) return auth.response
   const input = createStaffScheduleSchema.safeParse(await request.json())
   if (!input.success) return apiValidationError(input.error)
+  const departmentId = await departmentForReference(input.data)
+  if (departmentId && !auth.access.allows('staffSchedule.create', { departmentId })) {
+    return apiError('FORBIDDEN', 'Недостаточно прав', 403)
+  }
   try {
     return apiData(await WorkforceService.createPosition(input.data, auth.user.id, auth.requestId), { status: 201 })
   } catch (error) {

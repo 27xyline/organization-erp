@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('@/lib/auth/authorization', () => ({
   authorizeApiRequest: vi.fn(async () => ({
     user: { id: 'admin-1', username: 'admin', name: 'Admin', role: 'ADMIN' },
+    access: { allows: vi.fn(() => true) },
     requestId: 'request-1',
   })),
 }))
@@ -42,7 +43,7 @@ describe('departments route', () => {
 
     expect(response.status).toBe(201)
     expect(await response.json()).toEqual({ data: { id: 'department-1' } })
-    expect(authorizeApiRequest).toHaveBeenCalledWith(expect.anything(), ['ADMIN'])
+    expect(authorizeApiRequest).toHaveBeenCalledWith(expect.anything(), 'departments.create')
   })
 
   it('maps a case-insensitive duplicate to HTTP 409', async () => {

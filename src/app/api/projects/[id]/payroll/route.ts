@@ -8,17 +8,20 @@ import {
   ProjectPayrollService,
 } from '@/features/finance/application/project-payroll.service'
 import { validateRequest } from '@/lib/http/validate-request'
-import { authorizeApiRequest } from '@/lib/auth/authorization'
+import { AuthorizationError, authorizeApiRequest } from '@/lib/auth/authorization'
 
 export const dynamic = 'force-dynamic'
 
 const getCurrentYear = () => new Date().getFullYear()
 
 export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const auth = await authorizeApiRequest(request)
+  const auth = await authorizeApiRequest(request, 'projectPayroll.read')
   if (auth.response) return auth.response
 
   const params = await props.params;
+  if (!auth.access.allows('projectPayroll.read', { projectId: params.id })) {
+    return NextResponse.json({ error: 'Недостаточно прав' }, { status: 403 })
+  }
   try {
     const yearParam = request.nextUrl.searchParams.get('year')
     const year = yearParam ? Number.parseInt(yearParam, 10) : getCurrentYear()
@@ -30,7 +33,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       )
     }
 
-    const result = await ProjectPayrollService.getTable(params.id, year)
+    const result = await ProjectPayrollService.getTable(params.id, year, auth.access)
     return NextResponse.json(result)
   } catch (error) {
     console.error('Error fetching project payroll:', error)
@@ -52,10 +55,18 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
 }
 
 export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  const auth = await authorizeApiRequest(request, {
+    anyOf: ['projectPayroll.create', 'projectPayroll.update'],
+  })
   if (auth.response) return auth.response
 
   const params = await props.params;
+  if (
+    !auth.access.allows('projectPayroll.create', { projectId: params.id }) &&
+    !auth.access.allows('projectPayroll.update', { projectId: params.id })
+  ) {
+    return NextResponse.json({ error: 'Недостаточно прав' }, { status: 403 })
+  }
   try {
     const data = await request.json()
     const validation = validateRequest(projectPayrollSaveSchema, data)
@@ -67,7 +78,7 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
       )
     }
 
-    const result = await ProjectPayrollService.saveCell(params.id, validation.data)
+    const result = await ProjectPayrollService.saveCell(params.id, validation.data, auth.access)
 
     return NextResponse.json({
       success: true,
@@ -76,6 +87,9 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
   } catch (error) {
     console.error('Error saving project payroll cell:', error)
 
+    if (error instanceof AuthorizationError) {
+      return NextResponse.json({ error: 'Недостаточно прав' }, { status: 403 })
+    }
     const routeError = getProjectPayrollErrorMeta(error)
 
     if (routeError) {
@@ -93,10 +107,13 @@ export async function PUT(request: NextRequest, props: { params: Promise<{ id: s
 }
 
 export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
-  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  const auth = await authorizeApiRequest(request, 'projectPayroll.delete')
   if (auth.response) return auth.response
 
   const params = await props.params;
+  if (!auth.access.allows('projectPayroll.delete', { projectId: params.id })) {
+    return NextResponse.json({ error: 'Недостаточно прав' }, { status: 403 })
+  }
   try {
     const data = await request.json()
     const validation = validateRequest(projectPayrollDeleteSchema, data)
@@ -108,7 +125,7 @@ export async function DELETE(request: NextRequest, props: { params: Promise<{ id
       )
     }
 
-    await ProjectPayrollService.clearCell(params.id, validation.data)
+    await ProjectPayrollService.clearCell(params.id, validation.data, auth.access)
 
     return NextResponse.json({ success: true })
   } catch (error) {

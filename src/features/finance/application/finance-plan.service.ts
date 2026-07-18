@@ -11,27 +11,28 @@ import {
   formatProjectBudget,
   getPlanType,
 } from '../domain/finance-plan'
+import type { AccessContext } from '@/lib/auth/access-context'
+import { AuthorizationError } from '@/lib/auth/authorization'
 
 export type { FinancePlanRouteType } from '../domain/finance-plan'
 
-const getProjectsForFinance = async (includedProjectIds: string[] = []) => {
+const getProjectsForFinance = async (
+  includedProjectIds: string[] = [],
+  access?: AccessContext,
+) => {
+  const allowedProjectIds = access?.allowedProjectIds('financePlans.read')
+  const statusWhere: Prisma.ProjectWhereInput = includedProjectIds.length > 0
+    ? {
+        OR: [
+          { status: 'ACTIVE' },
+          { id: { in: includedProjectIds } },
+        ],
+      }
+    : { status: 'ACTIVE' }
   const projects = await prisma.project.findMany({
-    where: includedProjectIds.length > 0
-      ? {
-          OR: [
-            {
-              status: 'ACTIVE',
-            },
-            {
-              id: {
-                in: includedProjectIds,
-              },
-            },
-          ],
-        }
-      : {
-          status: 'ACTIVE',
-        },
+    where: allowedProjectIds === null || allowedProjectIds === undefined
+      ? statusWhere
+      : { AND: [statusWhere, { id: { in: allowedProjectIds } }] },
     orderBy: {
       code: 'asc',
     },
@@ -71,9 +72,14 @@ export const getFinancePlanErrorMeta = (error: unknown) => {
 }
 
 export class FinancePlanService {
-  static async getSalaryTable(year: number) {
+  static async getSalaryTable(year: number, access?: AccessContext) {
     const employees = await prisma.employee.findMany({
-      where: { status: { not: 'DISMISSED' } },
+      where: {
+        AND: [
+          { status: { not: 'DISMISSED' } },
+          access?.employeeWhere('finance.salary.read') || {},
+        ],
+      },
       orderBy: [{ department: 'asc' }, { fullName: 'asc' }],
       include: {
         staffSchedule: { select: { id: true, position: true, department: true, rate: true, salary: true } },
@@ -82,8 +88,15 @@ export class FinancePlanService {
     const employeeIds = employees.map((employee) => employee.id)
     const entries = employeeIds.length ? await prisma.financePlanEntry.findMany({
       where: {
-        year, projectId: { not: null }, type: { in: [FinancePlanType.OKLAD, FinancePlanType.NADBAVKA] },
-        employeeId: { in: employeeIds },
+        AND: [
+          {
+            year,
+            projectId: { not: null },
+            type: { in: [FinancePlanType.OKLAD, FinancePlanType.NADBAVKA] },
+            employeeId: { in: employeeIds },
+          },
+          access?.financeEntryWhere('finance.salary.read') || {},
+        ],
       },
       include: { project: { select: { id: true, code: true, name: true } } },
     }) : []
@@ -121,12 +134,13 @@ export class FinancePlanService {
     return { year, rows, projects: [] }
   }
 
-  static async getTable(type: FinancePlanType, year: number) {
+  static async getTable(type: FinancePlanType, year: number, access?: AccessContext) {
     const employees = await prisma.employee.findMany({
       where: {
-        status: {
-          not: 'DISMISSED',
-        },
+        AND: [
+          { status: { not: 'DISMISSED' } },
+          access?.employeeWhere('financePlans.read') || {},
+        ],
       },
       orderBy: {
         fullName: 'asc',
@@ -149,14 +163,15 @@ export class FinancePlanService {
     const entries = employeeIds.length > 0
       ? await prisma.financePlanEntry.findMany({
           where: {
-            year,
-            type,
-            projectId: {
-              not: null,
-            },
-            employeeId: {
-              in: employeeIds,
-            },
+            AND: [
+              {
+                year,
+                type,
+                projectId: { not: null },
+                employeeId: { in: employeeIds },
+              },
+              access?.financeEntryWhere('financePlans.read') || {},
+            ],
           },
           include: {
             project: {
@@ -171,7 +186,8 @@ export class FinancePlanService {
       : []
 
     const projects = await getProjectsForFinance(
-      Array.from(new Set(entries.map((entry) => entry.projectId).filter((value): value is string => Boolean(value))))
+      Array.from(new Set(entries.map((entry) => entry.projectId).filter((value): value is string => Boolean(value)))),
+      access,
     )
 
     const entryGroups = entries.reduce((groups, entry) => {
@@ -217,7 +233,7 @@ export class FinancePlanService {
     }
   }
 
-  static async saveCell(input: FinancePlanSaveInput) {
+  static async saveCell(input: FinancePlanSaveInput, access?: AccessContext) {
     const type = getPlanType(input.type)
 
     if (!type) {
@@ -282,6 +298,21 @@ export class FinancePlanService {
           type,
         },
       })
+
+      if (access) {
+        const permission = existingEntries.length ? 'financePlans.update' : 'financePlans.create'
+        const affectedProjectIds = Array.from(new Set([
+          ...projectIds,
+          ...existingEntries.flatMap((entry) => entry.projectId ? [entry.projectId] : []),
+        ]))
+        if (!access.allows(permission, {
+          employeeId: employee.id,
+          departmentId: employee.departmentId,
+          projectIds: affectedProjectIds,
+        })) {
+          throw new AuthorizationError('FORBIDDEN', 403)
+        }
+      }
 
       const adjustments = calculateBudgetAdjustments(existingEntries, normalizedAllocations)
 
@@ -367,7 +398,7 @@ export class FinancePlanService {
     })
   }
 
-  static async clearCell(input: FinancePlanDeleteInput) {
+  static async clearCell(input: FinancePlanDeleteInput, access?: AccessContext) {
     const type = getPlanType(input.type)
 
     if (!type) {
@@ -386,6 +417,20 @@ export class FinancePlanService {
 
       if (existingEntries.length === 0) {
         return
+      }
+
+      if (access) {
+        const employee = await tx.employee.findUnique({
+          where: { id: input.employeeId },
+          select: { id: true, departmentId: true },
+        })
+        if (!employee || !access.allows('financePlans.delete', {
+          employeeId: employee.id,
+          departmentId: employee.departmentId,
+          projectIds: existingEntries.flatMap((entry) => entry.projectId ? [entry.projectId] : []),
+        })) {
+          throw new AuthorizationError('FORBIDDEN', 403)
+        }
       }
 
       const adjustments = calculateBudgetAdjustments(existingEntries, [])

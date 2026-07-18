@@ -1,11 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ServiceError } from '@/lib/errors/service-error'
 
+const authMocks = vi.hoisted(() => ({
+  allows: vi.fn(() => true),
+}))
+
+const scopeMocks = vi.hoisted(() => ({
+  employeeTarget: vi.fn(async () => ({
+    employeeId: 'emp-1',
+    departmentId: 'department-1',
+  })),
+  departmentForPosition: vi.fn(async () => null),
+  departmentByName: vi.fn(async () => null),
+}))
+
 vi.mock('@/lib/auth/authorization', () => ({
   authorizeApiRequest: vi.fn(async () => ({
     user: { id: 'admin-1', username: 'admin', name: 'Admin', role: 'ADMIN' },
+    access: { allows: authMocks.allows },
+    requestId: 'request-1',
   })),
 }))
+
+vi.mock('@/lib/auth/resource-scopes', () => scopeMocks)
 
 vi.mock('@/features/employees/application/employee.service', () => ({
   EmployeeService: {
@@ -107,5 +124,32 @@ describe('employees/[id] route', () => {
     expect(await response.json()).toEqual({
       error: { code: 'NOT_FOUND', message: 'Подразделение не найдено' },
     })
+  })
+
+  it('returns 403 when the employee target is outside the allowed scope', async () => {
+    const { EmployeeService } = await import('@/features/employees/application/employee.service')
+    const { PUT } = await import('@/app/api/employees/[id]/route')
+
+    authMocks.allows.mockReturnValueOnce(false)
+
+    const response = await PUT(
+      new Request('http://localhost/api/employees/emp-1', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: 'E001' }),
+      }) as never,
+      { params: Promise.resolve({ id: 'emp-1' }) },
+    )
+    const body = await response.json()
+
+    expect(response.status).toBe(403)
+    expect(body).toEqual({
+      error: { code: 'FORBIDDEN', message: 'Недостаточно прав' },
+    })
+    expect(authMocks.allows).toHaveBeenCalledWith('employees.update', {
+      employeeId: 'emp-1',
+      departmentIds: ['department-1'],
+    })
+    expect(EmployeeService.updateEmployee).not.toHaveBeenCalled()
   })
 })

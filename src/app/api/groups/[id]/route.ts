@@ -11,14 +11,14 @@ const catalogError = (error: CatalogServiceError) => error.code === 'NOT_FOUND'
     : apiError(error.code, 'Группа используется объектами имущества', 409)
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await authorizeApiRequest(request)
+  const auth = await authorizeApiRequest(request, 'assetGroups.read')
   if (auth.response) return auth.response
   const group = await CatalogService.getGroup((await params).id)
   return group ? apiData(group) : apiError('NOT_FOUND', 'Группа не найдена', 404)
 }
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  const auth = await authorizeApiRequest(request, 'assetGroups.update')
   if (auth.response) return auth.response
   const input = createGroupSchema.safeParse(await request.json())
   if (!input.success) return apiValidationError(input.error)
@@ -31,7 +31,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  const auth = await authorizeApiRequest(request, 'assetGroups.delete')
   if (auth.response) return auth.response
   try {
     return apiData(await CatalogService.deleteGroup((await params).id, auth.user.id, auth.requestId))

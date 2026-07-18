@@ -28,19 +28,35 @@ import { formatDate, formatCurrency, formatDateTime } from '@/lib/utils'
 import { LazyProjectGantt } from '@/features/projects/ui/lazy-gantt'
 import { ProjectPayrollSection } from '@/features/finance/ui/project-payroll-section'
 import { ProjectService } from '@/features/projects/application/project.service'
-import { requirePageUser } from '@/lib/auth/authorization'
+import { requirePagePermission } from '@/lib/auth/authorization'
 
 interface ProjectPageProps {
   params: Promise<{ id: string }>
 }
 
 export default async function ProjectPage(props: ProjectPageProps) {
-  const [user, params] = await Promise.all([requirePageUser(), props.params])
-  const project = await ProjectService.getDetail(params.id)
+  const [user, params] = await Promise.all([
+    requirePagePermission('projects.read'),
+    props.params,
+  ])
+  const project = await ProjectService.getDetail(params.id, user.access)
 
   if (!project) {
     notFound()
   }
+
+  const projectTarget = { projectId: project.id }
+  const canEditProject = user.access.allows('projects.update', projectTarget)
+  const canReadTasks = user.access.allows('tasks.read', projectTarget)
+  const canEditTasks = user.access.allows('tasks.create', projectTarget) &&
+    user.access.allows('tasks.update', projectTarget) &&
+    user.access.allows('tasks.delete', projectTarget)
+  const canReadAssets = user.access.allows('assets.read', projectTarget)
+  const canReadMembers = user.access.allows('projectMembers.read', projectTarget)
+  const canManageMembers = user.access.allows('projectMembers.create', projectTarget) &&
+    user.access.allows('projectMembers.update', projectTarget)
+  const canReadPayroll = user.access.allows('projectPayroll.read', projectTarget)
+  const canEditPayroll = user.access.allows('projectPayroll.update', projectTarget)
 
   // Calculate budget remaining
   const remainingBudget = Number(project.plannedBudget) - Number(project.actualBudget)
@@ -158,7 +174,7 @@ export default async function ProjectPage(props: ProjectPageProps) {
           </div>
           <p className="text-muted-foreground">{project.code}</p>
         </div>
-        {user.role !== 'VIEWER' && <Link href={`/projects/${project.id}/edit`}>
+        {canEditProject && <Link href={`/projects/${project.id}/edit`}>
           <Button variant="outline">
             <Edit className="mr-2 h-4 w-4" />
             Редактировать
@@ -169,9 +185,10 @@ export default async function ProjectPage(props: ProjectPageProps) {
       {/* Main layout: Gantt left, Info right */}
       <div className="grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-4">
         {/* Left side - Gantt Chart with task table */}
-        <div className="min-h-[700px] min-w-0 overflow-hidden xl:col-span-3">
+        {canReadTasks && <div className="min-h-[700px] min-w-0 overflow-hidden xl:col-span-3">
           <LazyProjectGantt
             projectId={project.id}
+            canEdit={canEditTasks}
             tasks={project.tasksList.map((task) => ({
               ...task,
               assignees: task.assignees.map((assignee) => ({
@@ -181,7 +198,7 @@ export default async function ProjectPage(props: ProjectPageProps) {
               })),
             }))}
           />
-        </div>
+        </div>}
 
         {/* Right side - Project info */}
         <div className="min-w-0 space-y-6">
@@ -292,12 +309,18 @@ export default async function ProjectPage(props: ProjectPageProps) {
       </div>
 
       <div className="mt-8 space-y-6">
-        <Card className="overflow-hidden">
-          <ProjectPayrollSection projectId={project.id} />
-        </Card>
+        {(canReadMembers || canReadPayroll) && <Card className="overflow-hidden">
+          <ProjectPayrollSection
+            projectId={project.id}
+            canReadMembers={canReadMembers}
+            canManageMembers={canManageMembers}
+            canReadPayroll={canReadPayroll}
+            canEditPayroll={canEditPayroll}
+          />
+        </Card>}
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-stretch">
-          <Card className="flex flex-col overflow-hidden xl:h-full">
+        {(canReadAssets || canReadPayroll) && <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-stretch">
+          {canReadAssets && <Card className="flex flex-col overflow-hidden xl:h-full">
             <CardHeader className="border-b bg-slate-50/80">
               <CardTitle className="flex items-center gap-2 text-base">
                 <ArrowRightLeft className="h-4 w-4" />
@@ -381,9 +404,9 @@ export default async function ProjectPage(props: ProjectPageProps) {
                 </div>
               )}
             </CardContent>
-          </Card>
+          </Card>}
 
-          <Card className="flex flex-col overflow-hidden xl:h-full">
+          {canReadPayroll && <Card className="flex flex-col overflow-hidden xl:h-full">
             <CardHeader className="border-b bg-slate-50/80">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Wallet className="h-4 w-4" />
@@ -459,8 +482,8 @@ export default async function ProjectPage(props: ProjectPageProps) {
                 </div>
               )}
             </CardContent>
-          </Card>
-        </div>
+          </Card>}
+        </div>}
       </div>
     </main>
   )

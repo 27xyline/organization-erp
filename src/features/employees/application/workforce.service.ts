@@ -4,6 +4,7 @@ import { ServiceError } from '@/lib/errors/service-error'
 import type { CreateStaffScheduleInput, CreateVacationInput } from '../contracts/schemas'
 import { resolveDepartment } from '@/lib/organization/department-reference'
 import { withOrganizationMutation } from '@/lib/organization/organization-mutation'
+import type { AccessContext } from '@/lib/auth/access-context'
 
 type WorkforceErrorCode =
   | 'NOT_FOUND'
@@ -16,11 +17,16 @@ export class WorkforceServiceError extends ServiceError<WorkforceErrorCode> {}
 const employeeSummary = { id: true, fullName: true, department: true } as const
 
 export class WorkforceService {
-  static async listVacations(year: number) {
+  static async listVacations(year: number, access?: AccessContext) {
     const startOfYear = new Date(year, 0, 1)
     const endOfYear = new Date(year, 11, 31, 23, 59, 59, 999)
     return getDb().vacation.findMany({
-      where: { startDate: { lte: endOfYear }, endDate: { gte: startOfYear } },
+      where: {
+        AND: [
+          { startDate: { lte: endOfYear }, endDate: { gte: startOfYear } },
+          access ? { employee: access.employeeWhere('vacations.read') } : {},
+        ],
+      },
       orderBy: { startDate: 'asc' },
       include: { employee: { select: employeeSummary } },
     })
@@ -73,8 +79,12 @@ export class WorkforceService {
     })
   }
 
-  static async listPositions() {
+  static async listPositions(access?: AccessContext) {
+    const departmentIds = access?.allowedDepartmentIds('staffSchedule.read')
     const positions = await getDb().staffSchedule.findMany({
+      where: departmentIds === null || departmentIds === undefined
+        ? undefined
+        : { departmentId: { in: departmentIds } },
       orderBy: [{ department: 'asc' }, { position: 'asc' }],
       include: {
         employees: { where: { status: { not: 'DISMISSED' } } },
