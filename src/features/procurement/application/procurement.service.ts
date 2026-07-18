@@ -513,7 +513,11 @@ export class ProcurementService {
       const remaining = await tx.procurementDeliveryItem.count({
         where: { delivery: { requestId: deliveryItem.delivery.requestId }, assetId: null },
       })
-      if (remaining === 0) {
+      const request = await tx.procurementRequest.findUniqueOrThrow({
+        where: { id: deliveryItem.delivery.requestId },
+        select: { status: true },
+      })
+      if (remaining === 0 && request.status === ProcurementStatus.DELIVERED) {
         await tx.procurementRequest.update({
           where: { id: deliveryItem.delivery.requestId },
           data: { status: ProcurementStatus.CAPITALIZED },
