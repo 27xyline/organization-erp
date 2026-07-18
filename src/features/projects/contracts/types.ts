@@ -1,7 +1,7 @@
-import { ProjectStatus, TaskStatus } from '@prisma/client'
+import { ProjectStatus, TaskPriority, TaskRisk, TaskStatus } from '@prisma/client'
 import type { Asset } from '@/features/assets/contracts/types'
 
-export { ProjectStatus, TaskStatus }
+export { ProjectStatus, TaskPriority, TaskRisk, TaskStatus }
 
 export interface Project {
   id: string
@@ -25,6 +25,10 @@ export interface Project {
 export interface Task {
   id: string
   name: string
+  description?: string | null
+  priority?: TaskPriority
+  risk?: TaskRisk
+  isMilestone?: boolean
   level: number
   parentId?: string | null
   parent?: Task | null
@@ -35,6 +39,19 @@ export interface Task {
   progress: number
   responsible?: string | null
   assignees: TaskAssignee[]
+  predecessors?: Array<{
+    id: string
+    predecessorId: string
+    lagDays: number
+    predecessor: { id: string; name: string }
+  }>
+  checklist?: Array<{ id: string; title: string; completed: boolean; order: number }>
+  comments?: Array<{
+    id: string
+    body: string
+    createdAt: Date
+    author: { id: string; name: string }
+  }>
   status: TaskStatus
   projectId: string
   project?: Project
@@ -59,4 +76,17 @@ export const TaskStatusLabels: Record<TaskStatus, string> = {
   [TaskStatus.IN_PROGRESS]: 'В работе',
   [TaskStatus.COMPLETED]: 'Завершена',
   [TaskStatus.DELAYED]: 'Просрочена',
+}
+
+export const TaskPriorityLabels: Record<TaskPriority, string> = {
+  [TaskPriority.LOW]: 'Низкий',
+  [TaskPriority.MEDIUM]: 'Средний',
+  [TaskPriority.HIGH]: 'Высокий',
+  [TaskPriority.CRITICAL]: 'Критический',
+}
+
+export const TaskRiskLabels: Record<TaskRisk, string> = {
+  [TaskRisk.LOW]: 'Низкий',
+  [TaskRisk.MEDIUM]: 'Средний',
+  [TaskRisk.HIGH]: 'Высокий',
 }

@@ -3,6 +3,7 @@ import { getDb } from '@/lib/prisma'
 import { ServiceError } from '@/lib/errors/service-error'
 import type { CreateProjectInput } from '../contracts/project'
 import type { AccessContext } from '@/lib/auth/access-context'
+import { PROJECT_TEMPLATES } from '../contracts/templates'
 
 type ProjectErrorCode = 'PROJECT_NOT_FOUND' | 'PROJECT_CODE_EXISTS'
 export class ProjectServiceError extends ServiceError<ProjectErrorCode> {}
@@ -110,7 +111,24 @@ export class ProjectService {
       include: {
         tasksList: {
           orderBy: { createdAt: 'asc' },
-          include: { assignees: { include: { employee: { select: { id: true, fullName: true } } } } },
+          include: {
+            assignees: {
+              include: {
+                employee: { select: { id: true, fullName: true } },
+                projectMember: { select: { id: true } },
+              },
+            },
+            predecessors: {
+              include: { predecessor: { select: { id: true, name: true } } },
+              orderBy: { createdAt: 'asc' },
+            },
+            checklist: { orderBy: [{ order: 'asc' }, { createdAt: 'asc' }] },
+            comments: {
+              include: { author: { select: { id: true, name: true } } },
+              orderBy: { createdAt: 'desc' },
+              take: 20,
+            },
+          },
         },
         assets: {
           include: {
@@ -150,6 +168,39 @@ export class ProjectService {
     try {
       return await getDb().$transaction(async (tx) => {
         const project = await tx.project.create({ data: projectData(input) })
+        const template = input.templateId ? PROJECT_TEMPLATES[input.templateId] : null
+        if (template) {
+          const baseDate = input.startDate ? new Date(input.startDate) : new Date()
+          const createdTasks: string[] = []
+          for (const task of template.tasks) {
+            const startDate = new Date(baseDate)
+            startDate.setDate(startDate.getDate() + task.offset)
+            const endDate = new Date(startDate)
+            endDate.setDate(endDate.getDate() + task.duration)
+            const created = await tx.task.create({
+              data: {
+                projectId: project.id,
+                name: task.name,
+                level: 1,
+                startDate,
+                endDate,
+                duration: task.duration,
+                isMilestone: 'isMilestone' in task ? task.isMilestone : false,
+                priority: task.priority,
+                risk: task.risk,
+              },
+            })
+            createdTasks.push(created.id)
+          }
+          await tx.taskDependency.createMany({
+            data: template.tasks.flatMap((task, successorIndex) =>
+              task.predecessors.map((predecessorIndex) => ({
+                predecessorId: createdTasks[predecessorIndex]!,
+                successorId: createdTasks[successorIndex]!,
+              }))
+            ),
+          })
+        }
         const scopedAssignments = access?.grantsFor('projects.create').filter(
           (grant) => grant.projectScopeMode === 'ASSIGNED',
         ) || []

@@ -24,7 +24,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const input = createTaskSchema.safeParse(await request.json())
   if (!input.success) return apiValidationError(input.error)
   try {
-    return apiData(await TaskService.create(projectId, input.data), { status: 201 })
+    return apiData(
+      await TaskService.create(projectId, input.data, auth.user.id, auth.requestId),
+      { status: 201 },
+    )
   } catch (error) {
     if (error instanceof TaskServiceError) return apiError(error.code, error.message, 422)
     throw error
