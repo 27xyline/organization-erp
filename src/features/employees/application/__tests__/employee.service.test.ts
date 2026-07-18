@@ -127,4 +127,34 @@ describe('EmployeeService.updateEmployee', () => {
       }),
     }))
   })
+
+  it('does not reactivate a dismissed employee in an inactive department', async () => {
+    const dismissedEmployee = {
+      ...existingEmployee,
+      status: 'DISMISSED',
+    }
+    const employeeUpdate = vi.fn()
+    const tx = {
+      employee: {
+        findUnique: vi.fn().mockResolvedValue(dismissedEmployee),
+        update: employeeUpdate,
+        aggregate: vi.fn(),
+      },
+      staffSchedule: {
+        findUnique: vi.fn().mockResolvedValue({
+          ...dismissedEmployee.staffSchedule,
+          rate: 1,
+          departmentRef: { isActive: false },
+        }),
+      },
+    }
+    vi.mocked(prisma.$transaction).mockImplementationOnce(async (callback) => callback(tx as never))
+
+    await expect(EmployeeService.updateEmployee('emp-1', {
+      status: 'ACTIVE',
+    })).rejects.toMatchObject({ code: 'INACTIVE_POSITION_DEPARTMENT' })
+
+    expect(employeeUpdate).not.toHaveBeenCalled()
+    expect(tx.employee.aggregate).not.toHaveBeenCalled()
+  })
 })

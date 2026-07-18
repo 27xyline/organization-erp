@@ -128,7 +128,9 @@ export class EmployeeService {
         employeeId: id,
         employmentRate,
         status,
-        allowInactiveCurrentPosition: positionId === existingEmployee.staffScheduleId,
+        allowInactiveCurrentPosition:
+          existingEmployee.status !== 'DISMISSED'
+          && positionId === existingEmployee.staffScheduleId,
       })
       const targetDepartment = position
         ? { id: position.departmentId, name: position.department }
