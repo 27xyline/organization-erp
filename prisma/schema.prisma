@@ -260,6 +260,7 @@ model User {
   notificationOutbox      NotificationOutbox[]
   requestedApprovals      ApprovalRequest[]        @relation("ApprovalRequestedBy")
   approvalSteps           ApprovalStep[]           @relation("ApprovalStepApprover")
+  taskComments            TaskComment[]
 
   @@index([isActive, role])
   @@map("users")
@@ -558,8 +559,12 @@ model ProjectMember {
 
 // Tasks with 3-level hierarchy
 model Task {
-  id   String @id @default(cuid())
-  name String
+  id          String       @id @default(cuid())
+  name        String
+  description String?
+  priority    TaskPriority @default(MEDIUM)
+  risk        TaskRisk     @default(LOW)
+  isMilestone Boolean      @default(false)
 
   // Hierarchy (Level 1, 2, 3)
   level    Int     @default(1) // 1, 2, or 3
@@ -576,8 +581,12 @@ model Task {
   progress Int @default(0) // 0-100%
 
   // Legacy responsible person field kept for backwards-compatible display.
-  responsible String?
-  assignees   TaskAssignee[]
+  responsible  String?
+  assignees    TaskAssignee[]
+  checklist    TaskChecklistItem[]
+  comments     TaskComment[]
+  predecessors TaskDependency[]    @relation("TaskSuccessors")
+  successors   TaskDependency[]    @relation("TaskPredecessors")
 
   // Status
   status TaskStatus @default(NOT_STARTED)
@@ -591,6 +600,49 @@ model Task {
 
   @@index([projectId, parentId])
   @@map("tasks")
+}
+
+model TaskDependency {
+  id            String   @id @default(cuid())
+  predecessorId String
+  predecessor   Task     @relation("TaskPredecessors", fields: [predecessorId], references: [id], onDelete: Cascade)
+  successorId   String
+  successor     Task     @relation("TaskSuccessors", fields: [successorId], references: [id], onDelete: Cascade)
+  lagDays       Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  @@unique([predecessorId, successorId])
+  @@index([successorId])
+  @@map("task_dependencies")
+}
+
+model TaskChecklistItem {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  title     String
+  completed Boolean  @default(false)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([taskId, order])
+  @@map("task_checklist_items")
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([taskId, createdAt])
+  @@index([authorId, createdAt])
+  @@map("task_comments")
 }
 
 model TaskAssignee {
@@ -616,6 +668,23 @@ enum TaskStatus {
   DELAYED
 
   @@map("task_status")
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+
+  @@map("task_priority")
+}
+
+enum TaskRisk {
+  LOW
+  MEDIUM
+  HIGH
+
+  @@map("task_risk")
 }
 
 // Employees and HR
