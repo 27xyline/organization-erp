@@ -27,6 +27,7 @@ import {
   KeyRound,
   ShieldCheck,
   Network,
+  Files,
 } from "lucide-react"
 import { ROLE_LABELS, type AppRole, type Permission } from "@/lib/auth/permissions"
 
@@ -65,6 +66,11 @@ const staticMenuItems: Omit<MenuItem, 'children'>[] = [
     id: "assets",
     label: "Имущество",
     icon: <Package className="h-5 w-5" />,
+  },
+  {
+    id: "documents",
+    label: "Документы",
+    icon: <Files className="h-5 w-5" />,
   },
 ]
 
@@ -106,6 +112,7 @@ export function FinderSidebar({ currentUser }: {
     if (pathname.startsWith('/finance')) itemsToExpand.push('finance')
     if (pathname.startsWith('/employees') || pathname.startsWith('/mols')) itemsToExpand.push('employees')
     if (pathname === '/' || pathname.startsWith('/groups') || pathname.startsWith('/archive')) itemsToExpand.push('assets')
+    if (pathname.startsWith('/documents')) itemsToExpand.push('documents')
     return itemsToExpand
   })
   const [prevPathname, setPrevPathname] = useState(pathname)
@@ -119,6 +126,7 @@ export function FinderSidebar({ currentUser }: {
       if (pathname.startsWith('/finance')) itemsToExpand.push('finance')
       if (pathname.startsWith('/employees') || pathname.startsWith('/mols')) itemsToExpand.push('employees')
       if (pathname === '/' || pathname.startsWith('/groups') || pathname.startsWith('/archive')) itemsToExpand.push('assets')
+      if (pathname.startsWith('/documents')) itemsToExpand.push('documents')
       
       const newItems = itemsToExpand.filter(item => !expandedItems.includes(item))
       if (newItems.length > 0) {
@@ -218,6 +226,10 @@ export function FinderSidebar({ currentUser }: {
               ? permissionSet.has('assets.read')
               : false
         )
+      case 'documents':
+        return permissionSet.has('documents.read')
+          ? [{ id: 'documents-list', label: 'Все документы', icon: <Files className="h-4 w-4" />, href: '/documents' }]
+          : []
       default: return []
     }
   }

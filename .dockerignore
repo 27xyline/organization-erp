@@ -9,3 +9,4 @@ npm-debug.log*
 playwright-report
 test-results
 *.tsbuildinfo
+.runtime

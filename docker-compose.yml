@@ -35,7 +35,11 @@ services:
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3001}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3001}
+      DOCUMENT_STORAGE_ROOT: /var/lib/project1/documents
+      DOCUMENT_MAX_FILE_SIZE_BYTES: ${DOCUMENT_MAX_FILE_SIZE_BYTES:-26214400}
       PORT: 3001
+    volumes:
+      - project1_document_data:/var/lib/project1/documents
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -49,3 +53,4 @@ services:
 
 volumes:
   project1_postgres_data:
+  project1_document_data:

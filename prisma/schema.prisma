@@ -41,10 +41,10 @@ model Department {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
-  employees      Employee[]      @relation("EmployeeDepartment")
+  employees      Employee[]            @relation("EmployeeDepartment")
   staffPositions StaffSchedule[]
   mols           Mol[]
-  userScopes      UserDepartmentScope[]
+  userScopes     UserDepartmentScope[]
 
   @@index([parentId])
   @@index([headEmployeeId])
@@ -120,6 +120,7 @@ model Asset {
 
   operations Operation[]
   holdings   AssetHolding[]
+  documents  Document[]
 
   @@index([molId])
   @@index([groupId])
@@ -232,24 +233,26 @@ enum ScopeMode {
 }
 
 model User {
-  id                  String     @id @default(cuid())
-  username            String     @unique
+  id                  String               @id @default(cuid())
+  username            String               @unique
   name                String
   passwordHash        String
-  role                UserRole   @default(VIEWER)
-  isActive            Boolean    @default(true)
-  mustChangePassword  Boolean    @default(true)
-  sessionVersion      Int        @default(1)
-  passwordChangedAt   DateTime   @default(now())
-  failedLoginAttempts Int        @default(0)
+  role                UserRole             @default(VIEWER)
+  isActive            Boolean              @default(true)
+  mustChangePassword  Boolean              @default(true)
+  sessionVersion      Int                  @default(1)
+  passwordChangedAt   DateTime             @default(now())
+  failedLoginAttempts Int                  @default(0)
   lockedUntil         DateTime?
   lastLoginAt         DateTime?
-  createdAt           DateTime   @default(now())
-  updatedAt           DateTime   @updatedAt
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
   auditLogs           AuditLog[]
-  employeeId          String?    @unique
-  employee            Employee?  @relation("UserEmployee", fields: [employeeId], references: [id], onDelete: SetNull)
+  employeeId          String?              @unique
+  employee            Employee?            @relation("UserEmployee", fields: [employeeId], references: [id], onDelete: SetNull)
   roleAssignments     UserRoleAssignment[]
+  createdDocuments    Document[]           @relation("DocumentCreatedBy")
+  uploadedVersions    DocumentVersion[]    @relation("DocumentVersionUploadedBy")
 
   @@index([isActive, role])
   @@map("users")
@@ -350,6 +353,7 @@ model Project {
   financePlanEntries FinancePlanEntry[]
   projectMembers     ProjectMember[]
   userScopes         UserProjectScope[]
+  documents          Document[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -477,6 +481,7 @@ model Employee {
   taskAssignees      TaskAssignee[]
   headedDepartments  Department[]       @relation("DepartmentHead")
   user               User?              @relation("UserEmployee")
+  documents          Document[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -624,4 +629,88 @@ enum VacationType {
   UNPAID_LEAVE
 
   @@map("vacation_type")
+}
+
+enum DocumentStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  SIGNED
+  ARCHIVED
+
+  @@map("document_status")
+}
+
+enum DocumentCategory {
+  GENERAL
+  CONTRACT
+  ORDER
+  ACT
+  INVOICE
+  PERSONNEL
+  PROJECT
+  ASSET
+  OTHER
+
+  @@map("document_category")
+}
+
+model Document {
+  id             String           @id @default(cuid())
+  title          String
+  description    String?
+  category       DocumentCategory @default(GENERAL)
+  status         DocumentStatus   @default(DRAFT)
+  currentVersion Int              @default(1)
+  lockVersion    Int              @default(1)
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  employeeId String?
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  assetId String?
+  asset   Asset?  @relation(fields: [assetId], references: [id], onDelete: SetNull)
+
+  createdById String
+  createdBy   User   @relation("DocumentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  archivedAt DateTime?
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  versions   DocumentVersion[]
+
+  @@index([status, updatedAt])
+  @@index([category, updatedAt])
+  @@index([projectId])
+  @@index([employeeId])
+  @@index([assetId])
+  @@index([createdById])
+  @@index([archivedAt, updatedAt])
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id               String   @id @default(cuid())
+  documentId       String
+  document         Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  versionNumber    Int
+  storageKey       String   @unique
+  originalFilename String
+  mimeType         String
+  extension        String
+  sizeBytes        BigInt
+  sha256           String
+  comment          String?
+
+  uploadedById String
+  uploadedBy   User   @relation("DocumentVersionUploadedBy", fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@unique([documentId, versionNumber])
+  @@index([documentId, createdAt])
+  @@index([uploadedById])
+  @@map("document_versions")
 }
