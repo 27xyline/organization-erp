@@ -120,9 +120,10 @@ model Asset {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  operations Operation[]
-  holdings   AssetHolding[]
-  documents  Document[]
+  operations         Operation[]
+  holdings           AssetHolding[]
+  documents          Document[]
+  maintenanceRecords AssetMaintenance[]
 
   @@index([molId])
   @@index([groupId])
@@ -141,6 +142,50 @@ enum AssetStatus {
   FULLY_DISPOSED
 
   @@map("asset_status")
+}
+
+enum AssetMaintenanceType {
+  INSPECTION
+  CALIBRATION
+  REPAIR
+  SERVICE
+
+  @@map("asset_maintenance_type")
+}
+
+enum AssetMaintenanceStatus {
+  PLANNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELED
+
+  @@map("asset_maintenance_status")
+}
+
+model AssetMaintenance {
+  id                String                 @id @default(cuid())
+  assetId           String
+  asset             Asset                  @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  type              AssetMaintenanceType
+  status            AssetMaintenanceStatus @default(PLANNED)
+  title             String
+  description       String?
+  scheduledDate     DateTime               @db.Date
+  startedAt         DateTime?
+  completedAt       DateTime?
+  nextDueDate       DateTime?              @db.Date
+  provider          String?
+  cost              Decimal                @default(0) @db.Decimal(12, 2)
+  result            String?
+  assetStatusBefore AssetStatus?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([assetId, scheduledDate])
+  @@index([status, scheduledDate])
+  @@index([nextDueDate])
+  @@map("asset_maintenance")
 }
 
 enum OperationType {
@@ -333,6 +378,7 @@ enum NotificationEventType {
   CONTRACT_EXPIRING
   TASK_OVERDUE
   ASSET_DISPOSAL_DUE
+  ASSET_MAINTENANCE_DUE
   BUDGET_OVERRUN
 
   @@map("notification_event_type")
