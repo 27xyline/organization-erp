@@ -8,13 +8,17 @@ const userErrorMessages: Record<string, [string, number]> = {
   USER_NOT_FOUND: ['Пользователь не найден', 404],
   CANNOT_DEACTIVATE_SELF: ['Нельзя отключить собственную учётную запись', 409],
   LAST_ADMIN_REQUIRED: ['В системе должен остаться хотя бы один активный администратор', 409],
+  INVALID_SCOPE_ASSIGNMENT: ['Недопустимая область доступа для выбранной роли', 422],
+  INVALID_SCOPE_REFERENCE: ['Подразделение, проект или сотрудник не найден', 422],
+  EMPLOYEE_LINK_REQUIRED: ['Для роли сотрудника нужна кадровая карточка', 422],
+  EMPLOYEE_ALREADY_LINKED: ['Кадровая карточка уже связана с другим пользователем', 409],
 }
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await authorizeApiRequest(request, ['ADMIN'])
+  const auth = await authorizeApiRequest(request, 'access.users.update')
   if (auth.response) return auth.response
 
   const input = updateUserSchema.safeParse(await request.json())

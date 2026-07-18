@@ -12,6 +12,17 @@ export const APP_ROLES = [
 export type AppRole = (typeof APP_ROLES)[number]
 export type ScopeMode = 'NONE' | 'ALL' | 'ASSIGNED' | 'SELF'
 
+export const ROLE_LABELS: Record<AppRole, string> = {
+  ADMIN: 'Администратор',
+  HR: 'Кадровик',
+  ACCOUNTANT: 'Бухгалтер',
+  PROJECT_MANAGER: 'Руководитель проекта',
+  ASSET_CUSTODIAN: 'Материально ответственное лицо',
+  DEPARTMENT_HEAD: 'Руководитель подразделения',
+  AUDITOR: 'Аудитор',
+  EMPLOYEE: 'Сотрудник',
+}
+
 export const PERMISSIONS = [
   'departments.read',
   'departments.create',
