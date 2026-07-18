@@ -14,11 +14,15 @@ import { getStartOfToday } from '../infrastructure/workforce.repository'
 import { parseOptionalDate, parseRequiredDate } from '../domain/hr-domain'
 import { resolveDepartment } from '@/lib/organization/department-reference'
 import { withOrganizationMutation } from '@/lib/organization/organization-mutation'
+import type { AccessContext } from '@/lib/auth/access-context'
 
 export class EmployeeService {
-  static async list(input: { scope: 'active' | 'archive' | 'expired' | 'all'; page: number; pageSize: number }) {
+  static async list(
+    input: { scope: 'active' | 'archive' | 'expired' | 'all'; page: number; pageSize: number },
+    access?: AccessContext,
+  ) {
     const startOfToday = getStartOfToday()
-    const where = input.scope === 'active'
+    const statusWhere = input.scope === 'active'
       ? { status: { not: 'DISMISSED' as const } }
       : input.scope === 'archive'
         ? { OR: [
@@ -27,7 +31,10 @@ export class EmployeeService {
           ] }
         : input.scope === 'expired'
           ? { status: { not: 'DISMISSED' as const }, contractEndDate: { lt: startOfToday } }
-          : undefined
+          : {}
+    const where = access
+      ? { AND: [statusWhere, access.employeeWhere('employees.read')] }
+      : statusWhere
     const [employees, total] = await prisma.$transaction([
       prisma.employee.findMany({
         where,

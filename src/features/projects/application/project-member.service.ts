@@ -58,14 +58,14 @@ const mapMember = (member: {
       salary: Prisma.Decimal | number
     } | null
   }
-}) => ({
+}, includeSalary = true) => ({
   id: member.id,
   projectId: member.projectId,
   employeeId: member.employeeId,
   department: member.department,
   position: member.position,
   rate: Number(member.rate).toFixed(2),
-  salary: Number(member.salary).toFixed(2),
+  salary: includeSalary ? Number(member.salary).toFixed(2) : '',
   isArchived: member.isArchived,
   archivedAt: member.archivedAt,
   createdAt: member.createdAt,
@@ -82,7 +82,7 @@ const mapMember = (member: {
           id: member.employee.staffSchedule.id,
           position: member.employee.staffSchedule.position,
           department: member.employee.staffSchedule.department,
-          salary: Number(member.employee.staffSchedule.salary).toFixed(2),
+          salary: includeSalary ? Number(member.employee.staffSchedule.salary).toFixed(2) : '',
         }
       : null,
   },
@@ -100,16 +100,16 @@ const mapAvailableEmployee = (employee: {
     department: string
     salary: Prisma.Decimal | number
   } | null
-}) => ({
+}, includeSalary = true) => ({
   id: employee.id,
   code: employee.code,
   fullName: employee.fullName,
   department: employee.staffSchedule?.department || employee.department || '—',
   position: employee.staffSchedule?.position || '—',
   rate: Number(employee.employmentRate ?? 0).toFixed(2),
-  salary: (
+  salary: includeSalary ? (
     Number(employee.staffSchedule?.salary ?? 0) * Number(employee.employmentRate ?? 0)
-  ).toFixed(2),
+  ).toFixed(2) : '',
 })
 
 export const getProjectMemberErrorMeta = (error: unknown) => {
@@ -132,7 +132,7 @@ export const getProjectMemberErrorMeta = (error: unknown) => {
 }
 
 export class ProjectMemberService {
-  static async getMembers(projectId: string) {
+  static async getMembers(projectId: string, includeSalary = true) {
     const project = await prisma.project.findUnique({
       where: { id: projectId },
       select: { id: true },
@@ -205,10 +205,10 @@ export class ProjectMemberService {
     ])
 
     return {
-      members: members.map(mapMember),
+      members: members.map((member) => mapMember(member, includeSalary)),
       availableEmployees: employees
         .filter((employee) => employee.projectMembers.length === 0)
-        .map((employee) => mapAvailableEmployee(employee)),
+        .map((employee) => mapAvailableEmployee(employee, includeSalary)),
     }
   }
 

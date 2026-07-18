@@ -12,23 +12,23 @@ const querySchema = z.object({
 })
 
 export async function GET(request: NextRequest) {
-  const auth = await authorizeApiRequest(request)
+  const auth = await authorizeApiRequest(request, 'projects.read')
   if (auth.response) return auth.response
   const raw = Object.fromEntries(request.nextUrl.searchParams)
   if (raw.limit && !raw.pageSize) raw.pageSize = raw.limit
   const query = querySchema.safeParse(raw)
   if (!query.success) return apiValidationError(query.error)
-  const result = await ProjectService.list(query.data)
+  const result = await ProjectService.list(query.data, auth.access)
   return apiList(result.projects, { ...query.data, total: result.total })
 }
 
 export async function POST(request: NextRequest) {
-  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  const auth = await authorizeApiRequest(request, 'projects.create')
   if (auth.response) return auth.response
   const input = createProjectSchema.safeParse(await request.json())
   if (!input.success) return apiValidationError(input.error)
   try {
-    return apiData(await ProjectService.create(input.data, auth.user.id, auth.requestId), { status: 201 })
+    return apiData(await ProjectService.create(input.data, auth.user.id, auth.requestId, auth.access), { status: 201 })
   } catch (error) {
     if (error instanceof ProjectServiceError) return apiError(error.code, 'Проект с таким кодом уже существует', 409)
     throw error

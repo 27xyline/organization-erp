@@ -1,11 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { prisma } from '@/lib/prisma'
 
+const authMocks = vi.hoisted(() => ({
+  allows: vi.fn(() => true),
+}))
+
+const scopeMocks = vi.hoisted(() => ({
+  taskTarget: vi.fn(async () => ({ projectId: 'project-1' })),
+}))
+
 vi.mock('@/lib/auth/authorization', () => ({
   authorizeApiRequest: vi.fn(async () => ({
     user: { id: 'admin-1', username: 'admin', name: 'Admin', role: 'ADMIN' },
+    access: { allows: authMocks.allows },
+    requestId: 'request-1',
   })),
 }))
+
+vi.mock('@/lib/auth/resource-scopes', () => scopeMocks)
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {

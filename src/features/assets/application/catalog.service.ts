@@ -4,6 +4,7 @@ import { ServiceError } from '@/lib/errors/service-error'
 import type { CreateGroupInput, CreateMolInput } from '../contracts/schemas'
 import { resolveDepartment } from '@/lib/organization/department-reference'
 import { withOrganizationMutation } from '@/lib/organization/organization-mutation'
+import type { AccessContext } from '@/lib/auth/access-context'
 
 type CatalogErrorCode = 'NOT_FOUND' | 'CODE_EXISTS' | 'IN_USE'
 export class CatalogServiceError extends ServiceError<CatalogErrorCode> {}
@@ -17,8 +18,14 @@ export class CatalogService {
     return getDb().assetGroup.findMany({ orderBy: { code: 'asc' } })
   }
 
-  static listMols() {
-    return getDb().mol.findMany({ orderBy: { code: 'asc' } })
+  static listMols(access?: AccessContext) {
+    const departmentIds = access?.allowedDepartmentIds('mols.read')
+    return getDb().mol.findMany({
+      where: departmentIds === null || departmentIds === undefined
+        ? undefined
+        : { departmentId: { in: departmentIds } },
+      orderBy: { code: 'asc' },
+    })
   }
 
   static getGroup(id: string) {
@@ -28,9 +35,15 @@ export class CatalogService {
     })
   }
 
-  static getMol(id: string) {
-    return getDb().mol.findUnique({
-      where: { id },
+  static getMol(id: string, access?: AccessContext) {
+    const departmentIds = access?.allowedDepartmentIds('mols.read')
+    return getDb().mol.findFirst({
+      where: {
+        id,
+        ...(departmentIds === null || departmentIds === undefined
+          ? {}
+          : { departmentId: { in: departmentIds } }),
+      },
       include: { _count: { select: { holdings: true, assets: true } } },
     })
   }

@@ -4,6 +4,7 @@ import { getDb } from '@/lib/prisma'
 import type { AssetsQuery, DisposeAssetInput, OperationsQuery, TransferAssetInput, UpdateAssetInput } from '../contracts/schemas'
 import { AssetServiceError } from '../domain/errors'
 import { serializableTransaction } from '../infrastructure/serializable-transaction'
+import type { AccessContext } from '@/lib/auth/access-context'
 
 export { AssetServiceError } from '../domain/errors'
 
@@ -45,12 +46,15 @@ function snapshot(asset: {
 }
 
 export class AssetService {
-  static async listOperations(input: OperationsQuery) {
+  static async listOperations(input: OperationsQuery, access?: AccessContext) {
     const db = getDb()
-    const where: Prisma.OperationWhereInput = {
+    const filters: Prisma.OperationWhereInput = {
       ...(input.assetId ? { assetId: input.assetId } : {}),
       ...(input.type ? { type: input.type } : {}),
     }
+    const where: Prisma.OperationWhereInput = access
+      ? { AND: [filters, { asset: access.assetWhere('operations.read') as Prisma.AssetWhereInput }] }
+      : filters
     const [operations, total] = await db.$transaction([
       db.operation.findMany({
         where,
@@ -68,9 +72,9 @@ export class AssetService {
     return { operations, total }
   }
 
-  static async list(input: AssetsQuery) {
+  static async list(input: AssetsQuery, access?: AccessContext) {
     const db = getDb()
-    const where: Prisma.AssetWhereInput = {
+    const filters: Prisma.AssetWhereInput = {
       isArchived: input.archived,
       ...(input.groupId ? { groupId: input.groupId } : {}),
       ...(input.status ? { status: input.status } : {}),
@@ -94,6 +98,9 @@ export class AssetService {
           }
         : {}),
     }
+    const where: Prisma.AssetWhereInput = access
+      ? { AND: [filters, access.assetWhere('assets.read') as Prisma.AssetWhereInput] }
+      : filters
     const [assets, total] = await db.$transaction([
       db.asset.findMany({
         where,
@@ -107,18 +114,26 @@ export class AssetService {
     return { assets, total }
   }
 
-  static async listCatalogs() {
+  static async listCatalogs(access?: AccessContext) {
     const db = getDb()
+    const departmentIds = access?.allowedDepartmentIds('mols.read')
     const [mols, groups] = await Promise.all([
-      db.mol.findMany({ orderBy: { code: 'asc' } }),
+      db.mol.findMany({
+        where: departmentIds === null || departmentIds === undefined
+          ? undefined
+          : { departmentId: { in: departmentIds } },
+        orderBy: { code: 'asc' },
+      }),
       db.assetGroup.findMany({ orderBy: { code: 'asc' } }),
     ])
     return { mols, groups }
   }
 
-  static async get(id: string) {
-    return getDb().asset.findUnique({
-      where: { id },
+  static async get(id: string, access?: AccessContext) {
+    return getDb().asset.findFirst({
+      where: access
+        ? { AND: [{ id }, access.assetWhere('assets.read') as Prisma.AssetWhereInput] }
+        : { id },
       include: {
         ...assetInclude,
         operations: {

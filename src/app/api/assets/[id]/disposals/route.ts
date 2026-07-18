@@ -3,15 +3,20 @@ import { AssetService, AssetServiceError } from '@/features/assets/application/a
 import { disposeAssetSchema } from '@/features/assets/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
+import { departmentForMol } from '@/lib/auth/resource-scopes'
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  const auth = await authorizeApiRequest(request, 'assets.dispose')
   if (auth.response) return auth.response
   const input = disposeAssetSchema.safeParse(await request.json())
   if (!input.success) return apiValidationError(input.error)
+  const departmentId = await departmentForMol(input.data.fromMolId)
+  if (departmentId && !auth.access.allows('assets.dispose', { departmentId })) {
+    return apiError('FORBIDDEN', 'Недостаточно прав', 403)
+  }
 
   try {
     return apiData(await AssetService.dispose((await params).id, input.data, auth.user.id, auth.requestId), { status: 201 })

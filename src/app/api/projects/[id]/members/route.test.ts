@@ -2,9 +2,15 @@ import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ServiceError } from '@/lib/errors/service-error'
 
+const authMocks = vi.hoisted(() => ({
+  allows: vi.fn(() => true),
+}))
+
 vi.mock('@/lib/auth/authorization', () => ({
   authorizeApiRequest: vi.fn(async () => ({
     user: { id: 'admin-1', username: 'admin', name: 'Admin', role: 'ADMIN' },
+    access: { allows: authMocks.allows },
+    requestId: 'request-1',
   })),
 }))
 

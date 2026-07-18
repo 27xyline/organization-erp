@@ -8,7 +8,7 @@ import { apiError } from '@/lib/http/api-response'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
-  const auth = await authorizeApiRequest(request)
+  const auth = await authorizeApiRequest(request, 'assets.export')
   if (auth.response) return auth.response
 
   try {
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       // Export assets
       const archivedParam = searchParams.get('archived')
       const archived = archivedParam === null ? undefined : archivedParam === 'true'
-      const assets = await ExportService.assets(archived)
+      const assets = await ExportService.assets(archived, auth.access)
       
       filename = `assets_export_${new Date().toISOString().split('T')[0]}.xlsx`
       headers = [
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
       }))
     } else if (type === 'operations') {
       // Export operations
-      const operations = await ExportService.operations()
+      const operations = await ExportService.operations(auth.access)
       
       filename = `operations_export_${new Date().toISOString().split('T')[0]}.xlsx`
       headers = [

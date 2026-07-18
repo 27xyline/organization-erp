@@ -13,10 +13,13 @@ export async function PATCH(
   request: NextRequest,
   props: { params: Promise<{ id: string; memberId: string }> }
 ) {
-  const auth = await authorizeApiRequest(request, ['ADMIN', 'EDITOR'])
+  const auth = await authorizeApiRequest(request, 'projectMembers.update')
   if (auth.response) return auth.response
 
   const params = await props.params;
+  if (!auth.access.allows('projectMembers.update', { projectId: params.id })) {
+    return NextResponse.json({ error: 'Недостаточно прав' }, { status: 403 })
+  }
   try {
     const data = await request.json()
     const validation = validateRequest(projectMemberUpdateSchema, data)

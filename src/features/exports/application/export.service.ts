@@ -1,9 +1,14 @@
 import { getDb } from '@/lib/prisma'
+import type { Prisma } from '@prisma/client'
+import type { AccessContext } from '@/lib/auth/access-context'
 
 export class ExportService {
-  static async assets(archived?: boolean) {
+  static async assets(archived?: boolean, access?: AccessContext) {
+    const filters: Prisma.AssetWhereInput = archived === undefined ? {} : { isArchived: archived }
     return getDb().asset.findMany({
-      where: archived === undefined ? undefined : { isArchived: archived },
+      where: access
+        ? { AND: [filters, access.assetWhere('assets.export') as Prisma.AssetWhereInput] }
+        : filters,
       include: {
         group: true,
         holdings: {
@@ -16,8 +21,11 @@ export class ExportService {
     })
   }
 
-  static async operations() {
+  static async operations(access?: AccessContext) {
     return getDb().operation.findMany({
+      where: access
+        ? { asset: access.assetWhere('assets.export') as Prisma.AssetWhereInput }
+        : undefined,
       include: {
         asset: { include: { group: true } },
         fromMol: true,
