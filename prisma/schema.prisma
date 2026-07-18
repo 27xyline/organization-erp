@@ -44,6 +44,7 @@ model Department {
   employees      Employee[]      @relation("EmployeeDepartment")
   staffPositions StaffSchedule[]
   mols           Mol[]
+  userScopes      UserDepartmentScope[]
 
   @@index([parentId])
   @@index([headEmployeeId])
@@ -208,6 +209,28 @@ enum UserRole {
   @@map("user_role")
 }
 
+enum AppRole {
+  ADMIN
+  HR
+  ACCOUNTANT
+  PROJECT_MANAGER
+  ASSET_CUSTODIAN
+  DEPARTMENT_HEAD
+  AUDITOR
+  EMPLOYEE
+
+  @@map("app_role")
+}
+
+enum ScopeMode {
+  NONE
+  ALL
+  ASSIGNED
+  SELF
+
+  @@map("scope_mode")
+}
+
 model User {
   id                  String     @id @default(cuid())
   username            String     @unique
@@ -222,9 +245,56 @@ model User {
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt
   auditLogs           AuditLog[]
+  employeeId          String?    @unique
+  employee            Employee?  @relation("UserEmployee", fields: [employeeId], references: [id], onDelete: SetNull)
+  roleAssignments     UserRoleAssignment[]
 
   @@index([isActive, role])
   @@map("users")
+}
+
+model UserRoleAssignment {
+  id                  String    @id @default(cuid())
+  userId              String
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role                AppRole
+  departmentScopeMode ScopeMode @default(NONE)
+  projectScopeMode    ScopeMode @default(NONE)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  departmentScopes UserDepartmentScope[]
+  projectScopes    UserProjectScope[]
+
+  @@unique([userId, role])
+  @@index([userId, role])
+  @@map("user_role_assignments")
+}
+
+model UserDepartmentScope {
+  id               String             @id @default(cuid())
+  roleAssignmentId String
+  roleAssignment   UserRoleAssignment @relation(fields: [roleAssignmentId], references: [id], onDelete: Cascade)
+  departmentId     String
+  department       Department         @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  createdAt        DateTime           @default(now())
+
+  @@unique([roleAssignmentId, departmentId])
+  @@index([departmentId, roleAssignmentId])
+  @@map("user_department_scopes")
+}
+
+model UserProjectScope {
+  id               String             @id @default(cuid())
+  roleAssignmentId String
+  roleAssignment   UserRoleAssignment @relation(fields: [roleAssignmentId], references: [id], onDelete: Cascade)
+  projectId        String
+  project          Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt        DateTime           @default(now())
+
+  @@unique([roleAssignmentId, projectId])
+  @@index([projectId, roleAssignmentId])
+  @@map("user_project_scopes")
 }
 
 model AuditLog {
@@ -277,6 +347,7 @@ model Project {
   tasksList          Task[]
   financePlanEntries FinancePlanEntry[]
   projectMembers     ProjectMember[]
+  userScopes         UserProjectScope[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -403,6 +474,7 @@ model Employee {
   projectMembers     ProjectMember[]
   taskAssignees      TaskAssignee[]
   headedDepartments  Department[]       @relation("DepartmentHead")
+  user               User?              @relation("UserEmployee")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
