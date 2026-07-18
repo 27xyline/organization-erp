@@ -90,7 +90,12 @@ const assetsChildren = [
 ]
 
 export function FinderSidebar({ currentUser }: {
-  currentUser: { name: string; roles: AppRole[]; permissions: Permission[] }
+  currentUser: {
+    name: string
+    roles: AppRole[]
+    permissions: Permission[]
+    accessKey: string
+  }
 }) {
   const pathname = usePathname()
   const permissionSet = useMemo(() => new Set(currentUser.permissions), [currentUser.permissions])
@@ -121,22 +126,32 @@ export function FinderSidebar({ currentUser }: {
       }
     }
   }
-  const [projects, setProjects] = useState<Project[]>([])
-  const hasFetchedProjectsRef = useRef(false)
+  const [projectResult, setProjectResult] = useState<{
+    accessKey: string | null
+    projects: Project[]
+  }>({ accessKey: null, projects: [] })
+  const fetchedProjectAccessRef = useRef<string | null>(null)
   const isProjectsExpanded = expandedItems.includes("projects")
 
   useEffect(() => {
-    if (!permissionSet.has('projects.read') || !isProjectsExpanded || hasFetchedProjectsRef.current) return
+    if (!permissionSet.has('projects.read') || !isProjectsExpanded) {
+      fetchedProjectAccessRef.current = null
+      return
+    }
+    if (fetchedProjectAccessRef.current === currentUser.accessKey) return
 
     let isMounted = true
-    hasFetchedProjectsRef.current = true
+    fetchedProjectAccessRef.current = currentUser.accessKey
 
     async function fetchProjects() {
       try {
         const response = await fetch('/api/projects')
         if (response.ok && isMounted) {
           const data = await response.json()
-          setProjects((data.data || []).slice(0, 5)) // Show only first 5 projects
+          setProjectResult({
+            accessKey: currentUser.accessKey,
+            projects: (data.data || []).slice(0, 5),
+          })
         }
       } catch (error) {
         console.error('Error fetching projects:', error)
@@ -148,7 +163,7 @@ export function FinderSidebar({ currentUser }: {
     return () => {
       isMounted = false
     }
-  }, [isProjectsExpanded, permissionSet])
+  }, [currentUser.accessKey, isProjectsExpanded, permissionSet])
 
 
 
@@ -169,7 +184,7 @@ export function FinderSidebar({ currentUser }: {
 
   const projectChildren = [
     { id: "projects-list", label: "Все проекты", icon: <Building2 className="h-4 w-4" />, href: "/projects" },
-    ...projects.map(p => ({
+    ...(projectResult.accessKey === currentUser.accessKey ? projectResult.projects : []).map(p => ({
       id: `project-${p.id}`,
       label: p.name,
       icon: <Building2 className="h-4 w-4" />,

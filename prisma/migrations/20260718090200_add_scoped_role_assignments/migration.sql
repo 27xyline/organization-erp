@@ -104,13 +104,17 @@ SELECT
     'legacy-' || MD5("id" || ':' || role_name),
     "id",
     role_name::"app_role",
-    'ALL'::"scope_mode",
-    'ALL'::"scope_mode",
+    department_mode::"scope_mode",
+    project_mode::"scope_mode",
     CURRENT_TIMESTAMP
 FROM "users"
 CROSS JOIN (
-    VALUES ('HR'), ('ACCOUNTANT'), ('PROJECT_MANAGER'), ('ASSET_CUSTODIAN')
-) AS legacy_roles(role_name)
+    VALUES
+        ('HR', 'ALL', 'NONE'),
+        ('ACCOUNTANT', 'ALL', 'ALL'),
+        ('PROJECT_MANAGER', 'NONE', 'ALL'),
+        ('ASSET_CUSTODIAN', 'ALL', 'NONE')
+) AS legacy_roles(role_name, department_mode, project_mode)
 WHERE "role" = 'EDITOR';
 
 -- AUDITOR mirrors the previous global read-only business access. User

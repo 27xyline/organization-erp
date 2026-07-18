@@ -69,7 +69,7 @@ export class ProjectService {
     const [projects, total] = await db.$transaction([
       db.project.findMany({
         where,
-        include: projectListInclude,
+        select: { id: true, code: true, name: true },
         orderBy: { createdAt: 'desc' },
         skip: (input.page - 1) * input.pageSize,
         take: input.pageSize,

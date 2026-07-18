@@ -492,7 +492,7 @@ export function ProjectPayrollSection({
                       <TableCell>{member.department}</TableCell>
                       <TableCell>{member.position}</TableCell>
                       <TableCell>{formatDecimal(member.rate)}</TableCell>
-                      <TableCell>{formatCurrency(member.salary)}</TableCell>
+                      <TableCell>{canReadPayroll ? formatCurrency(member.salary) : '—'}</TableCell>
                       <TableCell className="text-right">
                         {canManageMembers ? <Button
                           type="button"

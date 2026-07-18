@@ -124,7 +124,16 @@ export class AssetService {
           : { departmentId: { in: departmentIds } },
         orderBy: { code: 'asc' },
       }),
-      db.assetGroup.findMany({ orderBy: { code: 'asc' } }),
+      db.assetGroup.findMany({
+        where: access && !access.has('assetGroups.read')
+          ? {
+              assets: {
+                some: access.assetWhere('assets.read') as Prisma.AssetWhereInput,
+              },
+            }
+          : undefined,
+        orderBy: { code: 'asc' },
+      }),
     ])
     return { mols, groups }
   }

@@ -10,6 +10,18 @@ export default async function AuthenticatedLayout({ children }: { children: Reac
       name: user.name,
       roles: user.roles,
       permissions: user.permissions,
+      accessKey: JSON.stringify({
+        grants: user.access.grants
+          .map((grant) => ({
+            id: grant.assignmentId,
+            departmentMode: grant.departmentScopeMode,
+            projectMode: grant.projectScopeMode,
+            departments: [...grant.departmentIds].sort(),
+            projects: [...grant.projectIds].sort(),
+          }))
+          .sort((left, right) => left.id.localeCompare(right.id)),
+        memberProjects: [...user.access.identity.memberProjectIds].sort(),
+      }),
     }}>
       {children}
     </AppLayout>

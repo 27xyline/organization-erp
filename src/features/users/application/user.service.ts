@@ -259,7 +259,8 @@ export class UserService {
         const employeeId = input.employeeId === undefined ? current.employeeId : input.employeeId
         await validateReferences(tx, assignments, employeeId)
 
-        const removesAdmin = current.roleAssignments.some((assignment) => assignment.role === 'ADMIN') &&
+        const removesAdmin = current.isActive &&
+          current.roleAssignments.some((assignment) => assignment.role === 'ADMIN') &&
           (
             !assignments.some((assignment) => assignment.role === 'ADMIN') ||
             input.isActive === false

@@ -325,7 +325,10 @@ export function defaultScopesForRole(role: AppRole) {
   return DEFAULT_ROLE_SCOPES[role]
 }
 
-export function defaultLandingPath(user: Pick<CurrentUser, 'permissions'>): string {
+export function defaultLandingPath(
+  user: Pick<CurrentUser, 'permissions' | 'mustChangePassword'>,
+): string {
+  if (user.mustChangePassword) return '/account/password'
   const permissions = new Set(user.permissions)
   if (permissions.has('assets.read')) return '/'
   if (permissions.has('projects.read')) return '/projects'

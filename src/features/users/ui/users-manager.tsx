@@ -274,6 +274,7 @@ export function UsersManager({
   const { toast } = useToast()
   const [users, setUsers] = useState(initialUsers)
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [temporaryPasswords, setTemporaryPasswords] = useState<Record<string, string>>({})
   const [creating, setCreating] = useState(false)
   const [createForm, setCreateForm] = useState({
     username: '',
@@ -323,6 +324,7 @@ export function UsersManager({
   const saveUser = async (user: UserRow) => {
     setSavingId(user.id)
     try {
+      const temporaryPassword = temporaryPasswords[user.id]?.trim()
       const response = await fetch(`/api/users/${user.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -331,9 +333,15 @@ export function UsersManager({
           employeeId: user.employeeId,
           assignments: user.assignments,
           isActive: user.isActive,
+          ...(temporaryPassword ? { temporaryPassword } : {}),
         }),
       })
       if (!response.ok) throw new Error(await readError(response))
+      setTemporaryPasswords((current) => {
+        const next = { ...current }
+        delete next[user.id]
+        return next
+      })
       await refreshUsers()
       toast.success('Изменения сохранены')
     } catch (error) {
@@ -429,6 +437,9 @@ export function UsersManager({
               <Badge variant={user.isActive ? 'default' : 'secondary'}>
                 {user.isActive ? 'Активен' : 'Отключён'}
               </Badge>
+              {user.mustChangePassword ? (
+                <Badge variant="outline">Требуется смена пароля</Badge>
+              ) : null}
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-3">
@@ -458,6 +469,22 @@ export function UsersManager({
                 onChange={(assignments) => patchLocalUser(user.id, { assignments })}
                 references={references}
               />
+              <div className="max-w-md space-y-2">
+                <Label htmlFor={`temporary-password-${user.id}`}>
+                  Новый временный пароль
+                </Label>
+                <Input
+                  id={`temporary-password-${user.id}`}
+                  type="password"
+                  minLength={7}
+                  placeholder="Оставьте пустым, чтобы не менять"
+                  value={temporaryPasswords[user.id] || ''}
+                  onChange={(event) => setTemporaryPasswords((current) => ({
+                    ...current,
+                    [user.id]: event.target.value,
+                  }))}
+                />
+              </div>
               <Button onClick={() => saveUser(user)} disabled={savingId === user.id}>
                 {savingId === user.id ? 'Сохранение…' : 'Сохранить'}
               </Button>

@@ -132,7 +132,11 @@ export const getProjectMemberErrorMeta = (error: unknown) => {
 }
 
 export class ProjectMemberService {
-  static async getMembers(projectId: string, includeSalary = true) {
+  static async getMembers(
+    projectId: string,
+    includeSalary = true,
+    includeAvailableEmployees = true,
+  ) {
     const project = await prisma.project.findUnique({
       where: { id: projectId },
       select: { id: true },
@@ -142,7 +146,7 @@ export class ProjectMemberService {
       throw projectMemberError('PROJECT_NOT_FOUND')
     }
 
-    const [members, employees] = await prisma.$transaction([
+    const [members, employees] = await Promise.all([
       prisma.projectMember.findMany({
         where: {
           projectId,
@@ -173,7 +177,7 @@ export class ProjectMemberService {
           { employee: { fullName: 'asc' } },
         ],
       }),
-      prisma.employee.findMany({
+      includeAvailableEmployees ? prisma.employee.findMany({
         where: {
           status: {
             not: 'DISMISSED',
@@ -201,7 +205,7 @@ export class ProjectMemberService {
         orderBy: [
           { fullName: 'asc' },
         ],
-      }),
+      }) : Promise.resolve([]),
     ])
 
     return {

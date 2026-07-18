@@ -21,6 +21,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     const result = await ProjectMemberService.getMembers(
       params.id,
       auth.access.allows('projectPayroll.read', { projectId: params.id }),
+      auth.access.allows('projectMembers.create', { projectId: params.id }),
     )
     return NextResponse.json(result)
   } catch (error) {

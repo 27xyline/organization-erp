@@ -95,6 +95,20 @@ describe('UserService security invariants', () => {
     expect(updateUser).not.toHaveBeenCalled()
   })
 
+  it('does not treat an inactive ADMIN assignment as an active administrator removal', async () => {
+    findUser.mockResolvedValue({ ...currentAdmin, isActive: false })
+    updateUser.mockResolvedValue({ ...currentAdmin, isActive: false })
+
+    await UserService.update(
+      currentAdmin.id,
+      { assignments: [auditorAssignment] },
+      'operator-1',
+    )
+
+    expect(countUsers).not.toHaveBeenCalled()
+    expect(updateUser).toHaveBeenCalledOnce()
+  })
+
   it('invalidates existing sessions when an administrator resets a password', async () => {
     findUser.mockResolvedValue({
       ...currentAdmin,
