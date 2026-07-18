@@ -22,9 +22,8 @@ export async function proxy(request: NextRequest) {
   }
 
   if (isAuthPage) {
-    if (token) {
-      return redirectWithRequestId(new URL('/', request.url))
-    }
+    // A decodable JWT can still be invalid after sessionVersion changes.
+    // Let the login page render so stale sessions do not loop between / and /login.
     return continueRequest()
   }
 
