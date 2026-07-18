@@ -16,6 +16,8 @@ model Mol {
   fullName        String
   storageLocation String
   photo           String?
+  employeeId      String?    @unique
+  employee        Employee?  @relation(fields: [employeeId], references: [id], onDelete: SetNull)
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 
@@ -631,8 +633,15 @@ model Employee {
   contractNumber     String?
 
   // Contact info
-  phone String?
-  email String?
+  phone         String?
+  email         String?
+  birthDate     DateTime?
+  education     String?
+  qualification String?
+
+  managerId     String?
+  manager       Employee?  @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
+  directReports Employee[] @relation("EmployeeManager")
 
   // Staff schedule position
   staffScheduleId String?
@@ -649,16 +658,50 @@ model Employee {
   financePlanEntries FinancePlanEntry[]
   projectMembers     ProjectMember[]
   taskAssignees      TaskAssignee[]
-  headedDepartments  Department[]       @relation("DepartmentHead")
-  user               User?              @relation("UserEmployee")
+  headedDepartments  Department[]          @relation("DepartmentHead")
+  user               User?                 @relation("UserEmployee")
   documents          Document[]
+  skills             EmployeeSkill[]
+  certificates       EmployeeCertificate[]
+  mol                Mol?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([status, fullName])
   @@index([departmentId])
+  @@index([managerId])
   @@map("employees")
+}
+
+model EmployeeSkill {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name       String
+  level      Int?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([employeeId, name])
+  @@index([employeeId])
+  @@map("employee_skills")
+}
+
+model EmployeeCertificate {
+  id         String    @id @default(cuid())
+  employeeId String
+  employee   Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name       String
+  issuer     String?
+  number     String?
+  issuedAt   DateTime?
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([employeeId, expiresAt])
+  @@map("employee_certificates")
 }
 
 enum EmployeeStatus {
