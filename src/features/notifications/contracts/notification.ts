@@ -43,6 +43,7 @@ export const NOTIFICATION_EVENT_LABELS: Record<NotificationEventType, string> = 
   CONTRACT_EXPIRING: 'Окончание трудового договора',
   TASK_OVERDUE: 'Просроченные задачи',
   ASSET_DISPOSAL_DUE: 'Срок списания имущества',
+  ASSET_MAINTENANCE_DUE: 'Обслуживание и поверки имущества',
   BUDGET_OVERRUN: 'Превышение бюджета',
   APPROVAL_REQUESTED: 'Новые согласования',
   APPROVAL_DECIDED: 'Результаты согласований',

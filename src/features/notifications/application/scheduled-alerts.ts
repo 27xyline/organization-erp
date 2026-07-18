@@ -183,6 +183,49 @@ export function createScheduledAlertGenerators(
           })))
       },
     },
+    {
+      key: 'maintenance',
+      async collect(now) {
+        const records = await db.assetMaintenance.findMany({
+          where: {
+            status: { in: ['PLANNED', 'IN_PROGRESS'] },
+            scheduledDate: {
+              gte: addDays(startOfDay(now), -30),
+              lte: addDays(now, 30),
+            },
+            asset: { isArchived: false },
+          },
+          select: {
+            id: true,
+            title: true,
+            scheduledDate: true,
+            asset: {
+              select: {
+                id: true,
+                name: true,
+                inventoryNumber: true,
+                mol: { select: { departmentId: true } },
+              },
+            },
+          },
+        })
+        return Promise.all(records.map(async (record) => ({
+          recipientUserIds: await scopedRoleUsers(db, {
+            role: AppRole.ASSET_CUSTODIAN,
+            departmentId: record.asset.mol.departmentId,
+          }),
+          eventType: NotificationEventType.ASSET_MAINTENANCE_DUE,
+          title: record.scheduledDate < startOfDay(now)
+            ? 'Просрочено обслуживание имущества'
+            : 'Приближается срок обслуживания имущества',
+          body: `${record.asset.name} (${record.asset.inventoryNumber}): ${record.title}`,
+          dedupeKey: `asset-maintenance:${record.id}:${toDateKey(record.scheduledDate)}`,
+          targetUrl: `/assets/${record.asset.id}`,
+          entityType: 'AssetMaintenance',
+          entityId: record.id,
+        })))
+      },
+    },
   ]
 }
 
