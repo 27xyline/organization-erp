@@ -41,6 +41,19 @@ export const archiveDocumentSchema = z.object({
   lockVersion: z.coerce.number().int().positive(),
 })
 
+export const generateDocumentSchema = z.object({
+  template: z.enum(['PERSONNEL_ORDER', 'ACCEPTANCE_ACT']),
+  title: z.string().trim().min(1).max(200),
+  number: z.string().trim().min(1).max(50),
+  date: z.coerce.date(),
+  subject: z.string().trim().min(1).max(500),
+  details: z.string().trim().min(1).max(5000),
+  basis: z.string().trim().max(1000).optional(),
+  projectId: optionalId,
+  employeeId: optionalId,
+  assetId: optionalId,
+})
+
 export const documentsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
@@ -59,4 +72,5 @@ export const documentsQuerySchema = z.object({
 export type CreateDocumentMetadata = z.infer<typeof createDocumentMetadataSchema>
 export type AddDocumentVersionMetadata = z.infer<typeof addDocumentVersionMetadataSchema>
 export type ChangeDocumentStatus = z.infer<typeof changeDocumentStatusSchema>
+export type GenerateDocumentInput = z.infer<typeof generateDocumentSchema>
 export type DocumentsQuery = z.infer<typeof documentsQuerySchema>
