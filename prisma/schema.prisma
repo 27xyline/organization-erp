@@ -233,29 +233,31 @@ enum ScopeMode {
 }
 
 model User {
-  id                  String               @id @default(cuid())
-  username            String               @unique
-  name                String
-  passwordHash        String
-  role                UserRole             @default(VIEWER)
-  isActive            Boolean              @default(true)
-  mustChangePassword  Boolean              @default(true)
-  sessionVersion      Int                  @default(1)
-  passwordChangedAt   DateTime             @default(now())
-  failedLoginAttempts Int                  @default(0)
-  lockedUntil         DateTime?
-  lastLoginAt         DateTime?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  auditLogs           AuditLog[]
-  employeeId          String?              @unique
-  employee            Employee?            @relation("UserEmployee", fields: [employeeId], references: [id], onDelete: SetNull)
-  roleAssignments     UserRoleAssignment[]
-  createdDocuments    Document[]           @relation("DocumentCreatedBy")
-  uploadedVersions    DocumentVersion[]    @relation("DocumentVersionUploadedBy")
-  notifications       Notification[]
+  id                      String                   @id @default(cuid())
+  username                String                   @unique
+  name                    String
+  passwordHash            String
+  role                    UserRole                 @default(VIEWER)
+  isActive                Boolean                  @default(true)
+  mustChangePassword      Boolean                  @default(true)
+  sessionVersion          Int                      @default(1)
+  passwordChangedAt       DateTime                 @default(now())
+  failedLoginAttempts     Int                      @default(0)
+  lockedUntil             DateTime?
+  lastLoginAt             DateTime?
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  auditLogs               AuditLog[]
+  employeeId              String?                  @unique
+  employee                Employee?                @relation("UserEmployee", fields: [employeeId], references: [id], onDelete: SetNull)
+  roleAssignments         UserRoleAssignment[]
+  createdDocuments        Document[]               @relation("DocumentCreatedBy")
+  uploadedVersions        DocumentVersion[]        @relation("DocumentVersionUploadedBy")
+  notifications           Notification[]
   notificationPreferences NotificationPreference[]
-  notificationOutbox  NotificationOutbox[]
+  notificationOutbox      NotificationOutbox[]
+  requestedApprovals      ApprovalRequest[]        @relation("ApprovalRequestedBy")
+  approvalSteps           ApprovalStep[]           @relation("ApprovalStepApprover")
 
   @@index([isActive, role])
   @@map("users")
@@ -323,6 +325,8 @@ model AuditLog {
 
 enum NotificationEventType {
   SYSTEM
+  APPROVAL_REQUESTED
+  APPROVAL_DECIDED
   CONTRACT_EXPIRING
   TASK_OVERDUE
   ASSET_DISPOSAL_DUE
@@ -406,6 +410,83 @@ model NotificationOutbox {
   @@map("notification_outbox")
 }
 
+enum ApprovalRequestStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+
+  @@map("approval_request_status")
+}
+
+enum ApprovalStepStatus {
+  WAITING
+  PENDING
+  APPROVED
+  REJECTED
+  SKIPPED
+
+  @@map("approval_step_status")
+}
+
+model ApprovalRequest {
+  id          String                @id @default(cuid())
+  title       String
+  description String?
+  entityType  String?
+  entityId    String?
+  status      ApprovalRequestStatus @default(DRAFT)
+  currentStep Int                   @default(0)
+  dueAt       DateTime?
+  submittedAt DateTime?
+  completedAt DateTime?
+  lockVersion Int                   @default(1)
+
+  requestedById String
+  requestedBy   User   @relation("ApprovalRequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
+
+  documentId String?
+  document   Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  steps     ApprovalStep[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([requestedById, status, createdAt])
+  @@index([status, dueAt])
+  @@index([documentId])
+  @@index([projectId])
+  @@index([entityType, entityId])
+  @@map("approval_requests")
+}
+
+model ApprovalStep {
+  id        String             @id @default(cuid())
+  sequence  Int
+  name      String
+  status    ApprovalStepStatus @default(WAITING)
+  comment   String?
+  decidedAt DateTime?
+
+  requestId String
+  request   ApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  approverId String
+  approver   User   @relation("ApprovalStepApprover", fields: [approverId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([requestId, sequence])
+  @@index([approverId, status, createdAt])
+  @@index([requestId, status])
+  @@map("approval_steps")
+}
+
 // Projects
 enum ProjectStatus {
   ACTIVE
@@ -442,6 +523,7 @@ model Project {
   projectMembers     ProjectMember[]
   userScopes         UserProjectScope[]
   documents          Document[]
+  approvalRequests   ApprovalRequest[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -764,10 +846,11 @@ model Document {
   createdById String
   createdBy   User   @relation("DocumentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
 
-  archivedAt DateTime?
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
-  versions   DocumentVersion[]
+  archivedAt       DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  versions         DocumentVersion[]
+  approvalRequests ApprovalRequest[]
 
   @@index([status, updatedAt])
   @@index([category, updatedAt])

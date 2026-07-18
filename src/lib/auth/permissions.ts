@@ -95,6 +95,10 @@ export const PERMISSIONS = [
   'documents.update',
   'documents.archive',
   'documents.download',
+  'approvals.read',
+  'approvals.create',
+  'approvals.decide',
+  'approvals.cancel',
   'account.password.update',
   'auditLogs.read',
 ] as const
@@ -175,6 +179,10 @@ export const PERMISSION_SCOPE: Record<Permission, ScopeKind> = {
   'documents.update': 'document',
   'documents.archive': 'document',
   'documents.download': 'document',
+  'approvals.read': 'none',
+  'approvals.create': 'none',
+  'approvals.decide': 'none',
+  'approvals.cancel': 'none',
   'account.password.update': 'none',
   'auditLogs.read': 'none',
 }
@@ -208,6 +216,10 @@ export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
     'documents.update',
     'documents.archive',
     'documents.download',
+    'approvals.read',
+    'approvals.create',
+    'approvals.decide',
+    'approvals.cancel',
     'account.password.update',
   ]),
   ACCOUNTANT: new Set([
@@ -221,6 +233,10 @@ export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
     'documents.create',
     'documents.update',
     'documents.download',
+    'approvals.read',
+    'approvals.create',
+    'approvals.decide',
+    'approvals.cancel',
     'account.password.update',
   ]),
   PROJECT_MANAGER: new Set([
@@ -239,6 +255,10 @@ export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
     'documents.update',
     'documents.archive',
     'documents.download',
+    'approvals.read',
+    'approvals.create',
+    'approvals.decide',
+    'approvals.cancel',
     'account.password.update',
   ]),
   ASSET_CUSTODIAN: new Set([
@@ -258,6 +278,9 @@ export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
     'documents.update',
     'documents.archive',
     'documents.download',
+    'approvals.read',
+    'approvals.create',
+    'approvals.decide',
     'account.password.update',
   ]),
   DEPARTMENT_HEAD: new Set([
@@ -275,6 +298,10 @@ export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
     'operations.read',
     'documents.read',
     'documents.download',
+    'approvals.read',
+    'approvals.create',
+    'approvals.decide',
+    'approvals.cancel',
     'account.password.update',
   ]),
   AUDITOR: new Set([
@@ -282,6 +309,7 @@ export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
     'assets.export',
     'auditLogs.read',
     'documents.download',
+    'approvals.read',
     'account.password.update',
   ]),
   EMPLOYEE: new Set([
@@ -295,6 +323,9 @@ export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
     'finance.salary.read',
     'documents.read',
     'documents.download',
+    'approvals.read',
+    'approvals.create',
+    'approvals.cancel',
     'account.password.update',
   ]),
 }

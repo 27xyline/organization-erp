@@ -28,6 +28,7 @@ import {
   ShieldCheck,
   Network,
   Files,
+  ClipboardCheck,
 } from "lucide-react"
 import { ROLE_LABELS, type AppRole, type Permission } from "@/lib/auth/permissions"
 import { NotificationBell } from "@/features/notifications/ui/notification-bell"
@@ -72,6 +73,11 @@ const staticMenuItems: Omit<MenuItem, 'children'>[] = [
     id: "documents",
     label: "Документы",
     icon: <Files className="h-5 w-5" />,
+  },
+  {
+    id: "approvals",
+    label: "Согласования",
+    icon: <ClipboardCheck className="h-5 w-5" />,
   },
 ]
 
@@ -230,6 +236,10 @@ export function FinderSidebar({ currentUser }: {
       case 'documents':
         return permissionSet.has('documents.read')
           ? [{ id: 'documents-list', label: 'Все документы', icon: <Files className="h-4 w-4" />, href: '/documents' }]
+          : []
+      case 'approvals':
+        return permissionSet.has('approvals.read')
+          ? [{ id: 'approvals-list', label: 'Все согласования', icon: <ClipboardCheck className="h-4 w-4" />, href: '/approvals' }]
           : []
       default: return []
     }
