@@ -7,6 +7,7 @@ import { Archive, Briefcase, DollarSign, Files, KeyRound, LogOut, Menu, Network,
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import type { AppRole, Permission } from '@/lib/auth/permissions'
+import { NotificationBell } from '@/features/notifications/ui/notification-bell'
 
 const links = [
   { href: '/', label: 'Имущество', icon: Package, permission: 'assets.read' },
@@ -27,7 +28,9 @@ export function MobileNavigation({ currentUser }: {
   return (
     <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b bg-background px-4 md:hidden">
       <Link href="/" className="font-semibold">Consilium</Link>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <div className="flex items-center gap-1">
+        <NotificationBell />
+        <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <Button variant="outline" size="icon" aria-label="Открыть меню">
             <Menu className="h-5 w-5" />
@@ -60,7 +63,8 @@ export function MobileNavigation({ currentUser }: {
             </button>
           </nav>
         </DialogContent>
-      </Dialog>
+        </Dialog>
+      </div>
     </header>
   )
 }
