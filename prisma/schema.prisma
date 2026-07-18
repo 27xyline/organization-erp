@@ -62,7 +62,8 @@ model AssetGroup {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  assets Asset[]
+  assets           Asset[]
+  procurementItems ProcurementItem[]
 
   @@map("asset_groups")
 }
@@ -120,10 +121,11 @@ model Asset {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  operations         Operation[]
-  holdings           AssetHolding[]
-  documents          Document[]
-  maintenanceRecords AssetMaintenance[]
+  operations              Operation[]
+  holdings                AssetHolding[]
+  documents               Document[]
+  maintenanceRecords      AssetMaintenance[]
+  procurementDeliveryItem ProcurementDeliveryItem?
 
   @@index([molId])
   @@index([groupId])
@@ -307,6 +309,7 @@ model User {
   approvalSteps           ApprovalStep[]           @relation("ApprovalStepApprover")
   taskComments            TaskComment[]
   closedPayrollPeriods    PayrollPeriod[]          @relation("PayrollPeriodClosedBy")
+  requestedProcurements   ProcurementRequest[]     @relation("ProcurementRequestedBy")
 
   @@index([isActive, role])
   @@map("users")
@@ -502,9 +505,10 @@ model ApprovalRequest {
   projectId String?
   project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
-  steps     ApprovalStep[]
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  procurementRequest ProcurementRequest?
+  steps              ApprovalStep[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
   @@index([requestedById, status, createdAt])
   @@index([status, dueAt])
@@ -567,20 +571,160 @@ model Project {
   actualBudget  Decimal @default(0) @db.Decimal(12, 2)
 
   // Relations
-  assets             Asset[]
-  tasksList          Task[]
-  financePlanEntries FinancePlanEntry[]
-  projectMembers     ProjectMember[]
-  userScopes         UserProjectScope[]
-  documents          Document[]
-  approvalRequests   ApprovalRequest[]
-  timeEntries        TimeEntry[]
-  payrollAdjustments PayrollAdjustment[]
+  assets              Asset[]
+  tasksList           Task[]
+  financePlanEntries  FinancePlanEntry[]
+  projectMembers      ProjectMember[]
+  userScopes          UserProjectScope[]
+  documents           Document[]
+  approvalRequests    ApprovalRequest[]
+  timeEntries         TimeEntry[]
+  payrollAdjustments  PayrollAdjustment[]
+  procurementRequests ProcurementRequest[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("projects")
+}
+
+enum ProcurementStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  CONTRACTED
+  PARTIALLY_DELIVERED
+  DELIVERED
+  CAPITALIZED
+  REJECTED
+  CANCELLED
+
+  @@map("procurement_status")
+}
+
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String
+  taxId     String?  @unique
+  email     String?
+  phone     String?
+  address   String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  contracts ProcurementContract[]
+
+  @@index([isActive, name])
+  @@map("suppliers")
+}
+
+model ProcurementRequest {
+  id                String                @id @default(cuid())
+  number            String                @unique
+  title             String
+  description       String?
+  status            ProcurementStatus     @default(DRAFT)
+  budgetLimit       Decimal               @db.Decimal(12, 2)
+  neededBy          DateTime?             @db.Date
+  projectId         String?
+  project           Project?              @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  requestedById     String
+  requestedBy       User                  @relation("ProcurementRequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
+  approvalRequestId String?               @unique
+  approvalRequest   ApprovalRequest?      @relation(fields: [approvalRequestId], references: [id], onDelete: SetNull)
+  documentId        String?
+  document          Document?             @relation("ProcurementRequestDocument", fields: [documentId], references: [id], onDelete: SetNull)
+  items             ProcurementItem[]
+  contract          ProcurementContract?
+  deliveries        ProcurementDelivery[]
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@index([status, neededBy])
+  @@index([projectId, status])
+  @@index([requestedById, createdAt])
+  @@index([documentId])
+  @@map("procurement_requests")
+}
+
+model ProcurementItem {
+  id            String                    @id @default(cuid())
+  requestId     String
+  request       ProcurementRequest        @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  name          String
+  quantity      Decimal                   @db.Decimal(10, 2)
+  unit          String
+  unitPrice     Decimal                   @db.Decimal(12, 2)
+  groupId       String?
+  group         AssetGroup?               @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  deliveryItems ProcurementDeliveryItem[]
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+
+  @@index([requestId])
+  @@index([groupId])
+  @@map("procurement_items")
+}
+
+model ProcurementContract {
+  id            String                @id @default(cuid())
+  requestId     String                @unique
+  request       ProcurementRequest    @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  supplierId    String
+  supplier      Supplier              @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  number        String                @unique
+  amount        Decimal               @db.Decimal(12, 2)
+  signedAt      DateTime              @db.Date
+  deliveryDueAt DateTime              @db.Date
+  documentId    String?
+  document      Document?             @relation("ProcurementContractDocument", fields: [documentId], references: [id], onDelete: SetNull)
+  deliveries    ProcurementDelivery[]
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  @@index([supplierId])
+  @@index([deliveryDueAt])
+  @@index([documentId])
+  @@map("procurement_contracts")
+}
+
+model ProcurementDelivery {
+  id         String                    @id @default(cuid())
+  requestId  String
+  request    ProcurementRequest        @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  contractId String
+  contract   ProcurementContract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  number     String
+  receivedAt DateTime                  @db.Date
+  note       String?
+  documentId String?
+  document   Document?                 @relation("ProcurementDeliveryDocument", fields: [documentId], references: [id], onDelete: SetNull)
+  items      ProcurementDeliveryItem[]
+  createdAt  DateTime                  @default(now())
+  updatedAt  DateTime                  @updatedAt
+
+  @@unique([contractId, number])
+  @@index([requestId, receivedAt])
+  @@index([documentId])
+  @@map("procurement_deliveries")
+}
+
+model ProcurementDeliveryItem {
+  id                String              @id @default(cuid())
+  deliveryId        String
+  delivery          ProcurementDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  procurementItemId String
+  procurementItem   ProcurementItem     @relation(fields: [procurementItemId], references: [id], onDelete: Restrict)
+  quantity          Decimal             @db.Decimal(10, 2)
+  assetId           String?             @unique
+  asset             Asset?              @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@unique([deliveryId, procurementItemId])
+  @@index([procurementItemId])
+  @@map("procurement_delivery_items")
 }
 
 model ProjectMember {
@@ -1094,11 +1238,14 @@ model Document {
   createdById String
   createdBy   User   @relation("DocumentCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
 
-  archivedAt       DateTime?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  versions         DocumentVersion[]
-  approvalRequests ApprovalRequest[]
+  archivedAt            DateTime?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  versions              DocumentVersion[]
+  approvalRequests      ApprovalRequest[]
+  procurementRequests   ProcurementRequest[]  @relation("ProcurementRequestDocument")
+  procurementContracts  ProcurementContract[] @relation("ProcurementContractDocument")
+  procurementDeliveries ProcurementDelivery[] @relation("ProcurementDeliveryDocument")
 
   @@index([status, updatedAt])
   @@index([category, updatedAt])
