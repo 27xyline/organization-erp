@@ -12,6 +12,7 @@ import {
 } from '../contracts/project-payroll'
 import type { AccessContext } from '@/lib/auth/access-context'
 import { AuthorizationError } from '@/lib/auth/authorization'
+import { ensurePayrollPeriodOpen } from './payroll-period-lock'
 
 type ProjectPayrollEntry = {
   type: FinancePlanType
@@ -36,6 +37,7 @@ export type ProjectPayrollErrorCode =
   | 'PROJECT_MEMBER_NOT_FOUND'
   | 'INVALID_NADBAVKA_AMOUNT'
   | 'INVALID_OKLAD_AMOUNT'
+  | 'PAYROLL_PERIOD_CLOSED'
 
 export const projectPayrollError = (code: ProjectPayrollErrorCode) => new ServiceError(code)
 
@@ -110,6 +112,8 @@ export const getProjectPayrollErrorMeta = (error: unknown) => {
       return { status: 400, error: 'Введите корректную сумму надбавки' }
     case 'INVALID_OKLAD_AMOUNT':
       return { status: 400, error: 'Для сотрудника не задан оклад в составе проекта' }
+    case 'PAYROLL_PERIOD_CLOSED':
+      return { status: 409, error: 'Расчётный месяц закрыт' }
     default:
       return null
   }
@@ -218,6 +222,7 @@ export class ProjectPayrollService {
     access?: AccessContext,
   ) {
     return prisma.$transaction(async (tx) => {
+      await ensurePayrollPeriodOpen(tx, input.year, input.month)
       const member = await tx.projectMember.findFirst({
         where: {
           projectId,
@@ -359,6 +364,7 @@ export class ProjectPayrollService {
     access?: AccessContext,
   ) {
     await prisma.$transaction(async (tx) => {
+      await ensurePayrollPeriodOpen(tx, input.year, input.month)
       const existingEntries = await tx.financePlanEntry.findMany({
         where: {
           employeeId: input.employeeId,

@@ -13,6 +13,7 @@ import {
 } from '../domain/finance-plan'
 import type { AccessContext } from '@/lib/auth/access-context'
 import { AuthorizationError } from '@/lib/auth/authorization'
+import { ensurePayrollPeriodOpen } from './payroll-period-lock'
 
 export type { FinancePlanRouteType } from '../domain/finance-plan'
 
@@ -66,6 +67,8 @@ export const getFinancePlanErrorMeta = (error: unknown) => {
       return { status: 400, error: 'Введите сумму больше нуля' }
     case 'INVALID_ALLOCATIONS':
       return { status: 400, error: 'Добавьте хотя бы одно начисление' }
+    case 'PAYROLL_PERIOD_CLOSED':
+      return { status: 409, error: 'Расчётный месяц закрыт' }
     default:
       return null
   }
@@ -241,6 +244,7 @@ export class FinancePlanService {
     }
 
     return prisma.$transaction(async (tx) => {
+      await ensurePayrollPeriodOpen(tx, input.year, input.month)
       const employee = await tx.employee.findFirst({
         where: {
           id: input.employeeId,
@@ -406,6 +410,7 @@ export class FinancePlanService {
     }
 
     await prisma.$transaction(async (tx) => {
+      await ensurePayrollPeriodOpen(tx, input.year, input.month)
       const existingEntries = await tx.financePlanEntry.findMany({
         where: {
           employeeId: input.employeeId,
