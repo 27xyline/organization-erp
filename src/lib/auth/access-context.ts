@@ -77,6 +77,24 @@ export class AccessContext {
     return ids.every((id) => allowed.has(id))
   }
 
+  private departmentAnyAllowed(grant: ScopeGrant, ids: readonly string[]): boolean {
+    if (!ids.length) return false
+    if (grant.departmentScopeMode === 'ALL') return true
+    const allowed = grant.departmentScopeMode === 'SELF'
+      ? new Set(this.identity.employeeDepartmentId ? [this.identity.employeeDepartmentId] : [])
+      : new Set(grant.departmentScopeMode === 'ASSIGNED' ? grant.departmentIds : [])
+    return ids.some((id) => allowed.has(id))
+  }
+
+  private projectAnyAllowed(grant: ScopeGrant, ids: readonly string[]): boolean {
+    if (!ids.length) return false
+    if (grant.projectScopeMode === 'ALL') return true
+    const allowed = grant.projectScopeMode === 'SELF'
+      ? new Set(this.identity.memberProjectIds)
+      : new Set(grant.projectScopeMode === 'ASSIGNED' ? grant.projectIds : [])
+    return ids.some((id) => allowed.has(id))
+  }
+
   allows(permission: Permission, target: PermissionTarget = {}): boolean {
     const kind = PERMISSION_SCOPE[permission]
     const departmentIds = unique([target.departmentId, ...(target.departmentIds || [])])
@@ -101,7 +119,8 @@ export class AccessContext {
         return departmentPass && this.projectAllowed(grant, projectIds)
       }
       if (kind === 'asset') {
-        return this.departmentAllowed(grant, departmentIds) || this.projectAllowed(grant, projectIds)
+        return this.departmentAnyAllowed(grant, departmentIds) ||
+          this.projectAnyAllowed(grant, projectIds)
       }
       return false
     })
@@ -109,6 +128,34 @@ export class AccessContext {
 
   grantsFor(permission: Permission): ScopeGrant[] {
     return this.grants.filter((grant) => roleHasPermission(grant.role, permission))
+  }
+
+  allowedDepartmentIds(permission: Permission): string[] | null {
+    const ids = new Set<string>()
+    for (const grant of this.grantsFor(permission)) {
+      if (grant.departmentScopeMode === 'ALL') return null
+      if (grant.departmentScopeMode === 'SELF' && this.identity.employeeDepartmentId) {
+        ids.add(this.identity.employeeDepartmentId)
+      }
+      if (grant.departmentScopeMode === 'ASSIGNED') {
+        grant.departmentIds.forEach((id) => ids.add(id))
+      }
+    }
+    return Array.from(ids)
+  }
+
+  allowedProjectIds(permission: Permission): string[] | null {
+    const ids = new Set<string>()
+    for (const grant of this.grantsFor(permission)) {
+      if (grant.projectScopeMode === 'ALL') return null
+      if (grant.projectScopeMode === 'SELF') {
+        this.identity.memberProjectIds.forEach((id) => ids.add(id))
+      }
+      if (grant.projectScopeMode === 'ASSIGNED') {
+        grant.projectIds.forEach((id) => ids.add(id))
+      }
+    }
+    return Array.from(ids)
   }
 
   employeeWhere(permission: Permission): Record<string, unknown> {
@@ -159,9 +206,43 @@ export class AccessContext {
       : { OR: clauses.length ? clauses : [{ id: '__forbidden__' }] }
   }
 
+  financeEntryWhere(permission: Permission): Record<string, unknown> {
+    const clauses = this.grantsFor(permission).flatMap((grant) => {
+      const employeeClause = (() => {
+        if (grant.departmentScopeMode === 'ALL') return {}
+        if (grant.departmentScopeMode === 'SELF' && this.identity.employeeId) {
+          return { employeeId: this.identity.employeeId }
+        }
+        if (grant.departmentScopeMode === 'ASSIGNED' && grant.departmentIds.length) {
+          return { employee: { departmentId: { in: grant.departmentIds } } }
+        }
+        return null
+      })()
+      const projectClause = (() => {
+        if (grant.projectScopeMode === 'ALL') return { projectId: { not: null } }
+        if (grant.projectScopeMode === 'SELF' && this.identity.memberProjectIds.length) {
+          return { projectId: { in: this.identity.memberProjectIds } }
+        }
+        if (grant.projectScopeMode === 'ASSIGNED' && grant.projectIds.length) {
+          return { projectId: { in: grant.projectIds } }
+        }
+        return null
+      })()
+
+      if (!employeeClause || !projectClause) return []
+      return [{ AND: [employeeClause, projectClause] }]
+    })
+
+    return { OR: clauses.length ? clauses : [{ id: '__forbidden__' }] }
+  }
+
   assetWhere(permission: Permission): Record<string, unknown> {
     const clauses = this.grantsFor(permission).flatMap((grant) => {
-      if (grant.departmentScopeMode === 'ALL' || grant.projectScopeMode === 'ALL') return [{}]
+      if (
+        ['ADMIN', 'AUDITOR'].includes(grant.role) &&
+        grant.departmentScopeMode === 'ALL' &&
+        grant.projectScopeMode === 'ALL'
+      ) return [{}]
       const scoped: Record<string, unknown>[] = []
       const departmentIds = grant.departmentScopeMode === 'SELF'
         ? unique([this.identity.employeeDepartmentId || undefined])
@@ -169,17 +250,28 @@ export class AccessContext {
       const projectIds = grant.projectScopeMode === 'SELF'
         ? this.identity.memberProjectIds
         : grant.projectIds
-      if (departmentIds.length) {
+      if (grant.departmentScopeMode === 'ALL') {
+        scoped.push({ molId: { not: '' } })
+      } else if (departmentIds.length) {
         scoped.push({
-          holdings: {
-            some: {
-              quantity: { gt: 0 },
-              mol: { departmentId: { in: departmentIds } },
+          OR: [
+            { mol: { departmentId: { in: departmentIds } } },
+            {
+              holdings: {
+                some: {
+                  quantity: { gt: 0 },
+                  mol: { departmentId: { in: departmentIds } },
+                },
+              },
             },
-          },
+          ],
         })
       }
-      if (projectIds.length) scoped.push({ projectId: { in: projectIds } })
+      if (grant.projectScopeMode === 'ALL') {
+        scoped.push({ projectId: { not: null } })
+      } else if (projectIds.length) {
+        scoped.push({ projectId: { in: projectIds } })
+      }
       return scoped
     })
     return clauses.some((clause) => Object.keys(clause).length === 0)

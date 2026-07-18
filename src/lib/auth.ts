@@ -75,6 +75,7 @@ export const authOptions: NextAuthOptions = {
           username: user.username,
           role: user.role,
           roles: user.roleAssignments.map((assignment) => assignment.role),
+          sessionVersion: user.sessionVersion,
         }
       },
     }),
@@ -90,6 +91,7 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role
         token.roles = user.roles
         token.username = user.username
+        token.sessionVersion = user.sessionVersion
       }
       return token
     },
@@ -99,6 +101,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role
         session.user.roles = token.roles
         session.user.username = token.username
+        session.user.sessionVersion = token.sessionVersion
       }
       return session
     },

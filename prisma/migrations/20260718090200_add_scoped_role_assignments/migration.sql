@@ -13,7 +13,10 @@ CREATE TYPE "app_role" AS ENUM (
 
 CREATE TYPE "scope_mode" AS ENUM ('NONE', 'ALL', 'ASSIGNED', 'SELF');
 
-ALTER TABLE "users" ADD COLUMN "employeeId" TEXT;
+ALTER TABLE "users"
+    ADD COLUMN "employeeId" TEXT,
+    ADD COLUMN "sessionVersion" INTEGER NOT NULL DEFAULT 1,
+    ADD COLUMN "passwordChangedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
 CREATE UNIQUE INDEX "users_employeeId_key" ON "users"("employeeId");
 
 CREATE TABLE "user_role_assignments" (

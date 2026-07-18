@@ -11,6 +11,7 @@ declare module 'next-auth' {
       username: string
       role: LegacyRole
       roles: AppRole[]
+      sessionVersion: number
     } & DefaultSession['user']
   }
 
@@ -19,6 +20,7 @@ declare module 'next-auth' {
     username: string
     role: LegacyRole
     roles: AppRole[]
+    sessionVersion: number
   }
 }
 
@@ -28,5 +30,6 @@ declare module 'next-auth/jwt' {
     username: string
     role: LegacyRole
     roles: AppRole[]
+    sessionVersion: number
   }
 }

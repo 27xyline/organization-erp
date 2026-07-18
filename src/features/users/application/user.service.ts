@@ -23,6 +23,10 @@ type UserServiceErrorCode =
 
 export class UserServiceError extends ServiceError<UserServiceErrorCode> {}
 
+// Serializes administrator-removal checks across concurrent transactions.
+// The value is stable application-wide and intentionally independent of user IDs.
+const LAST_ADMIN_ADVISORY_LOCK_KEY = 1_735_734_988
+
 const userSelect = {
   id: true,
   username: true,
@@ -239,6 +243,7 @@ export class UserService {
 
     try {
       return await getDb().$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock(${LAST_ADMIN_ADVISORY_LOCK_KEY})`
         const current = await tx.user.findUnique({ where: { id }, select: userSelect })
         if (!current) throw new UserServiceError('USER_NOT_FOUND')
 
@@ -288,6 +293,8 @@ export class UserService {
               ? {
                   passwordHash,
                   mustChangePassword: true,
+                  sessionVersion: { increment: 1 },
+                  passwordChangedAt: new Date(),
                   failedLoginAttempts: 0,
                   lockedUntil: null,
                 }
@@ -330,6 +337,8 @@ export class UserService {
         data: {
           passwordHash,
           mustChangePassword: false,
+          sessionVersion: { increment: 1 },
+          passwordChangedAt: new Date(),
           failedLoginAttempts: 0,
           lockedUntil: null,
         },

@@ -28,6 +28,7 @@ export interface CurrentUser {
   permissions: Permission[]
   employeeId: string | null
   mustChangePassword: boolean
+  sessionVersion: number
   access: AccessContext
 }
 
@@ -56,29 +57,13 @@ type AuthorizationUserRecord = {
   role: UserRole
   isActive: boolean
   mustChangePassword: boolean
+  sessionVersion: number
   employeeId: string | null
   employee: {
     departmentId: string
     projectMembers: Array<{ projectId: string }>
   } | null
   roleAssignments: AssignmentRecord[]
-}
-
-function legacyAssignments(user: Pick<AuthorizationUserRecord, 'id' | 'role'>): AssignmentRecord[] {
-  const roles: AppRole[] = user.role === 'ADMIN'
-    ? ['ADMIN']
-    : user.role === 'EDITOR'
-      ? ['HR', 'ACCOUNTANT', 'PROJECT_MANAGER', 'ASSET_CUSTODIAN']
-      : ['AUDITOR']
-
-  return roles.map((role) => ({
-    id: `legacy:${user.id}:${role}`,
-    role,
-    departmentScopeMode: 'ALL',
-    projectScopeMode: 'ALL',
-    departmentScopes: [],
-    projectScopes: [],
-  }))
 }
 
 function expandDescendants(
@@ -109,8 +94,7 @@ export function buildAccessContext(
   user: AuthorizationUserRecord,
   departments: readonly { id: string; parentId: string | null }[],
 ): AccessContext {
-  const assignments = user.roleAssignments.length ? user.roleAssignments : legacyAssignments(user)
-  const grants: ScopeGrant[] = assignments.map((assignment) => ({
+  const grants: ScopeGrant[] = user.roleAssignments.map((assignment) => ({
     assignmentId: assignment.id,
     role: assignment.role,
     departmentScopeMode: assignment.departmentScopeMode,
@@ -137,7 +121,7 @@ export function buildAccessContext(
   )
 }
 
-async function loadCurrentUser(id: string): Promise<CurrentUser | null> {
+async function loadCurrentUser(id: string, sessionVersion: number): Promise<CurrentUser | null> {
   const db = getDb()
   const user = await db.user.findUnique({
     where: { id },
@@ -148,6 +132,7 @@ async function loadCurrentUser(id: string): Promise<CurrentUser | null> {
       role: true,
       isActive: true,
       mustChangePassword: true,
+      sessionVersion: true,
       employeeId: true,
       employee: {
         select: {
@@ -167,7 +152,7 @@ async function loadCurrentUser(id: string): Promise<CurrentUser | null> {
     },
   }) as AuthorizationUserRecord | null
 
-  if (!user?.isActive) return null
+  if (!user?.isActive || user.sessionVersion !== sessionVersion) return null
 
   const hasAssignedDepartments = user.roleAssignments.some(
     (assignment) => assignment.departmentScopeMode === 'ASSIGNED',
@@ -185,19 +170,22 @@ async function loadCurrentUser(id: string): Promise<CurrentUser | null> {
     permissions: access.permissions,
     employeeId: user.employeeId,
     mustChangePassword: user.mustChangePassword,
+    sessionVersion: user.sessionVersion,
     access,
   }
 }
 
-/** @deprecated Pass a PermissionRequirement to requirePermission instead. */
-export async function requireUser(allowedRoles?: readonly UserRole[]): Promise<CurrentUser> {
+export async function requireUser(): Promise<CurrentUser> {
   const session = await getServerSession(authOptions)
-  if (!session?.user?.id) throw new AuthorizationError('UNAUTHENTICATED', 401)
-  const user = await loadCurrentUser(session.user.id)
-  if (!user) throw new AuthorizationError('UNAUTHENTICATED', 401)
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    throw new AuthorizationError('FORBIDDEN', 403)
+  if (
+    !session?.user?.id ||
+    !Number.isSafeInteger(session.user.sessionVersion) ||
+    session.user.sessionVersion < 1
+  ) {
+    throw new AuthorizationError('UNAUTHENTICATED', 401)
   }
+  const user = await loadCurrentUser(session.user.id, session.user.sessionVersion)
+  if (!user) throw new AuthorizationError('UNAUTHENTICATED', 401)
   return user
 }
 
@@ -233,12 +221,12 @@ export async function requirePermission(
   return user
 }
 
-export async function requirePageUser(allowedRoles?: readonly UserRole[]): Promise<CurrentUser> {
+export async function requirePageUser(): Promise<CurrentUser> {
   try {
-    return await requireUser(allowedRoles)
+    return await requireUser()
   } catch (error) {
     if (error instanceof AuthorizationError && error.status === 401) redirect('/login')
-    redirect('/')
+    redirect('/forbidden')
   }
 }
 
@@ -250,7 +238,7 @@ export async function requirePagePermission(
     return await requirePermission(requirement, target)
   } catch (error) {
     if (error instanceof AuthorizationError && error.status === 401) redirect('/login')
-    redirect('/')
+    redirect('/forbidden')
   }
 }
 
@@ -267,7 +255,7 @@ function sameOriginIsValid(request: NextRequest): boolean {
 
 export async function authorizeApiRequest(
   request: NextRequest,
-  requirement?: PermissionRequirement | readonly UserRole[],
+  requirement?: PermissionRequirement,
 ): Promise<
   | { user: CurrentUser; access: AccessContext; requestId: string; response?: never }
   | { user?: never; access?: never; requestId: string; response: NextResponse }
@@ -284,12 +272,25 @@ export async function authorizeApiRequest(
   }
 
   try {
-    const isLegacyRoles = Array.isArray(requirement)
-    const user = isLegacyRoles
-      ? await requireUser(requirement as readonly UserRole[])
-      : requirement
-        ? await requirePermission(requirement as PermissionRequirement)
-        : await requireUser()
+    const user = await requireUser()
+    if (user.mustChangePassword && request.nextUrl.pathname !== '/api/account/password') {
+      return {
+        requestId,
+        response: NextResponse.json(
+          {
+            error: {
+              code: 'PASSWORD_CHANGE_REQUIRED',
+              message: 'Необходимо изменить временный пароль',
+            },
+          },
+          { status: 403, headers: { 'x-request-id': requestId } },
+        ),
+      }
+    }
+
+    if (requirement) {
+      authorizeRequirement(user, requirement)
+    }
     return { user, access: user.access, requestId }
   } catch (error) {
     if (error instanceof AuthorizationError) {
@@ -322,4 +323,17 @@ export function assertPermission(
 
 export function defaultScopesForRole(role: AppRole) {
   return DEFAULT_ROLE_SCOPES[role]
+}
+
+export function defaultLandingPath(user: Pick<CurrentUser, 'permissions'>): string {
+  const permissions = new Set(user.permissions)
+  if (permissions.has('assets.read')) return '/'
+  if (permissions.has('projects.read')) return '/projects'
+  if (permissions.has('employees.read')) return '/employees'
+  if (permissions.has('finance.salary.read')) return '/finance/salary'
+  if (permissions.has('financePlans.read')) return '/finance/oklad'
+  if (permissions.has('mols.read')) return '/mols'
+  if (permissions.has('assetGroups.read')) return '/groups'
+  if (permissions.has('access.users.read')) return '/admin/users'
+  return '/account/password'
 }

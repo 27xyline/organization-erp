@@ -239,6 +239,8 @@ model User {
   role                UserRole   @default(VIEWER)
   isActive            Boolean    @default(true)
   mustChangePassword  Boolean    @default(true)
+  sessionVersion      Int        @default(1)
+  passwordChangedAt   DateTime   @default(now())
   failedLoginAttempts Int        @default(0)
   lockedUntil         DateTime?
   lastLoginAt         DateTime?
