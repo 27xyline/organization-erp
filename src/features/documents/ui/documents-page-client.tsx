@@ -44,6 +44,7 @@ interface DocumentsPageClientProps {
     search?: string
     status?: DocumentStatusValue
     category?: DocumentCategoryValue
+    projectId?: string
     archived: boolean
   }
   canEdit: boolean
@@ -89,6 +90,7 @@ export function DocumentsPageClient({
     if (search.trim()) params.set('search', search.trim())
     if (status) params.set('status', status)
     if (category) params.set('category', category)
+    if (filters.projectId) params.set('projectId', filters.projectId)
     if (archived) params.set('archived', 'true')
     if (page > 1) params.set('page', String(page))
     const query = params.toString()
@@ -105,7 +107,9 @@ export function DocumentsPageClient({
     setStatus('')
     setCategory('')
     setArchived(false)
-    startTransition(() => router.push('/documents'))
+    startTransition(() => router.push(
+      filters.projectId ? `/documents?projectId=${filters.projectId}` : '/documents',
+    ))
   }
 
   return (
@@ -306,4 +310,3 @@ export function DocumentsPageClient({
     </main>
   )
 }
-
