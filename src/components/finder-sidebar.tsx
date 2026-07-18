@@ -88,6 +88,7 @@ const staticMenuItems: Omit<MenuItem, 'children'>[] = [
 ]
 
 const financeChildren = [
+  { id: "payroll", label: "Расчёт зарплаты", icon: <Receipt className="h-4 w-4" />, href: "/finance/payroll" },
   { id: "salary", label: "Заработная плата", icon: <Wallet className="h-4 w-4" />, href: "/finance/salary" },
   { id: "oklad", label: "Оклад", icon: <Calculator className="h-4 w-4" />, href: "/finance/oklad" },
   { id: "nadbavka", label: "Надбавка", icon: <BarChart3 className="h-4 w-4" />, href: "/finance/nadbavka" },
@@ -219,7 +220,9 @@ export function FinderSidebar({ currentUser }: {
         return permissionSet.has('projects.read') ? projectChildren : []
       case 'finance':
         return financeChildren.filter((child) =>
-          child.id === 'salary'
+          child.id === 'payroll'
+            ? permissionSet.has('payroll.read')
+            : child.id === 'salary'
             ? permissionSet.has('finance.salary.read')
             : child.id === 'oklad' || child.id === 'nadbavka'
               ? permissionSet.has('financePlans.read')

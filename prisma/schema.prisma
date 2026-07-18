@@ -306,6 +306,7 @@ model User {
   requestedApprovals      ApprovalRequest[]        @relation("ApprovalRequestedBy")
   approvalSteps           ApprovalStep[]           @relation("ApprovalStepApprover")
   taskComments            TaskComment[]
+  closedPayrollPeriods    PayrollPeriod[]          @relation("PayrollPeriodClosedBy")
 
   @@index([isActive, role])
   @@map("users")
@@ -574,6 +575,7 @@ model Project {
   documents          Document[]
   approvalRequests   ApprovalRequest[]
   timeEntries        TimeEntry[]
+  payrollAdjustments PayrollAdjustment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -782,6 +784,7 @@ model Employee {
   certificates       EmployeeCertificate[]
   mol                Mol?
   timeEntries        TimeEntry[]
+  payrollAdjustments PayrollAdjustment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -904,6 +907,58 @@ model SalaryEntry {
   @@unique([employeeId, year, month])
   @@index([year, month])
   @@map("salary_entries")
+}
+
+enum PayrollAdjustmentType {
+  BONUS
+  ONE_TIME
+  DEDUCTION
+
+  @@map("payroll_adjustment_type")
+}
+
+enum PayrollPeriodStatus {
+  OPEN
+  CLOSED
+
+  @@map("payroll_period_status")
+}
+
+model PayrollAdjustment {
+  id          String                @id @default(cuid())
+  employeeId  String
+  employee    Employee              @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  projectId   String?
+  project     Project?              @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  year        Int
+  month       Int
+  type        PayrollAdjustmentType
+  amount      Decimal               @db.Decimal(12, 2)
+  description String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([year, month, employeeId])
+  @@index([projectId, year, month])
+  @@map("payroll_adjustments")
+}
+
+model PayrollPeriod {
+  id         String              @id @default(cuid())
+  year       Int
+  month      Int
+  status     PayrollPeriodStatus @default(OPEN)
+  closedAt   DateTime?
+  closedById String?
+  closedBy   User?               @relation("PayrollPeriodClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([year, month])
+  @@index([status, year, month])
+  @@map("payroll_periods")
 }
 
 enum FinancePlanType {
