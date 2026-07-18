@@ -136,7 +136,12 @@ async function ensureHeadExists(db: DepartmentDbClient, headEmployeeId: string |
 }
 
 async function lockDepartmentHierarchy(db: Prisma.TransactionClient) {
-  await db.$queryRaw`SELECT pg_advisory_xact_lock(904202607)`
+  // PostgreSQL exposes pg_advisory_xact_lock as void. Prisma cannot
+  // deserialize that type (P2010), so return its text representation while
+  // keeping the lock scoped to the current transaction.
+  await db.$queryRaw<Array<{ lock: string }>>`
+    SELECT pg_advisory_xact_lock(904202607)::text AS "lock"
+  `
 }
 
 export class DepartmentService {

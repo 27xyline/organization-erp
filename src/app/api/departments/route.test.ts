@@ -19,7 +19,6 @@ vi.mock('@/features/departments/application/department.service', async () => {
     },
   }
 })
-
 describe('departments route', () => {
   beforeEach(() => vi.clearAllMocks())
 
@@ -77,4 +76,3 @@ describe('departments route', () => {
     })
   })
 })
-

@@ -15,7 +15,6 @@ function mapDepartmentError(error: DepartmentServiceError) {
   const meta = getDepartmentErrorMeta(error.code)
   return apiError(error.code, meta.message, meta.status)
 }
-
 export async function GET(request: NextRequest) {
   const auth = await authorizeApiRequest(request)
   if (auth.response) return auth.response
@@ -39,4 +38,3 @@ export async function POST(request: NextRequest) {
     throw error
   }
 }
-

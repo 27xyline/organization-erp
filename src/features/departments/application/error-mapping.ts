@@ -11,8 +11,6 @@ const departmentErrors: Record<DepartmentErrorCode, { message: string; status: n
   DEPARTMENT_REQUIRED: { message: 'Подразделение обязательно', status: 422 },
   INACTIVE_DEPARTMENT: { message: 'Нельзя назначить неактивное подразделение', status: 409 },
 }
-
 export function getDepartmentErrorMeta(code: DepartmentErrorCode) {
   return departmentErrors[code]
 }
-

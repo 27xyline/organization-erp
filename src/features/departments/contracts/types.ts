@@ -3,7 +3,6 @@ export interface DepartmentHead {
   code: string
   fullName: string
 }
-
 export interface DepartmentUsage {
   children: number
   employees: number
@@ -27,4 +26,3 @@ export interface DepartmentListItem {
 export interface DepartmentHeadCandidate extends DepartmentHead {
   departmentId: string
 }
-

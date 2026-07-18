@@ -22,7 +22,7 @@ const departmentRecord = {
 
 function createTransactionMock() {
   return {
-    $queryRaw: vi.fn().mockResolvedValue([{ pg_advisory_xact_lock: null }]),
+    $queryRaw: vi.fn().mockResolvedValue([{ lock: '' }]),
     department: {
       findFirst: vi.fn(),
       findUnique: vi.fn(),
@@ -45,6 +45,27 @@ function useTransaction(tx: ReturnType<typeof createTransactionMock>) {
 
 describe('DepartmentService', () => {
   beforeEach(() => vi.clearAllMocks())
+
+  it('casts the advisory lock result to a Prisma-compatible scalar', async () => {
+    const tx = createTransactionMock()
+    useTransaction(tx)
+    tx.department.findFirst.mockResolvedValue(null)
+    tx.department.create.mockResolvedValue(departmentRecord)
+    tx.auditLog.create.mockResolvedValue({})
+
+    await DepartmentService.create({
+      code: departmentRecord.code,
+      name: departmentRecord.name,
+      parentId: null,
+      headEmployeeId: null,
+      isActive: true,
+    }, 'admin-1')
+
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(1)
+    const [query] = tx.$queryRaw.mock.calls[0]
+    expect(Array.from(query).join('?'))
+      .toContain('pg_advisory_xact_lock(904202607)::text')
+  })
 
   it('rejects a duplicate code regardless of case', async () => {
     const tx = createTransactionMock()

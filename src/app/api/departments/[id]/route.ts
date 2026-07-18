@@ -12,7 +12,6 @@ function mapDepartmentError(error: DepartmentServiceError) {
   const meta = getDepartmentErrorMeta(error.code)
   return apiError(error.code, meta.message, meta.status)
 }
-
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -46,4 +45,3 @@ export async function DELETE(
     throw error
   }
 }
-

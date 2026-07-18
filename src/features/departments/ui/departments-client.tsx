@@ -45,7 +45,6 @@ interface DepartmentRow {
   department: DepartmentListItem
   depth: number
 }
-
 const emptyForm = {
   code: '',
   name: '',
@@ -406,4 +405,3 @@ export function DepartmentsClient({
     </div>
   )
 }
-

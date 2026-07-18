@@ -19,7 +19,6 @@ vi.mock('@/features/departments/application/department.service', async () => {
     },
   }
 })
-
 describe('departments/[id] route', () => {
   beforeEach(() => vi.clearAllMocks())
 
@@ -65,4 +64,3 @@ describe('departments/[id] route', () => {
     expect((await response.json()).error.code).toBe('VALIDATION_ERROR')
   })
 })
-
