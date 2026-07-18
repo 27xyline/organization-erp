@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -133,7 +134,9 @@ export function EmployeesTable({
                     <TableRow key={employee.id} className={expiredContract ? 'bg-amber-50/40' : undefined}>
                       <TableCell>
                         <div className="min-w-[220px]">
-                          <p className="font-medium text-slate-900">{employee.fullName}</p>
+                          <Link href={`/employees/${employee.id}`} className="font-medium text-slate-900 hover:underline">
+                            {employee.fullName}
+                          </Link>
                           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                             <span className="font-mono">{employee.code}</span>
                             {expiredContract && (
