@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Create the normalized organization structure first. Legacy text columns stay
 -- in place during the transition so existing exports and historical snapshots
 -- keep their current representation.
@@ -53,16 +55,47 @@ FROM legacy_departments;
 
 -- Old databases may contain an empty department string. Preserve those rows
 -- under an explicit placeholder instead of losing data or aborting deployment.
-INSERT INTO "departments" ("id", "code", "name", "updatedAt")
-SELECT 'dept_unassigned', 'DEP-UNASSIGNED', 'Не указано', CURRENT_TIMESTAMP
-WHERE EXISTS (
-    SELECT 1 FROM "employees" WHERE NULLIF(BTRIM("department"), '') IS NULL
-    UNION ALL
-    SELECT 1 FROM "staff_schedule" WHERE NULLIF(BTRIM("department"), '') IS NULL
-    UNION ALL
-    SELECT 1 FROM "mols" WHERE NULLIF(BTRIM("department"), '') IS NULL
-)
-ON CONFLICT DO NOTHING;
+-- A real legacy department may already use the default code or name, so choose
+-- the first deterministic suffix that is free while keeping the stable ID used
+-- by the relation backfill below.
+DO $$
+DECLARE
+    suffix INTEGER := 0;
+    candidate_code TEXT;
+    candidate_name TEXT;
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM "employees" WHERE NULLIF(BTRIM("department"), '') IS NULL
+        UNION ALL
+        SELECT 1 FROM "staff_schedule" WHERE NULLIF(BTRIM("department"), '') IS NULL
+        UNION ALL
+        SELECT 1 FROM "mols" WHERE NULLIF(BTRIM("department"), '') IS NULL
+    ) THEN
+        LOOP
+            candidate_code := CASE
+                WHEN suffix = 0 THEN 'DEP-UNASSIGNED'
+                ELSE 'DEP-UNASSIGNED-' || suffix
+            END;
+            candidate_name := CASE
+                WHEN suffix = 0 THEN 'Не указано'
+                ELSE 'Не указано (импорт ' || suffix || ')'
+            END;
+
+            IF NOT EXISTS (
+                SELECT 1
+                FROM "departments"
+                WHERE LOWER("code") = LOWER(candidate_code)
+                   OR LOWER("name") = LOWER(candidate_name)
+            ) THEN
+                INSERT INTO "departments" ("id", "code", "name", "updatedAt")
+                VALUES ('dept_unassigned', candidate_code, candidate_name, CURRENT_TIMESTAMP);
+                EXIT;
+            END IF;
+
+            suffix := suffix + 1;
+        END LOOP;
+    END IF;
+END $$;
 
 ALTER TABLE "employees" ADD COLUMN "departmentId" TEXT;
 ALTER TABLE "staff_schedule" ADD COLUMN "departmentId" TEXT;
@@ -186,3 +219,5 @@ CREATE TRIGGER "departments_prevent_hierarchy_cycle"
 BEFORE INSERT OR UPDATE OF "parentId" ON "departments"
 FOR EACH ROW
 EXECUTE FUNCTION "prevent_department_hierarchy_cycle"();
+
+COMMIT;
