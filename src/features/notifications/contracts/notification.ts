@@ -44,6 +44,8 @@ export const NOTIFICATION_EVENT_LABELS: Record<NotificationEventType, string> = 
   TASK_OVERDUE: 'Просроченные задачи',
   ASSET_DISPOSAL_DUE: 'Срок списания имущества',
   BUDGET_OVERRUN: 'Превышение бюджета',
+  APPROVAL_REQUESTED: 'Новые согласования',
+  APPROVAL_DECIDED: 'Результаты согласований',
 }
 
 export const NOTIFICATION_CHANNEL_LABELS: Record<NotificationChannel, string> = {
