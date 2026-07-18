@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ArrowLeft, CheckSquare, FolderKanban, Target, Trophy } from 'lucide-react'
+import { PROJECT_TEMPLATES, type ProjectTemplateId } from '../contracts/templates'
 
 const getDurationDays = (startDate: string, endDate: string) => {
   if (!startDate || !endDate) return null
@@ -60,7 +61,21 @@ export default function NewProjectPage() {
     startDate: '',
     endDate: '',
     plannedBudget: '',
+    templateId: '' as ProjectTemplateId | '',
   })
+
+  const applyTemplate = (templateId: ProjectTemplateId | '') => {
+    if (!templateId) {
+      setFormData((value) => ({ ...value, templateId }))
+      return
+    }
+    const template = PROJECT_TEMPLATES[templateId]
+    setFormData((value) => ({
+      ...value,
+      templateId,
+      ...template.defaults,
+    }))
+  }
 
   const durationDays = getDurationDays(formData.startDate, formData.endDate)
   const planningPeriods = getPlanningPeriods(formData.startDate, formData.endDate)
@@ -114,6 +129,29 @@ export default function NewProjectPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Шаблон проекта</CardTitle>
+            <CardDescription>Шаблон заполнит описание и создаст стартовый маршрут задач с зависимостями.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <select
+              aria-label="Шаблон проекта"
+              className="h-10 w-full max-w-md rounded-md border bg-background px-3 text-sm"
+              value={formData.templateId}
+              onChange={(event) => applyTemplate(event.target.value as ProjectTemplateId | '')}
+            >
+              <option value="">Без шаблона</option>
+              {(Object.entries(PROJECT_TEMPLATES) as Array<[ProjectTemplateId, typeof PROJECT_TEMPLATES[ProjectTemplateId]]>)
+                .map(([id, template]) => <option key={id} value={id}>{template.label}</option>)}
+            </select>
+            {formData.templateId && (
+              <p className="mt-2 text-sm text-muted-foreground">
+                {PROJECT_TEMPLATES[formData.templateId].description}
+              </p>
+            )}
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
