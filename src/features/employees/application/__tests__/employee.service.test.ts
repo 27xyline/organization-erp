@@ -14,6 +14,7 @@ describe('EmployeeService.updateEmployee', () => {
     code: 'E001',
     fullName: 'Тестовый Сотрудник',
     department: 'Отдел',
+    departmentId: 'department-old',
     contractType: 'PRIMARY',
     contractSignedDate: new Date('2024-01-01'),
     contractEndDate: new Date('2024-12-31'),
@@ -25,6 +26,7 @@ describe('EmployeeService.updateEmployee', () => {
       id: 'staff-1',
       position: 'Инженер',
       department: 'Отдел',
+      departmentId: 'department-old',
     },
   }
 
@@ -48,5 +50,45 @@ describe('EmployeeService.updateEmployee', () => {
       contractSignedDate: new Date('2024-08-01'),
       contractEndDate: new Date('2024-07-01'),
     })).rejects.toMatchObject({ code: 'INVALID_CONTRACT_DATE_RANGE' })
+  })
+
+  it('updates the relation and legacy snapshot together for a direct department edit', async () => {
+    const dismissedEmployee = {
+      ...existingEmployee,
+      status: 'DISMISSED',
+      staffScheduleId: null,
+      staffSchedule: null,
+    }
+    const employeeUpdate = vi.fn().mockResolvedValue({
+      ...dismissedEmployee,
+      department: 'Исследовательский отдел',
+      departmentId: 'department-new',
+    })
+    const tx = {
+      employee: {
+        findUnique: vi.fn().mockResolvedValue(dismissedEmployee),
+        update: employeeUpdate,
+      },
+      department: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'department-new',
+          name: 'Исследовательский отдел',
+          isActive: true,
+        }),
+      },
+      personnelAction: { create: vi.fn().mockResolvedValue({}) },
+    }
+    vi.mocked(prisma.$transaction).mockImplementationOnce(async (callback) => callback(tx as never))
+
+    await EmployeeService.updateEmployee('emp-1', {
+      department: 'исследовательский ОТДЕЛ',
+    })
+
+    expect(employeeUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        department: 'Исследовательский отдел',
+        departmentId: 'department-new',
+      }),
+    }))
   })
 })

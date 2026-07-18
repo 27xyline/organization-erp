@@ -3,16 +3,14 @@ import { WorkforceService } from '@/features/employees/application/workforce.ser
 import { createStaffScheduleSchema } from '@/features/employees/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
-import { DepartmentReferenceError } from '@/lib/organization/department-reference'
+import {
+  DepartmentReferenceError,
+  getDepartmentReferenceErrorMeta,
+} from '@/lib/organization/department-reference'
 
 function mapDepartmentError(error: DepartmentReferenceError) {
-  return apiError(
-    error.code,
-    error.code === 'INACTIVE_DEPARTMENT'
-      ? 'Нельзя назначить неактивное подразделение'
-      : 'Подразделение не найдено',
-    error.code === 'NOT_FOUND' ? 404 : 409,
-  )
+  const meta = getDepartmentReferenceErrorMeta(error.code)
+  return apiError(error.code, meta.message, meta.status)
 }
 
 export async function GET(request: NextRequest) {

@@ -8,6 +8,19 @@ export type DepartmentReferenceErrorCode =
 
 export class DepartmentReferenceError extends ServiceError<DepartmentReferenceErrorCode> {}
 
+const referenceErrorMeta: Record<
+  DepartmentReferenceErrorCode,
+  { message: string; status: 404 | 409 | 422 }
+> = {
+  NOT_FOUND: { message: 'Подразделение не найдено', status: 404 },
+  DEPARTMENT_REQUIRED: { message: 'Подразделение обязательно', status: 422 },
+  INACTIVE_DEPARTMENT: { message: 'Нельзя назначить неактивное подразделение', status: 409 },
+}
+
+export function getDepartmentReferenceErrorMeta(code: DepartmentReferenceErrorCode) {
+  return referenceErrorMeta[code]
+}
+
 type DepartmentDbClient =
   | Pick<PrismaClient, 'department'>
   | Prisma.TransactionClient
@@ -42,4 +55,3 @@ export async function resolveDepartment(
   }
   return department
 }
-

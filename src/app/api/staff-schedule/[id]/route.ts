@@ -3,7 +3,10 @@ import { WorkforceService, WorkforceServiceError } from '@/features/employees/ap
 import { createStaffScheduleSchema } from '@/features/employees/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
-import { DepartmentReferenceError } from '@/lib/organization/department-reference'
+import {
+  DepartmentReferenceError,
+  getDepartmentReferenceErrorMeta,
+} from '@/lib/organization/department-reference'
 
 const mapError = (error: WorkforceServiceError) => error.code === 'NOT_FOUND'
   ? apiError(error.code, 'Должность не найдена', 404)
@@ -21,13 +24,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   } catch (error) {
     if (error instanceof WorkforceServiceError) return mapError(error)
     if (error instanceof DepartmentReferenceError) {
-      return apiError(
-        error.code,
-        error.code === 'INACTIVE_DEPARTMENT'
-          ? 'Нельзя назначить неактивное подразделение'
-          : 'Подразделение не найдено',
-        error.code === 'NOT_FOUND' ? 404 : 409,
-      )
+      const meta = getDepartmentReferenceErrorMeta(error.code)
+      return apiError(error.code, meta.message, meta.status)
     }
     throw error
   }
