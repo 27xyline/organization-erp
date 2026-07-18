@@ -1,9 +1,6 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from '@/components/providers'
-
-const inter = Inter({ subsets: ['latin', 'cyrillic'] })
 
 export const metadata: Metadata = {
   title: 'Consilium - Управление активами',
@@ -17,7 +14,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru">
-      <body className={`${inter.className} antialiased min-h-screen bg-background text-foreground`}>
+      <body className="min-h-screen bg-background text-foreground antialiased">
         <Providers>
           {children}
         </Providers>
