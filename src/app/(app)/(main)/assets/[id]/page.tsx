@@ -39,7 +39,7 @@ export default async function AssetDetailPage(props: AssetDetailPageProps) {
   return (
     <main className="container mx-auto py-8 px-4">
       <div className="mb-6">
-        <Link href="/">
+        <Link href="/assets">
           <Button variant="ghost" className="pl-0">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Назад к списку

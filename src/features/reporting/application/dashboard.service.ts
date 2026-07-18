@@ -3,6 +3,7 @@ import type { AccessContext } from '@/lib/auth/access-context'
 import type { Permission } from '@/lib/auth/permissions'
 import { getDb } from '@/lib/prisma'
 import type { DashboardQuery } from '../contracts/dashboard'
+import type { DashboardOverview } from '../contracts/view-model'
 import {
   aggregateAssets,
   aggregateProjects,
@@ -39,7 +40,11 @@ function selectedPermission(access: AccessContext): Permission | null {
 }
 
 export class DashboardService {
-  static async getOverview(query: DashboardQuery, access: AccessContext, now = new Date()) {
+  static async getOverview(
+    query: DashboardQuery,
+    access: AccessContext,
+    now = new Date(),
+  ): Promise<DashboardOverview> {
     const db = getDb()
     const dateFrom = utcStart(query.dateFrom)
     const dateTo = utcEnd(query.dateTo)
@@ -455,5 +460,3 @@ export class DashboardService {
     }
   }
 }
-
-export type DashboardOverview = Awaited<ReturnType<typeof DashboardService.getOverview>>

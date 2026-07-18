@@ -330,8 +330,9 @@ export function defaultLandingPath(
 ): string {
   if (user.mustChangePassword) return '/account/password'
   const permissions = new Set(user.permissions)
-  if (permissions.has('assets.read')) return '/'
+  if (permissions.has('dashboard.read')) return '/'
   if (permissions.has('projects.read')) return '/projects'
+  if (permissions.has('assets.read')) return '/assets'
   if (permissions.has('employees.read')) return '/employees'
   if (permissions.has('finance.salary.read')) return '/finance/salary'
   if (permissions.has('financePlans.read')) return '/finance/oklad'

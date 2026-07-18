@@ -30,6 +30,8 @@ import {
   Files,
   ClipboardCheck,
   CalendarClock,
+  LayoutDashboard,
+  FileChartColumn,
 } from "lucide-react"
 import { ROLE_LABELS, type AppRole, type Permission } from "@/lib/auth/permissions"
 import { NotificationBell } from "@/features/notifications/ui/notification-bell"
@@ -50,6 +52,11 @@ interface MenuItem {
 }
 
 const staticMenuItems: Omit<MenuItem, 'children'>[] = [
+  {
+    id: "overview",
+    label: "Обзор",
+    icon: <LayoutDashboard className="h-5 w-5" />,
+  },
   {
     id: "projects",
     label: "Проекты",
@@ -103,7 +110,7 @@ const employeesChildren = [
 
 const assetsChildren = [
   { id: "assets-groups", label: "Группы имущества", icon: <Tag className="h-4 w-4" />, href: "/groups" },
-  { id: "assets-registered", label: "Зарегистрировано", icon: <LayoutGrid className="h-4 w-4" />, href: "/" },
+  { id: "assets-registered", label: "Зарегистрировано", icon: <LayoutGrid className="h-4 w-4" />, href: "/assets" },
   { id: "assets-purchase", label: "Закупки (скоро)", icon: <ShoppingCart className="h-4 w-4" />, href: "" },
   { id: "assets-transfer", label: "Перемещение (скоро)", icon: <ArrowLeftRight className="h-4 w-4" />, href: "" },
   { id: "assets-archive", label: "Архив", icon: <Archive className="h-4 w-4" />, href: "/archive" },
@@ -125,7 +132,8 @@ export function FinderSidebar({ currentUser }: {
     if (pathname.startsWith('/projects')) itemsToExpand.push('projects')
     if (pathname.startsWith('/finance')) itemsToExpand.push('finance')
     if (pathname.startsWith('/employees') || pathname.startsWith('/mols')) itemsToExpand.push('employees')
-    if (pathname === '/' || pathname.startsWith('/groups') || pathname.startsWith('/archive')) itemsToExpand.push('assets')
+    if (pathname === '/' || pathname.startsWith('/reports')) itemsToExpand.push('overview')
+    if (pathname.startsWith('/assets') || pathname.startsWith('/groups') || pathname.startsWith('/archive')) itemsToExpand.push('assets')
     if (pathname.startsWith('/documents')) itemsToExpand.push('documents')
     return itemsToExpand
   })
@@ -139,7 +147,8 @@ export function FinderSidebar({ currentUser }: {
       if (pathname.startsWith('/projects')) itemsToExpand.push('projects')
       if (pathname.startsWith('/finance')) itemsToExpand.push('finance')
       if (pathname.startsWith('/employees') || pathname.startsWith('/mols')) itemsToExpand.push('employees')
-      if (pathname === '/' || pathname.startsWith('/groups') || pathname.startsWith('/archive')) itemsToExpand.push('assets')
+      if (pathname === '/' || pathname.startsWith('/reports')) itemsToExpand.push('overview')
+      if (pathname.startsWith('/assets') || pathname.startsWith('/groups') || pathname.startsWith('/archive')) itemsToExpand.push('assets')
       if (pathname.startsWith('/documents')) itemsToExpand.push('documents')
       
       const newItems = itemsToExpand.filter(item => !expandedItems.includes(item))
@@ -216,6 +225,15 @@ export function FinderSidebar({ currentUser }: {
 
   const getMenuChildren = (id: string) => {
     switch (id) {
+      case 'overview':
+        return [
+          ...(permissionSet.has('dashboard.read')
+            ? [{ id: 'dashboard', label: 'Рабочий обзор', icon: <LayoutDashboard className="h-4 w-4" />, href: '/' }]
+            : []),
+          ...(permissionSet.has('reports.read')
+            ? [{ id: 'reports', label: 'Отчётность', icon: <FileChartColumn className="h-4 w-4" />, href: '/reports' }]
+            : []),
+        ]
       case 'projects':
         return permissionSet.has('projects.read') ? projectChildren : []
       case 'finance':

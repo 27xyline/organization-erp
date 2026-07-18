@@ -131,7 +131,7 @@ export default function TransferPage(props: {
       })
 
       if (res.ok) {
-        router.push('/')
+        router.push('/assets')
         router.refresh()
       } else {
         const error = await res.json()
