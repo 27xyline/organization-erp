@@ -8,6 +8,7 @@ import { ArrowLeft, Edit, ArrowRightLeft, FileText, Calendar, Image as ImageIcon
 import { AssetOperationsHistory } from '@/features/assets/ui/asset-operations-history'
 import { AssetService } from '@/features/assets/application/asset.service'
 import { requirePagePermission } from '@/lib/auth/authorization'
+import { AssetMaintenanceSection } from '@/features/assets/ui/asset-maintenance-section'
 
 interface AssetDetailPageProps {
   params: Promise<{ id: string }>
@@ -263,13 +264,20 @@ export default async function AssetDetailPage(props: AssetDetailPageProps) {
         </Card>
       )}
 
+      <AssetMaintenanceSection assetId={asset.id} canManage={canEdit} />
+
       {/* История операций */}
       <Card className="mt-6">
         <CardHeader>
           <CardTitle>История операций</CardTitle>
         </CardHeader>
         <CardContent>
-          <AssetOperationsHistory operations={asset.operations} />
+          <AssetOperationsHistory operations={asset.operations.map((operation) => ({
+            ...operation,
+            quantity: operation.quantity.toString(),
+            unitPrice: operation.unitPrice.toString(),
+            totalCost: operation.totalCost.toString(),
+          }))} />
         </CardContent>
       </Card>
     </main>
