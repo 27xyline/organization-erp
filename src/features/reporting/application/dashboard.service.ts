@@ -48,7 +48,9 @@ export class DashboardService {
     const db = getDb()
     const dateFrom = utcStart(query.dateFrom)
     const dateTo = utcEnd(query.dateTo)
-    const contractHorizon = new Date(now.getTime() + 90 * DAY)
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+    const todayEnd = new Date(today.getTime() + DAY - 1)
+    const contractHorizon = new Date(today.getTime() + 90 * DAY)
     const employeePermission = selectedPermission(access)
     const projectScope = access.projectWhere('projects.read') as Prisma.ProjectWhereInput
     const employeeScope = employeePermission
@@ -67,7 +69,7 @@ export class DashboardService {
       ],
     }
     const scopedEmployeeWhere: Prisma.EmployeeWhereInput = {
-      AND: [employeeScope, departmentFilter],
+      AND: [employeeScope, departmentFilter, { status: { not: 'DISMISSED' } }],
     }
     const scopedAssetWhere: Prisma.AssetWhereInput = {
       AND: [
@@ -142,7 +144,7 @@ export class DashboardService {
                 where: canVacations ? {
                   OR: [
                     { startDate: { lte: dateTo }, endDate: { gte: dateFrom } },
-                    { startDate: { lte: now }, endDate: { gte: now } },
+                    { startDate: { lte: todayEnd }, endDate: { gte: today } },
                   ],
                 } : { id: '__forbidden__' },
                 orderBy: { startDate: 'asc' },
@@ -338,7 +340,7 @@ export class DashboardService {
     )
     const currentAbsences = employees.flatMap((employee) =>
       employee.vacations
-        .filter((vacation) => vacation.startDate <= now && vacation.endDate >= now)
+        .filter((vacation) => vacation.startDate <= todayEnd && vacation.endDate >= today)
         .map((vacation) => ({
           id: vacation.id,
           employeeId: employee.id,
@@ -353,7 +355,7 @@ export class DashboardService {
       .filter((employee) => access.has('employees.read')
         &&
         employee.contractEndDate
-        && employee.contractEndDate >= now
+        && employee.contractEndDate >= today
         && employee.contractEndDate <= contractHorizon
       )
       .map((employee) => ({
@@ -363,13 +365,13 @@ export class DashboardService {
         department: employee.department,
         position: employee.staffSchedule?.position || '—',
         contractEndDate: employee.contractEndDate!,
-        daysLeft: Math.ceil((employee.contractEndDate!.getTime() - now.getTime()) / DAY),
+        daysLeft: Math.ceil((employee.contractEndDate!.getTime() - today.getTime()) / DAY),
       }))
       .sort((left, right) => left.contractEndDate.getTime() - right.contractEndDate.getTime())
     const overdueTasks = tasks
       .filter((task) =>
         task.endDate
-        && task.endDate < now
+        && task.endDate < today
         && task.status !== 'COMPLETED'
         && task.progress < 100
       )
@@ -381,7 +383,7 @@ export class DashboardService {
         priority: task.priority,
         endDate: task.endDate!,
         responsible: task.assignees.map((assignee) => assignee.employee.fullName).join(', ') || 'Не назначен',
-        overdueDays: Math.max(1, Math.floor((now.getTime() - task.endDate!.getTime()) / DAY)),
+        overdueDays: Math.max(1, Math.floor((today.getTime() - task.endDate!.getTime()) / DAY)),
       }))
       .sort((left, right) => right.overdueDays - left.overdueDays)
     const assetAttention = assets
