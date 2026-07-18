@@ -33,7 +33,9 @@ interface DepartmentReference {
 export async function resolveDepartment(
   db: DepartmentDbClient,
   reference: DepartmentReference,
-  options: { allowInactive?: boolean } = {},
+  options: {
+    allowInactiveDepartmentId?: string | null
+  } = {},
 ) {
   const departmentId = reference.departmentId?.trim()
   const legacyName = reference.department?.trim()
@@ -50,7 +52,10 @@ export async function resolveDepartment(
       })
 
   if (!department) throw new DepartmentReferenceError('NOT_FOUND')
-  if (!department.isActive && !options.allowInactive) {
+  const preservesAllowedInactiveDepartment =
+    options.allowInactiveDepartmentId != null
+    && department.id === options.allowInactiveDepartmentId
+  if (!department.isActive && !preservesAllowedInactiveDepartment) {
     throw new DepartmentReferenceError('INACTIVE_DEPARTMENT')
   }
   return department

@@ -3,6 +3,7 @@ import { getDb } from '@/lib/prisma'
 import { ServiceError } from '@/lib/errors/service-error'
 import type { CreateGroupInput, CreateMolInput } from '../contracts/schemas'
 import { resolveDepartment } from '@/lib/organization/department-reference'
+import { withOrganizationMutation } from '@/lib/organization/organization-mutation'
 
 type CatalogErrorCode = 'NOT_FOUND' | 'CODE_EXISTS' | 'IN_USE'
 export class CatalogServiceError extends ServiceError<CatalogErrorCode> {}
@@ -97,7 +98,7 @@ export class CatalogService {
 
   static async createMol(input: CreateMolInput, actorId: string, requestId?: string) {
     try {
-      return await getDb().$transaction(async (tx) => {
+      return await withOrganizationMutation(getDb(), async (tx) => {
         const department = await resolveDepartment(tx, input)
         const mol = await tx.mol.create({
           data: {
@@ -133,11 +134,11 @@ export class CatalogService {
 
   static async updateMol(id: string, input: CreateMolInput, actorId: string, requestId?: string) {
     try {
-      return await getDb().$transaction(async (tx) => {
+      return await withOrganizationMutation(getDb(), async (tx) => {
         const current = await tx.mol.findUnique({ where: { id } })
         if (!current) throw new CatalogServiceError('NOT_FOUND')
         const department = await resolveDepartment(tx, input, {
-          allowInactive: input.departmentId === current.departmentId,
+          allowInactiveDepartmentId: current.departmentId,
         })
         const mol = await tx.mol.update({
           where: { id },
@@ -179,7 +180,7 @@ export class CatalogService {
 
   static async deleteMol(id: string, actorId: string, requestId?: string) {
     try {
-      return await getDb().$transaction(async (tx) => {
+      return await withOrganizationMutation(getDb(), async (tx) => {
         const current = await tx.mol.findUnique({ where: { id } })
         if (!current) throw new CatalogServiceError('NOT_FOUND')
         await tx.mol.delete({ where: { id } })

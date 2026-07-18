@@ -15,6 +15,7 @@ import {
 } from '../infrastructure/employee.repository'
 import { CreatePersonnelActionInput } from '../contracts/schemas'
 import { ensureExpiredContractArchiveActions } from '../infrastructure/workforce.repository'
+import { withOrganizationMutation } from '@/lib/organization/organization-mutation'
 
 const personnelActionPriority: Record<string, number> = {
   HIRE: 0, DISMISS: 1, ARCHIVE: 2, EXTEND: 3, TRANSFER: 4, PROMOTE: 5, EDIT: 6,
@@ -62,7 +63,7 @@ export class PersonnelActionService {
   static async createAction(data: CreatePersonnelActionInput, actorId?: string, requestId?: string) {
     const actionDate = ensureValidActionDate(data.date)
 
-    return prisma.$transaction(async (tx) => {
+    return withOrganizationMutation(prisma, async (tx) => {
       if (data.type === 'HIRE') {
         if (!data.employeeData?.code || !data.employeeData?.fullName) {
           throw hrError('INVALID_HIRE_PAYLOAD')

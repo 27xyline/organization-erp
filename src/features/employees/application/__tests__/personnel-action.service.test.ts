@@ -38,7 +38,9 @@ describe('PersonnelActionService.createAction', () => {
   })
 
   it('rejects invalid HIRE payload with non-positive rate', async () => {
-    vi.mocked(prisma.$transaction).mockImplementation(async (callback) => callback({} as never))
+    vi.mocked(prisma.$transaction).mockImplementation(async (callback) => callback({
+      $queryRaw: vi.fn().mockResolvedValue([{ lock: '' }]),
+    } as never))
 
     await expect(PersonnelActionService.createAction({
       type: 'HIRE',
@@ -56,6 +58,7 @@ describe('PersonnelActionService.createAction', () => {
 
   it('rejects TRANSFER when target position has insufficient free rate', async () => {
     vi.mocked(prisma.$transaction).mockImplementation(async (callback) => callback({
+      $queryRaw: vi.fn().mockResolvedValue([{ lock: '' }]),
       employee: {
         findUnique: vi.fn().mockResolvedValue(employee),
       },
@@ -75,6 +78,7 @@ describe('PersonnelActionService.createAction', () => {
 
   it('rejects EXTEND without a new contract end date', async () => {
     vi.mocked(prisma.$transaction).mockImplementation(async (callback) => callback({
+      $queryRaw: vi.fn().mockResolvedValue([{ lock: '' }]),
       employee: {
         findUnique: vi.fn().mockResolvedValue(employee),
       },
@@ -90,6 +94,7 @@ describe('PersonnelActionService.createAction', () => {
   it('updates employee and writes action for valid PROMOTE payload', async () => {
     const updatedAction = { id: 'action-1', employee: { id: employee.id } }
     const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([{ lock: '' }]),
       employee: {
         findUnique: vi.fn().mockResolvedValue(employee),
         update: vi.fn().mockResolvedValue(null),
@@ -129,6 +134,7 @@ describe('PersonnelActionService.createAction', () => {
   it('dismisses employee and writes action for DISMISS payload', async () => {
     const dismissedAction = { id: 'action-dismiss', employee: { id: employee.id } }
     const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([{ lock: '' }]),
       employee: {
         findUnique: vi.fn().mockResolvedValue(employee),
         update: vi.fn().mockResolvedValue(null),
@@ -185,10 +191,13 @@ describe('PersonnelActionService.createAction', () => {
         }),
       }),
     }))
+    expect(tx.$queryRaw.mock.invocationCallOrder[0])
+      .toBeLessThan(tx.employee.findUnique.mock.invocationCallOrder[0])
   })
 
   it('does not let a non-transfer action desynchronize the department snapshot', async () => {
     const tx = {
+      $queryRaw: vi.fn().mockResolvedValue([{ lock: '' }]),
       employee: {
         findUnique: vi.fn().mockResolvedValue(employee),
         update: vi.fn().mockResolvedValue(null),

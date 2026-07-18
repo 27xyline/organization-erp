@@ -36,6 +36,7 @@ function createDb(overrides: {
     isActive: true,
   }
   const tx = {
+    $queryRaw: vi.fn().mockResolvedValue([{ lock: '' }]),
     staffSchedule: {
       findUnique: vi.fn().mockResolvedValue({ rate: before.rate }),
       findUniqueOrThrow: vi.fn().mockResolvedValue(before),
@@ -53,6 +54,7 @@ function createDb(overrides: {
     },
     department: {
       findUnique: vi.fn().mockResolvedValue(department),
+      findFirst: vi.fn().mockResolvedValue(department),
     },
     auditLog: {
       create: vi.fn().mockResolvedValue({}),
@@ -79,6 +81,8 @@ describe('WorkforceService.updatePosition', () => {
 
     expect(tx.staffSchedule.update).not.toHaveBeenCalled()
     expect(tx.auditLog.create).not.toHaveBeenCalled()
+    expect(tx.$queryRaw.mock.invocationCallOrder[0])
+      .toBeLessThan(tx.staffSchedule.findUnique.mock.invocationCallOrder[0])
   })
 
   it('allows editing a position while preserving its inactive department', async () => {
@@ -113,6 +117,32 @@ describe('WorkforceService.updatePosition', () => {
             department: before.department,
           }),
         },
+      }),
+    }))
+  })
+
+  it('allows preserving an inactive department through its legacy name', async () => {
+    const inactiveDepartment = {
+      id: before.departmentId,
+      name: before.department,
+      isActive: false,
+    }
+    const { db, tx } = createDb({ department: inactiveDepartment })
+    tx.department.findFirst = vi.fn().mockResolvedValue(inactiveDepartment)
+    vi.mocked(getDb).mockReturnValue(db as never)
+
+    await WorkforceService.updatePosition('staff-1', {
+      position: input.position,
+      department: before.department.toLocaleLowerCase('ru'),
+      rate: input.rate,
+      salary: input.salary,
+    }, 'admin-1', 'request-1')
+
+    expect(tx.department.findFirst).toHaveBeenCalled()
+    expect(tx.staffSchedule.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        departmentId: before.departmentId,
+        department: before.department,
       }),
     }))
   })

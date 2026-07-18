@@ -9,6 +9,7 @@ import type {
   DepartmentHeadCandidate,
   DepartmentListItem,
 } from '../contracts/types'
+import { withOrganizationMutation } from '@/lib/organization/organization-mutation'
 
 export type DepartmentErrorCode =
   | 'NOT_FOUND'
@@ -135,15 +136,6 @@ async function ensureHeadExists(db: DepartmentDbClient, headEmployeeId: string |
   if (!head) throw new DepartmentServiceError('HEAD_NOT_FOUND')
 }
 
-async function lockDepartmentHierarchy(db: Prisma.TransactionClient) {
-  // PostgreSQL exposes pg_advisory_xact_lock as void. Prisma cannot
-  // deserialize that type (P2010), so return its text representation while
-  // keeping the lock scoped to the current transaction.
-  await db.$queryRaw<Array<{ lock: string }>>`
-    SELECT pg_advisory_xact_lock(904202607)::text AS "lock"
-  `
-}
-
 export class DepartmentService {
   static async list(input: { activeOnly?: boolean } = {}): Promise<DepartmentListItem[]> {
     const departments = await getDb().department.findMany({
@@ -171,8 +163,7 @@ export class DepartmentService {
     const code = normalizeCode(input.code)
     const name = normalizeName(input.name)
     try {
-      return await getDb().$transaction(async (tx) => {
-        await lockDepartmentHierarchy(tx)
+      return await withOrganizationMutation(getDb(), async (tx) => {
         await Promise.all([
           ensureUnique(tx, { code, name }),
           ensureParentDoesNotCreateCycle(tx, undefined, input.parentId),
@@ -215,8 +206,7 @@ export class DepartmentService {
 
   static async update(id: string, input: UpdateDepartmentInput, actorId: string, requestId?: string) {
     try {
-      return await getDb().$transaction(async (tx) => {
-        await lockDepartmentHierarchy(tx)
+      return await withOrganizationMutation(getDb(), async (tx) => {
         const current = await tx.department.findUnique({ where: { id } })
         if (!current) throw new DepartmentServiceError('NOT_FOUND')
 
@@ -296,8 +286,7 @@ export class DepartmentService {
 
   static async delete(id: string, actorId: string, requestId?: string) {
     try {
-      return await getDb().$transaction(async (tx) => {
-        await lockDepartmentHierarchy(tx)
+      return await withOrganizationMutation(getDb(), async (tx) => {
         const department = await tx.department.findUnique({
           where: { id },
           include: departmentInclude,

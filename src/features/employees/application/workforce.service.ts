@@ -3,6 +3,7 @@ import { getStaffScheduleRateSummary, toRateNumber } from '../infrastructure/wor
 import { ServiceError } from '@/lib/errors/service-error'
 import type { CreateStaffScheduleInput, CreateVacationInput } from '../contracts/schemas'
 import { resolveDepartment } from '@/lib/organization/department-reference'
+import { withOrganizationMutation } from '@/lib/organization/organization-mutation'
 
 type WorkforceErrorCode =
   | 'NOT_FOUND'
@@ -88,7 +89,7 @@ export class WorkforceService {
   }
 
   static async createPosition(input: CreateStaffScheduleInput, actorId: string, requestId?: string) {
-    return getDb().$transaction(async (tx) => {
+    return withOrganizationMutation(getDb(), async (tx) => {
       const department = await resolveDepartment(tx, input)
       const position = await tx.staffSchedule.create({
         data: {
@@ -117,13 +118,13 @@ export class WorkforceService {
   }
 
   static async updatePosition(id: string, input: CreateStaffScheduleInput, actorId: string, requestId?: string) {
-    return getDb().$transaction(async (tx) => {
+    return withOrganizationMutation(getDb(), async (tx) => {
       const summary = await getStaffScheduleRateSummary(tx, id)
       if (!summary) throw new WorkforceServiceError('NOT_FOUND')
       if (input.rate < summary.occupiedRate) throw new WorkforceServiceError('RATE_BELOW_OCCUPIED')
       const before = await tx.staffSchedule.findUniqueOrThrow({ where: { id } })
       const department = await resolveDepartment(tx, input, {
-        allowInactive: input.departmentId === before.departmentId,
+        allowInactiveDepartmentId: before.departmentId,
       })
       if (department.id !== before.departmentId && summary.occupiedRate > 0) {
         throw new WorkforceServiceError('POSITION_DEPARTMENT_CHANGE_IN_USE')
@@ -164,7 +165,7 @@ export class WorkforceService {
   }
 
   static async deletePosition(id: string, actorId: string, requestId?: string) {
-    return getDb().$transaction(async (tx) => {
+    return withOrganizationMutation(getDb(), async (tx) => {
       const position = await tx.staffSchedule.findUnique({
         where: { id }, include: { employees: { where: { status: { not: 'DISMISSED' } }, select: { id: true } } },
       })

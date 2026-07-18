@@ -4,6 +4,7 @@ import {
   DepartmentService,
 } from '../department.service'
 import { resolveDepartment } from '@/lib/organization/department-reference'
+import { ORGANIZATION_ADVISORY_LOCK_KEY } from '@/lib/organization/organization-mutation'
 
 vi.mock('@/lib/prisma', () => ({ getDb: vi.fn() }))
 
@@ -62,9 +63,12 @@ describe('DepartmentService', () => {
     }, 'admin-1')
 
     expect(tx.$queryRaw).toHaveBeenCalledTimes(1)
-    const [query] = tx.$queryRaw.mock.calls[0]
+    const [query, lockKey] = tx.$queryRaw.mock.calls[0]
     expect(Array.from(query).join('?'))
-      .toContain('pg_advisory_xact_lock(904202607)::text')
+      .toContain('pg_advisory_xact_lock(?)::text')
+    expect(lockKey).toBe(ORGANIZATION_ADVISORY_LOCK_KEY)
+    expect(tx.$queryRaw.mock.invocationCallOrder[0])
+      .toBeLessThan(tx.department.findFirst.mock.invocationCallOrder[0])
   })
 
   it('rejects a duplicate code regardless of case', async () => {
@@ -142,6 +146,28 @@ describe('DepartmentService', () => {
       where: { departmentId: departmentRecord.id },
       data: { department: 'Исследовательский отдел' },
     })
+    expect(tx.$queryRaw.mock.invocationCallOrder[0])
+      .toBeLessThan(tx.department.findUnique.mock.invocationCallOrder[0])
+  })
+
+  it('locks before validating a new head against concurrent dismissal', async () => {
+    const tx = createTransactionMock()
+    useTransaction(tx)
+    tx.department.findFirst.mockResolvedValue(null)
+    tx.department.findUnique.mockResolvedValue(departmentRecord)
+    tx.employee.findFirst.mockResolvedValue({ id: 'employee-head' })
+    tx.department.update.mockResolvedValue({
+      ...departmentRecord,
+      headEmployeeId: 'employee-head',
+    })
+    tx.auditLog.create.mockResolvedValue({})
+
+    await DepartmentService.update(departmentRecord.id, {
+      headEmployeeId: 'employee-head',
+    }, 'admin-1')
+
+    expect(tx.$queryRaw.mock.invocationCallOrder[0])
+      .toBeLessThan(tx.employee.findFirst.mock.invocationCallOrder[0])
   })
 
   it('does not delete a department referenced by domain data', async () => {
@@ -190,5 +216,51 @@ describe('resolveDepartment', () => {
       .rejects.toMatchObject({ code: 'DEPARTMENT_REQUIRED' })
     expect(db.department.findFirst).not.toHaveBeenCalled()
     expect(db.department.findUnique).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    {
+      label: 'ID',
+      reference: { departmentId: departmentRecord.id },
+      method: 'findUnique',
+    },
+    {
+      label: 'legacy name',
+      reference: { department: departmentRecord.name.toLocaleLowerCase('ru') },
+      method: 'findFirst',
+    },
+  ])('allows preserving the same inactive department by $label', async ({ reference, method }) => {
+    const findUnique = vi.fn().mockResolvedValue({
+      id: departmentRecord.id,
+      name: departmentRecord.name,
+      isActive: false,
+    })
+    const findFirst = vi.fn().mockResolvedValue({
+      id: departmentRecord.id,
+      name: departmentRecord.name,
+      isActive: false,
+    })
+    const db = { department: { findUnique, findFirst } }
+
+    await expect(resolveDepartment(db as never, reference, {
+      allowInactiveDepartmentId: departmentRecord.id,
+    })).resolves.toMatchObject({ id: departmentRecord.id, isActive: false })
+    expect(method === 'findUnique' ? findUnique : findFirst).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects assigning a different inactive department through a legacy name', async () => {
+    const db = {
+      department: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'department-other',
+          name: 'Закрытый отдел',
+          isActive: false,
+        }),
+      },
+    }
+
+    await expect(resolveDepartment(db as never, { department: 'закрытый отдел' }, {
+      allowInactiveDepartmentId: departmentRecord.id,
+    })).rejects.toMatchObject({ code: 'INACTIVE_DEPARTMENT' })
   })
 })

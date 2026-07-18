@@ -13,6 +13,7 @@ import type { CreateEmployeeInput } from '../contracts/schemas'
 import { getStartOfToday } from '../infrastructure/workforce.repository'
 import { parseOptionalDate, parseRequiredDate } from '../domain/hr-domain'
 import { resolveDepartment } from '@/lib/organization/department-reference'
+import { withOrganizationMutation } from '@/lib/organization/organization-mutation'
 
 export class EmployeeService {
   static async list(input: { scope: 'active' | 'archive' | 'expired' | 'all'; page: number; pageSize: number }) {
@@ -51,7 +52,7 @@ export class EmployeeService {
     ensureValidEmploymentRate(employmentRate)
     ensureValidContractDateRange(contractSignedDate, contractEndDate)
 
-    return prisma.$transaction(async (tx) => {
+    return withOrganizationMutation(prisma, async (tx) => {
       const position = await resolveAssignablePosition(tx, {
         staffScheduleId: data.staffScheduleId,
         employmentRate,
@@ -97,7 +98,7 @@ export class EmployeeService {
   }
 
   static async updateEmployee(id: string, data: UpdateEmployeeInput, actorId?: string, requestId?: string) {
-    return prisma.$transaction(async (tx) => {
+    return withOrganizationMutation(prisma, async (tx) => {
       const existingEmployee = await tx.employee.findUnique({
         where: { id },
         include: {
@@ -135,7 +136,9 @@ export class EmployeeService {
       const targetDepartment = position
         ? { id: position.departmentId, name: position.department }
         : data.department
-          ? await resolveDepartment(tx, { department: data.department }, { allowInactive: true })
+          ? await resolveDepartment(tx, { department: data.department }, {
+              allowInactiveDepartmentId: existingEmployee.departmentId,
+            })
           : { id: existingEmployee.departmentId, name: existingEmployee.department }
 
       const updatedEmployee = await tx.employee.update({
@@ -209,7 +212,7 @@ export class EmployeeService {
   }
 
   static async dismissEmployee(id: string, actorId?: string, requestId?: string) {
-    return prisma.$transaction(async (tx) => {
+    return withOrganizationMutation(prisma, async (tx) => {
       const employee = await tx.employee.findUnique({
         where: { id },
         include: {

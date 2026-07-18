@@ -87,8 +87,8 @@ BEGIN
                 WHERE LOWER("code") = LOWER(candidate_code)
                    OR LOWER("name") = LOWER(candidate_name)
             ) THEN
-                INSERT INTO "departments" ("id", "code", "name", "updatedAt")
-                VALUES ('dept_unassigned', candidate_code, candidate_name, CURRENT_TIMESTAMP);
+                INSERT INTO "departments" ("id", "code", "name", "isActive", "updatedAt")
+                VALUES ('dept_unassigned', candidate_code, candidate_name, false, CURRENT_TIMESTAMP);
                 EXIT;
             END IF;
 
