@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client'
 import { getDb } from '@/lib/prisma'
 import { ServiceError } from '@/lib/errors/service-error'
 import type { CreateGroupInput, CreateMolInput } from '../contracts/schemas'
+import { resolveDepartment } from '@/lib/organization/department-reference'
 
 type CatalogErrorCode = 'NOT_FOUND' | 'CODE_EXISTS' | 'IN_USE'
 export class CatalogServiceError extends ServiceError<CatalogErrorCode> {}
@@ -97,7 +98,17 @@ export class CatalogService {
   static async createMol(input: CreateMolInput, actorId: string, requestId?: string) {
     try {
       return await getDb().$transaction(async (tx) => {
-        const mol = await tx.mol.create({ data: input })
+        const department = await resolveDepartment(tx, input)
+        const mol = await tx.mol.create({
+          data: {
+            code: input.code,
+            fullName: input.fullName,
+            storageLocation: input.storageLocation,
+            photo: input.photo,
+            department: department.name,
+            departmentId: department.id,
+          },
+        })
         await tx.auditLog.create({
           data: {
             userId: actorId, requestId, action: 'MOL_CREATE', entityType: 'Mol', entityId: mol.id,
@@ -117,7 +128,20 @@ export class CatalogService {
       return await getDb().$transaction(async (tx) => {
         const current = await tx.mol.findUnique({ where: { id } })
         if (!current) throw new CatalogServiceError('NOT_FOUND')
-        const mol = await tx.mol.update({ where: { id }, data: input })
+        const department = await resolveDepartment(tx, input, {
+          allowInactive: input.departmentId === current.departmentId,
+        })
+        const mol = await tx.mol.update({
+          where: { id },
+          data: {
+            code: input.code,
+            fullName: input.fullName,
+            storageLocation: input.storageLocation,
+            photo: input.photo,
+            department: department.name,
+            departmentId: department.id,
+          },
+        })
         await tx.auditLog.create({
           data: {
             userId: actorId, requestId, action: 'MOL_UPDATE', entityType: 'Mol', entityId: id,

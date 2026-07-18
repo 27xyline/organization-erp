@@ -29,10 +29,14 @@ export const createAssetSchema = z.object({
 
 export const createMolSchema = z.object({
   code: z.string().min(1, 'Код МОЛ обязателен').max(50),
-  department: z.string().min(1, 'Подразделение обязательно').max(200),
+  departmentId: z.string().trim().min(1).max(100).optional(),
+  department: z.string().trim().min(1, 'Подразделение обязательно').max(200).optional(),
   fullName: z.string().min(1, 'ФИО обязательно').max(200),
   storageLocation: z.string().min(1, 'Место хранения обязательно').max(300),
   photo: z.string().optional().nullable(),
+}).refine((value) => value.departmentId || value.department, {
+  path: ['departmentId'],
+  message: 'Подразделение обязательно',
 })
 
 export const createGroupSchema = z.object({

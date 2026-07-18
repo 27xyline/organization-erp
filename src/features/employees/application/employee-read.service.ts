@@ -12,7 +12,7 @@ export class EmployeeReadService {
     const db = getDb()
     const startOfYear = new Date(year, 0, 1)
     const endOfYear = new Date(year, 11, 31, 23, 59, 59, 999)
-    const [employees, positions, vacations, actions] = await Promise.all([
+    const [employees, positions, departments, vacations, actions] = await Promise.all([
       db.employee.findMany({
         where: { status: { not: 'DISMISSED' } },
         orderBy: { fullName: 'asc' },
@@ -21,6 +21,11 @@ export class EmployeeReadService {
       db.staffSchedule.findMany({
         orderBy: [{ department: 'asc' }, { position: 'asc' }],
         include: { employees: { where: { status: { not: 'DISMISSED' } } } },
+      }),
+      db.department.findMany({
+        where: { isActive: true },
+        orderBy: { name: 'asc' },
+        select: { id: true, code: true, name: true },
       }),
       db.vacation.findMany({
         where: { startDate: { lte: endOfYear }, endDate: { gte: startOfYear } },
@@ -37,6 +42,7 @@ export class EmployeeReadService {
     return {
       employees: employees.map(normalizeEmployee),
       staffSchedule: positions.map(normalizeStaffSchedule),
+      departments,
       vacations: vacations.map(normalizeVacation),
       personnelActions: actions.map(normalizePersonnelAction),
     }

@@ -9,6 +9,7 @@ import { UpdateEmployeeInput } from '../contracts/employee'
 import type { CreateEmployeeInput } from '../contracts/schemas'
 import { getStartOfToday } from '../infrastructure/workforce.repository'
 import { parseOptionalDate, parseRequiredDate } from '../domain/hr-domain'
+import { resolveDepartment } from '@/lib/organization/department-reference'
 
 export class EmployeeService {
   static async list(input: { scope: 'active' | 'archive' | 'expired' | 'all'; page: number; pageSize: number }) {
@@ -54,6 +55,7 @@ export class EmployeeService {
           code: data.code,
           fullName: data.fullName,
           department: position!.department,
+          departmentId: position!.departmentId,
           photo: data.photo,
           phone: data.phone,
           email: data.email,
@@ -120,13 +122,19 @@ export class EmployeeService {
         employmentRate,
         status,
       })
+      const targetDepartment = position
+        ? { id: position.departmentId, name: position.department }
+        : data.department
+          ? await resolveDepartment(tx, { department: data.department }, { allowInactive: true })
+          : { id: existingEmployee.departmentId, name: existingEmployee.department }
 
       const updatedEmployee = await tx.employee.update({
         where: { id },
         data: {
           code: data.code,
           fullName: data.fullName,
-          department: position?.department || data.department || undefined,
+          department: targetDepartment.name,
+          departmentId: targetDepartment.id,
           photo: data.photo,
           phone: data.phone,
           email: data.email,
@@ -143,7 +151,7 @@ export class EmployeeService {
         },
       })
 
-      const newDepartment = position?.department || data.department || existingEmployee.department
+      const newDepartment = targetDepartment.name
       const changedFields: string[] = []
 
       // Audit logic

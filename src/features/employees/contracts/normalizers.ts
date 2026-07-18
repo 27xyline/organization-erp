@@ -5,6 +5,7 @@ export const normalizeEmployee = (employee: any): Employee => ({
   code: employee.code,
   fullName: employee.fullName,
   department: employee.department,
+  departmentId: employee.departmentId,
   phone: employee.phone || '',
   email: employee.email || '',
   photo: employee.photo || '',
@@ -20,6 +21,7 @@ export const normalizeEmployee = (employee: any): Employee => ({
         id: employee.staffSchedule.id,
         position: employee.staffSchedule.position,
         department: employee.staffSchedule.department,
+        departmentId: employee.staffSchedule.departmentId,
         rate: Number(employee.staffSchedule.rate || 0),
         salary: Number(employee.staffSchedule.salary || 0),
       }
@@ -36,6 +38,7 @@ export const normalizeStaffSchedule = (position: any): StaffSchedule => {
     id: position.id,
     position: position.position,
     department: position.department,
+    departmentId: position.departmentId,
     rate: Number(position.rate || 0),
     salary: Number(position.salary || 0),
     occupiedRate,

@@ -8,6 +8,7 @@ export const employeeSelect = {
   id: true,
   fullName: true,
   department: true,
+  departmentId: true,
   status: true,
   contractType: true,
   contractSignedDate: true,
@@ -15,7 +16,7 @@ export const employeeSelect = {
   contractNumber: true,
   staffScheduleId: true,
   employmentRate: true,
-  staffSchedule: { select: { id: true, position: true, department: true } },
+  staffSchedule: { select: { id: true, position: true, department: true, departmentId: true } },
 } as const
 
 export async function resolveAssignablePosition(

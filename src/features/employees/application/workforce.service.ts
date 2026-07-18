@@ -2,6 +2,7 @@ import { getDb } from '@/lib/prisma'
 import { getStaffScheduleRateSummary, toRateNumber } from '../infrastructure/workforce.repository'
 import { ServiceError } from '@/lib/errors/service-error'
 import type { CreateStaffScheduleInput, CreateVacationInput } from '../contracts/schemas'
+import { resolveDepartment } from '@/lib/organization/department-reference'
 
 type WorkforceErrorCode = 'NOT_FOUND' | 'INVALID_DATES' | 'RATE_BELOW_OCCUPIED' | 'POSITION_IN_USE'
 export class WorkforceServiceError extends ServiceError<WorkforceErrorCode> {}
@@ -80,8 +81,15 @@ export class WorkforceService {
 
   static async createPosition(input: CreateStaffScheduleInput, actorId: string, requestId?: string) {
     return getDb().$transaction(async (tx) => {
+      const department = await resolveDepartment(tx, input)
       const position = await tx.staffSchedule.create({
-        data: { ...input, position: input.position.trim() },
+        data: {
+          position: input.position.trim(),
+          department: department.name,
+          departmentId: department.id,
+          rate: input.rate,
+          salary: input.salary,
+        },
       })
       await tx.auditLog.create({
         data: {
@@ -99,8 +107,18 @@ export class WorkforceService {
       if (!summary) throw new WorkforceServiceError('NOT_FOUND')
       if (input.rate < summary.occupiedRate) throw new WorkforceServiceError('RATE_BELOW_OCCUPIED')
       const before = await tx.staffSchedule.findUniqueOrThrow({ where: { id } })
+      const department = await resolveDepartment(tx, input, {
+        allowInactive: input.departmentId === before.departmentId,
+      })
       const position = await tx.staffSchedule.update({
-        where: { id }, data: { ...input, position: input.position.trim() },
+        where: { id },
+        data: {
+          position: input.position.trim(),
+          department: department.name,
+          departmentId: department.id,
+          rate: input.rate,
+          salary: input.salary,
+        },
       })
       await tx.auditLog.create({
         data: {

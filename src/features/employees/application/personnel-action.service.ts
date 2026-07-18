@@ -89,6 +89,7 @@ export class PersonnelActionService {
             code: data.employeeData.code,
             fullName: data.employeeData.fullName,
             department: hirePosition?.department || '',
+            departmentId: hirePosition!.departmentId,
             phone: data.employeeData.phone || null,
             email: data.employeeData.email || null,
             photo: data.employeeData.photo || null,
@@ -171,6 +172,7 @@ export class PersonnelActionService {
       let newPosition = data.newPosition || nextPosition?.position || oldPosition
       let nextStatus = employee.status
       let nextStaffScheduleId = employee.staffScheduleId
+      let nextDepartmentId = employee.departmentId
       let nextContractEndDate = employee.contractEndDate || null
       let nextEmploymentRate = currentEmploymentRate
 
@@ -185,7 +187,8 @@ export class PersonnelActionService {
           ensurePositionRequired(data.staffScheduleId, 'ACTIVE')
           nextStatus = 'ACTIVE'
           nextStaffScheduleId = data.staffScheduleId || employee.staffScheduleId || null
-          newDepartment = data.newDepartment || nextPosition?.department || employee.department
+          newDepartment = nextPosition!.department
+          nextDepartmentId = nextPosition!.departmentId
           newPosition = data.newPosition || nextPosition?.position || employee.staffSchedule?.position || null
           nextEmploymentRate = requestedEmploymentRate
           break
@@ -207,7 +210,8 @@ export class PersonnelActionService {
         case 'PROMOTE':
           nextStatus = 'ACTIVE'
           nextStaffScheduleId = data.staffScheduleId || employee.staffScheduleId || null
-          newDepartment = data.newDepartment || nextPosition?.department || employee.department
+          newDepartment = nextPosition!.department
+          nextDepartmentId = nextPosition!.departmentId
           newPosition = data.newPosition || nextPosition?.position || employee.staffSchedule?.position || null
           nextEmploymentRate = requestedEmploymentRate
           break
@@ -239,6 +243,7 @@ export class PersonnelActionService {
         where: { id: employee.id },
         data: {
           department: newDepartment || employee.department,
+          departmentId: nextDepartmentId,
           status: nextStatus,
           staffScheduleId: nextStaffScheduleId,
           contractEndDate: nextContractEndDate,
