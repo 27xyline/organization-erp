@@ -29,6 +29,10 @@ import { LazyProjectGantt } from '@/features/projects/ui/lazy-gantt'
 import { ProjectPayrollSection } from '@/features/finance/ui/project-payroll-section'
 import { ProjectService } from '@/features/projects/application/project.service'
 import { requirePagePermission } from '@/lib/auth/authorization'
+import { getDocumentService } from '@/features/documents/application/document.service'
+import type { DocumentView } from '@/features/documents/contracts/ui-types'
+import { ProjectWorkspaceService } from '@/features/projects/application/project-workspace.service'
+import { ProjectWorkspaceSection } from './project-workspace-section'
 
 interface ProjectPageProps {
   params: Promise<{ id: string }>
@@ -57,6 +61,30 @@ export default async function ProjectPage(props: ProjectPageProps) {
     user.access.allows('projectMembers.update', projectTarget)
   const canReadPayroll = user.access.allows('projectPayroll.read', projectTarget)
   const canEditPayroll = user.access.allows('projectPayroll.update', projectTarget)
+  const documentTarget = { documentProjectId: project.id }
+  const canReadDocuments = user.access.allows('documents.read', documentTarget)
+  const canCreateDocuments = user.access.allows('documents.create', documentTarget)
+  const [documentResult, projectActivities] = await Promise.all([
+    canReadDocuments
+      ? getDocumentService().list({
+          page: 1,
+          pageSize: 10,
+          projectId: project.id,
+          archived: false,
+        }, { id: user.id, access: user.access })
+      : Promise.resolve({ documents: [], total: 0 }),
+    ProjectWorkspaceService.activity(project.id),
+  ])
+  const projectDocuments = documentResult.documents.map((document) => ({
+    ...document,
+    archivedAt: document.archivedAt?.toISOString() || null,
+    createdAt: document.createdAt.toISOString(),
+    updatedAt: document.updatedAt.toISOString(),
+    versions: document.versions.map((version) => ({
+      ...version,
+      createdAt: version.createdAt.toISOString(),
+    })),
+  })) as DocumentView[]
 
   // Calculate budget remaining
   const remainingBudget = Number(project.plannedBudget) - Number(project.actualBudget)
@@ -309,6 +337,16 @@ export default async function ProjectPage(props: ProjectPageProps) {
       </div>
 
       <div className="mt-8 space-y-6">
+        <ProjectWorkspaceSection
+          project={{ id: project.id, code: project.code, name: project.name }}
+          documents={projectDocuments}
+          activities={projectActivities.map((activity) => ({
+            ...activity,
+            createdAt: activity.createdAt.toISOString(),
+          }))}
+          canCreateDocuments={canCreateDocuments}
+        />
+
         {(canReadMembers || canReadPayroll) && <Card className="overflow-hidden">
           <ProjectPayrollSection
             projectId={project.id}
