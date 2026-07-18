@@ -174,9 +174,26 @@ ALTER TABLE "mols"
     ADD CONSTRAINT "mols_departmentId_fkey"
     FOREIGN KEY ("departmentId") REFERENCES "departments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- Defense in depth for writes outside the application service. The advisory
--- transaction lock serializes hierarchy changes, while the recursive walk
--- rejects both direct and deep cycles.
+-- Defense in depth for writes outside the application service. Acquire the
+-- organization lock at statement level, before PostgreSQL takes row locks, so
+-- external SQL follows the same lock order as application transactions.
+CREATE FUNCTION "acquire_department_mutation_lock"()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM pg_advisory_xact_lock(904202607);
+    RETURN NULL;
+END;
+$$;
+
+CREATE TRIGGER "departments_acquire_mutation_lock"
+BEFORE INSERT OR UPDATE OR DELETE ON "departments"
+FOR EACH STATEMENT
+EXECUTE FUNCTION "acquire_department_mutation_lock"();
+
+-- The row-level trigger only validates hierarchy cycles. Lock acquisition is
+-- intentionally kept in the statement trigger above to avoid lock inversion.
 CREATE FUNCTION "prevent_department_hierarchy_cycle"()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -184,7 +201,6 @@ AS $$
 DECLARE
     has_cycle BOOLEAN;
 BEGIN
-    PERFORM pg_advisory_xact_lock(904202607);
     IF NEW."parentId" IS NULL THEN
         RETURN NEW;
     END IF;
