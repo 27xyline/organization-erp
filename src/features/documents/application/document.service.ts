@@ -1,4 +1,4 @@
-import type { Readable } from 'node:stream'
+import { Readable } from 'node:stream'
 import {
   DocumentStatus,
   Prisma,
@@ -9,6 +9,7 @@ import type {
   ChangeDocumentStatus,
   CreateDocumentMetadata,
   DocumentsQuery,
+  GenerateDocumentInput,
 } from '../contracts/document'
 import {
   assertDocumentPermission,
@@ -22,6 +23,7 @@ import {
 } from '../domain/file-policy'
 import { getDocumentStorage } from '../infrastructure/document-storage'
 import type { StoragePort } from '../infrastructure/storage.port'
+import { renderDocumentTemplate } from '../domain/document-template'
 import { getDb } from '@/lib/prisma'
 import type { PermissionTarget } from '@/lib/auth/access-context'
 import type { Permission } from '@/lib/auth/permissions'
@@ -358,6 +360,36 @@ export class DocumentService {
       await this.storage.delete(stored.storageKey)
       throw error
     }
+  }
+
+  async createGenerated(
+    input: GenerateDocumentInput,
+    actor: DocumentActor,
+    requestId?: string,
+  ) {
+    const rendered = renderDocumentTemplate(input)
+    const content = Buffer.from(rendered.content, 'utf8')
+    return this.create(
+      {
+        title: input.title,
+        description: `Создано по шаблону: ${
+          input.template === 'PERSONNEL_ORDER' ? 'приказ' : 'акт'
+        }`,
+        category: rendered.category,
+        projectId: input.projectId,
+        employeeId: input.employeeId,
+        assetId: input.assetId,
+        filename: rendered.filename,
+      },
+      {
+        stream: Readable.from(content),
+        filename: rendered.filename,
+        mimeType: 'text/plain',
+        declaredSizeBytes: content.byteLength,
+      },
+      actor,
+      requestId,
+    )
   }
 
   async addVersion(
