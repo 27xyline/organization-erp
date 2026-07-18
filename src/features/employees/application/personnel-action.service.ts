@@ -8,7 +8,11 @@ import {
   parseOptionalDate,
   parseRequiredDate,
 } from '../domain/hr-domain'
-import { employeeSelect, resolveAssignablePosition } from '../infrastructure/employee.repository'
+import {
+  clearEmployeeDepartmentLeadership,
+  employeeSelect,
+  resolveAssignablePosition,
+} from '../infrastructure/employee.repository'
 import { CreatePersonnelActionInput } from '../contracts/schemas'
 import { ensureExpiredContractArchiveActions } from '../infrastructure/workforce.repository'
 
@@ -168,7 +172,10 @@ export class PersonnelActionService {
             ? await tx.staffSchedule.findUnique({ where: { id: data.staffScheduleId } })
             : null
 
-      let newDepartment = data.newDepartment || oldDepartment
+      // Department changes are only allowed through a normalized staff position
+      // in TRANSFER/PROMOTE. Other actions must not desynchronize the legacy
+      // snapshot from employee.departmentId.
+      let newDepartment = oldDepartment
       let newPosition = data.newPosition || nextPosition?.position || oldPosition
       let nextStatus = employee.status
       let nextStaffScheduleId = employee.staffScheduleId
@@ -250,11 +257,19 @@ export class PersonnelActionService {
           employmentRate: nextEmploymentRate,
         },
       })
+      const clearedDepartmentHeads = data.type === 'DISMISS'
+        ? await clearEmployeeDepartmentLeadership(tx, employee.id)
+        : []
 
       if (actorId) await tx.auditLog.create({
         data: {
           userId: actorId, requestId, action: 'PERSONNEL_ACTION_CREATE', entityType: 'PersonnelAction',
-          entityId: action.id, details: { employeeId: employee.id, type: action.type },
+          entityId: action.id,
+          details: {
+            employeeId: employee.id,
+            type: action.type,
+            clearedDepartmentHeads,
+          },
         },
       })
 

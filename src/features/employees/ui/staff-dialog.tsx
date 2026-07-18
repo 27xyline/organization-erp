@@ -15,7 +15,7 @@ interface StaffDialogProps {
   formData: any
   setFormData: React.Dispatch<React.SetStateAction<any>>
   onSave: (e: React.FormEvent) => void
-  departments: Array<{ id: string; code: string; name: string }>
+  departments: Array<{ id: string; code: string; name: string; isActive: boolean }>
 }
 
 const normalizeEmploymentRateInput = (value: string) => {
@@ -73,8 +73,13 @@ export function StaffDialog({
               </SelectTrigger>
               <SelectContent>
                 {departments.map((department) => (
-                  <SelectItem key={department.id} value={department.id}>
+                  <SelectItem
+                    key={department.id}
+                    value={department.id}
+                    disabled={!department.isActive && department.id !== editingStaff?.departmentId}
+                  >
                     {department.name} ({department.code})
+                    {!department.isActive ? ' · неактивно' : ''}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -112,7 +112,15 @@ export class CatalogService {
         await tx.auditLog.create({
           data: {
             userId: actorId, requestId, action: 'MOL_CREATE', entityType: 'Mol', entityId: mol.id,
-            details: { after: { id: mol.id, code: mol.code, fullName: mol.fullName } },
+            details: {
+              after: {
+                id: mol.id,
+                code: mol.code,
+                fullName: mol.fullName,
+                departmentId: mol.departmentId,
+                department: mol.department,
+              },
+            },
           },
         })
         return mol
@@ -146,8 +154,18 @@ export class CatalogService {
           data: {
             userId: actorId, requestId, action: 'MOL_UPDATE', entityType: 'Mol', entityId: id,
             details: {
-              before: { code: current.code, fullName: current.fullName },
-              after: { code: mol.code, fullName: mol.fullName },
+              before: {
+                code: current.code,
+                fullName: current.fullName,
+                departmentId: current.departmentId,
+                department: current.department,
+              },
+              after: {
+                code: mol.code,
+                fullName: mol.fullName,
+                departmentId: mol.departmentId,
+                department: mol.department,
+              },
             },
           },
         })
@@ -168,7 +186,14 @@ export class CatalogService {
         await tx.auditLog.create({
           data: {
             userId: actorId, requestId, action: 'MOL_DELETE', entityType: 'Mol', entityId: id,
-            details: { before: { code: current.code, fullName: current.fullName } },
+            details: {
+              before: {
+                code: current.code,
+                fullName: current.fullName,
+                departmentId: current.departmentId,
+                department: current.department,
+              },
+            },
           },
         })
         return { success: true }

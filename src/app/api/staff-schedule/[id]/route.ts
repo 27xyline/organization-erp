@@ -10,6 +10,8 @@ import {
 
 const mapError = (error: WorkforceServiceError) => error.code === 'NOT_FOUND'
   ? apiError(error.code, 'Должность не найдена', 404)
+  : error.code === 'POSITION_DEPARTMENT_CHANGE_IN_USE'
+    ? apiError(error.code, 'Нельзя изменить подразделение должности с назначенными сотрудниками', 409)
   : apiError(error.code, error.code === 'POSITION_IN_USE'
     ? 'Нельзя удалить должность с назначенными сотрудниками'
     : 'Нельзя уменьшить количество ставок ниже занятого значения', 409)

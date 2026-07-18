@@ -107,7 +107,7 @@ const createInitialActionForm = (employee?: Employee | null, type: PersonnelActi
 export interface EmployeesInitialData {
   employees: Employee[]
   staffSchedule: StaffSchedule[]
-  departments: Array<{ id: string; code: string; name: string }>
+  departments: Array<{ id: string; code: string; name: string; isActive: boolean }>
   vacations: Vacation[]
   personnelActions: PersonnelAction[]
 }
@@ -153,7 +153,7 @@ export function useEmployeesPage(initialData?: EmployeesInitialData) {
       const [employeesResponse, staffResponse, departmentsResponse] = await Promise.all([
         fetch('/api/employees?scope=active'),
         fetch('/api/staff-schedule'),
-        fetch('/api/departments?activeOnly=true'),
+        fetch('/api/departments'),
       ])
 
       if (employeesResponse.ok) {
@@ -172,6 +172,7 @@ export function useEmployeesPage(initialData?: EmployeesInitialData) {
           id: department.id,
           code: department.code,
           name: department.name,
+          isActive: department.isActive,
         })))
       }
 
@@ -285,7 +286,9 @@ export function useEmployeesPage(initialData?: EmployeesInitialData) {
   const employeePositionOptions = useMemo(
     () =>
       staffSchedule.filter(
-        (position) => getAssignableRateForPosition(position, editingEmployee?.id) > 0 || position.id === editingEmployee?.staffScheduleId
+        (position) =>
+          (position.departmentActive && getAssignableRateForPosition(position, editingEmployee?.id) > 0)
+          || position.id === editingEmployee?.staffScheduleId
       ),
     [editingEmployee?.id, editingEmployee?.staffScheduleId, staffSchedule]
   )
@@ -293,9 +296,11 @@ export function useEmployeesPage(initialData?: EmployeesInitialData) {
   const transferPositionOptions = useMemo(
     () =>
       staffSchedule.filter(
-        (position) => getAssignableRateForPosition(position, selectedActionEmployee?.id) > 0 || position.id === selectedActionEmployee?.staffScheduleId
+        (position) =>
+          position.departmentActive
+          && getAssignableRateForPosition(position, selectedActionEmployee?.id) > 0
       ),
-    [selectedActionEmployee?.id, selectedActionEmployee?.staffScheduleId, staffSchedule]
+    [selectedActionEmployee?.id, staffSchedule]
   )
 
   const getLiveEmployeeStatus = useCallback((employee: Employee) => {

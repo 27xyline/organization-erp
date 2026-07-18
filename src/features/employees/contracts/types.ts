@@ -24,6 +24,7 @@ export interface Employee {
     position: string
     department: string
     departmentId: string
+    departmentActive: boolean
     rate: number
     salary: number
   } | null
@@ -34,6 +35,7 @@ export interface StaffSchedule {
   position: string
   department: string
   departmentId: string
+  departmentActive: boolean
   rate: number
   salary: number
   occupiedRate: number

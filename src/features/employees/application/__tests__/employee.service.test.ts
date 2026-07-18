@@ -91,4 +91,40 @@ describe('EmployeeService.updateEmployee', () => {
       }),
     }))
   })
+
+  it('clears department leadership and audits it when dismissing an employee', async () => {
+    const updatedEmployee = { ...existingEmployee, status: 'DISMISSED' }
+    const tx = {
+      employee: {
+        findUnique: vi.fn().mockResolvedValue(existingEmployee),
+        update: vi.fn().mockResolvedValue(updatedEmployee),
+      },
+      department: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: 'department-old', code: 'DEP-OLD', name: 'Отдел' },
+        ]),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      personnelAction: { create: vi.fn().mockResolvedValue({}) },
+      auditLog: { create: vi.fn().mockResolvedValue({}) },
+    }
+    vi.mocked(prisma.$transaction).mockImplementationOnce(async (callback) => callback(tx as never))
+
+    await EmployeeService.dismissEmployee('emp-1', 'admin-1', 'request-1')
+
+    expect(tx.department.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['department-old'] } },
+      data: { headEmployeeId: null },
+    })
+    expect(tx.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        action: 'EMPLOYEE_DISMISS',
+        details: expect.objectContaining({
+          clearedDepartmentHeads: [
+            { id: 'department-old', code: 'DEP-OLD', name: 'Отдел' },
+          ],
+        }),
+      }),
+    }))
+  })
 })

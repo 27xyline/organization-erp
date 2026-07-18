@@ -3,8 +3,8 @@ import { DepartmentsClient } from '@/features/departments/ui/departments-client'
 import { requirePageUser } from '@/lib/auth/authorization'
 
 export default async function DepartmentsPage() {
-  const [, departments, headCandidates] = await Promise.all([
-    requirePageUser(['ADMIN']),
+  await requirePageUser(['ADMIN'])
+  const [departments, headCandidates] = await Promise.all([
     DepartmentService.list(),
     DepartmentService.listHeadCandidates(),
   ])
@@ -16,4 +16,3 @@ export default async function DepartmentsPage() {
     />
   )
 }
-

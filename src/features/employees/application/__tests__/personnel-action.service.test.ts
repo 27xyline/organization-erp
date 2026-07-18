@@ -19,6 +19,7 @@ describe('PersonnelActionService.createAction', () => {
   const employee = {
     id: 'emp-1',
     department: 'НИО',
+    departmentId: 'department-1',
     status: 'ACTIVE',
     contractSignedDate: new Date('2024-01-01'),
     contractEndDate: new Date('2024-12-31'),
@@ -28,6 +29,7 @@ describe('PersonnelActionService.createAction', () => {
       id: 'staff-1',
       position: 'Инженер',
       department: 'НИО',
+      departmentId: 'department-1',
     },
   }
 
@@ -101,6 +103,7 @@ describe('PersonnelActionService.createAction', () => {
       id: 'staff-2',
       position: 'Ведущий инженер',
       department: 'НИО',
+      departmentId: 'department-1',
     } as never)
 
     const result = await PersonnelActionService.createAction({
@@ -133,6 +136,15 @@ describe('PersonnelActionService.createAction', () => {
       personnelAction: {
         create: vi.fn().mockResolvedValue(dismissedAction),
       },
+      department: {
+        findMany: vi.fn().mockResolvedValue([
+          { id: 'department-1', code: 'DEP-1', name: 'НИО' },
+        ]),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      auditLog: {
+        create: vi.fn().mockResolvedValue({}),
+      },
     }
     vi.mocked(prisma.$transaction).mockImplementation(async (callback) => callback(tx as never))
 
@@ -141,7 +153,7 @@ describe('PersonnelActionService.createAction', () => {
       date: '2024-05-01',
       employeeId: employee.id,
       description: 'Уволен',
-    })
+    }, 'admin-1', 'request-1')
 
     expect(result).toEqual(dismissedAction)
     expect(tx.personnelAction.create).toHaveBeenCalledWith(expect.objectContaining({
@@ -158,6 +170,51 @@ describe('PersonnelActionService.createAction', () => {
         status: 'DISMISSED',
         staffScheduleId: employee.staffScheduleId,
         employmentRate: employee.employmentRate,
+      }),
+    }))
+    expect(tx.department.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['department-1'] } },
+      data: { headEmployeeId: null },
+    })
+    expect(tx.auditLog.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        details: expect.objectContaining({
+          clearedDepartmentHeads: [
+            { id: 'department-1', code: 'DEP-1', name: 'НИО' },
+          ],
+        }),
+      }),
+    }))
+  })
+
+  it('does not let a non-transfer action desynchronize the department snapshot', async () => {
+    const tx = {
+      employee: {
+        findUnique: vi.fn().mockResolvedValue(employee),
+        update: vi.fn().mockResolvedValue(null),
+      },
+      personnelAction: {
+        create: vi.fn().mockResolvedValue({ id: 'action-edit' }),
+      },
+    }
+    vi.mocked(prisma.$transaction).mockImplementation(async (callback) => callback(tx as never))
+
+    await PersonnelActionService.createAction({
+      type: 'EDIT',
+      date: '2024-06-01',
+      employeeId: employee.id,
+      newDepartment: 'Произвольная строка',
+    })
+
+    expect(tx.employee.update).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        department: employee.department,
+        departmentId: employee.departmentId,
+      }),
+    }))
+    expect(tx.personnelAction.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        newDepartment: employee.department,
       }),
     }))
   })

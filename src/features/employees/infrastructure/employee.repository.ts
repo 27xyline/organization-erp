@@ -3,6 +3,7 @@ import { getStaffScheduleRateSummary } from './workforce.repository'
 import { ensurePositionRequired, hrError } from '../domain/hr-domain'
 
 type StaffScheduleDbClient = Pick<PrismaClient, 'employee' | 'staffSchedule'> | Prisma.TransactionClient
+type DepartmentHeadDbClient = Pick<PrismaClient, 'department'> | Prisma.TransactionClient
 
 export const employeeSelect = {
   id: true,
@@ -16,7 +17,15 @@ export const employeeSelect = {
   contractNumber: true,
   staffScheduleId: true,
   employmentRate: true,
-  staffSchedule: { select: { id: true, position: true, department: true, departmentId: true } },
+  staffSchedule: {
+    select: {
+      id: true,
+      position: true,
+      department: true,
+      departmentId: true,
+      departmentRef: { select: { isActive: true } },
+    },
+  },
 } as const
 
 export async function resolveAssignablePosition(
@@ -26,13 +35,20 @@ export async function resolveAssignablePosition(
     employeeId?: string
     employmentRate: number
     status: string
+    allowInactiveCurrentPosition?: boolean
   },
 ) {
   ensurePositionRequired(input.staffScheduleId, input.status)
   if (!input.staffScheduleId) return null
 
-  const position = await db.staffSchedule.findUnique({ where: { id: input.staffScheduleId } })
+  const position = await db.staffSchedule.findUnique({
+    where: { id: input.staffScheduleId },
+    include: { departmentRef: { select: { isActive: true } } },
+  })
   if (!position) throw hrError('POSITION_NOT_FOUND')
+  if (!position.departmentRef.isActive && !input.allowInactiveCurrentPosition) {
+    throw hrError('INACTIVE_POSITION_DEPARTMENT')
+  }
 
   const summary = await getStaffScheduleRateSummary(db, input.staffScheduleId, input.employeeId)
   if (!summary) throw hrError('POSITION_NOT_FOUND')
@@ -40,4 +56,21 @@ export async function resolveAssignablePosition(
     throw hrError('INSUFFICIENT_POSITION_RATE')
   }
   return position
+}
+
+export async function clearEmployeeDepartmentLeadership(
+  db: DepartmentHeadDbClient,
+  employeeId: string,
+) {
+  const departments = await db.department.findMany({
+    where: { headEmployeeId: employeeId },
+    select: { id: true, code: true, name: true },
+  })
+  if (departments.length > 0) {
+    await db.department.updateMany({
+      where: { id: { in: departments.map((department) => department.id) } },
+      data: { headEmployeeId: null },
+    })
+  }
+  return departments
 }

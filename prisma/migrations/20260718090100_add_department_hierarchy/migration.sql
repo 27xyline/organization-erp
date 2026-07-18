@@ -87,6 +87,23 @@ UPDATE "employees" SET "departmentId" = 'dept_unassigned' WHERE "departmentId" I
 UPDATE "staff_schedule" SET "departmentId" = 'dept_unassigned' WHERE "departmentId" IS NULL;
 UPDATE "mols" SET "departmentId" = 'dept_unassigned' WHERE "departmentId" IS NULL;
 
+-- From this point forward the relation is authoritative. Canonicalize all
+-- compatibility snapshots so old case/whitespace variants cannot drift.
+UPDATE "employees" entity
+SET "department" = department."name"
+FROM "departments" department
+WHERE entity."departmentId" = department."id";
+
+UPDATE "staff_schedule" entity
+SET "department" = department."name"
+FROM "departments" department
+WHERE entity."departmentId" = department."id";
+
+UPDATE "mols" entity
+SET "department" = department."name"
+FROM "departments" department
+WHERE entity."departmentId" = department."id";
+
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM "employees" WHERE "departmentId" IS NULL)

@@ -16,16 +16,29 @@ export class EmployeeReadService {
       db.employee.findMany({
         where: { status: { not: 'DISMISSED' } },
         orderBy: { fullName: 'asc' },
-        include: { staffSchedule: true },
+        include: {
+          staffSchedule: {
+            include: { departmentRef: { select: { isActive: true } } },
+          },
+        },
       }),
       db.staffSchedule.findMany({
         orderBy: [{ department: 'asc' }, { position: 'asc' }],
-        include: { employees: { where: { status: { not: 'DISMISSED' } } } },
+        include: {
+          employees: {
+            where: { status: { not: 'DISMISSED' } },
+            include: {
+              staffSchedule: {
+                include: { departmentRef: { select: { isActive: true } } },
+              },
+            },
+          },
+          departmentRef: { select: { isActive: true } },
+        },
       }),
       db.department.findMany({
-        where: { isActive: true },
         orderBy: { name: 'asc' },
-        select: { id: true, code: true, name: true },
+        select: { id: true, code: true, name: true, isActive: true },
       }),
       db.vacation.findMany({
         where: { startDate: { lte: endOfYear }, endDate: { gte: startOfYear } },

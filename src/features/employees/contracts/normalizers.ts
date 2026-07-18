@@ -22,6 +22,7 @@ export const normalizeEmployee = (employee: any): Employee => ({
         position: employee.staffSchedule.position,
         department: employee.staffSchedule.department,
         departmentId: employee.staffSchedule.departmentId,
+        departmentActive: employee.staffSchedule.departmentRef?.isActive ?? true,
         rate: Number(employee.staffSchedule.rate || 0),
         salary: Number(employee.staffSchedule.salary || 0),
       }
@@ -39,6 +40,7 @@ export const normalizeStaffSchedule = (position: any): StaffSchedule => {
     position: position.position,
     department: position.department,
     departmentId: position.departmentId,
+    departmentActive: position.departmentRef?.isActive ?? true,
     rate: Number(position.rate || 0),
     salary: Number(position.salary || 0),
     occupiedRate,

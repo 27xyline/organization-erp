@@ -4,7 +4,12 @@ import { ServiceError } from '@/lib/errors/service-error'
 import type { CreateStaffScheduleInput, CreateVacationInput } from '../contracts/schemas'
 import { resolveDepartment } from '@/lib/organization/department-reference'
 
-type WorkforceErrorCode = 'NOT_FOUND' | 'INVALID_DATES' | 'RATE_BELOW_OCCUPIED' | 'POSITION_IN_USE'
+type WorkforceErrorCode =
+  | 'NOT_FOUND'
+  | 'INVALID_DATES'
+  | 'RATE_BELOW_OCCUPIED'
+  | 'POSITION_IN_USE'
+  | 'POSITION_DEPARTMENT_CHANGE_IN_USE'
 export class WorkforceServiceError extends ServiceError<WorkforceErrorCode> {}
 
 const employeeSummary = { id: true, fullName: true, department: true } as const
@@ -70,7 +75,10 @@ export class WorkforceService {
   static async listPositions() {
     const positions = await getDb().staffSchedule.findMany({
       orderBy: [{ department: 'asc' }, { position: 'asc' }],
-      include: { employees: { where: { status: { not: 'DISMISSED' } } } },
+      include: {
+        employees: { where: { status: { not: 'DISMISSED' } } },
+        departmentRef: { select: { isActive: true } },
+      },
     })
     return positions.map((position) => {
       const rate = toRateNumber(position.rate)
@@ -94,7 +102,14 @@ export class WorkforceService {
       await tx.auditLog.create({
         data: {
           userId: actorId, requestId, action: 'STAFF_POSITION_CREATE', entityType: 'StaffSchedule',
-          entityId: position.id, details: { after: { position: position.position, department: position.department } },
+          entityId: position.id,
+          details: {
+            after: {
+              position: position.position,
+              departmentId: position.departmentId,
+              department: position.department,
+            },
+          },
         },
       })
       return position
@@ -110,6 +125,9 @@ export class WorkforceService {
       const department = await resolveDepartment(tx, input, {
         allowInactive: input.departmentId === before.departmentId,
       })
+      if (department.id !== before.departmentId && summary.occupiedRate > 0) {
+        throw new WorkforceServiceError('POSITION_DEPARTMENT_CHANGE_IN_USE')
+      }
       const position = await tx.staffSchedule.update({
         where: { id },
         data: {
@@ -124,8 +142,20 @@ export class WorkforceService {
         data: {
           userId: actorId, requestId, action: 'STAFF_POSITION_UPDATE', entityType: 'StaffSchedule', entityId: id,
           details: {
-            before: { position: before.position, rate: before.rate.toString(), salary: before.salary.toString() },
-            after: { position: position.position, rate: position.rate.toString(), salary: position.salary.toString() },
+            before: {
+              position: before.position,
+              departmentId: before.departmentId,
+              department: before.department,
+              rate: before.rate.toString(),
+              salary: before.salary.toString(),
+            },
+            after: {
+              position: position.position,
+              departmentId: position.departmentId,
+              department: position.department,
+              rate: position.rate.toString(),
+              salary: position.salary.toString(),
+            },
           },
         },
       })
@@ -145,7 +175,13 @@ export class WorkforceService {
       await tx.auditLog.create({
         data: {
           userId: actorId, requestId, action: 'STAFF_POSITION_DELETE', entityType: 'StaffSchedule', entityId: id,
-          details: { before: { position: position.position, department: position.department } },
+          details: {
+            before: {
+              position: position.position,
+              departmentId: position.departmentId,
+              department: position.department,
+            },
+          },
         },
       })
       return { success: true }

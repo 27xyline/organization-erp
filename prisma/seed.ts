@@ -28,8 +28,12 @@ async function upsertAsset(data: Prisma.AssetUncheckedCreateInput) {
 async function main() {
   const itDepartmentIdentity = stableDepartmentIdentity('Отдел информационных технологий')
   const itDepartment = await prisma.department.upsert({
-    where: { name: 'Отдел информационных технологий' },
-    update: { isActive: true },
+    where: { id: itDepartmentIdentity.id },
+    update: {
+      code: itDepartmentIdentity.code,
+      name: 'Отдел информационных технологий',
+      isActive: true,
+    },
     create: {
       ...itDepartmentIdentity,
       name: 'Отдел информационных технологий',
@@ -37,8 +41,12 @@ async function main() {
   })
   const accountingDepartmentIdentity = stableDepartmentIdentity('Бухгалтерия')
   const accountingDepartment = await prisma.department.upsert({
-    where: { name: 'Бухгалтерия' },
-    update: { isActive: true },
+    where: { id: accountingDepartmentIdentity.id },
+    update: {
+      code: accountingDepartmentIdentity.code,
+      name: 'Бухгалтерия',
+      isActive: true,
+    },
     create: {
       ...accountingDepartmentIdentity,
       name: 'Бухгалтерия',

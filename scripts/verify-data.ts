@@ -13,6 +13,7 @@ async function main() {
     departmentCycles,
     duplicateDepartmentCodes,
     duplicateDepartmentNames,
+    departmentSnapshotMismatch,
   ] = await Promise.all([
     db.$queryRaw<CountRow[]>`
       SELECT COUNT(*)::bigint AS count
@@ -76,6 +77,25 @@ async function main() {
         HAVING COUNT(*) > 1
       ) duplicates
     `,
+    db.$queryRaw<CountRow[]>`
+      SELECT COUNT(*)::bigint AS count
+      FROM (
+        SELECT employee."id"
+        FROM "employees" employee
+        JOIN "departments" department ON department."id" = employee."departmentId"
+        WHERE employee."department" <> department."name"
+        UNION ALL
+        SELECT position."id"
+        FROM "staff_schedule" position
+        JOIN "departments" department ON department."id" = position."departmentId"
+        WHERE position."department" <> department."name"
+        UNION ALL
+        SELECT mol."id"
+        FROM "mols" mol
+        JOIN "departments" department ON department."id" = mol."departmentId"
+        WHERE mol."department" <> department."name"
+      ) mismatches
+    `,
   ])
   const result = {
     holdingMismatch: Number(holdingMismatch[0]?.count || 0),
@@ -86,6 +106,7 @@ async function main() {
     departmentCycles: Number(departmentCycles[0]?.count || 0),
     duplicateDepartmentCodes: Number(duplicateDepartmentCodes[0]?.count || 0),
     duplicateDepartmentNames: Number(duplicateDepartmentNames[0]?.count || 0),
+    departmentSnapshotMismatch: Number(departmentSnapshotMismatch[0]?.count || 0),
   }
   console.info(JSON.stringify(result, null, 2))
   await db.$disconnect()

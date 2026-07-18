@@ -4,7 +4,10 @@ import {
   ensureValidEmploymentRate,
   hrError,
 } from '../domain/hr-domain'
-import { resolveAssignablePosition } from '../infrastructure/employee.repository'
+import {
+  clearEmployeeDepartmentLeadership,
+  resolveAssignablePosition,
+} from '../infrastructure/employee.repository'
 import { UpdateEmployeeInput } from '../contracts/employee'
 import type { CreateEmployeeInput } from '../contracts/schemas'
 import { getStartOfToday } from '../infrastructure/workforce.repository'
@@ -28,7 +31,11 @@ export class EmployeeService {
       prisma.employee.findMany({
         where,
         orderBy: input.scope === 'all' ? { createdAt: 'desc' } : { fullName: 'asc' },
-        include: { staffSchedule: true },
+        include: {
+          staffSchedule: {
+            include: { departmentRef: { select: { isActive: true } } },
+          },
+        },
         skip: (input.page - 1) * input.pageSize,
         take: input.pageSize,
       }),
@@ -121,6 +128,7 @@ export class EmployeeService {
         employeeId: id,
         employmentRate,
         status,
+        allowInactiveCurrentPosition: positionId === existingEmployee.staffScheduleId,
       })
       const targetDepartment = position
         ? { id: position.departmentId, name: position.department }
@@ -150,6 +158,10 @@ export class EmployeeService {
           staffSchedule: true,
         },
       })
+      const clearedDepartmentHeads =
+        existingEmployee.status !== 'DISMISSED' && updatedEmployee.status === 'DISMISSED'
+        ? await clearEmployeeDepartmentLeadership(tx, updatedEmployee.id)
+        : []
 
       const newDepartment = targetDepartment.name
       const changedFields: string[] = []
@@ -181,7 +193,10 @@ export class EmployeeService {
           ...(actorId ? [tx.auditLog.create({
             data: {
               userId: actorId, requestId, action: 'EMPLOYEE_UPDATE', entityType: 'Employee', entityId: id,
-              details: { changedFields },
+              details: {
+                changedFields,
+                clearedDepartmentHeads,
+              },
             },
           })] : []),
         ])
@@ -210,6 +225,7 @@ export class EmployeeService {
           status: 'DISMISSED',
         },
       })
+      const clearedDepartmentHeads = await clearEmployeeDepartmentLeadership(tx, employee.id)
 
       await Promise.all([
         tx.personnelAction.create({
@@ -223,7 +239,11 @@ export class EmployeeService {
         ...(actorId ? [tx.auditLog.create({
           data: {
             userId: actorId, requestId, action: 'EMPLOYEE_DISMISS', entityType: 'Employee', entityId: id,
-            details: { before: { status: employee.status }, after: { status: 'DISMISSED' } },
+            details: {
+              before: { status: employee.status },
+              after: { status: 'DISMISSED' },
+              clearedDepartmentHeads,
+            },
           },
         })] : []),
       ])
