@@ -8,21 +8,47 @@ datasource db {
 }
 
 model Mol {
-  id              String   @id @default(cuid())
-  code            String   @unique
+  id              String     @id @default(cuid())
+  code            String     @unique
   department      String
+  departmentId    String
+  departmentRef   Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   fullName        String
   storageLocation String
   photo           String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
   assets         Asset[]
   holdings       AssetHolding[]
   operationsFrom Operation[]    @relation("FromMol")
   operationsTo   Operation[]    @relation("ToMol")
 
+  @@index([departmentId])
   @@map("mols")
+}
+
+model Department {
+  id             String       @id @default(cuid())
+  code           String       @unique
+  name           String       @unique
+  parentId       String?
+  parent         Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children       Department[] @relation("DepartmentHierarchy")
+  headEmployeeId String?
+  headEmployee   Employee?    @relation("DepartmentHead", fields: [headEmployeeId], references: [id], onDelete: SetNull)
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  employees      Employee[]      @relation("EmployeeDepartment")
+  staffPositions StaffSchedule[]
+  mols           Mol[]
+
+  @@index([parentId])
+  @@index([headEmployeeId])
+  @@index([isActive, name])
+  @@map("departments")
 }
 
 model AssetGroup {
@@ -349,6 +375,8 @@ model Employee {
   code               String                 @unique // Табельный номер
   fullName           String
   department         String
+  departmentId       String
+  departmentRef      Department             @relation("EmployeeDepartment", fields: [departmentId], references: [id], onDelete: Restrict)
   photo              String?
   contractType       EmploymentContractType @default(PRIMARY)
   contractSignedDate DateTime?
@@ -374,11 +402,13 @@ model Employee {
   financePlanEntries FinancePlanEntry[]
   projectMembers     ProjectMember[]
   taskAssignees      TaskAssignee[]
+  headedDepartments  Department[]       @relation("DepartmentHead")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([status, fullName])
+  @@index([departmentId])
   @@map("employees")
 }
 
@@ -400,11 +430,13 @@ enum EmploymentContractType {
 }
 
 model StaffSchedule {
-  id         String  @id @default(cuid())
-  position   String // Название должности
-  department String // Отдел
-  rate       Decimal @db.Decimal(5, 2) // Количество ставок
-  salary     Decimal @db.Decimal(10, 2) // Зарплата
+  id            String     @id @default(cuid())
+  position      String // Название должности
+  department    String // Отдел
+  departmentId  String
+  departmentRef Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  rate          Decimal    @db.Decimal(5, 2) // Количество ставок
+  salary        Decimal    @db.Decimal(10, 2) // Зарплата
 
   // Relations
   employees Employee[]
@@ -412,6 +444,7 @@ model StaffSchedule {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([departmentId])
   @@map("staff_schedule")
 }
 

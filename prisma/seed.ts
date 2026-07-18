@@ -1,6 +1,15 @@
 import { Prisma, PrismaClient } from '@prisma/client'
+import { createHash } from 'node:crypto'
 
 const prisma = new PrismaClient()
+
+function stableDepartmentIdentity(name: string) {
+  const digest = createHash('md5').update(name.toLocaleLowerCase('ru')).digest('hex')
+  return {
+    id: `dept_${digest}`,
+    code: `DEP-${digest.slice(0, 8).toUpperCase()}`,
+  }
+}
 
 async function upsertAsset(data: Prisma.AssetUncheckedCreateInput) {
   const asset = await prisma.asset.upsert({
@@ -17,13 +26,36 @@ async function upsertAsset(data: Prisma.AssetUncheckedCreateInput) {
 }
 
 async function main() {
+  const itDepartmentIdentity = stableDepartmentIdentity('Отдел информационных технологий')
+  const itDepartment = await prisma.department.upsert({
+    where: { name: 'Отдел информационных технологий' },
+    update: { isActive: true },
+    create: {
+      ...itDepartmentIdentity,
+      name: 'Отдел информационных технологий',
+    },
+  })
+  const accountingDepartmentIdentity = stableDepartmentIdentity('Бухгалтерия')
+  const accountingDepartment = await prisma.department.upsert({
+    where: { name: 'Бухгалтерия' },
+    update: { isActive: true },
+    create: {
+      ...accountingDepartmentIdentity,
+      name: 'Бухгалтерия',
+    },
+  })
+
   // Create default MOLs
   const mol1 = await prisma.mol.upsert({
     where: { code: 'MOL-001' },
-    update: {},
+    update: {
+      department: itDepartment.name,
+      departmentId: itDepartment.id,
+    },
     create: {
       code: 'MOL-001',
-      department: 'Отдел информационных технологий',
+      department: itDepartment.name,
+      departmentId: itDepartment.id,
       fullName: 'Иванов Иван Иванович',
       storageLocation: 'Кабинет 101, 1 этаж',
     },
@@ -31,10 +63,14 @@ async function main() {
 
   const mol2 = await prisma.mol.upsert({
     where: { code: 'MOL-002' },
-    update: {},
+    update: {
+      department: accountingDepartment.name,
+      departmentId: accountingDepartment.id,
+    },
     create: {
       code: 'MOL-002',
-      department: 'Бухгалтерия',
+      department: accountingDepartment.name,
+      departmentId: accountingDepartment.id,
       fullName: 'Петрова Мария Сергеевна',
       storageLocation: 'Кабинет 205, 2 этаж',
     },
