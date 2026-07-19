@@ -310,6 +310,7 @@ model User {
   taskComments            TaskComment[]
   closedPayrollPeriods    PayrollPeriod[]          @relation("PayrollPeriodClosedBy")
   requestedProcurements   ProcurementRequest[]     @relation("ProcurementRequestedBy")
+  reportPresets           ReportPreset[]           @relation("ReportPresetCreatedBy")
 
   @@index([isActive, role])
   @@map("users")
@@ -1280,3 +1281,18 @@ model DocumentVersion {
   @@index([uploadedById])
   @@map("document_versions")
 }
+
+model ReportPreset {
+  id          String   @id @default(cuid())
+  name        String
+  metrics     String[] // Список выбранных показателей
+  groupBy     String?  // Группировка: project, department и т.д.
+  filters     Json?    // Фильтры
+  createdById String
+  createdBy   User     @relation("ReportPresetCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([createdById])
+  @@map("report_presets")
+}
+
