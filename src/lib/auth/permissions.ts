@@ -35,6 +35,9 @@ export const PERMISSIONS = [
   'access.assignments.create',
   'access.assignments.update',
   'access.assignments.delete',
+  'dashboard.read',
+  'reports.read',
+  'reports.export',
   'employees.read',
   'employees.create',
   'employees.update',
@@ -135,6 +138,9 @@ export const PERMISSION_SCOPE: Record<Permission, ScopeKind> = {
   'access.assignments.create': 'none',
   'access.assignments.update': 'none',
   'access.assignments.delete': 'none',
+  'dashboard.read': 'none',
+  'reports.read': 'none',
+  'reports.export': 'none',
   'employees.read': 'employee',
   'employees.create': 'department',
   'employees.update': 'employee',
@@ -235,6 +241,9 @@ const businessReads = PERMISSIONS.filter((permission) =>
 export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
   ADMIN: new Set(PERMISSIONS),
   HR: new Set([
+    'dashboard.read',
+    'reports.read',
+    'reports.export',
     'departments.read',
     ...crud('employees'),
     ...crud('staffSchedule'),
@@ -256,6 +265,9 @@ export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
     'account.password.update',
   ]),
   ACCOUNTANT: new Set([
+    'dashboard.read',
+    'reports.read',
+    'reports.export',
     'departments.read',
     'projects.read',
     'projectMembers.read',
@@ -285,6 +297,9 @@ export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
     'account.password.update',
   ]),
   PROJECT_MANAGER: new Set([
+    'dashboard.read',
+    'reports.read',
+    'reports.export',
     'projects.read',
     'projects.create',
     'projects.update',
@@ -312,6 +327,9 @@ export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
     'account.password.update',
   ]),
   ASSET_CUSTODIAN: new Set([
+    'dashboard.read',
+    'reports.read',
+    'reports.export',
     'departments.read',
     'projects.reference.read',
     ...crud('assets'),
@@ -337,6 +355,9 @@ export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
     'account.password.update',
   ]),
   DEPARTMENT_HEAD: new Set([
+    'dashboard.read',
+    'reports.read',
+    'reports.export',
     'departments.read',
     'employees.read',
     'staffSchedule.read',
@@ -366,6 +387,7 @@ export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
   ]),
   AUDITOR: new Set([
     ...businessReads,
+    'reports.export',
     'assets.export',
     'auditLogs.read',
     'documents.download',
@@ -374,6 +396,7 @@ export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
     'account.password.update',
   ]),
   EMPLOYEE: new Set([
+    'dashboard.read',
     'departments.read',
     'employees.read',
     'vacations.read',

@@ -115,7 +115,7 @@ export function AssetForm({ mols, groups, projects, initialData }: AssetFormProp
       })
 
       if (res.ok) {
-        router.push('/')
+        router.push('/assets')
         router.refresh()
       } else {
         const payload = await res.json()
@@ -496,7 +496,7 @@ export function AssetForm({ mols, groups, projects, initialData }: AssetFormProp
         <Button type="submit" disabled={loading}>
           {loading ? 'Сохранение...' : (initialData ? 'Сохранить изменения' : 'Создать объект')}
         </Button>
-        <Button type="button" variant="outline" onClick={() => router.push('/')}>
+        <Button type="button" variant="outline" onClick={() => router.push('/assets')}>
           Отмена
         </Button>
       </div>

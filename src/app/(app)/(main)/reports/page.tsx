@@ -1,6 +1,6 @@
 import { DashboardService } from '@/features/reporting/application/dashboard.service'
 import { parseDashboardQuery } from '@/features/reporting/contracts/dashboard'
-import { DashboardPage } from '@/features/reporting/ui/dashboard-page'
+import { ReportsPage } from '@/features/reporting/ui/reports-page'
 import { requirePagePermission } from '@/lib/auth/authorization'
 
 export const dynamic = 'force-dynamic'
@@ -11,16 +11,10 @@ export default async function Page({
   searchParams: Promise<Record<string, string | string[] | undefined>>
 }) {
   const [user, rawQuery] = await Promise.all([
-    requirePagePermission('dashboard.read'),
+    requirePagePermission('reports.read'),
     searchParams,
   ])
   const data = await DashboardService.getOverview(parseDashboardQuery(rawQuery), user.access)
-  return (
-    <DashboardPage
-      data={data}
-      canViewReports={user.access.has('reports.read')}
-      canExport={user.access.has('reports.export')}
-    />
-  )
+  return <ReportsPage data={data} canExport={user.access.has('reports.export')} />
 }
 
