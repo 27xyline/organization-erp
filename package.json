@@ -26,7 +26,7 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
-    "db:verify": "tsx scripts/verify-data.ts",
+    "db:verify": "node --env-file-if-exists=.env --import tsx scripts/verify-data.ts",
     "user:create-admin": "tsx scripts/create-admin.ts"
   },
   "dependencies": {
