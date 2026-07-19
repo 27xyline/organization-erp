@@ -96,7 +96,7 @@ export function EmployeesClient({ initialData, canEdit }: { initialData: Employe
         </div>}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 xl:min-h-[980px] xl:grid-cols-4 xl:items-stretch">
+      <div className="grid grid-cols-1 gap-6 xl:h-[980px] xl:grid-cols-4 xl:items-stretch">
         <VacationsCard
           vacationsLoading={vacationsLoading}
           vacations={vacations}
