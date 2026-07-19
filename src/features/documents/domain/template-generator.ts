@@ -2,7 +2,7 @@ import PDFDocument from 'pdfkit'
 import fs from 'node:fs'
 import path from 'node:path'
 // @ts-expect-error: fontkit lacks official TypeScript declarations
-import fontkit from 'fontkit'
+import * as fontkit from 'fontkit'
 import { Document as DocxDocument, Packer, Paragraph, TextRun, AlignmentType } from 'docx'
 
 const FONT_PATHS = [
