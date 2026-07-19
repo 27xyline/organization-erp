@@ -6,7 +6,7 @@ import {
   NotificationChannel,
   NotificationEventType,
 } from '@prisma/client'
-import { CheckCheck, ExternalLink, Trash2 } from 'lucide-react'
+import { CheckCheck, ExternalLink, RefreshCw, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -43,9 +43,11 @@ const changed = () => window.dispatchEvent(new Event('notifications:changed'))
 export function NotificationsPageClient({
   initialNotifications,
   initialPreferences,
+  canGenerateAlerts,
 }: {
   initialNotifications: NotificationItem[]
   initialPreferences: Preference[]
+  canGenerateAlerts: boolean
 }) {
   const [notifications, setNotifications] = useState(initialNotifications)
   const [preferences, setPreferences] = useState(initialPreferences)
@@ -119,6 +121,28 @@ export function NotificationsPageClient({
     setMessage(response.ok ? 'Настройки сохранены' : 'Не удалось сохранить настройки')
   }
 
+  async function generateAlerts() {
+    setBusy(true)
+    setMessage(null)
+    try {
+      const response = await fetch('/api/notifications/generate-alerts', { method: 'POST' })
+      if (!response.ok) throw new Error('Не удалось проверить сроки')
+      const generated = await response.json() as {
+        data: { generated: number }
+      }
+      const inbox = await fetch('/api/notifications?pageSize=50', { cache: 'no-store' })
+      if (!inbox.ok) throw new Error('Не удалось обновить входящие')
+      const payload = await inbox.json() as { data: NotificationItem[] }
+      setNotifications(payload.data)
+      setMessage(`Проверка завершена. Новых уведомлений: ${generated.data.generated}`)
+      changed()
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Не удалось проверить сроки')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
     <div className="mx-auto grid max-w-5xl gap-6 p-4 md:p-8">
       <div>
@@ -133,6 +157,12 @@ export function NotificationsPageClient({
             <CardDescription>{notifications.filter((item) => !item.readAt).length} непрочитанных</CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
+            {canGenerateAlerts && (
+              <Button variant="outline" size="sm" onClick={generateAlerts} disabled={busy}>
+                <RefreshCw className={cn('mr-2 h-4 w-4', busy && 'animate-spin')} />
+                Проверить сроки
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => setUnreadOnly((value) => !value)}>
               {unreadOnly ? 'Показать все' : 'Только непрочитанные'}
             </Button>

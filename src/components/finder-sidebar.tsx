@@ -111,7 +111,7 @@ const employeesChildren = [
 const assetsChildren = [
   { id: "assets-groups", label: "Группы имущества", icon: <Tag className="h-4 w-4" />, href: "/groups" },
   { id: "assets-registered", label: "Зарегистрировано", icon: <LayoutGrid className="h-4 w-4" />, href: "/assets" },
-  { id: "assets-purchase", label: "Закупки (скоро)", icon: <ShoppingCart className="h-4 w-4" />, href: "" },
+  { id: "assets-purchase", label: "Закупки", icon: <ShoppingCart className="h-4 w-4" />, href: "/procurement" },
   { id: "assets-transfer", label: "Перемещение (скоро)", icon: <ArrowLeftRight className="h-4 w-4" />, href: "" },
   { id: "assets-archive", label: "Архив", icon: <Archive className="h-4 w-4" />, href: "/archive" },
 ]
@@ -133,7 +133,7 @@ export function FinderSidebar({ currentUser }: {
     if (pathname.startsWith('/finance')) itemsToExpand.push('finance')
     if (pathname.startsWith('/employees') || pathname.startsWith('/mols')) itemsToExpand.push('employees')
     if (pathname === '/' || pathname.startsWith('/reports')) itemsToExpand.push('overview')
-    if (pathname.startsWith('/assets') || pathname.startsWith('/groups') || pathname.startsWith('/archive')) itemsToExpand.push('assets')
+    if (pathname.startsWith('/assets') || pathname.startsWith('/groups') || pathname.startsWith('/archive') || pathname.startsWith('/procurement')) itemsToExpand.push('assets')
     if (pathname.startsWith('/documents')) itemsToExpand.push('documents')
     return itemsToExpand
   })
@@ -148,7 +148,7 @@ export function FinderSidebar({ currentUser }: {
       if (pathname.startsWith('/finance')) itemsToExpand.push('finance')
       if (pathname.startsWith('/employees') || pathname.startsWith('/mols')) itemsToExpand.push('employees')
       if (pathname === '/' || pathname.startsWith('/reports')) itemsToExpand.push('overview')
-      if (pathname.startsWith('/assets') || pathname.startsWith('/groups') || pathname.startsWith('/archive')) itemsToExpand.push('assets')
+      if (pathname.startsWith('/assets') || pathname.startsWith('/groups') || pathname.startsWith('/archive') || pathname.startsWith('/procurement')) itemsToExpand.push('assets')
       if (pathname.startsWith('/documents')) itemsToExpand.push('documents')
       
       const newItems = itemsToExpand.filter(item => !expandedItems.includes(item))
@@ -256,6 +256,8 @@ export function FinderSidebar({ currentUser }: {
         return assetsChildren.filter((child) =>
           child.id === 'assets-groups'
             ? permissionSet.has('assetGroups.read')
+            : child.id === 'assets-purchase'
+              ? permissionSet.has('procurement.read')
             : ['assets-registered', 'assets-archive'].includes(child.id)
               ? permissionSet.has('assets.read')
               : false

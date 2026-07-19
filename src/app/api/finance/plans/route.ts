@@ -111,6 +111,13 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error deleting finance plan cell:', error)
+    const routeError = getFinancePlanErrorMeta(error)
+    if (routeError) {
+      return NextResponse.json(
+        { error: routeError.error },
+        { status: routeError.status }
+      )
+    }
     if (error instanceof AuthorizationError) {
       return NextResponse.json({ error: 'Недостаточно прав' }, { status: 403 })
     }
