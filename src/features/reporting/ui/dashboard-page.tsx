@@ -29,7 +29,12 @@ import {
 } from './reporting-ui'
 
 function exportHref(data: DashboardOverview) {
-  const params = new URLSearchParams(data.query)
+  const params = new URLSearchParams({
+    dateFrom: data.query.dateFrom,
+    dateTo: data.query.dateTo,
+  })
+  if (data.query.departmentId) params.set('departmentId', data.query.departmentId)
+  if (data.query.projectId) params.set('projectId', data.query.projectId)
   return `/api/reports/export?${params.toString()}`
 }
 
