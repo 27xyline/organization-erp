@@ -52,7 +52,10 @@ describe('procurement contracts', () => {
       receivedAt: '2026-07-25',
       items: [{ procurementItemId: 'item-1', quantity: 0 }],
     }).success).toBe(false)
-    expect(supplierSchema.safeParse({ name: 'ООО ЛабСнаб', taxId: '7701234567' }).success).toBe(true)
+    // 7707083893 is a valid Russian INN (Sberbank)
+    expect(supplierSchema.safeParse({ name: 'ООО ЛабСнаб', taxId: '7707083893' }).success).toBe(true)
+    // 7701234567 has incorrect checksum
+    expect(supplierSchema.safeParse({ name: 'ООО ЛабСнаб', taxId: '7701234567' }).success).toBe(false)
     expect(supplierSchema.safeParse({ name: 'ООО ЛабСнаб', taxId: '123' }).success).toBe(false)
   })
 })
