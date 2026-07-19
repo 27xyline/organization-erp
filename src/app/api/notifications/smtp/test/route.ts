@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
   }
 
   // If password was empty/redacted, load it from existing settings to allow testing
-  let settingsToTest = { ...input.data }
+  const settingsToTest = { ...input.data }
   if (settingsToTest.password === '') {
     const existing = await SmtpService.getSettings()
     if (!existing) {
