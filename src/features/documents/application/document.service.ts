@@ -3,6 +3,7 @@ import {
   DocumentStatus,
   Prisma,
   type PrismaClient,
+  DocumentCategory,
 } from '@prisma/client'
 import type {
   AddDocumentVersionMetadata,
@@ -24,6 +25,7 @@ import {
 import { getDocumentStorage } from '../infrastructure/document-storage'
 import type { StoragePort } from '../infrastructure/storage.port'
 import { renderDocumentTemplate } from '../domain/document-template'
+import { generateDocxBuffer, generatePdfBuffer } from '../domain/template-generator'
 import { getDb } from '@/lib/prisma'
 import type { PermissionTarget } from '@/lib/auth/access-context'
 import type { Permission } from '@/lib/auth/permissions'
@@ -367,24 +369,64 @@ export class DocumentService {
     actor: DocumentActor,
     requestId?: string,
   ) {
-    const rendered = renderDocumentTemplate(input)
-    const content = Buffer.from(rendered.content, 'utf8')
+    const isOrder = input.template === 'PERSONNEL_ORDER'
+    const dateStr = new Intl.DateTimeFormat('ru-RU', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    }).format(input.date)
+
+    const format = input.format || 'docx'
+    let content: Buffer
+    let mimeType: string
+    let extension: string
+
+    if (format === 'pdf') {
+      content = await generatePdfBuffer(
+        input.number,
+        dateStr,
+        input.subject,
+        input.details,
+        input.basis || undefined,
+        isOrder,
+      )
+      mimeType = 'application/pdf'
+      extension = '.pdf'
+    } else {
+      content = await generateDocxBuffer(
+        input.number,
+        dateStr,
+        input.subject,
+        input.details,
+        input.basis || undefined,
+        isOrder,
+      )
+      mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      extension = '.docx'
+    }
+
+    const category = isOrder ? DocumentCategory.ORDER : DocumentCategory.ACT
+    const cleanFilename = input.title
+      .normalize('NFC')
+      .replace(/[<>:"/\\|?*\u0000-\u001f]/g, '-')
+      .replace(/\s+/g, '-')
+      .slice(0, 80)
+    const filename = `${cleanFilename}${extension}`
+
     return this.create(
       {
         title: input.title,
-        description: `Создано по шаблону: ${
-          input.template === 'PERSONNEL_ORDER' ? 'приказ' : 'акт'
-        }`,
-        category: rendered.category,
+        description: `Создано по шаблону: ${isOrder ? 'приказ' : 'акт'} (${format.toUpperCase()})`,
+        category,
         projectId: input.projectId,
         employeeId: input.employeeId,
         assetId: input.assetId,
-        filename: rendered.filename,
+        filename,
       },
       {
         stream: Readable.from(content),
-        filename: rendered.filename,
-        mimeType: 'text/plain',
+        filename,
+        mimeType,
         declaredSizeBytes: content.byteLength,
       },
       actor,

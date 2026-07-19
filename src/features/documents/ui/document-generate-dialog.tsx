@@ -48,6 +48,7 @@ export function DocumentGenerateDialog({
           subject: data.get('subject'),
           details: data.get('details'),
           basis: data.get('basis') || undefined,
+          format: data.get('format') || 'docx',
           projectId,
         }),
       })
@@ -91,6 +92,18 @@ export function DocumentGenerateDialog({
             >
               <option value="PERSONNEL_ORDER">Приказ</option>
               <option value="ACCEPTANCE_ACT">Акт приёма-передачи</option>
+            </select>
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="template-format">Формат файла</Label>
+            <select
+              id="template-format"
+              name="format"
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              defaultValue="docx"
+            >
+              <option value="docx">Microsoft Word (.docx)</option>
+              <option value="pdf">Adobe PDF (.pdf)</option>
             </select>
           </div>
           <div className="grid gap-4 sm:grid-cols-[1fr_160px_170px]">
