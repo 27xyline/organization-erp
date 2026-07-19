@@ -1296,3 +1296,16 @@ model ReportPreset {
   @@map("report_presets")
 }
 
+model SmtpSettings {
+  id        String   @id @default("singleton")
+  host      String
+  port      Int
+  username  String
+  password  String
+  secure    Boolean  @default(false)
+  fromEmail String
+  updatedAt DateTime @updatedAt
+
+  @@map("smtp_settings")
+}
+
