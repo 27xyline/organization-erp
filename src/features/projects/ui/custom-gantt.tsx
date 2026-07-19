@@ -275,9 +275,11 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
   }, [organizedTasks])
 
   const chartRange = useMemo(() => {
+    // Расширяем конец до последнего дня месяца, чтобы заголовок месяца не обрезался
+    const endOfMonth = new Date(timeRange.end.getFullYear(), timeRange.end.getMonth() + 1, 0)
     return {
       start: getWeekStart(timeRange.start),
-      end: getWeekEnd(timeRange.end),
+      end: getWeekEnd(endOfMonth),
     }
   }, [timeRange])
 
