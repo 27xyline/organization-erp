@@ -4,16 +4,39 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-let client: PrismaClient | undefined
+let client: any | undefined
 
 export function getDb(): PrismaClient {
-  client ??= globalForPrisma.prisma ?? new PrismaClient()
+  if (!client) {
+    const rawClient = globalForPrisma.prisma ?? new PrismaClient()
+    if (process.env.NODE_ENV !== 'production') {
+      globalForPrisma.prisma = rawClient
+    }
 
-  if (process.env.NODE_ENV !== 'production') {
-    globalForPrisma.prisma = client
+    client = rawClient.$extends({
+      query: {
+        auditLog: {
+          update() {
+            throw new Error('AuditLog entries are immutable and cannot be updated.')
+          },
+          updateMany() {
+            throw new Error('AuditLog entries are immutable and cannot be updated.')
+          },
+          delete() {
+            throw new Error('AuditLog entries are immutable and cannot be deleted.')
+          },
+          deleteMany() {
+            throw new Error('AuditLog entries are immutable and cannot be deleted.')
+          },
+          upsert() {
+            throw new Error('AuditLog entries are immutable and cannot be modified.')
+          },
+        },
+      },
+    })
   }
 
-  return client
+  return client as unknown as PrismaClient
 }
 
 // Compatibility proxy for existing modules. Accessing a Prisma property creates

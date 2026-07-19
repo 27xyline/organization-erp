@@ -526,8 +526,10 @@ model ApprovalStep {
   sequence  Int
   name      String
   status    ApprovalStepStatus @default(WAITING)
-  comment   String?
-  decidedAt DateTime?
+  comment      String?
+  decidedAt    DateTime?
+  dueDate      DateTime?
+  reminderSent Boolean            @default(false)
 
   requestId String
   request   ApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
