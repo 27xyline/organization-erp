@@ -357,8 +357,8 @@ export default async function ProjectPage(props: ProjectPageProps) {
           />
         </Card>}
 
-        {(canReadAssets || canReadPayroll) && <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 xl:items-stretch">
-          {canReadAssets && <Card className="flex flex-col overflow-hidden xl:h-full">
+        {(canReadAssets || canReadPayroll) && <div className="grid grid-cols-1 gap-6 xl:h-[900px] xl:grid-cols-2 xl:items-stretch">
+          {canReadAssets && <Card className="flex min-h-0 flex-col overflow-hidden xl:h-full">
             <CardHeader className="border-b bg-slate-50/80">
               <CardTitle className="flex items-center gap-2 text-base">
                 <ArrowRightLeft className="h-4 w-4" />
@@ -368,7 +368,7 @@ export default async function ProjectPage(props: ProjectPageProps) {
                 Последние операции по активам, привязанным к этому проекту.
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-1 flex-col p-6">
+            <CardContent className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
               <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
                 <div className="rounded-lg border bg-muted/30 p-4">
                   <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Поступления</p>
@@ -444,7 +444,7 @@ export default async function ProjectPage(props: ProjectPageProps) {
             </CardContent>
           </Card>}
 
-          {canReadPayroll && <Card className="flex flex-col overflow-hidden xl:h-full">
+          {canReadPayroll && <Card className="flex min-h-0 flex-col overflow-hidden xl:h-full">
             <CardHeader className="border-b bg-slate-50/80">
               <CardTitle className="flex items-center gap-2 text-base">
                 <Wallet className="h-4 w-4" />
@@ -454,7 +454,7 @@ export default async function ProjectPage(props: ProjectPageProps) {
                 Начисления по сотрудникам из разделов `Оклад` и `Надбавка`, связанные с этим проектом.
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-1 flex-col p-6">
+            <CardContent className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
               <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-2">
                 <div className="rounded-lg border bg-muted/30 p-4">
                   <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">Всего действий</p>

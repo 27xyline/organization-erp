@@ -84,7 +84,7 @@ interface PersonnelTimelineProps {
 export function PersonnelTimeline({ loading, personnelActions, onDeleteAction }: PersonnelTimelineProps) {
   const thirtyDaysAgo = useMemo(() => Date.now() - 30 * 24 * 60 * 60 * 1000, [personnelActions])
   return (
-    <Card className="flex h-full min-h-0 flex-col xl:col-span-1">
+    <Card className="flex h-full min-h-0 flex-col overflow-hidden xl:col-span-1">
       <CardHeader>
         <div>
           <CardTitle className="flex items-center gap-2 text-lg">
