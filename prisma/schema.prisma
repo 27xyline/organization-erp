@@ -77,6 +77,8 @@ model Asset {
   unitOfMeasure   String
   quantity        Decimal @db.Decimal(10, 2)
   totalCost       Decimal @db.Decimal(12, 2)
+  initialCost     Decimal @default(0) @db.Decimal(12, 2)
+  usefulLifeMonths Int     @default(60)
 
   molId String
   mol   Mol    @relation(fields: [molId], references: [id])
@@ -570,6 +572,8 @@ model Project {
   // Budget
   plannedBudget Decimal @default(0) @db.Decimal(12, 2)
   actualBudget  Decimal @default(0) @db.Decimal(12, 2)
+  plannedRevenue Decimal @default(0) @db.Decimal(12, 2)
+  actualRevenue  Decimal @default(0) @db.Decimal(12, 2)
 
   // Relations
   assets              Asset[]

@@ -96,6 +96,8 @@ export class ReportService {
         name: true,
         plannedBudget: true,
         actualBudget: true,
+        plannedRevenue: true,
+        actualRevenue: true,
         financePlanEntries: {
           select: {
             year: true,
@@ -130,9 +132,8 @@ export class ReportService {
 
       const totalCost = projectPayroll + procurementCost
 
-      // Use plannedBudget and actualBudget as default fallbacks until Step 4 adds specific revenue fields
-      const pRev = (proj as any).plannedRevenue !== undefined ? Number((proj as any).plannedRevenue) : Number(proj.plannedBudget)
-      const aRev = (proj as any).actualRevenue !== undefined ? Number((proj as any).actualRevenue) : Number(proj.actualBudget)
+      const pRev = Number(proj.plannedRevenue || proj.plannedBudget)
+      const aRev = Number(proj.actualRevenue || proj.actualBudget)
 
       const profit = aRev - totalCost
       const marginPercent = aRev > 0 ? (profit / aRev) * 100 : 0
@@ -166,6 +167,8 @@ export class ReportService {
         name: true,
         inventoryNumber: true,
         totalCost: true,
+        initialCost: true,
+        usefulLifeMonths: true,
         recordingDate: true,
         mol: {
           select: {
@@ -176,11 +179,9 @@ export class ReportService {
       },
     })
 
-    const months = monthsInPeriod(dateFrom, dateTo)
-
     const rows = assets.map((asset) => {
-      const depRate = (asset as any).depreciationRate !== undefined ? Number((asset as any).depreciationRate) : 0.10
-      const salvageVal = (asset as any).salvageValue !== undefined ? Number((asset as any).salvageValue) : 0
+      const initCost = Number(asset.initialCost) > 0 ? Number(asset.initialCost) : Number(asset.totalCost)
+      const usefulMonths = asset.usefulLifeMonths || 60
 
       const startDate = asset.recordingDate > dateFrom ? asset.recordingDate : dateFrom
       if (startDate > dateTo) {
@@ -188,24 +189,24 @@ export class ReportService {
           id: asset.id,
           name: asset.name,
           inventoryNumber: asset.inventoryNumber,
-          initialCost: Number(asset.totalCost),
+          initialCost: initCost,
           depreciation: 0,
-          residualValue: Number(asset.totalCost),
+          residualValue: initCost,
           mol: asset.mol.fullName,
           department: asset.mol.department,
         }
       }
 
       const activeMonths = monthsInPeriod(startDate, dateTo)
-      const monthlyAmount = ((Number(asset.totalCost) - salvageVal) * depRate) / 12
-      const depreciation = Math.min(Number(asset.totalCost) - salvageVal, monthlyAmount * activeMonths)
-      const residualValue = Number(asset.totalCost) - depreciation
+      const monthlyAmount = initCost / usefulMonths
+      const depreciation = Math.min(initCost, monthlyAmount * activeMonths)
+      const residualValue = initCost - depreciation
 
       return {
         id: asset.id,
         name: asset.name,
         inventoryNumber: asset.inventoryNumber,
-        initialCost: Number(asset.totalCost),
+        initialCost: initCost,
         depreciation: Math.round(depreciation * 100) / 100,
         residualValue: Math.round(residualValue * 100) / 100,
         mol: asset.mol.fullName,

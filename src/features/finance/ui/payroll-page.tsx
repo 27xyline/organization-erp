@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Download, Lock, Plus, Trash2, Unlock } from 'lucide-react'
+import { Download, Lock, Plus, Trash2, Unlock, FileSpreadsheet } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -264,6 +264,7 @@ export function PayrollPage({
                 <TableHead>К выплате</TableHead>
                 <TableHead>Взносы</TableHead>
                 <TableHead>Отклонение</TableHead>
+                <TableHead className="w-12 text-center" title="Расчетный лист">Лист</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -294,9 +295,16 @@ export function PayrollPage({
                   <TableCell>{money.format(row.payable)}</TableCell>
                   <TableCell>{money.format(row.contributions)}</TableCell>
                   <TableCell className={row.variance > 0 ? 'text-red-600' : row.variance < 0 ? 'text-green-600' : ''}>{money.format(row.variance)}</TableCell>
+                  <TableCell className="text-center">
+                    <Button asChild variant="ghost" size="icon" title="Скачать расчетный лист" className="h-8 w-8">
+                      <a href={`/api/payroll/export-payslip?year=${year}&month=${selectedMonth}&employeeId=${row.employeeId}`}>
+                        <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+                      </a>
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
-              {!loading && !data?.rows.length && <TableRow><TableCell colSpan={12} className="h-24 text-center">Нет сотрудников</TableCell></TableRow>}
+              {!loading && !data?.rows.length && <TableRow><TableCell colSpan={13} className="h-24 text-center">Нет сотрудников</TableCell></TableRow>}
             </TableBody>
           </Table>
         </CardContent>
