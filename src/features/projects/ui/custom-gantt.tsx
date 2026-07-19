@@ -594,6 +594,17 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
             
             {/* Полосы задач */}
             <div className="relative">
+              {/* Vertical week grid lines */}
+              <div className="absolute inset-0 pointer-events-none flex" style={{ height: `${organizedTasks.length * rowHeight}px` }}>
+                {weeks.map((_, idx) => (
+                  <div
+                    key={idx}
+                    className="h-full border-r border-dashed border-slate-200"
+                    style={{ width: `${weekWidth}px`, flexShrink: 0 }}
+                  />
+                ))}
+              </div>
+
               {organizedTasks.map((task, idx) => {
                 const position = getTaskPosition(task)
                 if (!position) return (

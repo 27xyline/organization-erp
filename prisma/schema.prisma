@@ -77,6 +77,8 @@ model Asset {
   unitOfMeasure   String
   quantity        Decimal @db.Decimal(10, 2)
   totalCost       Decimal @db.Decimal(12, 2)
+  initialCost     Decimal @default(0) @db.Decimal(12, 2)
+  usefulLifeMonths Int     @default(60)
 
   molId String
   mol   Mol    @relation(fields: [molId], references: [id])
@@ -310,6 +312,7 @@ model User {
   taskComments            TaskComment[]
   closedPayrollPeriods    PayrollPeriod[]          @relation("PayrollPeriodClosedBy")
   requestedProcurements   ProcurementRequest[]     @relation("ProcurementRequestedBy")
+  reportPresets           ReportPreset[]           @relation("ReportPresetCreatedBy")
 
   @@index([isActive, role])
   @@map("users")
@@ -523,8 +526,10 @@ model ApprovalStep {
   sequence  Int
   name      String
   status    ApprovalStepStatus @default(WAITING)
-  comment   String?
-  decidedAt DateTime?
+  comment      String?
+  decidedAt    DateTime?
+  dueDate      DateTime?
+  reminderSent Boolean            @default(false)
 
   requestId String
   request   ApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
@@ -569,6 +574,8 @@ model Project {
   // Budget
   plannedBudget Decimal @default(0) @db.Decimal(12, 2)
   actualBudget  Decimal @default(0) @db.Decimal(12, 2)
+  plannedRevenue Decimal @default(0) @db.Decimal(12, 2)
+  actualRevenue  Decimal @default(0) @db.Decimal(12, 2)
 
   // Relations
   assets              Asset[]
@@ -1280,3 +1287,31 @@ model DocumentVersion {
   @@index([uploadedById])
   @@map("document_versions")
 }
+
+model ReportPreset {
+  id          String   @id @default(cuid())
+  name        String
+  metrics     String[] // Список выбранных показателей
+  groupBy     String?  // Группировка: project, department и т.д.
+  filters     Json?    // Фильтры
+  createdById String
+  createdBy   User     @relation("ReportPresetCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([createdById])
+  @@map("report_presets")
+}
+
+model SmtpSettings {
+  id        String   @id @default("singleton")
+  host      String
+  port      Int
+  username  String
+  password  String
+  secure    Boolean  @default(false)
+  fromEmail String
+  updatedAt DateTime @updatedAt
+
+  @@map("smtp_settings")
+}
+

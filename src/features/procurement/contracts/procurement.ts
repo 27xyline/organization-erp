@@ -48,9 +48,35 @@ export const submitProcurementSchema = z.object({
   })).min(1).max(10),
 })
 
+export function isValidRussianINN(inn: string): boolean {
+  if (!/^\d{10}$|^\d{12}$/.test(inn)) {
+    return false
+  }
+  const digits = inn.split('').map(Number)
+  if (digits.length === 10) {
+    const coefficients = [2, 4, 10, 3, 5, 9, 4, 6, 8]
+    const sum = coefficients.reduce((acc, coef, idx) => acc + coef * digits[idx], 0)
+    const checkDigit = (sum % 11) % 10
+    return checkDigit === digits[9]
+  } else if (digits.length === 12) {
+    const coefficients11 = [7, 2, 4, 10, 3, 5, 9, 4, 6, 8]
+    const sum11 = coefficients11.reduce((acc, coef, idx) => acc + coef * digits[idx], 0)
+    const checkDigit11 = (sum11 % 11) % 10
+
+    const coefficients12 = [3, 7, 2, 4, 10, 3, 5, 9, 4, 6, 8]
+    const sum12 = coefficients12.reduce((acc, coef, idx) => acc + coef * digits[idx], 0)
+    const checkDigit12 = (sum12 % 11) % 10
+    return checkDigit11 === digits[10] && checkDigit12 === digits[11]
+  }
+  return false
+}
+
 export const supplierSchema = z.object({
   name: z.string().trim().min(2).max(300),
-  taxId: z.string().trim().regex(/^\d{10}(\d{2})?$/, 'ИНН должен содержать 10 или 12 цифр').nullable().optional(),
+  taxId: z.string().trim().regex(/^\d{10}(\d{2})?$/, 'ИНН должен содержать 10 или 12 цифр')
+    .nullable()
+    .optional()
+    .refine((val) => !val || isValidRussianINN(val), 'Некорректная контрольная сумма ИНН'),
   email: z.string().trim().email().max(200).nullable().optional(),
   phone: z.string().trim().max(50).nullable().optional(),
   address: z.string().trim().max(500).nullable().optional(),

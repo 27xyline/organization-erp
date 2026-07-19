@@ -52,6 +52,7 @@ export const generateDocumentSchema = z.object({
   projectId: optionalId,
   employeeId: optionalId,
   assetId: optionalId,
+  format: z.enum(['docx', 'pdf']).default('docx').optional(),
 })
 
 export const documentsQuerySchema = z.object({

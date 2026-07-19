@@ -226,6 +226,39 @@ export function createScheduledAlertGenerators(
         })))
       },
     },
+    {
+      key: 'approval-reminders',
+      async collect(now) {
+        const steps = await db.approvalStep.findMany({
+          where: {
+            status: 'PENDING',
+            dueDate: { lte: addDays(now, 1) },
+            reminderSent: false,
+          },
+          include: {
+            request: true,
+          },
+        })
+
+        if (!steps.length) return []
+
+        await db.approvalStep.updateMany({
+          where: { id: { in: steps.map((s) => s.id) } },
+          data: { reminderSent: true },
+        })
+
+        return steps.map((step) => ({
+          recipientUserIds: [step.approverId],
+          eventType: NotificationEventType.APPROVAL_REQUESTED,
+          title: 'Напоминание о согласовании',
+          body: `Требуется решение по запросу №${step.request.id}: "${step.request.title}" до ${step.dueDate ? step.dueDate.toLocaleDateString('ru-RU') : ''}`,
+          dedupeKey: `approval-reminder:${step.id}`,
+          targetUrl: `/approvals/${step.requestId}`,
+          entityType: 'ApprovalRequest',
+          entityId: step.requestId,
+        }))
+      },
+    },
   ]
 }
 
