@@ -99,7 +99,6 @@ const financeChildren = [
   { id: "salary", label: "Заработная плата", icon: <Wallet className="h-4 w-4" />, href: "/finance/salary" },
   { id: "oklad", label: "Оклад", icon: <Calculator className="h-4 w-4" />, href: "/finance/oklad" },
   { id: "nadbavka", label: "Надбавка", icon: <BarChart3 className="h-4 w-4" />, href: "/finance/nadbavka" },
-  { id: "cash", label: "Касса (скоро)", icon: <Receipt className="h-4 w-4" />, href: "" },
 ]
 
 const employeesChildren = [
@@ -112,7 +111,6 @@ const assetsChildren = [
   { id: "assets-groups", label: "Группы имущества", icon: <Tag className="h-4 w-4" />, href: "/groups" },
   { id: "assets-registered", label: "Зарегистрировано", icon: <LayoutGrid className="h-4 w-4" />, href: "/assets" },
   { id: "assets-purchase", label: "Закупки", icon: <ShoppingCart className="h-4 w-4" />, href: "/procurement" },
-  { id: "assets-transfer", label: "Перемещение (скоро)", icon: <ArrowLeftRight className="h-4 w-4" />, href: "" },
   { id: "assets-archive", label: "Архив", icon: <Archive className="h-4 w-4" />, href: "/archive" },
 ]
 
