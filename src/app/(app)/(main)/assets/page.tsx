@@ -35,6 +35,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   ])
   const serializedAssets = assets.map((asset) => ({
     ...asset,
+    initialCost: asset.initialCost.toString(),
     unitPrice: asset.unitPrice.toString(),
     quantity: asset.quantity.toString(),
     totalCost: asset.totalCost.toString(),
@@ -64,4 +65,3 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
     />
   )
 }
-
