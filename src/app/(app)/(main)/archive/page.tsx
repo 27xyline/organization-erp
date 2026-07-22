@@ -28,6 +28,7 @@ export default async function ArchivePage({ searchParams }: ArchivePageProps) {
   ])
   const serializedAssets = assets.map((asset) => ({
     ...asset,
+    initialCost: asset.initialCost.toString(),
     unitPrice: asset.unitPrice.toString(),
     quantity: asset.quantity.toString(),
     totalCost: asset.totalCost.toString(),

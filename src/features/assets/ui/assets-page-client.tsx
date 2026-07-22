@@ -217,10 +217,15 @@ function FilterSelect({
   return (
     <div className="space-y-2">
       <Label className="text-xs">{label}</Label>
-      <Select value={value || ''} onValueChange={onChange}>
+      <Select value={value || 'ALL'} onValueChange={(val) => onChange(val === 'ALL' ? '' : val)}>
         <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
         <SelectContent>
-          {options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
+          <SelectItem value="ALL">{placeholder}</SelectItem>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
     </div>

@@ -35,13 +35,16 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   ])
   const serializedAssets = assets.map((asset) => ({
     ...asset,
+    initialCost: asset.initialCost.toString(),
     unitPrice: asset.unitPrice.toString(),
     quantity: asset.quantity.toString(),
     totalCost: asset.totalCost.toString(),
-    holdings: asset.holdings.map((holding) => ({
-      ...holding,
-      quantity: holding.quantity.toString(),
-    })),
+    holdings: asset.holdings
+      ? asset.holdings.map((holding) => ({
+          ...holding,
+          quantity: holding.quantity.toString(),
+        }))
+      : [],
   })) as unknown as Asset[]
   const totalPages = Math.max(1, Math.ceil(total / query.pageSize))
 
@@ -64,4 +67,3 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
     />
   )
 }
-

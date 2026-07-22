@@ -25,6 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Plus, Edit, Trash2, Upload, User, Search, X } from "lucide-react"
 import type { Mol } from '@/features/assets/contracts/types'
 import type { DepartmentListItem } from '@/features/departments/contracts/types'
+import { compressImage } from '@/lib/image-compression'
 
 export function MolsClient({
   initialMols,
@@ -61,17 +62,15 @@ export function MolsClient({
     }
   }
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        const base64 = reader.result as string
-        setPreviewImage(base64)
-        setFormData({ ...formData, photo: base64 })
-      }
-      reader.readAsDataURL(file)
+      const base64 = await compressImage(file)
+      if (!base64) return
+      setPreviewImage(base64)
+      setFormData((prev) => ({ ...prev, photo: base64 }))
     }
+    e.target.value = ''
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

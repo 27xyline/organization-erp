@@ -9,7 +9,8 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/toast'
-import { Upload, X } from 'lucide-react'
+import { Loader2, Upload, X } from 'lucide-react'
+import { compressImage } from '@/lib/image-compression'
 
 interface AssetFormProps {
   mols: Mol[]
@@ -72,17 +73,25 @@ export function AssetForm({ mols, groups, projects, initialData }: AssetFormProp
     editReason: '',
   })
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const [uploadingImage, setUploadingImage] = useState(false)
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
-    if (files) {
-      Array.from(files).forEach(file => {
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          const base64 = reader.result as string
-          setPhotos(prev => [...prev, base64])
-        }
-        reader.readAsDataURL(file)
-      })
+    if (!files || files.length === 0) return
+
+    setUploadingImage(true)
+    try {
+      const compressedList = await Promise.all(
+        Array.from(files).map((file) => compressImage(file))
+      )
+      const validImages = compressedList.filter(Boolean)
+      setPhotos((prev) => [...prev, ...validImages])
+    } catch (error) {
+      console.error('Error compressing images:', error)
+      toast.error('Не удалось обработать изображение')
+    } finally {
+      setUploadingImage(false)
+      e.target.value = ''
     }
   }
 
@@ -159,12 +168,19 @@ export function AssetForm({ mols, groups, projects, initialData }: AssetFormProp
                 </div>
               ))}
               <label className="w-20 h-20 flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/25 rounded-lg cursor-pointer hover:border-muted-foreground/50 transition-colors">
-                <Upload className="h-6 w-6 text-muted-foreground mb-1" />
-                <span className="text-xs text-muted-foreground">Добавить</span>
+                {uploadingImage ? (
+                  <Loader2 className="h-6 w-6 text-muted-foreground animate-spin mb-1" />
+                ) : (
+                  <Upload className="h-6 w-6 text-muted-foreground mb-1" />
+                )}
+                <span className="text-xs text-muted-foreground">
+                  {uploadingImage ? 'Загрузка...' : 'Добавить'}
+                </span>
                 <input
                   type="file"
                   accept="image/*"
                   multiple
+                  disabled={uploadingImage}
                   className="hidden"
                   onChange={handleImageUpload}
                 />

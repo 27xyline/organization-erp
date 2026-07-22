@@ -79,7 +79,7 @@ export function DashboardPage({
 
       <ReportFilters action="/" data={data} />
 
-      <section className="grid overflow-hidden rounded-xl border bg-card sm:grid-cols-2 xl:grid-cols-6">
+      <section className="grid gap-px overflow-hidden rounded-xl border bg-border sm:grid-cols-2 xl:grid-cols-6">
         <Metric
           label="Команда"
           value={`${data.summary.headcount}`}
