@@ -39,10 +39,13 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
     unitPrice: asset.unitPrice.toString(),
     quantity: asset.quantity.toString(),
     totalCost: asset.totalCost.toString(),
-    holdings: asset.holdings.map((holding) => ({
-      ...holding,
-      quantity: holding.quantity.toString(),
-    })),
+    initialCost: asset.initialCost.toString(),
+    holdings: asset.holdings
+      ? asset.holdings.map((holding) => ({
+          ...holding,
+          quantity: holding.quantity.toString(),
+        }))
+      : [],
   })) as unknown as Asset[]
   const totalPages = Math.max(1, Math.ceil(total / query.pageSize))
 

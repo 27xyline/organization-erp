@@ -229,6 +229,23 @@ export default async function AssetDetailPage(props: AssetDetailPageProps) {
             </div>
           )}
 
+          {asset.photos && asset.photos.length > 0 && (
+            <div className="pt-4 border-t">
+              <p className="text-sm text-muted-foreground mb-3">Фотографии объекта</p>
+              <div className="flex flex-wrap gap-3">
+                {asset.photos.map((photo, index) => (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img
+                    key={index}
+                    src={photo}
+                    alt={`${asset.name} - фото ${index + 1}`}
+                    className="w-32 h-32 object-cover rounded-lg border shadow-sm"
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
           {asset.notes && (
             <div className="pt-4 border-t">
               <p className="text-sm text-muted-foreground">Примечания</p>

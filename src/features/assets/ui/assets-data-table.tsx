@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import {
   Table,
   TableBody,
@@ -29,6 +30,28 @@ interface AssetsDataTableProps {
   filteredCount: number
   onArchive?: (assetId: string) => void
   canEdit?: boolean
+}
+
+function AssetThumbnail({ src, name }: { src?: string; name: string }) {
+  const [failed, setFailed] = useState(false)
+
+  if (!src || failed) {
+    return (
+      <div className="w-10 h-10 rounded bg-muted/50 flex items-center justify-center shrink-0">
+        <ImageIcon className="h-5 w-5 text-muted-foreground" />
+      </div>
+    )
+  }
+
+  return (
+    /* eslint-disable-next-line @next/next/no-img-element */
+    <img
+      src={src}
+      alt={name}
+      onError={() => setFailed(true)}
+      className="w-10 h-10 rounded object-cover border shrink-0"
+    />
+  )
 }
 
 const statusLabels: Record<string, { label: string; color: string }> = {
@@ -68,16 +91,16 @@ export function AssetsDataTable({ assets, totalCount, filteredCount, onArchive, 
       </div>
 
       {/* Таблица */}
-      <div className="rounded-md border bg-white">
+      <div className="rounded-md border bg-white overflow-x-auto">
         <Table>
           <TableHeader>
-            <TableRow className="bg-muted/50">
+            <TableRow className="bg-muted/50 whitespace-nowrap">
               <TableHead className="w-12 text-center">№</TableHead>
               <TableHead className="w-16">Фото</TableHead>
-              <TableHead>Наименование</TableHead>
+              <TableHead className="min-w-[180px]">Наименование</TableHead>
               <TableHead>Инв. номер</TableHead>
               <TableHead>Группа</TableHead>
-              <TableHead>МОЛ</TableHead>
+              <TableHead className="min-w-[150px]">МОЛ</TableHead>
               <TableHead className="text-center w-16">Форма</TableHead>
               <TableHead className="text-right">Кол-во</TableHead>
               <TableHead className="text-right">Стоимость</TableHead>
@@ -96,10 +119,16 @@ export function AssetsDataTable({ assets, totalCount, filteredCount, onArchive, 
               </TableRow>
             ) : (
               assets.map((asset, index) => {
-                const status = statusLabels[asset.status] || { label: asset.status, color: "" }
+                const status = statusLabels[asset.status] || { label: asset.status, color: "bg-gray-100 text-gray-800" }
                 const hasPhotos = asset.photos && asset.photos.length > 0
                 const hasDocuments = asset.documentFiles && asset.documentFiles.length > 0
                 const hasPlannedDisposal = asset.plannedDisposalDate
+
+                const holdingsList = asset.holdings?.length
+                  ? asset.holdings
+                  : asset.mol
+                    ? [{ id: 'default', mol: asset.mol, quantity: asset.quantity }]
+                    : []
 
                 return (
                   <TableRow 
@@ -109,18 +138,7 @@ export function AssetsDataTable({ assets, totalCount, filteredCount, onArchive, 
                       {index + 1}
                     </TableCell>
                     <TableCell>
-                      {hasPhotos ? (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img 
-                          src={asset.photos![0]} 
-                          alt={asset.name}
-                          className="w-10 h-10 rounded object-cover border"
-                        />
-                      ) : (
-                        <div className="w-10 h-10 rounded bg-muted/50 flex items-center justify-center">
-                          <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                        </div>
-                      )}
+                      <AssetThumbnail src={asset.photos?.[0]} name={asset.name} />
                     </TableCell>
                     <TableCell className="font-medium">
                       <div className="max-w-xs">
@@ -132,18 +150,18 @@ export function AssetsDataTable({ assets, totalCount, filteredCount, onArchive, 
                         )}
                       </div>
                     </TableCell>
-                    <TableCell className="font-mono text-sm">
+                    <TableCell className="font-mono text-sm whitespace-nowrap">
                       {asset.inventoryNumber}
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="whitespace-nowrap">
                       <Badge variant="outline" className="text-xs">
                         {asset.group?.code}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {(asset.holdings?.length ? asset.holdings : [{ mol: asset.mol, quantity: asset.quantity }]).map((holding) => (
-                        <div key={holding.mol.id} className="text-sm">
-                          {holding.mol.fullName}
+                      {holdingsList.map((holding, hIdx) => (
+                        <div key={holding.id || holding.mol?.id || hIdx} className="text-sm whitespace-nowrap">
+                          {holding.mol?.fullName || 'Не указан'}
                           <span className="text-xs text-muted-foreground"> · {formatDecimal(holding.quantity)}</span>
                         </div>
                       ))}
@@ -153,14 +171,14 @@ export function AssetsDataTable({ assets, totalCount, filteredCount, onArchive, 
                         {asset.accountingForm || '145'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right whitespace-nowrap">
                       {formatDecimal(asset.quantity)} {asset.unitOfMeasure}
                     </TableCell>
-                    <TableCell className="text-right font-mono">
+                    <TableCell className="text-right font-mono whitespace-nowrap">
                       {formatCurrency(asset.totalCost)}
                     </TableCell>
-                    <TableCell>
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${status.color}`}>
+                    <TableCell className="whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${status.color}`}>
                         {status.label}
                       </span>
                     </TableCell>
