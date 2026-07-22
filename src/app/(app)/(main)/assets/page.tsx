@@ -39,7 +39,6 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
     unitPrice: asset.unitPrice.toString(),
     quantity: asset.quantity.toString(),
     totalCost: asset.totalCost.toString(),
-    initialCost: asset.initialCost.toString(),
     holdings: asset.holdings
       ? asset.holdings.map((holding) => ({
           ...holding,
