@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { useToast } from '@/components/ui/toast'
 import { CustomGantt } from './custom-gantt'
@@ -15,6 +15,7 @@ import {
 } from '@/features/projects/contracts/types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -98,6 +99,46 @@ export function ProjectGantt({ projectId, tasks, canEdit }: ProjectGanttProps) {
   const [editChecklist, setEditChecklist] = useState<ChecklistDraft[]>([])
   const [newChecklist, setNewChecklist] = useState<ChecklistDraft[]>([])
   const [comment, setComment] = useState('')
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
+  const [dropStatus, setDropStatus] = useState<TaskStatus | null>(null)
+  const [isMovingTask, startMoveTransition] = useTransition()
+  const didDragTask = useRef(false)
+  const [kanbanTasks, moveKanbanTask] = useOptimistic(
+    tasks,
+    (currentTasks, move: { id: string; status: TaskStatus }) => currentTasks.map((task) =>
+      task.id === move.id ? { ...task, status: move.status } : task
+    ),
+  )
+
+  const resetDrag = () => {
+    setDraggedTaskId(null)
+    setDropStatus(null)
+  }
+
+  const handleTaskDrop = (status: TaskStatus) => {
+    const task = tasks.find((item) => item.id === draggedTaskId)
+    resetDrag()
+    if (!canEdit || isMovingTask || !task || task.status === status) return
+
+    startMoveTransition(async () => {
+      moveKanbanTask({ id: task.id, status })
+      try {
+        const response = await fetch(`/api/tasks/${task.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status }),
+        })
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}))
+          toast.error(body.error?.message || (typeof body.error === 'string' ? body.error : 'Не удалось изменить статус задачи'))
+          return
+        }
+        startMoveTransition(() => router.refresh())
+      } catch {
+        toast.error('Не удалось изменить статус задачи')
+      }
+    })
+  }
 
   const criticalPath = useMemo(() => {
     const parentIds = new Set(tasks.map((task) => task.parentId).filter(Boolean))
@@ -343,21 +384,65 @@ export function ProjectGantt({ projectId, tasks, canEdit }: ProjectGanttProps) {
           onTaskAdd={canEdit ? handleTaskAdd : undefined}
         />
       ) : (
-        <div className="grid gap-3 lg:grid-cols-4">
+        <div className="grid min-w-0 grid-cols-1 items-start gap-3 lg:grid-cols-4" aria-label="Канбан задач" aria-busy={isMovingTask}>
           {Object.values(TaskStatus).map((status) => (
-            <div key={status} className="min-h-48 rounded-lg border bg-muted/20 p-3">
-              <div className="mb-3 font-medium">{TaskStatusLabels[status]}</div>
-              <div className="grid gap-2">
-                {tasks.filter((task) => task.status === status).map((task) => (
+            <section
+              key={status}
+              aria-label={TaskStatusLabels[status]}
+              className={cn(
+                'min-h-48 min-w-0 self-stretch rounded-lg border bg-muted/20 p-3 transition-colors',
+                dropStatus === status && 'border-primary bg-primary/5 ring-1 ring-inset ring-primary',
+              )}
+              onDragOver={(event) => {
+                if (!canEdit || isMovingTask || !draggedTaskId) return
+                event.preventDefault()
+                event.dataTransfer.dropEffect = 'move'
+                setDropStatus(status)
+              }}
+              onDragLeave={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropStatus(null)
+              }}
+              onDrop={(event) => {
+                event.preventDefault()
+                handleTaskDrop(status)
+              }}
+            >
+              <h3 className="mb-3 break-words font-medium">{TaskStatusLabels[status]}</h3>
+              <div className="grid min-w-0 grid-cols-1 gap-2">
+                {kanbanTasks.filter((task) => task.status === status).map((task) => (
                   <button
                     key={task.id}
                     type="button"
-                    className="rounded-md border bg-background p-3 text-left shadow-sm hover:bg-accent"
-                    onClick={() => canEdit && handleTaskEdit(task.id)}
+                    draggable={canEdit && !isMovingTask}
+                    disabled={isMovingTask}
+                    className={cn(
+                      'w-full min-w-0 max-w-full rounded-md border bg-background p-3 text-left shadow-sm hover:bg-accent disabled:cursor-wait disabled:opacity-60',
+                      canEdit && 'cursor-grab active:cursor-grabbing',
+                      draggedTaskId === task.id && 'opacity-50',
+                    )}
+                    onPointerDown={() => { didDragTask.current = false }}
+                    onDragStart={(event) => {
+                      if (!canEdit || isMovingTask) {
+                        event.preventDefault()
+                        return
+                      }
+                      didDragTask.current = true
+                      event.dataTransfer.effectAllowed = 'move'
+                      event.dataTransfer.setData('text/plain', task.id)
+                      setDraggedTaskId(task.id)
+                    }}
+                    onDragEnd={resetDrag}
+                    onClick={() => {
+                      if (didDragTask.current) {
+                        didDragTask.current = false
+                        return
+                      }
+                      if (canEdit) void handleTaskEdit(task.id)
+                    }}
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="font-medium">{task.isMilestone && '◆ '}{task.name}</span>
-                      <Badge variant={task.priority === TaskPriority.CRITICAL ? 'destructive' : 'secondary'}>
+                    <div className="flex min-w-0 flex-col items-start gap-2">
+                      <span className="w-full min-w-0 whitespace-normal font-medium [overflow-wrap:anywhere]">{task.isMilestone && '◆ '}{task.name}</span>
+                      <Badge className="max-w-full whitespace-normal [overflow-wrap:anywhere]" variant={task.priority === TaskPriority.CRITICAL ? 'destructive' : 'secondary'}>
                         {TaskPriorityLabels[task.priority || TaskPriority.MEDIUM]}
                       </Badge>
                     </div>
@@ -367,7 +452,7 @@ export function ProjectGantt({ projectId, tasks, canEdit }: ProjectGanttProps) {
                   </button>
                 ))}
               </div>
-            </div>
+            </section>
           ))}
         </div>
       )}
