@@ -109,6 +109,33 @@ describe('AssetService', () => {
     expect(tx.auditLog).toBeDefined()
   })
 
+  it('imports every asset with its initial holding, receipt, and audit in one transaction', async () => {
+    const tx = createTransactionMock()
+    const transaction = useTransaction(tx)
+    const first = { ...baseAsset, id: 'asset-import-1', inventoryNumber: 'INV-1' }
+    const second = { ...baseAsset, id: 'asset-import-2', inventoryNumber: 'INV-2' }
+    tx.asset.create.mockResolvedValueOnce(first).mockResolvedValueOnce(second)
+    tx.assetHolding.create.mockResolvedValue({})
+    tx.operation.create.mockResolvedValue({})
+    tx.auditLog.create.mockResolvedValue({})
+
+    const imported = await AssetService.createMany([
+      { ...createInput, inventoryNumber: 'INV-1' },
+      { ...createInput, inventoryNumber: 'INV-2' },
+    ], 'user-1', 'request-1')
+
+    expect(transaction).toHaveBeenCalledTimes(1)
+    expect(imported).toBe(2)
+    expect(tx.asset.create).toHaveBeenCalledTimes(2)
+    expect(tx.assetHolding.create).toHaveBeenCalledTimes(2)
+    expect(tx.operation.create).toHaveBeenCalledTimes(2)
+    expect(tx.operation.create.mock.calls.map(([call]) => call.data.type)).toEqual([
+      'RECEIPT', 'RECEIPT',
+    ])
+    expect(tx.auditLog.create).toHaveBeenCalledTimes(2)
+    expect(tx.asset.findUniqueOrThrow).not.toHaveBeenCalled()
+  })
+
   it('moves only the requested quantity and keeps the aggregate asset unchanged', async () => {
     const tx = createTransactionMock()
     useTransaction(tx)
