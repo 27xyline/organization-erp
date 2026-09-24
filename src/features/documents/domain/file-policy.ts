@@ -1,25 +1,8 @@
 import path from 'node:path'
+import { DOCUMENT_MIME_BY_EXTENSION } from './document-file-types'
 
 const HARD_MAX_FILE_SIZE_BYTES = 100 * 1024 * 1024
 const DEFAULT_MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024
-
-const MIME_BY_EXTENSION = {
-  pdf: ['application/pdf'],
-  doc: ['application/msword'],
-  docx: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-  xls: ['application/vnd.ms-excel'],
-  xlsx: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
-  csv: ['text/csv', 'application/csv', 'application/vnd.ms-excel'],
-  txt: ['text/plain'],
-  png: ['image/png'],
-  jpg: ['image/jpeg'],
-  jpeg: ['image/jpeg'],
-  zip: ['application/zip', 'application/x-zip-compressed'],
-} as const
-
-export const DOCUMENT_ACCEPT_ATTRIBUTE = Object.keys(MIME_BY_EXTENSION)
-  .map((extension) => `.${extension}`)
-  .join(',')
 
 export class DocumentFilePolicyError extends Error {
   constructor(
@@ -92,7 +75,9 @@ export function validateDocumentFile(input: {
 
   const originalFilename = normalizeFilename(input.filename)
   const extension = path.extname(originalFilename).slice(1).toLowerCase()
-  const allowedMimes = MIME_BY_EXTENSION[extension as keyof typeof MIME_BY_EXTENSION]
+  const allowedMimes = DOCUMENT_MIME_BY_EXTENSION[
+    extension as keyof typeof DOCUMENT_MIME_BY_EXTENSION
+  ]
   if (!allowedMimes) {
     throw new DocumentFilePolicyError(
       'UNSUPPORTED_EXTENSION',
@@ -111,4 +96,3 @@ export function validateDocumentFile(input: {
 
   return { originalFilename, extension, mimeType }
 }
-
