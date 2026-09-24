@@ -1,8 +1,10 @@
 'use client'
 
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ArrowRightLeft, Briefcase, CalendarDays, UserPlus } from 'lucide-react'
 import { PageHeader } from '@/components/page-header'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { PersonnelTimeline } from './personnel-timeline'
 import { StaffTable } from './staff-table'
 import { EmployeesTable } from './employees-table'
@@ -13,7 +15,10 @@ import { VacationDialog } from './vacation-dialog'
 import { ActionDialog } from './action-dialog'
 import { useEmployeesPage, type EmployeesInitialData } from './use-employees-page'
 
+type EmployeesTab = 'employees' | 'staff' | 'events'
+
 export function EmployeesClient({ initialData, canEdit }: { initialData: EmployeesInitialData; canEdit: boolean }) {
+  const [activeTab, setActiveTab] = useState<EmployeesTab>('employees')
   const {
     loading,
     vacationsLoading,
@@ -73,62 +78,78 @@ export function EmployeesClient({ initialData, canEdit }: { initialData: Employe
   return (
     <div className="container mx-auto px-4 py-6">
       <PageHeader
-        className="mb-7 border-b border-border/70 pb-6"
+        className="mb-5 border-b border-border/70 pb-5"
         title="Сотрудники"
-        description="Состав команды, штатное расписание и кадровые события."
-        actions={canEdit && (
+        description="Реестр команды, штатное расписание, отпуска и кадровые события."
+        actions={canEdit && activeTab === 'employees' ? (
+          <Button onClick={() => openEmployeeDialog()}>
+            <UserPlus className="mr-2 h-4 w-4" />Новый сотрудник
+          </Button>
+        ) : canEdit && activeTab === 'staff' ? (
+          <Button onClick={() => openStaffDialog()}>
+            <Briefcase className="mr-2 h-4 w-4" />Штатная позиция
+          </Button>
+        ) : canEdit ? (
           <>
-            <Button onClick={() => openEmployeeDialog()}>
-              <UserPlus className="mr-2 h-4 w-4" />Новый сотрудник
-            </Button>
             <Button variant="outline" onClick={() => openVacationDialog()}>
               <CalendarDays className="mr-2 h-4 w-4" />Запланировать отпуск
             </Button>
-            <Button variant="outline" onClick={() => openStaffDialog()}>
-              <Briefcase className="mr-2 h-4 w-4" />Штатная позиция
-            </Button>
-            <Button variant="outline" onClick={() => openActionDialog()}>
+            <Button onClick={() => openActionDialog()}>
               <ArrowRightLeft className="mr-2 h-4 w-4" />Кадровое действие
             </Button>
           </>
-        )}
+        ) : null}
       />
 
-      <div className="grid grid-cols-1 gap-6 xl:h-[980px] xl:grid-cols-4 xl:items-stretch">
-        <VacationsCard
-          vacationsLoading={vacationsLoading}
-          vacations={vacations}
-          activeEmployees={activeEmployees}
-          startOfToday={startOfToday}
-          selectedYear={selectedYear}
-          onYearChange={setSelectedYear}
-          onVacationClick={openVacationDialog}
-        />
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as EmployeesTab)}>
+        <TabsList className="grid h-auto w-full grid-cols-3 sm:inline-grid sm:w-auto">
+          <TabsTrigger className="px-2 text-xs sm:px-3 sm:text-sm" value="employees">Сотрудники</TabsTrigger>
+          <TabsTrigger className="px-2 text-xs sm:px-3 sm:text-sm" value="staff">Штат</TabsTrigger>
+          <TabsTrigger className="px-2 text-xs sm:px-3 sm:text-sm" value="events">Кадры</TabsTrigger>
+        </TabsList>
 
-        <PersonnelTimeline
-          loading={loading}
-          personnelActions={personnelActions}
-          onDeleteAction={handleDeleteAction}
-        />
-      </div>
+        <TabsContent value="employees" className="mt-0">
+          <EmployeesTable
+            loading={loading}
+            activeEmployees={activeEmployees}
+            startOfToday={startOfToday}
+            onEditEmployee={openEmployeeDialog}
+            onDismissEmployee={(employee) => openActionDialog(employee, 'DISMISS')}
+            getLiveStatus={getLiveEmployeeStatus}
+            canEdit={canEdit}
+          />
+        </TabsContent>
 
-      <StaffTable
-        loading={loading}
-        staffSchedule={staffSchedule}
-        onEditStaff={openStaffDialog}
-        onDeleteStaff={handleDeleteStaff}
-        canEdit={canEdit}
-      />
+        <TabsContent value="staff" className="mt-0">
+          <StaffTable
+            loading={loading}
+            staffSchedule={staffSchedule}
+            onEditStaff={openStaffDialog}
+            onDeleteStaff={handleDeleteStaff}
+            canEdit={canEdit}
+          />
+        </TabsContent>
 
-      <EmployeesTable
-        loading={loading}
-        activeEmployees={activeEmployees}
-        startOfToday={startOfToday}
-        onEditEmployee={openEmployeeDialog}
-        onDismissEmployee={(employee) => openActionDialog(employee, 'DISMISS')}
-        getLiveStatus={getLiveEmployeeStatus}
-        canEdit={canEdit}
-      />
+        <TabsContent value="events" className="mt-0">
+          <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-4 xl:items-stretch">
+            <VacationsCard
+              vacationsLoading={vacationsLoading}
+              vacations={vacations}
+              activeEmployees={activeEmployees}
+              startOfToday={startOfToday}
+              selectedYear={selectedYear}
+              onYearChange={setSelectedYear}
+              onVacationClick={openVacationDialog}
+            />
+
+            <PersonnelTimeline
+              loading={loading}
+              personnelActions={personnelActions}
+              onDeleteAction={handleDeleteAction}
+            />
+          </div>
+        </TabsContent>
+      </Tabs>
 
       <EmployeeDialog
         open={isEmployeeDialogOpen}
