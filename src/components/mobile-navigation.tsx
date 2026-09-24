@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import type { AppRole, Permission } from '@/lib/auth/permissions'
 import { NotificationBell } from '@/features/notifications/ui/notification-bell'
+import { GlobalSearchButton } from '@/features/search/ui/global-search-provider'
 
 const links = [
   { href: '/', label: 'Рабочий обзор', icon: LayoutDashboard, permission: 'dashboard.read' },
@@ -35,6 +36,7 @@ export function MobileNavigation({ currentUser }: {
     <header className="fixed inset-x-0 top-0 z-40 flex h-14 items-center justify-between border-b bg-background px-4 md:hidden">
       <Link href="/" className="font-semibold">Consilium</Link>
       <div className="flex items-center gap-1">
+        <GlobalSearchButton compact />
         <NotificationBell />
         <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>

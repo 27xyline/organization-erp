@@ -1,5 +1,6 @@
 import { FinderSidebar } from "@/components/finder-sidebar"
 import { MobileNavigation } from "@/components/mobile-navigation"
+import { GlobalSearchProvider } from "@/features/search/ui/global-search-provider"
 import type { AppRole, Permission } from "@/lib/auth/permissions"
 
 interface AppLayoutProps {
@@ -14,12 +15,14 @@ interface AppLayoutProps {
 
 export function AppLayout({ children, currentUser }: AppLayoutProps) {
   return (
-    <div className="relative flex h-dvh overflow-hidden bg-background">
-      <MobileNavigation currentUser={currentUser} />
-      <FinderSidebar currentUser={currentUser} />
-      <main className="min-w-0 flex-1 overflow-auto pt-14 md:pt-0">
-        {children}
-      </main>
-    </div>
+    <GlobalSearchProvider permissions={currentUser.permissions}>
+      <div className="relative flex h-dvh overflow-hidden bg-background">
+        <MobileNavigation currentUser={currentUser} />
+        <FinderSidebar currentUser={currentUser} />
+        <main className="min-w-0 flex-1 overflow-auto pt-14 md:pt-0">
+          {children}
+        </main>
+      </div>
+    </GlobalSearchProvider>
   )
 }

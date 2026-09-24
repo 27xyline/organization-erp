@@ -35,6 +35,7 @@ import {
 } from "lucide-react"
 import { ROLE_LABELS, type AppRole, type Permission } from "@/lib/auth/permissions"
 import { NotificationBell } from "@/features/notifications/ui/notification-bell"
+import { GlobalSearchButton } from '@/features/search/ui/global-search-provider'
 
 interface Project {
   id: string
@@ -354,6 +355,10 @@ export function FinderSidebar({ currentUser }: {
           <p className="text-xs text-muted-foreground">Управление активами</p>
         </div>
         <NotificationBell />
+      </div>
+
+      <div className="px-3 pt-3">
+        <GlobalSearchButton />
       </div>
       
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
