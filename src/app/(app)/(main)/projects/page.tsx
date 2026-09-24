@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { Plus, FolderKanban, Calendar, Wallet } from 'lucide-react'
 import { ProjectStatusLabels } from '@/features/projects/contracts/types'
+import { PageHeader } from '@/components/page-header'
 import { formatDate, formatCurrency, cn } from '@/lib/utils'
 import { ProjectService } from '@/features/projects/application/project.service'
 import { requirePagePermission } from '@/lib/auth/authorization'
@@ -17,20 +18,18 @@ export default async function ProjectsPage() {
 
   return (
     <main className="container mx-auto py-8 px-4">
-      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Проекты</h1>
-          <p className="text-muted-foreground mt-1">
-            Управление проектами и задачами
-          </p>
-        </div>
-        {user.access.has('projects.create') && <Button asChild className="shrink-0">
-          <Link href="/projects/new">
-            <Plus className="mr-2 h-4 w-4" />
-            Новый проект
-          </Link>
-        </Button>}
-      </div>
+      <PageHeader
+        className="mb-8"
+        title="Проекты"
+        description="Управление проектами и задачами"
+        actions={user.access.has('projects.create') && (
+          <Button asChild className="shrink-0">
+            <Link href="/projects/new">
+              <Plus className="mr-2 h-4 w-4" />Новый проект
+            </Link>
+          </Button>
+        )}
+      />
 
       {projects.length === 0 ? (
         <Card>
