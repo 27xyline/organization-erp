@@ -1,5 +1,7 @@
 import type { Asset } from '@/features/assets/contracts/types'
 import { AssetService } from '@/features/assets/application/asset.service'
+import { getAssetSavedViewService } from '@/features/assets/application/saved-view.service'
+import { assetSavedViewFiltersSchema } from '@/features/assets/contracts/saved-view'
 import { assetsQuerySchema } from '@/features/assets/contracts/schemas'
 import { defaultLandingPath, requirePageUser } from '@/lib/auth/authorization'
 import { AssetsPageClient } from '@/features/assets/ui/assets-page-client'
@@ -29,9 +31,10 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
     archived: 'false',
   })
   const query = parsed.success ? parsed.data : assetsQuerySchema.parse({ archived: 'false' })
-  const [{ assets, total }, { mols, groups }] = await Promise.all([
+  const [{ assets, total }, { mols, groups }, savedViews] = await Promise.all([
     AssetService.list(query, user.access),
     AssetService.listCatalogs(user.access),
+    getAssetSavedViewService().list(user.id),
   ])
   const serializedAssets = assets.map((asset) => ({
     ...asset,
@@ -63,6 +66,10 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
         dateFrom: query.dateFrom,
         dateTo: query.dateTo,
       }}
+      savedViews={savedViews.map((view) => ({
+        ...view,
+        filters: assetSavedViewFiltersSchema.parse(view.filters),
+      }))}
       canEdit={user.access.has('assets.update')}
     />
   )

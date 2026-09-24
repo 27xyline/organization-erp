@@ -313,6 +313,7 @@ model User {
   closedPayrollPeriods    PayrollPeriod[]          @relation("PayrollPeriodClosedBy")
   requestedProcurements   ProcurementRequest[]     @relation("ProcurementRequestedBy")
   reportPresets           ReportPreset[]           @relation("ReportPresetCreatedBy")
+  assetSavedViews         AssetSavedView[]
 
   @@index([isActive, role])
   @@map("users")
@@ -1302,6 +1303,20 @@ model ReportPreset {
   @@map("report_presets")
 }
 
+model AssetSavedView {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  filters   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId, updatedAt])
+  @@map("asset_saved_views")
+}
+
 model SmtpSettings {
   id        String   @id @default("singleton")
   host      String
@@ -1314,4 +1329,3 @@ model SmtpSettings {
 
   @@map("smtp_settings")
 }
-
