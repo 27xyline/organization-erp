@@ -55,4 +55,41 @@ describe('AssetsDataTable mobile layout', () => {
     expect(mobileList?.querySelector('a[href="/assets/asset-1"]')).not.toBeNull()
     expect(mobileList?.querySelector('a[href="/assets/asset-1/edit"]')).toBeNull()
   })
+
+  it('keeps the accounting details available on mobile', async () => {
+    const detailedAsset = {
+      ...asset,
+      notes: 'Для кабинета переговоров',
+      accountingForm: '367',
+      holdings: [
+        { id: 'holding-1', mol: { id: 'mol-1', fullName: 'Анна Смирнова' }, quantity: '1.5' },
+        { id: 'holding-2', mol: { id: 'mol-2', fullName: 'Иван Петров' }, quantity: '0.5' },
+      ],
+    } as unknown as Asset
+
+    await act(async () => root.render(
+      <AssetsDataTable assets={[detailedAsset]} totalCount={1} filteredCount={1} />,
+    ))
+
+    const mobileList = host.querySelector('[data-testid="assets-mobile-list"]')
+    expect(mobileList).toHaveTextContent('Для кабинета переговоров')
+    expect(mobileList).toHaveTextContent('ОФИС')
+    expect(mobileList).toHaveTextContent('Форма учета')
+    expect(mobileList).toHaveTextContent('367')
+    expect(mobileList).toHaveTextContent('Анна Смирнова')
+    expect(mobileList).toHaveTextContent('1,5')
+    expect(mobileList).toHaveTextContent('Иван Петров')
+    expect(mobileList).toHaveTextContent('0,5')
+  })
+
+  it('shows edit and transfer actions to users with edit access', async () => {
+    await act(async () => root.render(
+      <AssetsDataTable assets={[asset]} totalCount={1} filteredCount={1} canEdit />,
+    ))
+
+    const mobileList = host.querySelector('[data-testid="assets-mobile-list"]')
+    expect(mobileList?.querySelector('a[href="/assets/asset-1/edit"]')).not.toBeNull()
+    expect(mobileList?.querySelector('a[href="/assets/asset-1/transfer"]')).not.toBeNull()
+    expect(mobileList?.querySelector('button[aria-label="В архив: Ноутбук для переговорной"]')).not.toBeNull()
+  })
 })
