@@ -11,7 +11,9 @@ const querySchema = z.object({
 })
 
 export async function GET(request: NextRequest) {
-  const auth = await authorizeApiRequest(request, 'reports.read')
+  const auth = await authorizeApiRequest(request, {
+    allOf: ['reports.read', 'projects.read', 'projectPayroll.read', 'finance.salary.read'],
+  })
   if (auth.response) return auth.response
 
   const searchParams = Object.fromEntries(request.nextUrl.searchParams)
@@ -24,7 +26,8 @@ export async function GET(request: NextRequest) {
   const data = await ReportService.getProjectProfitability(
     dateFrom,
     dateTo,
-    query.data.projectId
+    query.data.projectId,
+    auth.access,
   )
 
   return NextResponse.json(data)
