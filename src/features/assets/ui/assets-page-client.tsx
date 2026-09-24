@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Filter, Plus, Search, X } from 'lucide-react'
 import { AssetsDataTable } from './assets-data-table'
+import { PageHeader } from '@/components/page-header'
 import { ExportButton } from '@/components/export-button'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -59,13 +60,12 @@ export function AssetsPageClient({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b bg-card px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Имущество</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Учет материальных ценностей и активов</p>
-          </div>
-          <div className="flex gap-2">
+      <div className="border-b bg-card px-4 py-5 sm:px-6">
+        <PageHeader
+          title="Имущество"
+          description="Учет материальных ценностей и активов"
+          actions={(
+            <>
             <ExportButton />
             <Button variant="outline" onClick={() => setShowFilters((visible) => !visible)}>
               <Filter className="mr-2 h-4 w-4" />
@@ -77,17 +77,18 @@ export function AssetsPageClient({
                 <Button><Plus className="mr-2 h-4 w-4" />Добавить</Button>
               </Link>
             )}
-          </div>
-        </div>
+            </>
+          )}
+        />
 
         <form
-          className="mt-4 flex gap-2"
+          className="mt-5 flex flex-col gap-2 sm:flex-row"
           onSubmit={(event) => {
             event.preventDefault()
             updateQuery({ search })
           }}
         >
-          <div className="relative max-w-xl flex-1">
+          <div className="relative w-full max-w-xl flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               className="pl-10"

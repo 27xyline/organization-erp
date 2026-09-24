@@ -1,7 +1,8 @@
 'use client'
 
 import { Button } from '@/components/ui/button'
-import { Plus } from 'lucide-react'
+import { ArrowRightLeft, Briefcase, CalendarDays, UserPlus } from 'lucide-react'
+import { PageHeader } from '@/components/page-header'
 import { PersonnelTimeline } from './personnel-timeline'
 import { StaffTable } from './staff-table'
 import { EmployeesTable } from './employees-table'
@@ -71,30 +72,27 @@ export function EmployeesClient({ initialData, canEdit }: { initialData: Employe
 
   return (
     <div className="container mx-auto px-4 py-6">
-      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Сотрудники</h1>
-        </div>
-
-        {canEdit && <div className="flex flex-wrap gap-2">
-          <Button onClick={() => openEmployeeDialog()}>
-            <Plus className="mr-2 h-4 w-4" />
-            Сотрудник
-          </Button>
-          <Button variant="outline" onClick={() => openVacationDialog()}>
-            <Plus className="mr-2 h-4 w-4" />
-            Отпуск
-          </Button>
-          <Button variant="outline" onClick={() => openStaffDialog()}>
-            <Plus className="mr-2 h-4 w-4" />
-            Должность
-          </Button>
-          <Button variant="outline" onClick={() => openActionDialog()}>
-            <Plus className="mr-2 h-4 w-4" />
-            Действие
-          </Button>
-        </div>}
-      </div>
+      <PageHeader
+        className="mb-7 border-b border-border/70 pb-6"
+        title="Сотрудники"
+        description="Состав команды, штатное расписание и кадровые события."
+        actions={canEdit && (
+          <>
+            <Button onClick={() => openEmployeeDialog()}>
+              <UserPlus className="mr-2 h-4 w-4" />Новый сотрудник
+            </Button>
+            <Button variant="outline" onClick={() => openVacationDialog()}>
+              <CalendarDays className="mr-2 h-4 w-4" />Запланировать отпуск
+            </Button>
+            <Button variant="outline" onClick={() => openStaffDialog()}>
+              <Briefcase className="mr-2 h-4 w-4" />Штатная позиция
+            </Button>
+            <Button variant="outline" onClick={() => openActionDialog()}>
+              <ArrowRightLeft className="mr-2 h-4 w-4" />Кадровое действие
+            </Button>
+          </>
+        )}
+      />
 
       <div className="grid grid-cols-1 gap-6 xl:h-[980px] xl:grid-cols-4 xl:items-stretch">
         <VacationsCard
