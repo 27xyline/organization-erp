@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/components/ui/toast'
-import { DOCUMENT_ACCEPT_ATTRIBUTE } from '../domain/file-policy'
+import { DOCUMENT_ACCEPT_ATTRIBUTE } from '../domain/document-file-types'
 import {
   DOCUMENT_CATEGORY_LABELS,
   type DocumentCategoryValue,
