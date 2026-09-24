@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Filter, Plus, Search, X } from 'lucide-react'
 import { AssetsDataTable } from './assets-data-table'
+import { AssetSavedViewsToolbar } from './asset-saved-views-toolbar'
 import { PageHeader } from '@/components/page-header'
 import { ExportButton } from '@/components/export-button'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import type { AssetSavedViewFilters, AssetSavedViewSummary } from '@/features/assets/contracts/saved-view'
 import type { Asset, AssetGroup, Mol } from '@/features/assets/contracts/types'
 
 interface AssetsPageClientProps {
@@ -20,15 +22,8 @@ interface AssetsPageClientProps {
   mols: Mol[]
   groups: AssetGroup[]
   pagination: { page: number; pageSize: number; total: number; totalPages: number }
-  filters: {
-    search?: string
-    molId?: string
-    groupId?: string
-    status?: string
-    accountingForm?: string
-    dateFrom?: string
-    dateTo?: string
-  }
+  filters: AssetSavedViewFilters
+  savedViews: AssetSavedViewSummary[]
   canEdit: boolean
 }
 
@@ -38,6 +33,7 @@ export function AssetsPageClient({
   groups,
   pagination,
   filters,
+  savedViews,
   canEdit,
 }: AssetsPageClientProps) {
   const router = useRouter()
@@ -66,17 +62,17 @@ export function AssetsPageClient({
           description="Учет материальных ценностей и активов"
           actions={(
             <>
-            <ExportButton />
-            <Button variant="outline" onClick={() => setShowFilters((visible) => !visible)}>
-              <Filter className="mr-2 h-4 w-4" />
-              Фильтры
-              {activeFiltersCount > 0 && <Badge className="ml-2" variant="secondary">{activeFiltersCount}</Badge>}
-            </Button>
-            {canEdit && (
-              <Link href="/assets/new">
-                <Button><Plus className="mr-2 h-4 w-4" />Добавить</Button>
-              </Link>
-            )}
+              <ExportButton />
+              <Button variant="outline" onClick={() => setShowFilters((visible) => !visible)}>
+                <Filter className="mr-2 h-4 w-4" />
+                Фильтры
+                {activeFiltersCount > 0 && <Badge className="ml-2" variant="secondary">{activeFiltersCount}</Badge>}
+              </Button>
+              {canEdit && (
+                <Link href="/assets/new">
+                  <Button><Plus className="mr-2 h-4 w-4" />Добавить</Button>
+                </Link>
+              )}
             </>
           )}
         />
@@ -111,6 +107,26 @@ export function AssetsPageClient({
             </Button>
           )}
         </form>
+
+        <AssetSavedViewsToolbar
+          currentFilters={{
+            ...filters,
+            search: search.trim() || undefined,
+          }}
+          initialViews={savedViews}
+          onApply={(savedFilters) => {
+            setSearch(savedFilters.search || '')
+            updateQuery({
+              search: savedFilters.search,
+              molId: savedFilters.molId,
+              groupId: savedFilters.groupId,
+              status: savedFilters.status,
+              accountingForm: savedFilters.accountingForm,
+              dateFrom: savedFilters.dateFrom,
+              dateTo: savedFilters.dateTo,
+            })
+          }}
+        />
       </div>
 
       <div className="flex flex-1 overflow-hidden">
