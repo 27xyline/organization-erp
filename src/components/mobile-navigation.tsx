@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { signOut } from 'next-auth/react'
-import { Archive, Briefcase, CalendarClock, ClipboardCheck, DollarSign, FileChartColumn, Files, KeyRound, LayoutDashboard, LogOut, Menu, Network, Package, ShieldCheck, ShoppingCart, UserCog, Users } from 'lucide-react'
+import { Archive, Briefcase, CalendarClock, ClipboardCheck, DollarSign, FileChartColumn, Files, KeyRound, LayoutDashboard, LogOut, Menu, Network, Package, QrCode, ShieldCheck, ShoppingCart, UserCog, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import type { AppRole, Permission } from '@/lib/auth/permissions'
@@ -14,6 +14,7 @@ const links = [
   { href: '/', label: 'Рабочий обзор', icon: LayoutDashboard, permission: 'dashboard.read' },
   { href: '/reports', label: 'Отчётность', icon: FileChartColumn, permission: 'reports.read' },
   { href: '/assets', label: 'Имущество', icon: Package, permission: 'assets.read' },
+  { href: '/assets/inventory', label: 'Инвентаризация', icon: QrCode, permission: 'assets.inventory.manage' },
   { href: '/archive', label: 'Архив имущества', icon: Archive, permission: 'assets.read' },
   { href: '/procurement', label: 'Закупки', icon: ShoppingCart, permission: 'procurement.read' },
   { href: '/projects', label: 'Проекты', icon: Briefcase, permission: 'projects.read' },

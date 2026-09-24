@@ -23,6 +23,7 @@ model Mol {
 
   assets         Asset[]
   holdings       AssetHolding[]
+  inventories    AssetInventory[]
   operationsFrom Operation[]    @relation("FromMol")
   operationsTo   Operation[]    @relation("ToMol")
 
@@ -127,6 +128,7 @@ model Asset {
   holdings                AssetHolding[]
   documents               Document[]
   maintenanceRecords      AssetMaintenance[]
+  inventoryEntries       AssetInventoryEntry[]
   procurementDeliveryItem ProcurementDeliveryItem?
 
   @@index([molId])
@@ -146,6 +148,13 @@ enum AssetStatus {
   FULLY_DISPOSED
 
   @@map("asset_status")
+}
+
+enum AssetInventoryStatus {
+  IN_PROGRESS
+  COMPLETED
+
+  @@map("asset_inventory_status")
 }
 
 enum AssetMaintenanceType {
@@ -253,6 +262,45 @@ model AssetHolding {
   @@map("asset_holdings")
 }
 
+model AssetInventory {
+  id          String               @id @default(cuid())
+  name        String
+  status      AssetInventoryStatus @default(IN_PROGRESS)
+  molId       String
+  mol         Mol                  @relation(fields: [molId], references: [id], onDelete: Restrict)
+  createdById String
+  createdBy   User                 @relation("AssetInventoryCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime             @default(now())
+  completedAt DateTime?
+  entries     AssetInventoryEntry[]
+
+  @@index([molId, status, createdAt])
+  @@map("asset_inventories")
+}
+
+model AssetInventoryEntry {
+  id                String          @id @default(cuid())
+  inventoryId       String
+  inventory         AssetInventory  @relation(fields: [inventoryId], references: [id], onDelete: Cascade)
+  assetId           String?
+  asset             Asset?          @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  inventoryNumber   String
+  assetName         String
+  unitOfMeasure     String
+  expectedQuantity  Decimal         @db.Decimal(10, 2)
+  foundQuantity     Decimal?        @db.Decimal(10, 2)
+  note              String?
+  scannedById       String?
+  scannedBy         User?           @relation("AssetInventoryScannedBy", fields: [scannedById], references: [id], onDelete: SetNull)
+  scannedAt         DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([inventoryId, inventoryNumber])
+  @@index([inventoryId, scannedAt])
+  @@map("asset_inventory_entries")
+}
+
 enum UserRole {
   ADMIN
   EDITOR
@@ -310,6 +358,8 @@ model User {
   requestedApprovals      ApprovalRequest[]        @relation("ApprovalRequestedBy")
   approvalSteps           ApprovalStep[]           @relation("ApprovalStepApprover")
   approvalTemplates       ApprovalTemplate[]       @relation("ApprovalTemplateCreatedBy")
+  createdAssetInventories AssetInventory[]          @relation("AssetInventoryCreatedBy")
+  scannedAssetInventoryEntries AssetInventoryEntry[] @relation("AssetInventoryScannedBy")
   taskComments            TaskComment[]
   closedPayrollPeriods    PayrollPeriod[]          @relation("PayrollPeriodClosedBy")
   requestedProcurements   ProcurementRequest[]     @relation("ProcurementRequestedBy")

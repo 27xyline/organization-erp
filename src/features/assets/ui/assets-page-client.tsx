@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { Filter, Plus, Search, X } from 'lucide-react'
+import { ClipboardCheck, Filter, Plus, Search, X } from 'lucide-react'
 import { AssetsDataTable } from './assets-data-table'
 import { AssetSavedViewsToolbar } from './asset-saved-views-toolbar'
 import { AssetImportDialog } from './asset-import-dialog'
@@ -27,6 +27,7 @@ interface AssetsPageClientProps {
   savedViews: AssetSavedViewSummary[]
   canEdit: boolean
   canImport: boolean
+  canInventory?: boolean
 }
 
 export function AssetsPageClient({
@@ -38,6 +39,7 @@ export function AssetsPageClient({
   savedViews,
   canEdit,
   canImport,
+  canInventory = false,
 }: AssetsPageClientProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -67,6 +69,7 @@ export function AssetsPageClient({
             <>
               <ExportButton />
               {canImport && <AssetImportDialog onImported={() => router.refresh()} />}
+              {canInventory && <Link href="/assets/inventory"><Button variant="outline"><ClipboardCheck className="mr-2 h-4 w-4" />Инвентаризация</Button></Link>}
               <Button variant="outline" onClick={() => setShowFilters((visible) => !visible)}>
                 <Filter className="mr-2 h-4 w-4" />
                 Фильтры
