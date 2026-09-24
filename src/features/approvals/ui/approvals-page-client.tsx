@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { Check, CircleX, Loader2, Plus, Trash2 } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, CircleX, Loader2, Plus, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -65,6 +65,14 @@ const stepLabels: Record<StepStatus, string> = {
 }
 
 const emptyStep = () => ({ name: '', approverId: '' })
+const PAGE_SIZE = 20
+
+interface ApprovalPagination {
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+}
 
 export function ApprovalsPageClient({
   currentUserId,
@@ -78,6 +86,13 @@ export function ApprovalsPageClient({
   canCancel: boolean
 }) {
   const [items, setItems] = useState<ApprovalItem[]>([])
+  const [pagination, setPagination] = useState<ApprovalPagination>({
+    page: 1,
+    pageSize: PAGE_SIZE,
+    total: 0,
+    totalPages: 1,
+  })
+  const [page, setPage] = useState(1)
   const [approvers, setApprovers] = useState<ApproverOption[]>([])
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -88,9 +103,9 @@ export function ApprovalsPageClient({
   const [dueAt, setDueAt] = useState('')
   const [steps, setSteps] = useState([emptyStep()])
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (targetPage = page) => {
     setLoading(true)
-    const response = await fetch('/api/approvals?pageSize=100')
+    const response = await fetch(`/api/approvals?page=${targetPage}&pageSize=${PAGE_SIZE}`)
     const body = await response.json().catch(() => ({}))
     setLoading(false)
     if (!response.ok) {
@@ -98,7 +113,8 @@ export function ApprovalsPageClient({
       return
     }
     setItems(body.data)
-  }, [])
+    setPagination(body.pagination)
+  }, [page])
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0)
@@ -137,13 +153,17 @@ export function ApprovalsPageClient({
     setDueAt('')
     setSteps([emptyStep()])
     setMessage('Согласование запущено')
-    await load()
+    if (page === 1) await load(1)
+    else setPage(1)
   }
 
   async function mutate(id: string, action: 'APPROVE' | 'REJECT' | 'CANCEL') {
-    const comment = action === 'REJECT'
-      ? window.prompt('Причина отклонения (необязательно)') ?? undefined
-      : undefined
+    let comment: string | undefined
+    if (action === 'REJECT') {
+      const answer = window.prompt('Причина отклонения (необязательно)')
+      if (answer === null) return
+      comment = answer.trim() || undefined
+    }
     setMessage(null)
     setBusyId(id)
     const response = await fetch(
@@ -359,6 +379,39 @@ export function ApprovalsPageClient({
             )
           })}
         </div>
+      )}
+
+      {!loading && pagination.totalPages > 1 && (
+        <nav
+          aria-label="Навигация по страницам согласований"
+          className="flex flex-wrap items-center justify-between gap-3 border-t pt-4"
+        >
+          <p aria-live="polite" className="text-sm text-muted-foreground">
+            Страница {pagination.page} из {pagination.totalPages} · всего {pagination.total}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              aria-label="Предыдущая страница"
+              disabled={pagination.page <= 1}
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+            >
+              <ChevronLeft className="mr-1 h-4 w-4" />Назад
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              aria-label="Следующая страница"
+              disabled={pagination.page >= pagination.totalPages}
+              onClick={() => setPage((current) => Math.min(pagination.totalPages, current + 1))}
+            >
+              Далее<ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
+          </div>
+        </nav>
       )}
     </main>
   )
