@@ -65,7 +65,6 @@ export default async function ProjectPage(props: ProjectPageProps) {
   const documentTarget = { documentProjectId: project.id }
   const canReadDocuments = user.access.allows('documents.read', documentTarget)
   const canCreateDocuments = user.access.allows('documents.create', documentTarget)
-  const canReadActivity = user.access.has('auditLogs.read')
   const [documentResult, projectActivities] = await Promise.all([
     canReadDocuments
       ? getDocumentService().list({
@@ -75,7 +74,11 @@ export default async function ProjectPage(props: ProjectPageProps) {
           archived: false,
         }, { id: user.id, access: user.access })
       : Promise.resolve({ documents: [], total: 0 }),
-    canReadActivity ? ProjectWorkspaceService.activity(project.id) : Promise.resolve([]),
+    ProjectWorkspaceService.activity(project.id, {
+      canReadTasks,
+      canReadDocuments,
+      canReadAll: user.access.has('auditLogs.read'),
+    }),
   ])
   const projectDocuments = documentResult.documents.map((document) => ({
     ...document,
@@ -454,7 +457,7 @@ export default async function ProjectPage(props: ProjectPageProps) {
         />
       ),
     }] : []),
-    ...(canReadActivity ? [{
+    {
       id: 'history',
       label: 'История',
       content: (
@@ -471,7 +474,7 @@ export default async function ProjectPage(props: ProjectPageProps) {
           showActivity
         />
       ),
-    }] : []),
+    },
   ]
 
   return (
