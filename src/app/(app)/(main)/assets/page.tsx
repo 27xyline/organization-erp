@@ -21,6 +21,9 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   const createDepartmentIds = user.access.allowedDepartmentIds('assets.create')
   const canCreateAssets = user.access.has('assets.create') &&
     (createDepartmentIds === null || createDepartmentIds.length > 0)
+  const inventoryDepartmentIds = user.access.allowedDepartmentIds('assets.inventory.manage')
+  const canManageInventory = user.access.has('assets.inventory.manage') &&
+    (inventoryDepartmentIds === null || inventoryDepartmentIds.length > 0)
   const parsed = assetsQuerySchema.safeParse({
     page: first(params.page),
     pageSize: first(params.pageSize),
@@ -75,6 +78,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
       }))}
       canEdit={user.access.has('assets.update')}
       canImport={canCreateAssets}
+      canInventory={canManageInventory}
     />
   )
 }

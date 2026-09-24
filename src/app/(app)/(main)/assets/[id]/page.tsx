@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatDate, formatCurrency, formatDecimal } from '@/lib/utils'
 import { AssetStatusLabels } from '@/features/assets/contracts/types'
-import { ArrowLeft, Edit, ArrowRightLeft, FileText, Calendar, Image as ImageIcon } from 'lucide-react'
+import { ArrowLeft, Edit, ArrowRightLeft, FileText, Calendar, Image as ImageIcon, QrCode } from 'lucide-react'
 import { AssetOperationsHistory } from '@/features/assets/ui/asset-operations-history'
 import { AssetService } from '@/features/assets/application/asset.service'
 import { requirePagePermission } from '@/lib/auth/authorization'
@@ -68,6 +68,9 @@ export default async function AssetDetailPage(props: AssetDetailPageProps) {
               Передать
             </Button>
           </Link>}
+          <Link href={`/assets/${asset.id}/qr`}>
+            <Button variant="outline"><QrCode className="mr-2 h-4 w-4" />QR-этикетка</Button>
+          </Link>
         </div>
       </div>
 

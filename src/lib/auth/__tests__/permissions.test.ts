@@ -38,4 +38,15 @@ describe('built-in permission matrix', () => {
       expect(ROLE_PERMISSIONS[role].has('approvals.templates.manage')).toBe(false)
     }
   })
+
+  it('limits inventory sessions to asset custodians, department heads, and administrators', () => {
+    expect(ROLE_PERMISSIONS.ADMIN.has('assets.inventory.manage')).toBe(true)
+    expect(ROLE_PERMISSIONS.ASSET_CUSTODIAN.has('assets.inventory.manage')).toBe(true)
+    expect(ROLE_PERMISSIONS.DEPARTMENT_HEAD.has('assets.inventory.manage')).toBe(true)
+    for (const role of APP_ROLES.filter((value) =>
+      !['ADMIN', 'ASSET_CUSTODIAN', 'DEPARTMENT_HEAD'].includes(value)
+    )) {
+      expect(ROLE_PERMISSIONS[role].has('assets.inventory.manage')).toBe(false)
+    }
+  })
 })

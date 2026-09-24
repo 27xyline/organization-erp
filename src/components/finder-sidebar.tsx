@@ -16,7 +16,6 @@ import {
   Receipt,
   Calculator,
   ShoppingCart,
-  ArrowLeftRight,
   LayoutGrid,
   Wallet,
   BarChart3,
@@ -111,6 +110,7 @@ const employeesChildren = [
 const assetsChildren = [
   { id: "assets-groups", label: "Группы имущества", icon: <Tag className="h-4 w-4" />, href: "/groups" },
   { id: "assets-registered", label: "Зарегистрировано", icon: <LayoutGrid className="h-4 w-4" />, href: "/assets" },
+  { id: "assets-inventory", label: "Инвентаризация", icon: <ClipboardCheck className="h-4 w-4" />, href: "/assets/inventory" },
   { id: "assets-purchase", label: "Закупки", icon: <ShoppingCart className="h-4 w-4" />, href: "/procurement" },
   { id: "assets-archive", label: "Архив", icon: <Archive className="h-4 w-4" />, href: "/archive" },
 ]
@@ -252,15 +252,13 @@ export function FinderSidebar({ currentUser }: {
             : permissionSet.has('employees.read')
         )
       case 'assets':
-        return assetsChildren.filter((child) =>
-          child.id === 'assets-groups'
-            ? permissionSet.has('assetGroups.read')
-            : child.id === 'assets-purchase'
-              ? permissionSet.has('procurement.read')
-            : ['assets-registered', 'assets-archive'].includes(child.id)
-              ? permissionSet.has('assets.read')
-              : false
-        )
+        return assetsChildren.filter((child) => {
+          if (child.id === 'assets-groups') return permissionSet.has('assetGroups.read')
+          if (child.id === 'assets-purchase') return permissionSet.has('procurement.read')
+          if (child.id === 'assets-inventory') return permissionSet.has('assets.inventory.manage')
+          return ['assets-registered', 'assets-archive'].includes(child.id) &&
+            permissionSet.has('assets.read')
+        })
       case 'documents':
         return permissionSet.has('documents.read')
           ? [{ id: 'documents-list', label: 'Все документы', icon: <Files className="h-4 w-4" />, href: '/documents' }]
