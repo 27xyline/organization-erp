@@ -97,6 +97,60 @@ export class ApprovalService {
     return { requests, total }
   }
 
+  async listPendingForUser(userId: string, limit = 5) {
+    const where: Prisma.ApprovalRequestWhereInput = {
+      status: ApprovalRequestStatus.PENDING,
+      steps: {
+        some: {
+          approverId: userId,
+          status: ApprovalStepStatus.PENDING,
+        },
+      },
+    }
+    const [records, total] = await this.db.$transaction([
+      this.db.approvalRequest.findMany({
+        where,
+        select: {
+          id: true,
+          title: true,
+          currentStep: true,
+          dueAt: true,
+          requestedBy: { select: { name: true } },
+          steps: {
+            where: {
+              approverId: userId,
+              status: ApprovalStepStatus.PENDING,
+            },
+            select: { sequence: true, name: true, approverId: true },
+          },
+        },
+        orderBy: [
+          { dueAt: { sort: 'asc', nulls: 'last' } },
+          { updatedAt: 'desc' },
+        ],
+        take: limit,
+      }),
+      this.db.approvalRequest.count({ where }),
+    ])
+
+    const requests = records.flatMap((record) => {
+      const step = record.steps.find((candidate) =>
+        candidate.sequence === record.currentStep
+        && candidate.approverId === userId
+      )
+      return step
+        ? [{
+            id: record.id,
+            title: record.title,
+            dueAt: record.dueAt,
+            requestedBy: record.requestedBy,
+            step: { sequence: step.sequence, name: step.name },
+          }]
+        : []
+    })
+    return { requests, total }
+  }
+
   approverOptions() {
     return this.db.user.findMany({
       where: { isActive: true },

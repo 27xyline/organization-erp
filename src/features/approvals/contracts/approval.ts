@@ -49,3 +49,16 @@ export const approvalQuerySchema = z.object({
 export type CreateApprovalInput = z.infer<typeof createApprovalSchema>
 export type ApprovalDecisionInput = z.infer<typeof approvalDecisionSchema>
 export type ApprovalQuery = z.infer<typeof approvalQuerySchema>
+
+export interface PendingApprovalItem {
+  id: string
+  title: string
+  dueAt: Date | null
+  requestedBy: { name: string }
+  step: { sequence: number; name: string }
+}
+
+export interface PendingApprovalsResult {
+  requests: PendingApprovalItem[]
+  total: number
+}

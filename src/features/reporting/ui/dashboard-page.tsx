@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { formatCurrency, formatDate, formatDateTime } from '@/lib/utils'
 import type { DashboardOverview } from '../contracts/view-model'
+import type { PendingApprovalsResult } from '@/features/approvals/contracts/approval'
 import {
   ACTIVITY_LABELS,
   ASSET_STATUS_LABELS,
@@ -27,6 +28,7 @@ import {
   Metric,
   ProgressBar,
 } from './reporting-ui'
+import { PendingApprovalsCard } from './pending-approvals-card'
 
 function exportHref(data: DashboardOverview) {
   const params = new URLSearchParams({
@@ -40,10 +42,12 @@ function exportHref(data: DashboardOverview) {
 
 export function DashboardPage({
   data,
+  approvalInbox,
   canViewReports,
   canExport,
 }: {
   data: DashboardOverview
+  approvalInbox: PendingApprovalsResult | null
   canViewReports: boolean
   canExport: boolean
 }) {
@@ -171,6 +175,12 @@ export function DashboardPage({
         </Card>
 
         <div className="grid gap-6">
+          {approvalInbox && (
+            <PendingApprovalsCard
+              requests={approvalInbox.requests}
+              total={approvalInbox.total}
+            />
+          )}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-lg">Кто отсутствует сегодня</CardTitle>
