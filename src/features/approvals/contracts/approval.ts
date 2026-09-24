@@ -38,6 +38,36 @@ export const approvalDecisionSchema = z.object({
   comment: z.string().trim().max(2000).nullable().optional(),
 })
 
+const approvalTemplateStepSchema = z.object({
+  approverId: z.string().trim().min(1).max(128),
+  name: z.string().trim().min(2).max(120),
+})
+
+const approvalTemplateRouteSchema = z.array(approvalTemplateStepSchema).min(1).max(20)
+  .superRefine((steps, context) => {
+    const approvers = new Set(steps.map((step) => step.approverId))
+    if (approvers.size !== steps.length) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [],
+        message: 'Согласующий не должен повторяться',
+      })
+    }
+  })
+
+export const createApprovalTemplateSchema = z.object({
+  name: z.string().trim().min(3).max(120),
+  steps: approvalTemplateRouteSchema,
+})
+
+export const updateApprovalTemplateSchema = z.object({
+  name: z.string().trim().min(3).max(120).optional(),
+  steps: approvalTemplateRouteSchema.optional(),
+  isActive: z.boolean().optional(),
+}).refine((value) => Object.keys(value).length > 0, {
+  message: 'Укажите хотя бы одно поле для изменения',
+})
+
 export const approvalQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(25),
@@ -48,6 +78,8 @@ export const approvalQuerySchema = z.object({
 
 export type CreateApprovalInput = z.infer<typeof createApprovalSchema>
 export type ApprovalDecisionInput = z.infer<typeof approvalDecisionSchema>
+export type CreateApprovalTemplateInput = z.infer<typeof createApprovalTemplateSchema>
+export type UpdateApprovalTemplateInput = z.infer<typeof updateApprovalTemplateSchema>
 export type ApprovalQuery = z.infer<typeof approvalQuerySchema>
 
 export interface PendingApprovalItem {
