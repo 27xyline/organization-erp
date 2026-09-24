@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { ClipboardCheck, Filter, Plus, Search, X } from 'lucide-react'
@@ -48,6 +48,8 @@ export function AssetsPageClient({
   const [showFilters, setShowFilters] = useState(true)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [search, setSearch] = useState(filters.search || '')
+  const desktopFiltersTriggerRef = useRef<HTMLButtonElement>(null)
+  const mobileFiltersTriggerRef = useRef<HTMLButtonElement>(null)
 
   const updateQuery = (changes: Record<string, string | number | undefined>) => {
     const next = new URLSearchParams(searchParams.toString())
@@ -72,12 +74,12 @@ export function AssetsPageClient({
               <ExportButton />
               {canImport && <AssetImportDialog onImported={() => router.refresh()} />}
               {canInventory && <Link href="/assets/inventory"><Button variant="outline"><ClipboardCheck className="mr-2 h-4 w-4" />Инвентаризация</Button></Link>}
-              <Button className="hidden lg:inline-flex" variant="outline" onClick={() => setShowFilters((visible) => !visible)}>
+              <Button ref={desktopFiltersTriggerRef} data-testid="desktop-asset-filters-trigger" className="hidden lg:inline-flex" variant="outline" onClick={() => setShowFilters((visible) => !visible)}>
                 <Filter className="mr-2 h-4 w-4" />
                 Фильтры
                 {activeFiltersCount > 0 && <Badge className="ml-2" variant="secondary">{activeFiltersCount}</Badge>}
               </Button>
-              <Button data-testid="mobile-asset-filters-trigger" className="lg:hidden" variant="outline" onClick={() => setMobileFiltersOpen(true)}>
+              <Button ref={mobileFiltersTriggerRef} data-testid="mobile-asset-filters-trigger" className="lg:hidden" variant="outline" onClick={() => setMobileFiltersOpen(true)}>
                 <Filter className="mr-2 h-4 w-4" />
                 Фильтры
                 {activeFiltersCount > 0 && <Badge className="ml-2" variant="secondary">{activeFiltersCount}</Badge>}
@@ -180,7 +182,18 @@ export function AssetsPageClient({
       </div>
 
       <Dialog open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
-        <DialogContent className="fixed inset-y-0 right-0 left-auto top-0 h-dvh w-[min(90vw,24rem)] max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-none sm:rounded-l-xl lg:hidden">
+        <DialogContent
+          className="fixed inset-y-0 right-0 left-auto top-0 h-dvh w-[min(90vw,24rem)] max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-none sm:rounded-l-xl"
+          onCloseAutoFocus={(event) => {
+            event.preventDefault()
+            const desktopViewport = typeof window.matchMedia === 'function'
+              && window.matchMedia('(min-width: 1024px)').matches
+            const trigger = desktopViewport
+              ? desktopFiltersTriggerRef.current
+              : mobileFiltersTriggerRef.current
+            trigger?.focus()
+          }}
+        >
           <DialogHeader>
             <DialogTitle>Фильтры имущества</DialogTitle>
             <DialogDescription>Настройте список и примените нужные условия.</DialogDescription>

@@ -264,6 +264,9 @@ export function AssetsDataTable({ assets, totalCount, filteredCount, onArchive, 
                     {asset.name}
                   </Link>
                   <p className="mt-1 truncate font-mono text-xs text-muted-foreground">{asset.inventoryNumber}</p>
+                  {asset.notes && (
+                    <p className="mt-2 line-clamp-3 break-words text-sm text-muted-foreground">{asset.notes}</p>
+                  )}
                 </div>
                 <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${status.color}`}>
                   {status.label}
@@ -273,11 +276,23 @@ export function AssetsDataTable({ assets, totalCount, filteredCount, onArchive, 
               <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                 <div className="min-w-0">
                   <dt className="text-xs text-muted-foreground">Группа</dt>
-                  <dd className="mt-0.5 truncate">{asset.group?.name || 'Не указана'}</dd>
+                  <dd className="mt-0.5 break-words">{asset.group?.name || 'Не указана'}</dd>
+                  {asset.group?.code && <dd className="mt-0.5 font-mono text-xs text-muted-foreground">{asset.group.code}</dd>}
                 </div>
                 <div className="min-w-0">
                   <dt className="text-xs text-muted-foreground">МОЛ</dt>
-                  <dd className="mt-0.5 truncate">{holdingsList.map((holding) => holding.mol?.fullName || 'Не указан').join(', ') || 'Не указан'}</dd>
+                  <dd className="mt-0.5 space-y-1 break-words">
+                    {holdingsList.length ? holdingsList.map((holding, index) => (
+                      <div key={holding.id || holding.mol?.id || index}>
+                        <span>{holding.mol?.fullName || 'Не указан'}</span>
+                        <span className="text-xs text-muted-foreground"> · {formatDecimal(holding.quantity)} {asset.unitOfMeasure}</span>
+                      </div>
+                    )) : 'Не указан'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Форма учета</dt>
+                  <dd className="mt-0.5 font-mono">{asset.accountingForm || '145'}</dd>
                 </div>
                 <div>
                   <dt className="text-xs text-muted-foreground">Количество</dt>
