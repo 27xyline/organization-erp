@@ -23,6 +23,77 @@ const assetListInclude = {
   _count: { select: { operations: true } },
 } satisfies Prisma.AssetInclude
 
+async function createAssetInTransaction(
+  tx: Prisma.TransactionClient,
+  input: CreateAssetInput,
+  actorId: string,
+  requestId?: string,
+  includeRelations = true,
+) {
+  const unitPrice = new Prisma.Decimal(input.unitPrice)
+  const quantity = new Prisma.Decimal(input.quantity)
+  const totalCost = unitPrice.mul(quantity)
+  const asset = await tx.asset.create({
+    data: {
+      name: input.name,
+      inventoryNumber: input.inventoryNumber,
+      unitPrice,
+      unitOfMeasure: input.unitOfMeasure,
+      quantity,
+      totalCost,
+      molId: input.molId,
+      groupId: input.groupId,
+      projectId: input.projectId || null,
+      contractCode: input.contractCode,
+      internalFundingCode: input.internalFundingCode,
+      isExistingAsset: input.isExistingAsset,
+      recordingDate: new Date(input.recordingDate),
+      documentType: input.documentType,
+      documentDetails: input.documentDetails,
+      documentFiles: input.documentFiles,
+      status: input.status,
+      notes: input.notes,
+      plannedDisposalDate: input.plannedDisposalDate ? new Date(input.plannedDisposalDate) : null,
+      plannedDisposalReason: input.plannedDisposalReason,
+      photos: input.photos,
+      accountingForm: input.accountingForm,
+    },
+  })
+
+  await Promise.all([
+    tx.assetHolding.create({ data: { assetId: asset.id, molId: input.molId, quantity } }),
+    tx.operation.create({
+      data: {
+        type: OperationType.RECEIPT,
+        assetId: asset.id,
+        toMolId: input.molId,
+        quantity,
+        unitPrice,
+        totalCost,
+        date: new Date(input.recordingDate),
+        reason: 'Первоначальное поступление',
+        documentType: input.documentType,
+        documentDetails: input.documentDetails,
+        documentFiles: input.documentFiles,
+      },
+    }),
+    tx.auditLog.create({
+      data: {
+        userId: actorId,
+        action: 'ASSET_CREATE',
+        entityType: 'Asset',
+        entityId: asset.id,
+        requestId,
+        details: { before: null, after: snapshot(asset) },
+      },
+    }),
+  ])
+
+  return includeRelations
+    ? tx.asset.findUniqueOrThrow({ where: { id: asset.id }, include: assetInclude })
+    : asset
+}
+
 function snapshot(asset: {
   id: string
   inventoryNumber: string
@@ -154,69 +225,16 @@ export class AssetService {
   }
 
   static async create(input: CreateAssetInput, actorId: string, requestId?: string) {
-    const unitPrice = new Prisma.Decimal(input.unitPrice)
-    const quantity = new Prisma.Decimal(input.quantity)
-    const totalCost = unitPrice.mul(quantity)
+    return serializableTransaction((tx) => createAssetInTransaction(tx, input, actorId, requestId))
+  }
 
+  static async createMany(inputs: CreateAssetInput[], actorId: string, requestId?: string) {
     return serializableTransaction(async (tx) => {
-      const asset = await tx.asset.create({
-        data: {
-          name: input.name,
-          inventoryNumber: input.inventoryNumber,
-          unitPrice,
-          unitOfMeasure: input.unitOfMeasure,
-          quantity,
-          totalCost,
-          molId: input.molId,
-          groupId: input.groupId,
-          projectId: input.projectId || null,
-          contractCode: input.contractCode,
-          internalFundingCode: input.internalFundingCode,
-          isExistingAsset: input.isExistingAsset,
-          recordingDate: new Date(input.recordingDate),
-          documentType: input.documentType,
-          documentDetails: input.documentDetails,
-          documentFiles: input.documentFiles,
-          status: input.status,
-          notes: input.notes,
-          plannedDisposalDate: input.plannedDisposalDate ? new Date(input.plannedDisposalDate) : null,
-          plannedDisposalReason: input.plannedDisposalReason,
-          photos: input.photos,
-          accountingForm: input.accountingForm,
-        },
-      })
-
-      await Promise.all([
-        tx.assetHolding.create({ data: { assetId: asset.id, molId: input.molId, quantity } }),
-        tx.operation.create({
-          data: {
-            type: OperationType.RECEIPT,
-            assetId: asset.id,
-            toMolId: input.molId,
-            quantity,
-            unitPrice,
-            totalCost,
-            date: new Date(input.recordingDate),
-            reason: 'Первоначальное поступление',
-            documentType: input.documentType,
-            documentDetails: input.documentDetails,
-            documentFiles: input.documentFiles,
-          },
-        }),
-        tx.auditLog.create({
-          data: {
-            userId: actorId,
-            action: 'ASSET_CREATE',
-            entityType: 'Asset',
-            entityId: asset.id,
-            requestId,
-            details: { before: null, after: snapshot(asset) },
-          },
-        }),
-      ])
-
-      return tx.asset.findUniqueOrThrow({ where: { id: asset.id }, include: assetInclude })
-    })
+      for (const input of inputs) {
+        await createAssetInTransaction(tx, input, actorId, requestId, false)
+      }
+      return inputs.length
+    }, { timeout: 30_000 })
   }
 
   static async update(id: string, input: UpdateAssetInput, actorId: string, requestId?: string) {

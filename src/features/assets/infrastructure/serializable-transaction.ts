@@ -4,12 +4,14 @@ import { AssetServiceError } from '../domain/errors'
 
 export async function serializableTransaction<T>(
   operation: (tx: Prisma.TransactionClient) => Promise<T>,
+  options: { timeout?: number } = {},
 ): Promise<T> {
   const db = getDb()
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     try {
       return await db.$transaction(operation, {
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+        ...(options.timeout ? { timeout: options.timeout } : {}),
       })
     } catch (error) {
       const retryable = error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2034'

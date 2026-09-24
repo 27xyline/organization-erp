@@ -18,6 +18,9 @@ function first(value: string | string[] | undefined) {
 export default async function AssetsPage({ searchParams }: AssetsPageProps) {
   const [user, params] = await Promise.all([requirePageUser(), searchParams])
   if (!user.access.has('assets.read')) redirect(defaultLandingPath(user))
+  const createDepartmentIds = user.access.allowedDepartmentIds('assets.create')
+  const canCreateAssets = user.access.has('assets.create') &&
+    (createDepartmentIds === null || createDepartmentIds.length > 0)
   const parsed = assetsQuerySchema.safeParse({
     page: first(params.page),
     pageSize: first(params.pageSize),
@@ -71,6 +74,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
         filters: assetSavedViewFiltersSchema.parse(view.filters),
       }))}
       canEdit={user.access.has('assets.update')}
+      canImport={canCreateAssets}
     />
   )
 }

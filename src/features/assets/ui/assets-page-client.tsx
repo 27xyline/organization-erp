@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Filter, Plus, Search, X } from 'lucide-react'
 import { AssetsDataTable } from './assets-data-table'
 import { AssetSavedViewsToolbar } from './asset-saved-views-toolbar'
+import { AssetImportDialog } from './asset-import-dialog'
 import { PageHeader } from '@/components/page-header'
 import { ExportButton } from '@/components/export-button'
 import { Badge } from '@/components/ui/badge'
@@ -25,6 +26,7 @@ interface AssetsPageClientProps {
   filters: AssetSavedViewFilters
   savedViews: AssetSavedViewSummary[]
   canEdit: boolean
+  canImport: boolean
 }
 
 export function AssetsPageClient({
@@ -35,6 +37,7 @@ export function AssetsPageClient({
   filters,
   savedViews,
   canEdit,
+  canImport,
 }: AssetsPageClientProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -63,12 +66,13 @@ export function AssetsPageClient({
           actions={(
             <>
               <ExportButton />
+              {canImport && <AssetImportDialog onImported={() => router.refresh()} />}
               <Button variant="outline" onClick={() => setShowFilters((visible) => !visible)}>
                 <Filter className="mr-2 h-4 w-4" />
                 Фильтры
                 {activeFiltersCount > 0 && <Badge className="ml-2" variant="secondary">{activeFiltersCount}</Badge>}
               </Button>
-              {canEdit && (
+              {canImport && (
                 <Link href="/assets/new">
                   <Button><Plus className="mr-2 h-4 w-4" />Добавить</Button>
                 </Link>
