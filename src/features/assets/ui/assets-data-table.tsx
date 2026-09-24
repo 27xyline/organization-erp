@@ -91,7 +91,7 @@ export function AssetsDataTable({ assets, totalCount, filteredCount, onArchive, 
       </div>
 
       {/* Таблица */}
-      <div className="rounded-md border bg-white overflow-x-auto">
+      <div className="hidden overflow-x-auto rounded-md border bg-white lg:block">
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50 whitespace-nowrap">
@@ -120,7 +120,6 @@ export function AssetsDataTable({ assets, totalCount, filteredCount, onArchive, 
             ) : (
               assets.map((asset, index) => {
                 const status = statusLabels[asset.status] || { label: asset.status, color: "bg-gray-100 text-gray-800" }
-                const hasPhotos = asset.photos && asset.photos.length > 0
                 const hasDocuments = asset.documentFiles && asset.documentFiles.length > 0
                 const hasPlannedDisposal = asset.plannedDisposalDate
 
@@ -241,6 +240,98 @@ export function AssetsDataTable({ assets, totalCount, filteredCount, onArchive, 
             )}
           </TableBody>
         </Table>
+      </div>
+
+      <div data-testid="assets-mobile-list" aria-label="Карточки имущества" className="space-y-3 lg:hidden">
+        {assets.length === 0 ? (
+          <div className="rounded-lg border border-dashed px-4 py-10 text-center text-sm text-muted-foreground">
+            Нет объектов для отображения
+          </div>
+        ) : assets.map((asset) => {
+          const status = statusLabels[asset.status] || { label: asset.status, color: "bg-gray-100 text-gray-800" }
+          const holdingsList = asset.holdings?.length
+            ? asset.holdings
+            : asset.mol
+              ? [{ id: 'default', mol: asset.mol, quantity: asset.quantity }]
+              : []
+
+          return (
+            <article key={asset.id} className="rounded-lg border bg-card p-4 shadow-sm">
+              <div className="flex items-start gap-3">
+                <AssetThumbnail src={asset.photos?.[0]} name={asset.name} />
+                <div className="min-w-0 flex-1">
+                  <Link href={`/assets/${asset.id}`} className="line-clamp-2 font-semibold leading-5 hover:underline">
+                    {asset.name}
+                  </Link>
+                  <p className="mt-1 truncate font-mono text-xs text-muted-foreground">{asset.inventoryNumber}</p>
+                </div>
+                <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${status.color}`}>
+                  {status.label}
+                </span>
+              </div>
+
+              <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                <div className="min-w-0">
+                  <dt className="text-xs text-muted-foreground">Группа</dt>
+                  <dd className="mt-0.5 truncate">{asset.group?.name || 'Не указана'}</dd>
+                </div>
+                <div className="min-w-0">
+                  <dt className="text-xs text-muted-foreground">МОЛ</dt>
+                  <dd className="mt-0.5 truncate">{holdingsList.map((holding) => holding.mol?.fullName || 'Не указан').join(', ') || 'Не указан'}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Количество</dt>
+                  <dd className="mt-0.5">{formatDecimal(asset.quantity)} {asset.unitOfMeasure}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Стоимость</dt>
+                  <dd className="mt-0.5 font-medium tabular-nums">{formatCurrency(asset.totalCost)}</dd>
+                </div>
+                {asset.plannedDisposalDate && (
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Плановое списание</dt>
+                    <dd className="mt-0.5">{formatDate(asset.plannedDisposalDate)}</dd>
+                  </div>
+                )}
+                {asset.documentFiles.length > 0 && (
+                  <div>
+                    <dt className="text-xs text-muted-foreground">Документы</dt>
+                    <dd className="mt-0.5">{asset.documentFiles.length}</dd>
+                  </div>
+                )}
+              </dl>
+
+              <div className="mt-4 flex flex-wrap items-center gap-2 border-t pt-3">
+                <Link href={`/assets/${asset.id}`}>
+                  <Button variant="outline" size="sm"><Eye className="mr-2 h-4 w-4" />Открыть</Button>
+                </Link>
+                {canEdit && (
+                  <>
+                    <Link href={`/assets/${asset.id}/edit`}>
+                      <Button variant="ghost" size="icon" className="h-9 w-9" aria-label={`Редактировать: ${asset.name}`}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                    <Link href={`/assets/${asset.id}/transfer`}>
+                      <Button variant="ghost" size="icon" className="h-9 w-9" aria-label={`Передать: ${asset.name}`}>
+                        <ArrowRightLeft className="h-4 w-4" />
+                      </Button>
+                    </Link>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-9 w-9"
+                      aria-label={`В архив: ${asset.name}`}
+                      onClick={() => handleArchive(asset.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
+              </div>
+            </article>
+          )
+        })}
       </div>
     </div>
   )

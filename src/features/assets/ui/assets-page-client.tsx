@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import type { AssetSavedViewFilters, AssetSavedViewSummary } from '@/features/assets/contracts/saved-view'
 import type { Asset, AssetGroup, Mol } from '@/features/assets/contracts/types'
 
@@ -45,6 +46,7 @@ export function AssetsPageClient({
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [showFilters, setShowFilters] = useState(true)
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const [search, setSearch] = useState(filters.search || '')
 
   const updateQuery = (changes: Record<string, string | number | undefined>) => {
@@ -70,7 +72,12 @@ export function AssetsPageClient({
               <ExportButton />
               {canImport && <AssetImportDialog onImported={() => router.refresh()} />}
               {canInventory && <Link href="/assets/inventory"><Button variant="outline"><ClipboardCheck className="mr-2 h-4 w-4" />Инвентаризация</Button></Link>}
-              <Button variant="outline" onClick={() => setShowFilters((visible) => !visible)}>
+              <Button className="hidden lg:inline-flex" variant="outline" onClick={() => setShowFilters((visible) => !visible)}>
+                <Filter className="mr-2 h-4 w-4" />
+                Фильтры
+                {activeFiltersCount > 0 && <Badge className="ml-2" variant="secondary">{activeFiltersCount}</Badge>}
+              </Button>
+              <Button data-testid="mobile-asset-filters-trigger" className="lg:hidden" variant="outline" onClick={() => setMobileFiltersOpen(true)}>
                 <Filter className="mr-2 h-4 w-4" />
                 Фильтры
                 {activeFiltersCount > 0 && <Badge className="ml-2" variant="secondary">{activeFiltersCount}</Badge>}
@@ -138,60 +145,10 @@ export function AssetsPageClient({
 
       <div className="flex flex-1 overflow-hidden">
         {showFilters && (
-          <Card className="m-4 mr-0 w-72 rounded-lg border-r-0">
+          <Card className="m-4 mr-0 hidden w-72 shrink-0 rounded-lg border-r-0 lg:block">
             <CardHeader className="pb-3"><CardTitle className="text-sm font-medium">Фильтры</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <FilterSelect
-                label="МОЛ"
-                value={filters.molId}
-                placeholder="Все МОЛ"
-                onChange={(value) => updateQuery({ molId: value })}
-                options={mols.map((mol) => ({ value: mol.id, label: `${mol.code} — ${mol.fullName}` }))}
-              />
-              <FilterSelect
-                label="Группа имущества"
-                value={filters.groupId}
-                placeholder="Все группы"
-                onChange={(value) => updateQuery({ groupId: value })}
-                options={groups.map((group) => ({ value: group.id, label: `${group.code} — ${group.name}` }))}
-              />
-              <FilterSelect
-                label="Статус"
-                value={filters.status}
-                placeholder="Все статусы"
-                onChange={(value) => updateQuery({ status: value })}
-                options={[
-                  { value: 'IN_STOCK', label: 'В наличии' },
-                  { value: 'IN_USE', label: 'В эксплуатации' },
-                  { value: 'UNDER_REPAIR', label: 'На ремонте' },
-                  { value: 'PLANNED_FOR_DISPOSAL', label: 'К списанию' },
-                  { value: 'PARTIALLY_DISPOSED', label: 'Частично списан' },
-                  { value: 'FULLY_DISPOSED', label: 'Полностью списан' },
-                ]}
-              />
-              <div className="space-y-2">
-                <Label className="text-xs">Форма учета</Label>
-                <div className="flex gap-2">
-                  {['145', '367'].map((form) => (
-                    <Button
-                      key={form}
-                      className="flex-1"
-                      size="sm"
-                      variant={filters.accountingForm === form ? 'default' : 'outline'}
-                      onClick={() => updateQuery({ accountingForm: filters.accountingForm === form ? undefined : form })}
-                    >
-                      {form}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs">Период поступления</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input type="date" value={filters.dateFrom || ''} onChange={(event) => updateQuery({ dateFrom: event.target.value })} />
-                  <Input type="date" value={filters.dateTo || ''} onChange={(event) => updateQuery({ dateTo: event.target.value })} />
-                </div>
-              </div>
+            <CardContent>
+              <AssetFilterFields filters={filters} mols={mols} groups={groups} updateQuery={updateQuery} />
             </CardContent>
           </Card>
         )}
@@ -219,6 +176,87 @@ export function AssetsPageClient({
               </div>
             </div>
           )}
+        </div>
+      </div>
+
+      <Dialog open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+        <DialogContent className="fixed inset-y-0 right-0 left-auto top-0 h-dvh w-[min(90vw,24rem)] max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-none sm:rounded-l-xl lg:hidden">
+          <DialogHeader>
+            <DialogTitle>Фильтры имущества</DialogTitle>
+            <DialogDescription>Настройте список и примените нужные условия.</DialogDescription>
+          </DialogHeader>
+          <AssetFilterFields filters={filters} mols={mols} groups={groups} updateQuery={updateQuery} />
+          <DialogFooter>
+            <Button type="button" onClick={() => setMobileFiltersOpen(false)}>Готово</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+function AssetFilterFields({
+  filters,
+  mols,
+  groups,
+  updateQuery,
+}: {
+  filters: AssetSavedViewFilters
+  mols: Mol[]
+  groups: AssetGroup[]
+  updateQuery: (changes: Record<string, string | number | undefined>) => void
+}) {
+  return (
+    <div className="space-y-4">
+      <FilterSelect
+        label="МОЛ"
+        value={filters.molId}
+        placeholder="Все МОЛ"
+        onChange={(value) => updateQuery({ molId: value })}
+        options={mols.map((mol) => ({ value: mol.id, label: `${mol.code} — ${mol.fullName}` }))}
+      />
+      <FilterSelect
+        label="Группа имущества"
+        value={filters.groupId}
+        placeholder="Все группы"
+        onChange={(value) => updateQuery({ groupId: value })}
+        options={groups.map((group) => ({ value: group.id, label: `${group.code} — ${group.name}` }))}
+      />
+      <FilterSelect
+        label="Статус"
+        value={filters.status}
+        placeholder="Все статусы"
+        onChange={(value) => updateQuery({ status: value })}
+        options={[
+          { value: 'IN_STOCK', label: 'В наличии' },
+          { value: 'IN_USE', label: 'В эксплуатации' },
+          { value: 'UNDER_REPAIR', label: 'На ремонте' },
+          { value: 'PLANNED_FOR_DISPOSAL', label: 'К списанию' },
+          { value: 'PARTIALLY_DISPOSED', label: 'Частично списан' },
+          { value: 'FULLY_DISPOSED', label: 'Полностью списан' },
+        ]}
+      />
+      <div className="space-y-2">
+        <Label className="text-xs">Форма учета</Label>
+        <div className="flex gap-2">
+          {['145', '367'].map((form) => (
+            <Button
+              key={form}
+              className="flex-1"
+              size="sm"
+              variant={filters.accountingForm === form ? 'default' : 'outline'}
+              onClick={() => updateQuery({ accountingForm: filters.accountingForm === form ? undefined : form })}
+            >
+              {form}
+            </Button>
+          ))}
+        </div>
+      </div>
+      <div className="space-y-2">
+        <Label className="text-xs">Период поступления</Label>
+        <div className="grid grid-cols-2 gap-2">
+          <Input aria-label="Поступление с" type="date" value={filters.dateFrom || ''} onChange={(event) => updateQuery({ dateFrom: event.target.value })} />
+          <Input aria-label="Поступление по" type="date" value={filters.dateTo || ''} onChange={(event) => updateQuery({ dateTo: event.target.value })} />
         </div>
       </div>
     </div>
