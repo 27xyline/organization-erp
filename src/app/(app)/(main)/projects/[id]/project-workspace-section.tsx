@@ -19,11 +19,17 @@ export function ProjectWorkspaceSection({
   documents,
   activities,
   canCreateDocuments,
+  canReadDocuments,
+  showDocuments = true,
+  showActivity = true,
 }: {
   project: { id: string; code: string; name: string }
   documents: DocumentView[]
   activities: ProjectActivity[]
   canCreateDocuments: boolean
+  canReadDocuments: boolean
+  showDocuments?: boolean
+  showActivity?: boolean
 }) {
   const router = useRouter()
   return (
@@ -31,7 +37,10 @@ export function ProjectWorkspaceSection({
       project={project}
       documents={documents}
       activities={activities}
-      uploadAction={canCreateDocuments ? (
+      canReadDocuments={canReadDocuments}
+      showDocuments={showDocuments}
+      showActivity={showActivity}
+      uploadAction={showDocuments && canCreateDocuments ? (
         <DocumentUploadDialog fixedProject={project} onUploaded={() => router.refresh()} />
       ) : undefined}
     />

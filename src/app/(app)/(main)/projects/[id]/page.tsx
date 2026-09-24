@@ -65,6 +65,7 @@ export default async function ProjectPage(props: ProjectPageProps) {
   const documentTarget = { documentProjectId: project.id }
   const canReadDocuments = user.access.allows('documents.read', documentTarget)
   const canCreateDocuments = user.access.allows('documents.create', documentTarget)
+  const canReadActivity = user.access.has('auditLogs.read')
   const [documentResult, projectActivities] = await Promise.all([
     canReadDocuments
       ? getDocumentService().list({
@@ -74,7 +75,7 @@ export default async function ProjectPage(props: ProjectPageProps) {
           archived: false,
         }, { id: user.id, access: user.access })
       : Promise.resolve({ documents: [], total: 0 }),
-    ProjectWorkspaceService.activity(project.id),
+    canReadActivity ? ProjectWorkspaceService.activity(project.id) : Promise.resolve([]),
   ])
   const projectDocuments = documentResult.documents.map((document) => ({
     ...document,
@@ -438,21 +439,39 @@ export default async function ProjectPage(props: ProjectPageProps) {
         </Card>
       ),
     }] : []),
-    {
-      id: 'history',
-      label: 'Документы и история',
+    ...((canReadDocuments || canCreateDocuments) ? [{
+      id: 'documents',
+      label: 'Документы',
       content: (
         <ProjectWorkspaceSection
           project={{ id: project.id, code: project.code, name: project.name }}
           documents={projectDocuments}
+          activities={[]}
+          canCreateDocuments={canCreateDocuments}
+          canReadDocuments={canReadDocuments}
+          showDocuments
+          showActivity={false}
+        />
+      ),
+    }] : []),
+    ...(canReadActivity ? [{
+      id: 'history',
+      label: 'История',
+      content: (
+        <ProjectWorkspaceSection
+          project={{ id: project.id, code: project.code, name: project.name }}
+          documents={[]}
           activities={projectActivities.map((activity) => ({
             ...activity,
             createdAt: activity.createdAt.toISOString(),
           }))}
-          canCreateDocuments={canCreateDocuments}
+          canCreateDocuments={false}
+          canReadDocuments={false}
+          showDocuments={false}
+          showActivity
         />
       ),
-    },
+    }] : []),
   ]
 
   return (
