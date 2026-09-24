@@ -31,4 +31,11 @@ describe('built-in permission matrix', () => {
     expect(ROLE_PERMISSIONS.PROJECT_MANAGER.has('projectPayroll.read')).toBe(false)
     expect(ROLE_PERMISSIONS.ACCOUNTANT.has('projectPayroll.read')).toBe(true)
   })
+
+  it('reserves shared approval-template management for administrators', () => {
+    expect(ROLE_PERMISSIONS.ADMIN.has('approvals.templates.manage')).toBe(true)
+    for (const role of APP_ROLES.filter((value) => value !== 'ADMIN')) {
+      expect(ROLE_PERMISSIONS[role].has('approvals.templates.manage')).toBe(false)
+    }
+  })
 })

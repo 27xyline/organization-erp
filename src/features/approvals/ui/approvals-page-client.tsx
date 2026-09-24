@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { Check, ChevronLeft, ChevronRight, CircleX, Loader2, Plus, Trash2 } from 'lucide-react'
+import { Archive, BookmarkPlus, Check, ChevronLeft, ChevronRight, CircleX, Loader2, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -48,6 +48,13 @@ interface ApproverOption {
   username: string
 }
 
+interface ApprovalTemplate {
+  id: string
+  name: string
+  steps: Array<{ name: string; approverId: string }>
+  isActive: boolean
+}
+
 const statusLabels: Record<ApprovalStatus, string> = {
   DRAFT: 'Черновик',
   PENDING: 'На согласовании',
@@ -79,11 +86,13 @@ export function ApprovalsPageClient({
   canCreate,
   canDecide,
   canCancel,
+  canManageTemplates,
 }: {
   currentUserId: string
   canCreate: boolean
   canDecide: boolean
   canCancel: boolean
+  canManageTemplates: boolean
 }) {
   const [items, setItems] = useState<ApprovalItem[]>([])
   const [pagination, setPagination] = useState<ApprovalPagination>({
@@ -94,10 +103,17 @@ export function ApprovalsPageClient({
   })
   const [page, setPage] = useState(1)
   const [approvers, setApprovers] = useState<ApproverOption[]>([])
+  const [templates, setTemplates] = useState<ApprovalTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
+  const [templateMessage, setTemplateMessage] = useState<string | null>(null)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [templatesOpen, setTemplatesOpen] = useState(false)
+  const [templateBusyId, setTemplateBusyId] = useState<string | null>(null)
+  const [templateName, setTemplateName] = useState('')
+  const [selectedTemplateId, setSelectedTemplateId] = useState('')
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [dueAt, setDueAt] = useState('')
@@ -124,8 +140,120 @@ export function ApprovalsPageClient({
         .then((body) => setApprovers(body.data || []))
         .catch(() => setApprovers([]))
     }
+    if (canCreate || canManageTemplates) {
+      void fetch('/api/approvals/templates')
+        .then((response) => response.json())
+        .then((body) => setTemplates(Array.isArray(body.data) ? body.data : []))
+        .catch(() => setTemplates([]))
+    }
     return () => window.clearTimeout(timer)
-  }, [canCreate, load])
+  }, [canCreate, canManageTemplates, load])
+
+  function applyTemplate(templateId: string) {
+    const template = templates.find((candidate) => candidate.id === templateId && candidate.isActive)
+    setEditingTemplateId(null)
+    setSelectedTemplateId(template?.id || '')
+    if (template) setSteps(template.steps.map((step) => ({ ...step })))
+    else setSteps([emptyStep()])
+  }
+
+  async function saveTemplate() {
+    setMessage(null)
+    setTemplateMessage(null)
+    setTemplateBusyId('create')
+    try {
+      const response = await fetch(
+        editingTemplateId
+          ? `/api/approvals/templates/${editingTemplateId}`
+          : '/api/approvals/templates',
+        {
+          method: editingTemplateId ? 'PATCH' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: templateName, steps }),
+        },
+      )
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        const errorMessage = body.error?.message || 'Не удалось сохранить шаблон маршрута'
+        setTemplateMessage(errorMessage)
+        setMessage(errorMessage)
+        return
+      }
+      setTemplates((current) => {
+        const next = editingTemplateId
+          ? current.map((template) => template.id === editingTemplateId ? body.data : template)
+          : [...current, body.data]
+        return next.sort((a, b) => a.name.localeCompare(b.name, 'ru'))
+      })
+      if (editingTemplateId) {
+        setEditingTemplateId(null)
+        setSelectedTemplateId('')
+        setTemplateName('')
+        setDialogOpen(false)
+        setTemplateMessage('Шаблон маршрута обновлён')
+        setMessage('Шаблон маршрута обновлён')
+      } else {
+        setTemplateName('')
+        setSelectedTemplateId(body.data.id)
+        setTemplateMessage('Шаблон маршрута сохранён')
+        setMessage('Шаблон маршрута сохранён')
+      }
+    } catch {
+      setTemplateMessage('Не удалось сохранить шаблон маршрута')
+      setMessage('Не удалось сохранить шаблон маршрута')
+    } finally {
+      setTemplateBusyId(null)
+    }
+  }
+
+  async function setTemplateActive(template: ApprovalTemplate, isActive: boolean) {
+    setMessage(null)
+    setTemplateMessage(null)
+    setTemplateBusyId(template.id)
+    try {
+      const response = await fetch(`/api/approvals/templates/${template.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive }),
+      })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        const errorMessage = body.error?.message || 'Не удалось изменить шаблон маршрута'
+        setTemplateMessage(errorMessage)
+        setMessage(errorMessage)
+        return
+      }
+      setTemplates((current) => current.map((candidate) =>
+        candidate.id === template.id ? body.data : candidate
+      ))
+      if (!isActive && selectedTemplateId === template.id) {
+        setSelectedTemplateId('')
+      }
+      if (!isActive && editingTemplateId === template.id) {
+        setEditingTemplateId(null)
+        setTemplateName('')
+        setDialogOpen(false)
+      }
+      const successMessage = isActive ? 'Шаблон возвращён в работу' : 'Шаблон перемещён в архив'
+      setTemplateMessage(successMessage)
+      setMessage(successMessage)
+    } catch {
+      setTemplateMessage('Не удалось изменить шаблон маршрута')
+      setMessage('Не удалось изменить шаблон маршрута')
+    } finally {
+      setTemplateBusyId(null)
+    }
+  }
+
+  function editTemplate(template: ApprovalTemplate) {
+    setTemplateMessage(null)
+    setEditingTemplateId(template.id)
+    setSelectedTemplateId(template.id)
+    setTemplateName(template.name)
+    setSteps(template.steps.map((step) => ({ ...step })))
+    setTemplatesOpen(false)
+    setDialogOpen(true)
+  }
 
   async function createApproval(event: FormEvent) {
     event.preventDefault()
@@ -152,6 +280,9 @@ export function ApprovalsPageClient({
     setDescription('')
     setDueAt('')
     setSteps([emptyStep()])
+    setSelectedTemplateId('')
+    setTemplateName('')
+    setEditingTemplateId(null)
     setMessage('Согласование запущено')
     if (page === 1) await load(1)
     else setPage(1)
@@ -196,38 +327,90 @@ export function ApprovalsPageClient({
           </p>
         </div>
         {canCreate && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog
+            open={dialogOpen}
+            onOpenChange={(open) => {
+              setDialogOpen(open)
+              if (open) setTemplateMessage(null)
+              if (!open && editingTemplateId) {
+                setEditingTemplateId(null)
+                setTemplateName('')
+                setSelectedTemplateId('')
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button><Plus className="mr-2 h-4 w-4" />Запустить</Button>
             </DialogTrigger>
             <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-              <form onSubmit={createApproval} className="grid gap-4">
+              <form
+                onSubmit={editingTemplateId ? (event) => event.preventDefault() : createApproval}
+                className="grid gap-4"
+              >
                 <DialogHeader>
-                  <DialogTitle>Новое согласование</DialogTitle>
-                  <DialogDescription>Укажите тему и порядок согласующих.</DialogDescription>
+                  <DialogTitle>
+                    {editingTemplateId ? 'Изменение шаблона маршрута' : 'Новое согласование'}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {editingTemplateId
+                      ? 'Обновите имя и последовательность этапов. Это не запустит новое согласование.'
+                      : 'Укажите тему и порядок согласующих.'}
+                  </DialogDescription>
                 </DialogHeader>
-                <Input
-                  aria-label="Тема согласования"
-                  placeholder="Тема согласования"
-                  minLength={3}
-                  required
-                  value={title}
-                  onChange={(event) => setTitle(event.target.value)}
-                />
-                <Textarea
-                  aria-label="Описание согласования"
-                  placeholder="Описание"
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                />
-                <label className="grid gap-1 text-sm">
-                  Срок
+                {templateMessage && (
+                  <div role="status" className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                    {templateMessage}
+                  </div>
+                )}
+                {editingTemplateId ? (
                   <Input
-                    type="datetime-local"
-                    value={dueAt}
-                    onChange={(event) => setDueAt(event.target.value)}
+                    aria-label="Название шаблона"
+                    placeholder="Название шаблона"
+                    maxLength={120}
+                    required
+                    value={templateName}
+                    onChange={(event) => setTemplateName(event.target.value)}
                   />
-                </label>
+                ) : (
+                  <>
+                    <label className="grid gap-1 text-sm">
+                      Шаблон маршрута
+                      <select
+                        aria-label="Шаблон маршрута"
+                        className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                        value={selectedTemplateId}
+                        onChange={(event) => applyTemplate(event.target.value)}
+                      >
+                        <option value="">Без шаблона — настроить вручную</option>
+                        {templates.filter((template) => template.isActive).map((template) => (
+                          <option key={template.id} value={template.id}>{template.name}</option>
+                        ))}
+                      </select>
+                    </label>
+                    <Input
+                      aria-label="Тема согласования"
+                      placeholder="Тема согласования"
+                      minLength={3}
+                      required
+                      value={title}
+                      onChange={(event) => setTitle(event.target.value)}
+                    />
+                    <Textarea
+                      aria-label="Описание согласования"
+                      placeholder="Описание"
+                      value={description}
+                      onChange={(event) => setDescription(event.target.value)}
+                    />
+                    <label className="grid gap-1 text-sm">
+                      Срок
+                      <Input
+                        type="datetime-local"
+                        value={dueAt}
+                        onChange={(event) => setDueAt(event.target.value)}
+                      />
+                    </label>
+                  </>
+                )}
                 <div className="grid gap-3">
                   <div className="font-medium">Маршрут</div>
                   {steps.map((step, index) => (
@@ -238,18 +421,24 @@ export function ApprovalsPageClient({
                         minLength={2}
                         required
                         value={step.name}
-                        onChange={(event) => setSteps((values) => values.map((value, stepIndex) =>
-                          stepIndex === index ? { ...value, name: event.target.value } : value
-                        ))}
+                        onChange={(event) => {
+                          setSelectedTemplateId('')
+                          setSteps((values) => values.map((value, stepIndex) =>
+                            stepIndex === index ? { ...value, name: event.target.value } : value
+                          ))
+                        }}
                       />
                       <select
                         aria-label={`Согласующий ${index + 1}`}
                         className="h-10 rounded-md border border-input bg-background px-3 text-sm"
                         required
                         value={step.approverId}
-                        onChange={(event) => setSteps((values) => values.map((value, stepIndex) =>
-                          stepIndex === index ? { ...value, approverId: event.target.value } : value
-                        ))}
+                        onChange={(event) => {
+                          setSelectedTemplateId('')
+                          setSteps((values) => values.map((value, stepIndex) =>
+                            stepIndex === index ? { ...value, approverId: event.target.value } : value
+                          ))
+                        }}
                       >
                         <option value="">Выберите сотрудника</option>
                         {approvers.map((approver) => (
@@ -270,28 +459,155 @@ export function ApprovalsPageClient({
                         size="icon"
                         aria-label={`Удалить этап ${index + 1}`}
                         disabled={steps.length === 1}
-                        onClick={() => setSteps((values) => values.filter((_, stepIndex) => stepIndex !== index))}
+                        onClick={() => {
+                          setSelectedTemplateId('')
+                          setSteps((values) => values.filter((_, stepIndex) => stepIndex !== index))
+                        }}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={steps.length >= 20}
-                    onClick={() => setSteps((values) => [...values, emptyStep()])}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />Добавить этап
-                  </Button>
+                  <div className="grid gap-2 sm:grid-cols-[auto_1fr_auto]">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={steps.length >= 20}
+                      onClick={() => {
+                        setSelectedTemplateId('')
+                        setSteps((values) => [...values, emptyStep()])
+                      }}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />Добавить этап
+                    </Button>
+                    {canManageTemplates && !editingTemplateId && (
+                      <Input
+                        aria-label="Название нового шаблона"
+                        placeholder="Название нового шаблона"
+                        maxLength={120}
+                        value={templateName}
+                        onChange={(event) => setTemplateName(event.target.value)}
+                      />
+                    )}
+                    {canManageTemplates && !editingTemplateId && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        disabled={!templateName.trim() || steps.some((step) => !step.name.trim() || !step.approverId) || templateBusyId !== null || busyId !== null}
+                        onClick={() => void saveTemplate()}
+                      >
+                        {templateBusyId === 'create'
+                          ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          : <BookmarkPlus className="mr-2 h-4 w-4" />}
+                        Сохранить маршрут
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <DialogFooter>
-                  <Button type="submit" disabled={busyId === 'create'}>
-                    {busyId === 'create' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Запустить
-                  </Button>
+                  {editingTemplateId ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={templateBusyId !== null}
+                        onClick={() => {
+                          setEditingTemplateId(null)
+                          setTemplateName('')
+                          setSelectedTemplateId('')
+                          setDialogOpen(false)
+                        }}
+                      >
+                        Отмена
+                      </Button>
+                      <Button
+                        type="button"
+                        disabled={
+                          !templateName.trim()
+                          || steps.some((step) => !step.name.trim() || !step.approverId)
+                          || templateBusyId !== null
+                        }
+                        onClick={() => void saveTemplate()}
+                      >
+                        {templateBusyId === 'create'
+                          && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Сохранить шаблон
+                      </Button>
+                    </>
+                  ) : (
+                    <Button type="submit" disabled={busyId === 'create' || templateBusyId !== null}>
+                      {busyId === 'create' && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Запустить
+                    </Button>
+                  )}
                 </DialogFooter>
               </form>
+            </DialogContent>
+          </Dialog>
+        )}
+        {canManageTemplates && (
+          <Dialog open={templatesOpen} onOpenChange={setTemplatesOpen}>
+            <DialogTrigger asChild>
+              <Button type="button" variant="outline">Шаблоны маршрутов</Button>
+            </DialogTrigger>
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+              <DialogHeader>
+                <DialogTitle>Шаблоны маршрутов</DialogTitle>
+                <DialogDescription>
+                  Шаблоны доступны создателям согласований. Архивные можно восстановить.
+                </DialogDescription>
+              </DialogHeader>
+              {templateMessage && (
+                <div role="status" className="rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                  {templateMessage}
+                </div>
+              )}
+              {templates.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">
+                  Шаблонов пока нет. Создайте согласование и сохраните его маршрут.
+                </p>
+              ) : (
+                <div className="grid gap-2">
+                  {templates.map((template) => (
+                    <div key={template.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
+                      <div className="min-w-0">
+                        <p className="font-medium">{template.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {template.steps.length} {template.steps.length === 1 ? 'этап' : 'этапа'}
+                          {!template.isActive && ' · в архиве'}
+                        </p>
+                      </div>
+                      {canCreate && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          aria-label={`Изменить маршрут ${template.name}`}
+                          disabled={!template.isActive || templateBusyId !== null}
+                          onClick={() => editTemplate(template)}
+                        >
+                          <Pencil className="mr-2 h-4 w-4" />Изменить
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={templateBusyId !== null}
+                        aria-label={template.isActive ? `Архивировать ${template.name}` : `Восстановить ${template.name}`}
+                        onClick={() => void setTemplateActive(template, !template.isActive)}
+                      >
+                        {templateBusyId === template.id
+                          ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          : template.isActive
+                            ? <Archive className="mr-2 h-4 w-4" />
+                            : <RotateCcw className="mr-2 h-4 w-4" />}
+                        {template.isActive ? 'В архив' : 'Восстановить'}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </DialogContent>
           </Dialog>
         )}

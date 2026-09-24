@@ -12,6 +12,7 @@ export default async function ApprovalsPage() {
       canCreate={user.permissions.includes('approvals.create')}
       canDecide={user.permissions.includes('approvals.decide')}
       canCancel={user.permissions.includes('approvals.cancel')}
+      canManageTemplates={user.permissions.includes('approvals.templates.manage')}
     />
   )
 }

@@ -10,7 +10,9 @@ import { getDb } from '@/lib/prisma'
 import type {
   ApprovalDecisionInput,
   ApprovalQuery,
+  CreateApprovalTemplateInput,
   CreateApprovalInput,
+  UpdateApprovalTemplateInput,
 } from '../contracts/approval'
 
 interface ApprovalNotifier {
@@ -34,6 +36,8 @@ export type ApprovalErrorCode =
   | 'INVALID_STATE'
   | 'INVALID_APPROVER'
   | 'REFERENCE_NOT_FOUND'
+  | 'TEMPLATE_EXISTS'
+  | 'TEMPLATE_NOT_FOUND'
 
 export class ApprovalServiceError extends Error {
   constructor(public readonly code: ApprovalErrorCode) {
@@ -157,6 +161,108 @@ export class ApprovalService {
       select: { id: true, name: true, username: true },
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
     })
+  }
+
+  listTemplates(includeInactive = false) {
+    return this.db.approvalTemplate.findMany({
+      where: includeInactive ? {} : { isActive: true },
+      select: { id: true, name: true, steps: true, isActive: true },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+    })
+  }
+
+  async createTemplate(input: CreateApprovalTemplateInput, creatorId: string, requestId?: string) {
+    try {
+      return await this.db.$transaction(async (tx) => {
+        await this.assertActiveApprovers(
+          input.steps.map((step) => step.approverId),
+          tx,
+        )
+        const template = await tx.approvalTemplate.create({
+          data: {
+            name: input.name,
+            steps: input.steps,
+            isActive: true,
+            createdById: creatorId,
+          },
+          select: { id: true, name: true, steps: true, isActive: true },
+        })
+        await tx.auditLog.create({
+          data: {
+            userId: creatorId,
+            action: 'APPROVAL_TEMPLATE_CREATE',
+            entityType: 'ApprovalTemplate',
+            entityId: template.id,
+            details: { name: template.name, stepCount: input.steps.length },
+            ...(requestId ? { requestId } : {}),
+          },
+        })
+        return template
+      })
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ApprovalServiceError('TEMPLATE_EXISTS')
+      }
+      throw error
+    }
+  }
+
+  async updateTemplate(
+    id: string,
+    input: UpdateApprovalTemplateInput,
+    actorId: string,
+    requestId?: string,
+  ) {
+    try {
+      return await this.db.$transaction(async (tx) => {
+        if (input.steps) {
+          await this.assertActiveApprovers(
+            input.steps.map((step) => step.approverId),
+            tx,
+          )
+        }
+        const template = await tx.approvalTemplate.update({
+          where: { id },
+          data: {
+            ...(input.name === undefined ? {} : { name: input.name }),
+            ...(input.steps === undefined ? {} : { steps: input.steps }),
+            ...(input.isActive === undefined ? {} : { isActive: input.isActive }),
+          },
+          select: { id: true, name: true, steps: true, isActive: true },
+        })
+        await tx.auditLog.create({
+          data: {
+            userId: actorId,
+            action: 'APPROVAL_TEMPLATE_UPDATE',
+            entityType: 'ApprovalTemplate',
+            entityId: template.id,
+            details: {
+              name: template.name,
+              isActive: template.isActive,
+              ...(input.steps ? { stepCount: input.steps.length } : {}),
+            },
+            ...(requestId ? { requestId } : {}),
+          },
+        })
+        return template
+      })
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') throw new ApprovalServiceError('TEMPLATE_EXISTS')
+        if (error.code === 'P2025') throw new ApprovalServiceError('TEMPLATE_NOT_FOUND')
+      }
+      throw error
+    }
+  }
+
+  private async assertActiveApprovers(
+    approverIds: string[],
+    client: Pick<PrismaClient, 'user'> = this.db,
+  ) {
+    const count = await client.user.count({
+      where: { id: { in: approverIds }, isActive: true },
+    })
+    if (count !== approverIds.length) throw new ApprovalServiceError('INVALID_APPROVER')
   }
 
   async create(
