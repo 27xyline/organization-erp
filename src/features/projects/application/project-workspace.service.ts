@@ -1,11 +1,18 @@
 import { getDb } from '@/lib/prisma'
 
 export class ProjectWorkspaceService {
-  static async activity(projectId: string) {
+  static async activity(
+    projectId: string,
+    visibility: { canReadTasks: boolean; canReadDocuments: boolean; canReadAll: boolean },
+  ) {
     const db = getDb()
     const [tasks, documents] = await Promise.all([
-      db.task.findMany({ where: { projectId }, select: { id: true } }),
-      db.document.findMany({ where: { projectId }, select: { id: true } }),
+      visibility.canReadTasks || visibility.canReadAll
+        ? db.task.findMany({ where: { projectId }, select: { id: true } })
+        : Promise.resolve([]),
+      visibility.canReadDocuments || visibility.canReadAll
+        ? db.document.findMany({ where: { projectId }, select: { id: true } })
+        : Promise.resolve([]),
     ])
     const taskIds = tasks.map((task) => task.id)
     const documentIds = documents.map((document) => document.id)
@@ -13,8 +20,12 @@ export class ProjectWorkspaceService {
       where: {
         OR: [
           { entityType: 'Project', entityId: projectId },
-          ...(taskIds.length ? [{ entityType: 'Task', entityId: { in: taskIds } }] : []),
-          ...(documentIds.length ? [{ entityType: 'Document', entityId: { in: documentIds } }] : []),
+          ...((visibility.canReadTasks || visibility.canReadAll) && taskIds.length
+            ? [{ entityType: 'Task', entityId: { in: taskIds } }]
+            : []),
+          ...((visibility.canReadDocuments || visibility.canReadAll) && documentIds.length
+            ? [{ entityType: 'Document', entityId: { in: documentIds } }]
+            : []),
         ],
       },
       select: {

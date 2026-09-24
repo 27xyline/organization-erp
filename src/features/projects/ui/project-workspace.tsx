@@ -39,15 +39,23 @@ export function ProjectWorkspace({
   documents,
   activities,
   uploadAction,
+  canReadDocuments,
+  showDocuments = true,
+  showActivity = true,
 }: {
   project: { id: string; code: string; name: string }
   documents: DocumentView[]
   activities: ProjectActivity[]
   uploadAction?: ReactNode
+  canReadDocuments: boolean
+  showDocuments?: boolean
+  showActivity?: boolean
 }) {
+  if (!showDocuments && !showActivity) return null
+
   return (
-    <div className="grid gap-6 xl:grid-cols-2">
-      <Card className="overflow-hidden">
+    <div className={`grid gap-6 ${showDocuments && showActivity ? 'xl:grid-cols-2' : ''}`}>
+      {showDocuments && <Card className="overflow-hidden">
         <CardHeader className="flex flex-row items-start justify-between gap-4 border-b bg-slate-50/80">
           <div>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -76,19 +84,24 @@ export function ProjectWorkspace({
               </Button>
             </div>
           ))}
-          {!documents.length && (
+          {!documents.length && canReadDocuments && (
             <div className="py-8 text-center text-sm text-muted-foreground">
               <FileText className="mx-auto mb-3 h-8 w-8" />
               Документов проекта пока нет
             </div>
           )}
-          <Button asChild variant="outline" className="w-full">
-            <Link href={`/documents?projectId=${project.id}`}>Открыть все документы</Link>
-          </Button>
+          {!canReadDocuments && (
+            <p className="py-3 text-sm text-muted-foreground">Чтобы просматривать документы проекта, запросите соответствующий доступ.</p>
+          )}
+          {canReadDocuments && (
+            <Button asChild variant="outline" className="w-full">
+              <Link href={`/documents?projectId=${project.id}`}>Открыть все документы</Link>
+            </Button>
+          )}
         </CardContent>
-      </Card>
+      </Card>}
 
-      <Card className="overflow-hidden">
+      {showActivity && <Card className="overflow-hidden">
         <CardHeader className="border-b bg-slate-50/80">
           <CardTitle className="flex items-center gap-2 text-base">
             <Activity className="h-4 w-4" />
@@ -115,7 +128,7 @@ export function ProjectWorkspace({
             {!activities.length && <p className="py-8 text-center text-sm text-muted-foreground">История пока пуста</p>}
           </div>
         </CardContent>
-      </Card>
+      </Card>}
     </div>
   )
 }
