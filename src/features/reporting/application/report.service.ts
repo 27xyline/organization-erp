@@ -1,19 +1,27 @@
 import { getDb } from '@/lib/prisma'
 import { Prisma } from '@prisma/client'
-import { monthsInPeriod, percent } from '../domain/aggregators'
+import type { AccessContext } from '@/lib/auth/access-context'
+import { monthsInPeriod } from '../domain/aggregators'
 import type { ReportPresetInput } from '../contracts/report-presets'
 
 export class ReportService {
   // 1. Turnover Report
-  static async getTurnoverReport(dateFrom: Date, dateTo: Date, departmentId?: string) {
+  static async getTurnoverReport(
+    dateFrom: Date,
+    dateTo: Date,
+    departmentId: string | undefined,
+    access: AccessContext,
+  ) {
     const db = getDb()
+    const employeeScope = access.employeeWhere('employees.read') as Prisma.EmployeeWhereInput
+    const actionScope = access.employeeWhere('personnelActions.read') as Prisma.EmployeeWhereInput
     const deptFilter = departmentId ? { departmentId } : {}
 
     const dismissActions = await db.personnelAction.findMany({
       where: {
         type: 'DISMISS',
         date: { gte: dateFrom, lte: dateTo },
-        employee: deptFilter,
+        employee: { AND: [actionScope, deptFilter] },
       },
       select: { employeeId: true },
     })
@@ -23,14 +31,14 @@ export class ReportService {
       where: {
         type: 'HIRE',
         date: { gte: dateFrom, lte: dateTo },
-        employee: deptFilter,
+        employee: { AND: [actionScope, deptFilter] },
       },
       select: { employeeId: true },
     })
     const hiredCount = hireActions.length
 
     const employees = await db.employee.findMany({
-      where: deptFilter,
+      where: { AND: [employeeScope, actionScope, deptFilter] },
       select: {
         id: true,
         status: true,
@@ -85,11 +93,22 @@ export class ReportService {
   }
 
   // 2. Project Profitability
-  static async getProjectProfitability(dateFrom: Date, dateTo: Date, projectId?: string) {
+  static async getProjectProfitability(
+    dateFrom: Date,
+    dateTo: Date,
+    projectId: string | undefined,
+    access: AccessContext,
+  ) {
     const db = getDb()
 
     const projects = await db.project.findMany({
-      where: projectId ? { id: projectId } : { status: 'ACTIVE' },
+      where: {
+        AND: [
+          access.projectWhere('projects.read') as Prisma.ProjectWhereInput,
+          access.projectWhere('projectPayroll.read') as Prisma.ProjectWhereInput,
+          projectId ? { id: projectId } : { status: 'ACTIVE' },
+        ],
+      },
       select: {
         id: true,
         code: true,
@@ -99,6 +118,7 @@ export class ReportService {
         plannedRevenue: true,
         actualRevenue: true,
         financePlanEntries: {
+          where: access.financeEntryWhere('finance.salary.read') as Prisma.FinancePlanEntryWhereInput,
           select: {
             year: true,
             month: true,
@@ -154,13 +174,21 @@ export class ReportService {
   }
 
   // 3. Asset Depreciation & Movement
-  static async getAssetDepreciationReport(dateFrom: Date, dateTo: Date, departmentId?: string) {
+  static async getAssetDepreciationReport(
+    dateFrom: Date,
+    dateTo: Date,
+    departmentId: string | undefined,
+    access: AccessContext,
+  ) {
     const db = getDb()
 
     const assets = await db.asset.findMany({
       where: {
-        isArchived: false,
-        ...(departmentId ? { mol: { departmentId } } : {}),
+        AND: [
+          { isArchived: false },
+          access.assetWhere('assets.read') as Prisma.AssetWhereInput,
+          ...(departmentId ? [{ mol: { departmentId } }] : []),
+        ],
       },
       select: {
         id: true,
@@ -214,10 +242,22 @@ export class ReportService {
       }
     })
 
-    const movements = await db.operation.findMany({
+    const movements = access.has('operations.read') ? await db.operation.findMany({
       where: {
-        date: { gte: dateFrom, lte: dateTo },
-        type: { in: ['TRANSFER', 'RECEIPT', 'DISPOSAL'] },
+        AND: [
+          {
+            date: { gte: dateFrom, lte: dateTo },
+            type: { in: ['TRANSFER', 'RECEIPT', 'DISPOSAL'] },
+          },
+          { asset: access.assetWhere('operations.read') as Prisma.AssetWhereInput },
+          ...(departmentId
+            ? [{ OR: [
+                { fromMol: { departmentId } },
+                { toMol: { departmentId } },
+                { asset: { mol: { departmentId } } },
+              ] }]
+            : []),
+        ],
       },
       include: {
         asset: { select: { name: true, inventoryNumber: true } },
@@ -225,7 +265,7 @@ export class ReportService {
         toMol: { select: { fullName: true } },
       },
       orderBy: { date: 'desc' },
-    })
+    }) : []
 
     return {
       assets: rows,
@@ -244,14 +284,21 @@ export class ReportService {
   }
 
   // 4. Vacation Calendar
-  static async getVacationCalendar(dateFrom: Date, dateTo: Date, departmentId?: string) {
+  static async getVacationCalendar(
+    dateFrom: Date,
+    dateTo: Date,
+    departmentId: string | undefined,
+    access: AccessContext,
+  ) {
     const db = getDb()
 
     const vacations = await db.vacation.findMany({
       where: {
-        startDate: { lte: dateTo },
-        endDate: { gte: dateFrom },
-        employee: departmentId ? { departmentId } : {},
+        AND: [
+          { startDate: { lte: dateTo }, endDate: { gte: dateFrom } },
+          { employee: access.employeeWhere('vacations.read') as Prisma.EmployeeWhereInput },
+          ...(departmentId ? [{ employee: { departmentId } }] : []),
+        ],
       },
       include: {
         employee: {
@@ -309,37 +356,76 @@ export class ReportService {
     preset: ReportPresetInput,
     dateFrom: Date,
     dateTo: Date,
-    departmentId?: string,
-    projectId?: string,
+    departmentId: string | undefined,
+    projectId: string | undefined,
+    access: AccessContext,
   ) {
     const db = getDb()
     const months = monthsInPeriod(dateFrom, dateTo)
 
-    const deptFilter = departmentId ? { departmentId } : {}
-    const projFilter = projectId ? { projectId } : {}
-
     if (preset.groupBy === 'department') {
       const departments = await db.department.findMany({
-        where: { isActive: true, ...(departmentId ? { id: departmentId } : {}) },
+        where: {
+          AND: [
+            { isActive: true },
+            access.departmentWhere('departments.read') as Prisma.DepartmentWhereInput,
+            ...(departmentId ? [{ id: departmentId }] : []),
+          ],
+        },
         include: {
           employees: {
-            where: { status: { not: 'DISMISSED' } },
+            where: {
+              AND: [
+                { status: { not: 'DISMISSED' } },
+                access.employeeWhere('employees.read') as Prisma.EmployeeWhereInput,
+              ],
+            },
             select: {
               id: true,
               employmentRate: true,
-              staffSchedule: { select: { salary: true } },
             },
           },
           mols: {
             include: {
               assets: {
-                where: { isArchived: false, ...(projectId ? { projectId } : {}) },
+                where: {
+                  AND: [
+                    { isArchived: false },
+                    access.assetWhere('assets.read') as Prisma.AssetWhereInput,
+                    ...(projectId ? [{ projectId }] : []),
+                  ],
+                },
                 select: { totalCost: true, recordingDate: true },
               },
             },
           },
         },
       })
+
+      const plannedFotByDepartment = new Map<string, number>()
+      if (preset.metrics.includes('plannedFot')) {
+        const financeEmployees = await db.employee.findMany({
+          where: {
+            AND: [
+              { status: { not: 'DISMISSED' } },
+              access.employeeWhere('finance.salary.read') as Prisma.EmployeeWhereInput,
+              ...(departmentId ? [{ departmentId }] : []),
+            ],
+          },
+          select: {
+            departmentId: true,
+            employmentRate: true,
+            staffSchedule: { select: { salary: true } },
+          },
+        })
+        for (const employee of financeEmployees) {
+          const total = plannedFotByDepartment.get(employee.departmentId) || 0
+          plannedFotByDepartment.set(
+            employee.departmentId,
+            total + Number(employee.staffSchedule?.salary || 0) * Number(employee.employmentRate) * months,
+          )
+        }
+      }
 
       return departments.map((dept) => {
         const row: Record<string, any> = {
@@ -356,10 +442,7 @@ export class ReportService {
         }
 
         if (preset.metrics.includes('plannedFot')) {
-          row.plannedFot = dept.employees.reduce(
-            (sum, e) => sum + Number(e.staffSchedule?.salary || 0) * Number(e.employmentRate) * months,
-            0,
-          )
+          row.plannedFot = plannedFotByDepartment.get(dept.id) || 0
         }
 
         if (preset.metrics.includes('assetValue')) {
@@ -373,13 +456,24 @@ export class ReportService {
       })
     } else if (preset.groupBy === 'project') {
       const projects = await db.project.findMany({
-        where: { ...(projectId ? { id: projectId } : { status: 'ACTIVE' }) },
+        where: {
+          AND: [
+            access.projectWhere('projects.read') as Prisma.ProjectWhereInput,
+            ...(projectId ? [{ id: projectId }] : [{ status: 'ACTIVE' as const }]),
+          ],
+        },
         include: {
           financePlanEntries: {
+            where: access.financeEntryWhere('finance.salary.read') as Prisma.FinancePlanEntryWhereInput,
             select: { amount: true, year: true, month: true },
           },
           assets: {
-            where: { isArchived: false },
+            where: {
+              AND: [
+                { isArchived: false },
+                access.assetWhere('assets.read') as Prisma.AssetWhereInput,
+              ],
+            },
             select: { totalCost: true },
           },
         },

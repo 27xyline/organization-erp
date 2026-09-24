@@ -6,13 +6,9 @@ import {
   ArrowLeft,
   FileSpreadsheet,
   Trash2,
-  Calendar,
-  TrendingUp,
   RefreshCw,
   BarChart4,
   Save,
-  FileText,
-  FileUp,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,9 +24,24 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import type { DashboardOverview } from '../contracts/view-model'
+import type { ReportMetric } from '../contracts/report-presets'
 import { ASSET_STATUS_LABELS, VACATION_TYPE_LABELS } from '../contracts/labels'
 import { ReportFilters } from './report-filters'
 import { EmptyLine, ProgressBar } from './reporting-ui'
+
+const metricOptions: Record<'department' | 'project', Array<[ReportMetric, string]>> = {
+  department: [
+    ['headcount', 'Численность штата'],
+    ['occupiedRate', 'Занято ставок'],
+    ['plannedFot', 'Плановый ФОТ'],
+    ['assetValue', 'Стоимость имущества'],
+  ],
+  project: [
+    ['projectBudget', 'Бюджеты проектов'],
+    ['actualFot', 'Фактический ФОТ проектов'],
+    ['assetValue', 'Имущество на проектах'],
+  ],
+}
 
 function exportHref(data: DashboardOverview) {
   const params = new URLSearchParams({
@@ -45,9 +56,25 @@ function exportHref(data: DashboardOverview) {
 export function ReportsPage({
   data,
   canExport,
+  canReadTurnover,
+  canReadProfitability,
+  canReadDepreciation,
+  canReadVacations,
+  canGroupByDepartment,
+  canGroupByProject,
+  availableCustomMetrics,
+  defaultCustomGroupBy,
 }: {
   data: DashboardOverview
   canExport: boolean
+  canReadTurnover: boolean
+  canReadProfitability: boolean
+  canReadDepreciation: boolean
+  canReadVacations: boolean
+  canGroupByDepartment: boolean
+  canGroupByProject: boolean
+  availableCustomMetrics: ReportMetric[]
+  defaultCustomGroupBy: 'department' | 'project'
 }) {
   const [activeTab, setActiveTab] = useState('summary')
 
@@ -70,9 +97,15 @@ export function ReportsPage({
   // Presets & Constructor State
   const [presets, setPresets] = useState<any[]>([])
   const [presetName, setPresetName] = useState('')
-  const [groupBy, setGroupBy] = useState<'department' | 'project'>('department')
-  const [selectedMetrics, setSelectedMetrics] = useState<string[]>(['headcount', 'assetValue'])
+  const [groupBy, setGroupBy] = useState<'department' | 'project'>(defaultCustomGroupBy)
+  const [selectedMetrics, setSelectedMetrics] = useState<ReportMetric[]>(() =>
+    metricOptions[defaultCustomGroupBy]
+      .map(([metric]) => metric)
+      .filter((metric) => availableCustomMetrics.includes(metric))
+      .slice(0, 2),
+  )
   const [customReportData, setCustomReportData] = useState<any[]>([])
+  const [customReportError, setCustomReportError] = useState<string | null>(null)
   const [loadingCustom, setLoadingCustom] = useState(false)
   const [loadingPresets, setLoadingPresets] = useState(false)
 
@@ -80,6 +113,13 @@ export function ReportsPage({
   const dateTo = data.query.dateTo
   const departmentId = data.query.departmentId
   const projectId = data.query.projectId
+  const customGroups = {
+    department: canGroupByDepartment,
+    project: canGroupByProject,
+  }
+  const metricsForGroup = (group: 'department' | 'project') => metricOptions[group]
+    .map(([metric]) => metric)
+    .filter((metric) => availableCustomMetrics.includes(metric))
 
   // Fetch Turnover Data
   const fetchTurnover = async () => {
@@ -166,7 +206,7 @@ export function ReportsPage({
 
   // Save Preset
   const savePreset = async () => {
-    if (!presetName.trim()) return
+    if (!presetName.trim() || !selectedMetrics.length) return
     try {
       const res = await fetch('/api/reports/presets', {
         method: 'POST',
@@ -201,14 +241,30 @@ export function ReportsPage({
 
   // Load Preset
   const loadPreset = (preset: any) => {
-    setGroupBy(preset.groupBy)
-    setSelectedMetrics(preset.metrics)
-    buildCustomReport(preset.groupBy, preset.metrics)
+    const presetGroup = preset.groupBy as 'department' | 'project'
+    if (!customGroups[presetGroup]) {
+      setCustomReportError('У вас нет доступа к этой группировке пресета')
+      return
+    }
+    const metrics = (preset.metrics as ReportMetric[])
+      .filter((metric) => metricsForGroup(presetGroup).includes(metric))
+    if (!metrics.length) {
+      setCustomReportError('В пресете нет показателей, доступных вашей роли')
+      return
+    }
+    setGroupBy(presetGroup)
+    setSelectedMetrics(metrics)
+    void buildCustomReport(presetGroup, metrics)
   }
 
   // Build Custom Report
-  const buildCustomReport = async (gBy = groupBy, metrics = selectedMetrics) => {
+  const buildCustomReport = async (
+    gBy = groupBy,
+    metrics: ReportMetric[] = selectedMetrics,
+  ) => {
+    if (!customGroups[gBy] || !metrics.length) return
     setLoadingCustom(true)
+    setCustomReportError(null)
     try {
       const res = await fetch('/api/reports/custom', {
         method: 'POST',
@@ -220,12 +276,26 @@ export function ReportsPage({
       })
       if (res.ok) {
         setCustomReportData(await res.json())
+      } else {
+        const body = await res.json().catch(() => ({}))
+        setCustomReportError(body.error?.message || 'Не удалось сформировать отчёт')
       }
     } catch (e) {
       console.error(e)
+      setCustomReportError('Не удалось связаться с сервером')
     } finally {
       setLoadingCustom(false)
     }
+  }
+
+  function changeGroup(group: 'department' | 'project') {
+    if (!customGroups[group]) return
+    const metrics = metricsForGroup(group).slice(0, 2)
+    setGroupBy(group)
+    setSelectedMetrics(metrics)
+    setCustomReportData([])
+    setCustomReportError(null)
+    if (activeTab === 'constructor') void buildCustomReport(group, metrics)
   }
 
   useEffect(() => {
@@ -239,11 +309,13 @@ export function ReportsPage({
     }
   }, [activeTab, dateFrom, dateTo, departmentId, projectId])
 
-  const toggleMetric = (metric: string) => {
+  const toggleMetric = (metric: ReportMetric) => {
     setSelectedMetrics((prev) =>
       prev.includes(metric) ? prev.filter((m) => m !== metric) : [...prev, metric],
     )
   }
+  const canBuildCustom = (canGroupByDepartment && metricsForGroup('department').length > 0) ||
+    (canGroupByProject && metricsForGroup('project').length > 0)
 
   return (
     <main className="mx-auto w-full max-w-[1760px] space-y-6 px-4 py-6 lg:px-8">
@@ -272,13 +344,13 @@ export function ReportsPage({
       <ReportFilters action="/reports" data={data} />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:grid-cols-6 h-auto p-1 gap-1">
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 p-1">
           <TabsTrigger value="summary">Сводная панель</TabsTrigger>
-          <TabsTrigger value="turnover">Текучесть кадров</TabsTrigger>
-          <TabsTrigger value="profitability">Рентабельность проектов</TabsTrigger>
-          <TabsTrigger value="depreciation">Амортизация и ОС</TabsTrigger>
-          <TabsTrigger value="vacations">Календарь отпусков</TabsTrigger>
-          <TabsTrigger value="constructor">Конструктор</TabsTrigger>
+          {canReadTurnover && <TabsTrigger value="turnover">Текучесть кадров</TabsTrigger>}
+          {canReadProfitability && <TabsTrigger value="profitability">Рентабельность проектов</TabsTrigger>}
+          {canReadDepreciation && <TabsTrigger value="depreciation">Амортизация и ОС</TabsTrigger>}
+          {canReadVacations && <TabsTrigger value="vacations">Календарь отпусков</TabsTrigger>}
+          {canBuildCustom && <TabsTrigger value="constructor">Конструктор</TabsTrigger>}
         </TabsList>
 
         {/* Tab 1: Summary Panel */}
@@ -713,105 +785,62 @@ export function ReportsPage({
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-muted-foreground uppercase">Группировка данных</label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant={groupBy === 'department' ? 'default' : 'outline'}
-                      onClick={() => setGroupBy('department')}
-                      className="flex-1 text-xs"
-                    >
-                      По отделам
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={groupBy === 'project' ? 'default' : 'outline'}
-                      onClick={() => setGroupBy('project')}
-                      className="flex-1 text-xs"
-                    >
-                      По проектам
-                    </Button>
-                  </div>
+                  {canGroupByDepartment && canGroupByProject ? (
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={groupBy === 'department' ? 'default' : 'outline'}
+                        onClick={() => changeGroup('department')}
+                        className="flex-1 text-xs"
+                      >
+                        По отделам
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={groupBy === 'project' ? 'default' : 'outline'}
+                        onClick={() => changeGroup('project')}
+                        className="flex-1 text-xs"
+                      >
+                        По проектам
+                      </Button>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {groupBy === 'department' ? 'По отделам' : 'По проектам'}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-muted-foreground uppercase">Показатели</label>
-                  <div className="grid gap-2 border p-3 rounded-lg bg-slate-50/50">
-                    {groupBy === 'department' ? (
-                      <>
-                        <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                  <div className="grid gap-2 rounded-lg border bg-slate-50/50 p-3">
+                    {metricOptions[groupBy]
+                      .filter(([metric]) => availableCustomMetrics.includes(metric))
+                      .map(([metric, label]) => (
+                        <label key={metric} className="flex cursor-pointer items-center gap-2 text-sm text-slate-700">
                           <input
                             type="checkbox"
-                            checked={selectedMetrics.includes('headcount')}
-                            onChange={() => toggleMetric('headcount')}
+                            checked={selectedMetrics.includes(metric)}
+                            onChange={() => toggleMetric(metric)}
                             className="rounded border-gray-300 text-primary focus:ring-primary"
                           />
-                          Численность штата
+                          {label}
                         </label>
-                        <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={selectedMetrics.includes('occupiedRate')}
-                            onChange={() => toggleMetric('occupiedRate')}
-                            className="rounded border-gray-300 text-primary focus:ring-primary"
-                          />
-                          Занято ставок
-                        </label>
-                        <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={selectedMetrics.includes('plannedFot')}
-                            onChange={() => toggleMetric('plannedFot')}
-                            className="rounded border-gray-300 text-primary focus:ring-primary"
-                          />
-                          Плановый ФОТ
-                        </label>
-                        <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={selectedMetrics.includes('assetValue')}
-                            onChange={() => toggleMetric('assetValue')}
-                            className="rounded border-gray-300 text-primary focus:ring-primary"
-                          />
-                          Стоимость имущества
-                        </label>
-                      </>
-                    ) : (
-                      <>
-                        <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={selectedMetrics.includes('projectBudget')}
-                            onChange={() => toggleMetric('projectBudget')}
-                            className="rounded border-gray-300 text-primary focus:ring-primary"
-                          />
-                          Бюджеты проектов
-                        </label>
-                        <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={selectedMetrics.includes('actualFot')}
-                            onChange={() => toggleMetric('actualFot')}
-                            className="rounded border-gray-300 text-primary focus:ring-primary"
-                          />
-                          Фактический ФОТ проектов
-                        </label>
-                        <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={selectedMetrics.includes('assetValue')}
-                            onChange={() => toggleMetric('assetValue')}
-                            className="rounded border-gray-300 text-primary focus:ring-primary"
-                          />
-                          Имущество на проектах
-                        </label>
-                      </>
+                      ))}
+                    {!metricsForGroup(groupBy).length && (
+                      <p className="text-sm text-muted-foreground">Нет доступных показателей для этой группировки.</p>
                     )}
                   </div>
                 </div>
 
-                <Button onClick={() => buildCustomReport()} className="w-full text-xs">
+                <Button
+                  onClick={() => buildCustomReport()}
+                  className="w-full text-xs"
+                  disabled={!selectedMetrics.length || loadingCustom}
+                >
                   Сформировать отчет
                 </Button>
+                {customReportError && <p role="alert" className="text-sm text-destructive">{customReportError}</p>}
               </CardContent>
             </Card>
 
@@ -828,7 +857,12 @@ export function ReportsPage({
                   onChange={(e: any) => setPresetName(e.target.value)}
                   className="text-xs"
                 />
-                <Button variant="outline" onClick={savePreset} className="w-full text-xs gap-2">
+                <Button
+                  variant="outline"
+                  onClick={savePreset}
+                  className="w-full gap-2 text-xs"
+                  disabled={!presetName.trim() || !selectedMetrics.length}
+                >
                   <Save className="h-3.5 w-3.5" /> Сохранить конфигурацию
                 </Button>
               </CardContent>
