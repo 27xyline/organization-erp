@@ -25,7 +25,7 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "node --env-file-if-exists=.env --import tsx prisma/seed.ts",
     "db:verify": "node --env-file-if-exists=.env --import tsx scripts/verify-data.ts",
     "user:create-admin": "tsx scripts/create-admin.ts"
   },
