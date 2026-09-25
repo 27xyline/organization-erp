@@ -6,7 +6,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 FROM base AS dependencies
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 COPY prisma ./prisma
 RUN npm ci
 RUN npx prisma generate
@@ -18,6 +18,7 @@ FROM base AS builder
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
+RUN npm run build:worker
 
 FROM dependencies AS production-dependencies
 RUN npm prune --omit=dev
@@ -36,3 +37,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/next.config.ts ./next.config.ts
 USER nextjs
 EXPOSE 3001
 CMD ["npm", "run", "start"]
+
+FROM base AS worker
+ENV NODE_ENV=production
+RUN groupadd --system --gid 1001 nodejs \
+  && useradd --system --uid 1001 --gid nodejs worker
+COPY --from=production-dependencies --chown=worker:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=worker:nodejs /app/dist/notifications-worker.cjs ./dist/notifications-worker.cjs
+USER worker
+CMD ["node", "dist/notifications-worker.cjs"]

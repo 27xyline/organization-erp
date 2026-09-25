@@ -37,6 +37,7 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - run: TEST_DATABASE_URL=$DATABASE_URL npm run test:db
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e

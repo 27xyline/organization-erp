@@ -508,14 +508,27 @@ model NotificationOutbox {
   payload        Json
   attempts       Int                      @default(0)
   availableAt    DateTime                 @default(now())
+  claimToken     String?
+  leaseExpiresAt DateTime?
   processedAt    DateTime?
   lastError      String?
   createdAt      DateTime                 @default(now())
   updatedAt      DateTime                 @updatedAt
 
   @@index([status, availableAt, createdAt])
+  @@index([status, leaseExpiresAt])
   @@index([userId, createdAt])
   @@map("notification_outbox")
+}
+
+model ScheduledAlertRun {
+  key             String    @id
+  lastStartedAt   DateTime?
+  lastSucceededAt DateTime?
+  lastError       String?
+  updatedAt       DateTime  @updatedAt
+
+  @@map("scheduled_alert_runs")
 }
 
 enum ApprovalRequestStatus {

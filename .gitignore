@@ -3,6 +3,7 @@ node_modules/
 .next-dev/
 .next-dev-turbo/
 out/
+dist/
 
 .env
 .env.local
