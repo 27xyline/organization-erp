@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiData, apiValidationError } from '@/lib/http/api-response'
-import { updateTimeEntrySchema } from '@/features/timekeeping/contracts/time-entry'
+import { timeEntryDeleteSchema, updateTimeEntrySchema } from '@/features/timekeeping/contracts/time-entry'
 import { TimekeepingService } from '@/features/timekeeping/application/timekeeping.service'
 import { timekeepingApiError } from '@/features/timekeeping/application/http'
 
@@ -35,9 +35,17 @@ export async function DELETE(
 ) {
   const auth = await authorizeApiRequest(request, 'timekeeping.delete')
   if (auth.response) return auth.response
+  const input = timeEntryDeleteSchema.safeParse(await request.json().catch(() => ({})))
+  if (!input.success) return apiValidationError(input.error)
   const { id } = await context.params
   try {
-    await TimekeepingService.remove(id, auth.access, auth.user.id, auth.requestId)
+    await TimekeepingService.remove(
+      id,
+      auth.access,
+      auth.user.id,
+      auth.requestId,
+      input.data.correctionReason,
+    )
     return apiData({ success: true })
   } catch (error) {
     return timekeepingApiError(error)
