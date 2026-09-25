@@ -101,6 +101,13 @@ export class ApprovalService {
     return { requests, total }
   }
 
+  async getVisibleById(id: string, userId: string, canViewAll: boolean) {
+    return this.db.approvalRequest.findFirst({
+      where: { id, ...visibleWhere(userId, canViewAll) },
+      include,
+    })
+  }
+
   async listPendingForUser(userId: string, limit = 5) {
     const where: Prisma.ApprovalRequestWhereInput = {
       status: ApprovalRequestStatus.PENDING,
