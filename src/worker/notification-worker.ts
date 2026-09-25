@@ -1,6 +1,7 @@
 import { setTimeout } from 'node:timers/promises'
 import { SmtpService } from '@/features/notifications/application/smtp.service'
 import { runScheduledAlertGeneration } from '@/features/notifications/application/alert-runner'
+import { recordNotificationWorkerHeartbeat, registerNotificationWorkerMetrics } from './metrics'
 
 type WorkerDependencies = {
   signal: AbortSignal
@@ -20,7 +21,9 @@ export async function runNotificationWorker({
   sleep = sleepUntilNextCycle,
   logError = (processor, error) => console.error(`Notification worker ${processor} failed`, error),
 }: WorkerDependencies) {
+  registerNotificationWorkerMetrics()
   while (!signal.aborted) {
+    recordNotificationWorkerHeartbeat()
     // Keep the two jobs independent: an SMTP outage must not stop alert generation.
     const results = await Promise.allSettled([processOutbox(), runAlerts()])
     for (const [index, result] of results.entries()) {
