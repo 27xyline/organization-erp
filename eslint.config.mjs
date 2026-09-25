@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from 'eslint/config'
 import nextVitals from 'eslint-config-next/core-web-vitals'
 import nextTypeScript from 'eslint-config-next/typescript'
+import reactHooks from 'eslint-plugin-react-hooks'
 
 const featureBoundaryPatterns = [
   {
@@ -22,6 +23,7 @@ export default defineConfig([
   ...nextVitals,
   ...nextTypeScript,
   {
+    plugins: { 'react-hooks': reactHooks },
     rules: {
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-empty-object-type': 'warn',
@@ -98,6 +100,7 @@ export default defineConfig([
     },
   },
   globalIgnores([
+    'dist/**',
     '.next/**',
     '.next-dev/**',
     '.next-dev-turbo/**',
