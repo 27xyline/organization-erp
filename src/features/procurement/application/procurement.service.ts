@@ -120,12 +120,44 @@ function serialize(request: ProcurementWithRelations) {
   }
 }
 
+const terminalApprovalStatuses: ApprovalRequestStatus[] = [
+  ApprovalRequestStatus.APPROVED,
+  ApprovalRequestStatus.REJECTED,
+  ApprovalRequestStatus.CANCELLED,
+]
+
+function effectiveStatusWhere(status: ProcurementStatus): Prisma.ProcurementRequestWhereInput {
+  if (status === ProcurementStatus.APPROVED || status === ProcurementStatus.REJECTED || status === ProcurementStatus.CANCELLED) {
+    const approvalStatus = status === ProcurementStatus.APPROVED
+      ? ApprovalRequestStatus.APPROVED
+      : status === ProcurementStatus.REJECTED
+        ? ApprovalRequestStatus.REJECTED
+        : ApprovalRequestStatus.CANCELLED
+    return {
+      OR: [
+        { status },
+        { status: ProcurementStatus.SUBMITTED, approvalRequest: { is: { status: approvalStatus } } },
+      ],
+    }
+  }
+  if (status === ProcurementStatus.SUBMITTED) {
+    return {
+      status: ProcurementStatus.SUBMITTED,
+      NOT: { approvalRequest: { is: { status: { in: terminalApprovalStatuses } } } },
+    }
+  }
+  return { status }
+}
+
+function combineWhere(...clauses: Prisma.ProcurementRequestWhereInput[]): Prisma.ProcurementRequestWhereInput {
+  return { AND: clauses }
+}
+
 export class ProcurementService {
   constructor(private readonly db: PrismaClient = getDb()) {}
 
   async list(query: ProcurementQuery) {
-    const where: Prisma.ProcurementRequestWhereInput = {
-      ...(query.status ? { status: query.status } : {}),
+    const searchWhere: Prisma.ProcurementRequestWhereInput = {
       ...(query.search
         ? {
           OR: [
@@ -137,17 +169,52 @@ export class ProcurementService {
         }
         : {}),
     }
-    const [requests, total] = await this.db.$transaction([
-      this.db.procurementRequest.findMany({
-        where,
-        include,
-        orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
-        skip: (query.page - 1) * query.pageSize,
-        take: query.pageSize,
+    const where = combineWhere(
+      searchWhere,
+      query.status ? effectiveStatusWhere(query.status) : {},
+    )
+    const summaryWhere = where
+    const now = new Date()
+    const [pageResult, active, awaiting, overdue, budget] = await Promise.all([
+      this.db.$transaction([
+        this.db.procurementRequest.findMany({
+          where,
+          include,
+          orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
+          skip: (query.page - 1) * query.pageSize,
+          take: query.pageSize,
+        }),
+        this.db.procurementRequest.count({ where }),
+      ]),
+      this.db.procurementRequest.count({
+        where: combineWhere(summaryWhere, {
+          status: { notIn: [ProcurementStatus.CAPITALIZED, ProcurementStatus.REJECTED, ProcurementStatus.CANCELLED] },
+          NOT: { status: ProcurementStatus.SUBMITTED, approvalRequest: { is: { status: { in: [ApprovalRequestStatus.REJECTED, ApprovalRequestStatus.CANCELLED] } } } },
+        }),
       }),
-      this.db.procurementRequest.count({ where }),
+      this.db.procurementRequest.count({
+        where: combineWhere(summaryWhere, effectiveStatusWhere(ProcurementStatus.SUBMITTED)),
+      }),
+      this.db.procurementRequest.count({
+        where: combineWhere(summaryWhere, {
+          contract: { is: { deliveryDueAt: { lt: now } } },
+          status: { notIn: [ProcurementStatus.DELIVERED, ProcurementStatus.CAPITALIZED, ProcurementStatus.REJECTED, ProcurementStatus.CANCELLED] },
+          NOT: { status: ProcurementStatus.SUBMITTED, approvalRequest: { is: { status: { in: [ApprovalRequestStatus.REJECTED, ApprovalRequestStatus.CANCELLED] } } } },
+        }),
+      }),
+      this.db.procurementRequest.aggregate({ where: summaryWhere, _sum: { budgetLimit: true } }),
     ])
-    return { requests: requests.map(serialize), total }
+    const [requests, total] = pageResult
+    return {
+      requests: requests.map(serialize),
+      total,
+      summary: {
+        active,
+        awaiting,
+        overdue,
+        budget: Number(budget._sum.budgetLimit || 0),
+      },
+    }
   }
 
   async get(id: string) {

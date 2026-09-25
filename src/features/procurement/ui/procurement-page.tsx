@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ClipboardCheck, FileText, PackageCheck, Plus, RefreshCw, Truck } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -86,7 +87,19 @@ interface Options {
   documents: Array<{ id: string; title: string; category: string; status: string; projectId: string | null }>
 }
 
-type DialogName = 'create' | 'supplier' | 'submit' | 'contract' | 'delivery' | 'capitalize' | null
+type DialogName = 'create' | 'supplier' | 'submit' | 'contract' | 'delivery' | 'capitalize' | 'details' | null
+interface ProcurementSummary {
+  active: number
+  awaiting: number
+  overdue: number
+  budget: number
+}
+interface ProcurementPagination {
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+}
 const money = new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' })
 const date = (value: string | null) => value ? new Intl.DateTimeFormat('ru-RU').format(new Date(value)) : '—'
 
@@ -119,6 +132,12 @@ export function ProcurementPage({
   canCapitalize: boolean
   canManageSuppliers: boolean
 }) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const search = searchParams.get('search') || ''
+  const rawStatus = searchParams.get('status') || ''
+  const status = Object.hasOwn(labels, rawStatus) ? rawStatus as Status : ''
+  const page = Math.max(1, Number(searchParams.get('page')) || 1)
   const [items, setItems] = useState<Procurement[]>([])
   const [options, setOptions] = useState<Options>({
     projects: [], suppliers: [], approvers: [], groups: [], mols: [], documents: [],
@@ -126,46 +145,75 @@ export function ProcurementPage({
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
-  const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState(search)
+  const [summary, setSummary] = useState<ProcurementSummary>({ active: 0, awaiting: 0, overdue: 0, budget: 0 })
+  const [pagination, setPagination] = useState<ProcurementPagination>({ page: 1, pageSize: 25, total: 0, totalPages: 1 })
   const [dialog, setDialog] = useState<DialogName>(null)
   const [selected, setSelected] = useState<Procurement | null>(null)
   const [deliveryItemId, setDeliveryItemId] = useState('')
   const [lines, setLines] = useState([emptyLine()])
 
+  const updateQuery = useCallback((updates: { search?: string | null; status?: Status | '' | null; page?: number | null }) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (updates.search !== undefined) {
+      if (updates.search) params.set('search', updates.search)
+      else params.delete('search')
+    }
+    if (updates.status !== undefined) {
+      if (updates.status) params.set('status', updates.status)
+      else params.delete('status')
+    }
+    if (updates.page !== undefined) {
+      if (updates.page && updates.page > 1) params.set('page', String(updates.page))
+      else params.delete('page')
+    }
+    const query = params.toString()
+    router.replace(query ? `/procurement?${query}` : '/procurement', { scroll: false })
+  }, [router, searchParams])
+
   const load = useCallback(async () => {
     setLoading(true)
-    const [requestsResponse, optionsResponse] = await Promise.all([
-      fetch(`/api/procurement?pageSize=100${search ? `&search=${encodeURIComponent(search)}` : ''}`, { cache: 'no-store' }),
-      fetch('/api/procurement/options', { cache: 'no-store' }),
-    ])
-    const [requestsBody, optionsBody] = await Promise.all([
-      requestsResponse.json().catch(() => ({})),
-      optionsResponse.json().catch(() => ({})),
-    ])
+    const query = new URLSearchParams({ page: String(page), pageSize: '25' })
+    if (search) query.set('search', search)
+    if (status) query.set('status', status)
+    const requestsResponse = await fetch(`/api/procurement?${query.toString()}`, { cache: 'no-store' })
+    const requestsBody = await requestsResponse.json().catch(() => ({}))
     setLoading(false)
-    if (!requestsResponse.ok || !optionsResponse.ok) {
-      setMessage(requestsBody.error?.message || optionsBody.error?.message || 'Не удалось загрузить закупки')
+    if (!requestsResponse.ok) {
+      setMessage(requestsBody.error?.message || 'Не удалось загрузить закупки')
       return
     }
     setItems(requestsBody.data || [])
-    setOptions(optionsBody.data)
+    setSummary(requestsBody.summary || { active: 0, awaiting: 0, overdue: 0, budget: 0 })
+    setPagination(requestsBody.pagination || { page, pageSize: 25, total: 0, totalPages: 1 })
     setMessage('')
-  }, [search])
+  }, [page, search, status])
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 0)
     return () => window.clearTimeout(timer)
   }, [load])
 
-  const summary = useMemo(() => ({
-    active: items.filter((item) => !['CAPITALIZED', 'REJECTED', 'CANCELLED'].includes(item.status)).length,
-    awaiting: items.filter((item) => item.status === 'SUBMITTED').length,
-    overdue: items.filter((item) =>
-      item.contract && new Date(item.contract.deliveryDueAt) < new Date() &&
-      !['DELIVERED', 'CAPITALIZED'].includes(item.status),
-    ).length,
-    budget: items.reduce((sum, item) => sum + item.budgetLimit, 0),
-  }), [items])
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearchInput(search), 0)
+    return () => window.clearTimeout(timer)
+  }, [search])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      if (searchInput !== search) updateQuery({ search: searchInput.trim() || null, page: 1 })
+    }, 350)
+    return () => window.clearTimeout(timer)
+  }, [search, searchInput, updateQuery])
+
+  useEffect(() => {
+    let cancelled = false
+    void fetch('/api/procurement/options', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((body) => { if (!cancelled && body.data) setOptions(body.data) })
+      .catch(() => { if (!cancelled) setMessage('Не удалось загрузить справочники закупок') })
+    return () => { cancelled = true }
+  }, [])
 
   const open = (name: DialogName, procurement: Procurement | null = null, itemId = '') => {
     setSelected(procurement)
@@ -306,84 +354,113 @@ export function ProcurementPage({
         <Summary title="Бюджет заявок" value={money.format(summary.budget)} />
       </div>
 
-      <div className="flex max-w-xl gap-2">
-        <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Номер, заявка, договор или поставщик" />
-        <Button variant="outline" onClick={() => void load()}><RefreshCw className="h-4 w-4" /></Button>
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_240px_auto]">
+        <Input aria-label="Поиск закупок" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Номер, заявка, договор или поставщик" />
+        <select
+          aria-label="Фильтр статуса закупки"
+          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+          value={status}
+          onChange={(event) => updateQuery({ status: event.target.value as Status | '', page: 1 })}
+        >
+          <option value="">Все статусы</option>
+          {Object.entries(labels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select>
+        <Button variant="outline" aria-label="Обновить закупки" onClick={() => void load()}><RefreshCw className="h-4 w-4" /></Button>
       </div>
 
       {loading ? <p className="text-muted-foreground">Загрузка…</p> : items.length === 0 ? (
         <Card><CardContent className="py-10 text-center text-muted-foreground">Закупок пока нет</CardContent></Card>
       ) : (
-        <div className="space-y-4">
-          {items.map((item) => (
-            <Card key={item.id}>
-              <CardHeader className="pb-3">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <CardTitle className="text-xl">{item.number} · {item.title}</CardTitle>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {item.project ? `${item.project.code} · ${item.project.name}` : 'Без проекта'} · нужно к {date(item.neededBy)}
+        <Card>
+          <CardContent className="p-0">
+            <div className="divide-y">
+              {items.map((item) => (
+                <div key={item.id} className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_160px_150px_auto] md:items-center">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{item.number} · {item.title}</p>
+                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                      {item.project ? `${item.project.code} · ${item.project.name}` : 'Без проекта'} · {item.requestedBy.name}
                     </p>
                   </div>
-                  <Badge variant={item.status === 'REJECTED' ? 'destructive' : 'secondary'}>{labels[item.status]}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid gap-3 text-sm sm:grid-cols-3">
-                  <div><span className="text-muted-foreground">Лимит:</span> {money.format(item.budgetLimit)}</div>
-                  <div><span className="text-muted-foreground">План:</span> {money.format(item.totalPlanned)}</div>
-                  <div><span className="text-muted-foreground">Инициатор:</span> {item.requestedBy.name}</div>
-                </div>
-                <div className="grid gap-2">
-                  {item.items.map((line) => (
-                    <div key={line.id} className="flex flex-wrap justify-between gap-2 rounded-md border p-2 text-sm">
-                      <span>{line.name} {line.group && <span className="text-muted-foreground">({line.group.code})</span>}</span>
-                      <span>{line.deliveredQuantity}/{line.quantity} {line.unit} · {money.format(line.unitPrice)}</span>
-                    </div>
-                  ))}
-                </div>
-                {item.contract && (
-                  <div className="rounded-md border p-3 text-sm">
-                    <div className="font-medium">Договор {item.contract.number} · {item.contract.supplier.name}</div>
-                    <div className="text-muted-foreground">{money.format(item.contract.amount)} · поставка до {date(item.contract.deliveryDueAt)}</div>
+                  <Badge className="w-fit" variant={item.status === 'REJECTED' ? 'destructive' : 'secondary'}>{labels[item.status]}</Badge>
+                  <div className="text-sm md:text-right">
+                    <p>{money.format(item.totalPlanned)}</p>
+                    <p className="text-xs text-muted-foreground">Нужно к {date(item.neededBy)}</p>
                   </div>
-                )}
-                {item.deliveries.map((delivery) => (
-                  <div key={delivery.id} className="rounded-md border p-3 text-sm">
-                    <div className="font-medium">Поставка {delivery.number} от {date(delivery.receivedAt)}</div>
-                    <div className="mt-2 grid gap-2">
-                      {delivery.items.map((deliveryItem) => (
-                        <div key={deliveryItem.id} className="flex flex-wrap items-center justify-between gap-2">
-                          <span>{deliveryItem.procurementItem.name} · {deliveryItem.quantity} {deliveryItem.procurementItem.unit}</span>
-                          {deliveryItem.asset ? (
-                            <Button asChild variant="outline" size="sm">
-                              <Link href={`/assets/${deliveryItem.asset.id}`}>{deliveryItem.asset.inventoryNumber}</Link>
-                            </Button>
-                          ) : canCapitalize ? (
-                            <Button size="sm" onClick={() => open('capitalize', item, deliveryItem.id)}>
-                              <PackageCheck className="mr-2 h-4 w-4" />На учёт
-                            </Button>
-                          ) : <Badge variant="outline">Не оприходовано</Badge>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                <div className="flex flex-wrap gap-2">
-                  {item.document && <Button asChild size="sm" variant="outline"><Link href={`/documents/${item.document.id}`}><FileText className="mr-2 h-4 w-4" />Заявка</Link></Button>}
-                  {item.approvalRequest && <Button asChild size="sm" variant="outline"><Link href="/approvals"><ClipboardCheck className="mr-2 h-4 w-4" />Согласование</Link></Button>}
-                  {canSubmit && item.status === 'DRAFT' && <Button size="sm" onClick={() => open('submit', item)}><ClipboardCheck className="mr-2 h-4 w-4" />Согласовать</Button>}
-                  {canContract && item.status === 'APPROVED' && <Button size="sm" onClick={() => open('contract', item)}><FileText className="mr-2 h-4 w-4" />Договор</Button>}
-                  {canDeliver && ['CONTRACTED', 'PARTIALLY_DELIVERED'].includes(item.status) && <Button size="sm" onClick={() => open('delivery', item)}><Truck className="mr-2 h-4 w-4" />Поставка</Button>}
+                  <Button variant="outline" size="sm" onClick={() => open('details', item)}>Подробнее</Button>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && pagination.total > 0 && (
+        <nav aria-label="Страницы закупок" className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+          <p className="text-sm text-muted-foreground">Страница {pagination.page} из {pagination.totalPages} · всего {pagination.total}</p>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => updateQuery({ page: page - 1 })}>Назад</Button>
+            <Button variant="outline" size="sm" disabled={page >= pagination.totalPages} onClick={() => updateQuery({ page: page + 1 })}>Далее</Button>
+          </div>
+        </nav>
       )}
 
       <Dialog open={dialog !== null} onOpenChange={(value) => !value && setDialog(null)}>
         <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+          {dialog === 'details' && selected && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selected.number} · {selected.title}</DialogTitle>
+                <DialogDescription>{labels[selected.status]} · {selected.project ? `${selected.project.code} · ${selected.project.name}` : 'Без проекта'}</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-3 text-sm sm:grid-cols-3">
+                <div><span className="text-muted-foreground">Лимит:</span> {money.format(selected.budgetLimit)}</div>
+                <div><span className="text-muted-foreground">План:</span> {money.format(selected.totalPlanned)}</div>
+                <div><span className="text-muted-foreground">Инициатор:</span> {selected.requestedBy.name}</div>
+                <div><span className="text-muted-foreground">Нужно к:</span> {date(selected.neededBy)}</div>
+              </div>
+              {selected.description && <p className="whitespace-pre-wrap text-sm">{selected.description}</p>}
+              <div className="grid gap-2">
+                <h3 className="font-medium">Позиции</h3>
+                {selected.items.map((line) => (
+                  <div key={line.id} className="flex flex-wrap justify-between gap-2 rounded-md border p-2 text-sm">
+                    <span>{line.name} {line.group && <span className="text-muted-foreground">({line.group.code})</span>}</span>
+                    <span>{line.deliveredQuantity}/{line.quantity} {line.unit} · {money.format(line.unitPrice)}</span>
+                  </div>
+                ))}
+              </div>
+              {selected.contract && (
+                <div className="rounded-md border p-3 text-sm">
+                  <div className="font-medium">Договор {selected.contract.number} · {selected.contract.supplier.name}</div>
+                  <div className="text-muted-foreground">{money.format(selected.contract.amount)} · поставка до {date(selected.contract.deliveryDueAt)}</div>
+                </div>
+              )}
+              {selected.deliveries.map((delivery) => (
+                <div key={delivery.id} className="rounded-md border p-3 text-sm">
+                  <div className="font-medium">Поставка {delivery.number} от {date(delivery.receivedAt)}</div>
+                  <div className="mt-2 grid gap-2">
+                    {delivery.items.map((deliveryItem) => (
+                      <div key={deliveryItem.id} className="flex flex-wrap items-center justify-between gap-2">
+                        <span>{deliveryItem.procurementItem.name} · {deliveryItem.quantity} {deliveryItem.procurementItem.unit}</span>
+                        {deliveryItem.asset ? (
+                          <Button asChild size="sm" variant="outline"><Link href={`/assets/${deliveryItem.asset.id}`}>{deliveryItem.asset.inventoryNumber}</Link></Button>
+                        ) : canCapitalize ? (
+                          <Button size="sm" onClick={() => open('capitalize', selected, deliveryItem.id)}><PackageCheck className="mr-2 h-4 w-4" />На учёт</Button>
+                        ) : <Badge variant="outline">Не оприходовано</Badge>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <div className="flex flex-wrap gap-2">
+                {selected.document && <Button asChild size="sm" variant="outline"><Link href={`/documents/${selected.document.id}`}><FileText className="mr-2 h-4 w-4" />Заявка</Link></Button>}
+                {selected.approvalRequest && <Button asChild size="sm" variant="outline"><Link href={`/approvals/${selected.approvalRequest.id}`}><ClipboardCheck className="mr-2 h-4 w-4" />Согласование</Link></Button>}
+                {canSubmit && selected.status === 'DRAFT' && <Button size="sm" onClick={() => open('submit', selected)}><ClipboardCheck className="mr-2 h-4 w-4" />Согласовать</Button>}
+                {canContract && selected.status === 'APPROVED' && <Button size="sm" onClick={() => open('contract', selected)}><FileText className="mr-2 h-4 w-4" />Договор</Button>}
+                {canDeliver && ['CONTRACTED', 'PARTIALLY_DELIVERED'].includes(selected.status) && <Button size="sm" onClick={() => open('delivery', selected)}><Truck className="mr-2 h-4 w-4" />Поставка</Button>}
+              </div>
+            </>
+          )}
           {dialog === 'create' && (
             <Form title="Новая заявка" description="Сумма позиций не должна превышать бюджетный лимит" onSubmit={createProcurement} busy={busy}>
               <Field label="Номер"><Input name="number" placeholder="ЗК-2026-001" required /></Field>
