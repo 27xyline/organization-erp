@@ -51,6 +51,17 @@ services:
       timeout: 5s
       retries: 6
 
+  worker:
+    build:
+      context: .
+      target: worker
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-project1}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-project1}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
 volumes:
   project1_postgres_data:
   project1_document_data:

@@ -17,6 +17,7 @@ import {
 export interface ScheduledAlertGenerator {
   key: string
   collect(now: Date): Promise<PublishNotificationInput[]>
+  afterPublish?(alert: PublishNotificationInput): Promise<void>
 }
 
 function toDateKey(value: Date) {
@@ -240,13 +241,6 @@ export function createScheduledAlertGenerators(
           },
         })
 
-        if (!steps.length) return []
-
-        await db.approvalStep.updateMany({
-          where: { id: { in: steps.map((s) => s.id) } },
-          data: { reminderSent: true },
-        })
-
         return steps.map((step) => ({
           recipientUserIds: [step.approverId],
           eventType: NotificationEventType.APPROVAL_REQUESTED,
@@ -257,6 +251,13 @@ export function createScheduledAlertGenerators(
           entityType: 'ApprovalRequest',
           entityId: step.requestId,
         }))
+      },
+      async afterPublish(alert) {
+        const stepId = alert.dedupeKey.slice('approval-reminder:'.length)
+        await db.approvalStep.updateMany({
+          where: { id: stepId, status: 'PENDING', reminderSent: false },
+          data: { reminderSent: true },
+        })
       },
     },
   ]
@@ -282,6 +283,7 @@ export async function generateScheduledAlerts(input?: {
         actorId: input?.actorId,
         requestId: input?.requestId,
       })
+      await generator.afterPublish?.(alert)
       generated += published.created
       result.emailQueued += published.emailQueued
     }

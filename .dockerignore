@@ -2,6 +2,7 @@
 .next
 .next-dev
 .next-dev-turbo
+dist
 node_modules
 npm-debug.log*
 .env*
