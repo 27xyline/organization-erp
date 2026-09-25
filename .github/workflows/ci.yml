@@ -38,6 +38,9 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: TEST_DATABASE_URL=$DATABASE_URL npm run test:db
+      - run: POSTGRES_PASSWORD=project1_ci_password docker compose --profile observability config --quiet
+      - run: docker run --rm -v "$PWD/ops/observability/collector.yaml:/etc/otelcol-contrib/config.yaml:ro" --entrypoint /otelcol-contrib otel/opentelemetry-collector-contrib:0.123.0 validate --config=/etc/otelcol-contrib/config.yaml
+      - run: docker run --rm -v "$PWD/ops/observability:/etc/prometheus:ro" --entrypoint /bin/promtool prom/prometheus:v3.2.1 check config /etc/prometheus/prometheus.yml
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e

@@ -1,0 +1,97 @@
+{
+  "uid": "erp-overview",
+  "title": "ERP · состояние приложения",
+  "tags": ["erp", "notifications"],
+  "timezone": "browser",
+  "schemaVersion": 40,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-6h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "HTTP: запросы в секунду",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum(rate(erp_span_calls_total{span_kind=\"SPAN_KIND_SERVER\"}[5m]))", "legendFormat": "Запросы/с" }]
+    },
+    {
+      "id": 2,
+      "title": "HTTP: доля ошибок",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum(rate(erp_span_calls_total{span_kind=\"SPAN_KIND_SERVER\",http_status_code=~\"5..\"}[5m])) / clamp_min(sum(rate(erp_span_calls_total{span_kind=\"SPAN_KIND_SERVER\"}[5m])), 0.001)", "legendFormat": "Ошибки 5xx" }],
+      "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } }
+    },
+    {
+      "id": 3,
+      "title": "HTTP: p95 времени ответа",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(erp_span_duration_seconds_bucket{span_kind=\"SPAN_KIND_SERVER\"}[5m])))", "legendFormat": "p95" }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 4,
+      "title": "База данных: p95 времени запроса",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(erp_span_duration_seconds_bucket{db_system=~\"postgresql|postgres\"}[5m]) or rate(erp_span_duration_seconds_bucket{db_system_name=~\"postgresql|postgres\"}[5m])))", "legendFormat": "p95" }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 5,
+      "title": "Ожидающие письма",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 16, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "erp_notification_outbox_pending", "legendFormat": "Ожидают" }]
+    },
+    {
+      "id": 6,
+      "title": "Возраст старейшего письма",
+      "type": "timeseries",
+      "gridPos": { "x": 8, "y": 16, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "erp_notification_outbox_oldest_age_seconds", "legendFormat": "Возраст" }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 7,
+      "title": "Письма с конечной ошибкой",
+      "type": "timeseries",
+      "gridPos": { "x": 16, "y": 16, "w": 8, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "erp_notification_outbox_terminal_failed", "legendFormat": "Не доставлены" }]
+    },
+    {
+      "id": 8,
+      "title": "С последней генерации уведомлений",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 24, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "time() - erp_notification_generation_last_success_timestamp_seconds", "legendFormat": "Секунд" }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 9,
+      "title": "С последнего heartbeat worker",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 24, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "time() - erp_notification_worker_heartbeat_timestamp_seconds", "legendFormat": "Секунд" }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 10,
+      "title": "Предупреждения",
+      "type": "alertlist",
+      "gridPos": { "x": 0, "y": 32, "w": 24, "h": 7 },
+      "options": { "show": "current", "sortOrder": 1, "dashboardAlerts": false }
+    }
+  ]
+}

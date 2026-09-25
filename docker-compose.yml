@@ -38,8 +38,13 @@ services:
       DOCUMENT_STORAGE_ROOT: /var/lib/project1/documents
       DOCUMENT_MAX_FILE_SIZE_BYTES: ${DOCUMENT_MAX_FILE_SIZE_BYTES:-26214400}
       PORT: 3001
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      OTEL_SERVICE_NAME: erp-app
     volumes:
       - project1_document_data:/var/lib/project1/documents
+    networks:
+      - default
+      - observability_ingest
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -58,10 +63,83 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-project1}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-project1}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      OTEL_SERVICE_NAME: erp-notification-worker
+    networks:
+      - default
+      - observability_ingest
     depends_on:
       migrate:
         condition: service_completed_successfully
 
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.123.0
+    profiles: [observability]
+    restart: unless-stopped
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./ops/observability/collector.yaml:/etc/otelcol-contrib/config.yaml:ro
+    networks:
+      - observability_ingest
+      - observability_backend
+
+  prometheus:
+    image: prom/prometheus:v3.2.1
+    profiles: [observability]
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ./ops/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./ops/observability/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - project1_prometheus_data:/prometheus
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+    networks:
+      - default
+      - observability_backend
+
+  tempo:
+    image: grafana/tempo:2.7.1
+    profiles: [observability]
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo/config.yaml"]
+    volumes:
+      - ./ops/observability/tempo.yaml:/etc/tempo/config.yaml:ro
+      - project1_tempo_data:/var/tempo
+    networks:
+      - observability_backend
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    profiles: [observability]
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    volumes:
+      - ./ops/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./ops/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - project1_grafana_data:/var/lib/grafana
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-3002}:3000"
+    networks:
+      - default
+      - observability_backend
+
 volumes:
   project1_postgres_data:
   project1_document_data:
+  project1_prometheus_data:
+  project1_tempo_data:
+  project1_grafana_data:
+
+networks:
+  observability_ingest:
+    internal: true
+  observability_backend:
+    internal: true
