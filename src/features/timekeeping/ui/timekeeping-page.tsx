@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { Check, Plus, Send, Trash2, Undo2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -39,6 +39,8 @@ interface TimeEntry {
 }
 
 interface TimekeepingData {
+  year: number
+  month: number
   normativeHours: number
   entries: TimeEntry[]
   summaries: Array<{
@@ -62,6 +64,19 @@ interface TimekeepingData {
     name: string
     tasksList: Array<{ id: string; name: string }>
   }>
+  period: { status: string }
+  timesheets: Array<{
+    id: string
+    employeeId: string
+    year: number
+    month: number
+    status: string
+    zeroHoursConfirmed: boolean
+    employee: { id: string; fullName: string; code: string; department?: string } | null
+    submittedBy: { name?: string; fullName?: string } | string | null
+    decidedBy: { name?: string; fullName?: string } | string | null
+    decisionReason: string | null
+  }>
 }
 
 const currency = new Intl.NumberFormat('ru-RU', {
@@ -79,7 +94,34 @@ function initialDate(month: string) {
   return today.startsWith(month) ? today : `${month}-01`
 }
 
-export function TimekeepingPage({ canManage }: { canManage: boolean }) {
+function timesheetStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    DRAFT: 'Черновик',
+    SUBMITTED: 'На согласовании',
+    APPROVED: 'Утверждён',
+    RETURNED: 'Возвращён на исправление',
+  }
+  return labels[status] || status
+}
+
+function actorName(actor: { name?: string; fullName?: string } | string | null) {
+  if (typeof actor === 'string') return actor
+  return actor?.name || actor?.fullName || ''
+}
+
+export function TimekeepingPage({
+  canSubmitOwn,
+  canSubmitForOthers,
+  canReviewTimesheets,
+  canCorrect,
+  employeeId: viewerEmployeeId,
+}: {
+  canSubmitOwn: boolean
+  canSubmitForOthers: boolean
+  canReviewTimesheets: boolean
+  canCorrect: boolean
+  employeeId: string | null
+}) {
   const [month, setMonth] = useState(initialMonth)
   const [data, setData] = useState<TimekeepingData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -93,6 +135,8 @@ export function TimekeepingPage({ canManage }: { canManage: boolean }) {
   const [type, setType] = useState<EntryType>('REGULAR')
   const [hours, setHours] = useState('8')
   const [note, setNote] = useState('')
+  const [zeroHoursConfirmed, setZeroHoursConfirmed] = useState<Record<string, boolean>>({})
+  const [workingTimesheetId, setWorkingTimesheetId] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -118,9 +162,73 @@ export function TimekeepingPage({ canManage }: { canManage: boolean }) {
     () => data?.projects.find((project) => project.id === projectId),
     [data?.projects, projectId],
   )
+  const selectedTimesheets = data?.timesheets || []
+  const isPeriodClosed = data?.period.status === 'CLOSED'
+  const isEditable = !isPeriodClosed
+  const employeeHours = useMemo(() => {
+    const totals = new Map<string, number>()
+    for (const entry of data?.entries || []) {
+      totals.set(entry.employee.id, (totals.get(entry.employee.id) || 0) + Number(entry.hours))
+    }
+    return totals
+  }, [data?.entries])
+
+  const submitTimesheet = async (targetEmployeeId: string) => {
+    const hoursForEmployee = employeeHours.get(targetEmployeeId) || 0
+    const confirmsZero = hoursForEmployee === 0
+    if (confirmsZero && !zeroHoursConfirmed[targetEmployeeId]) {
+      setError('Подтвердите, что за месяц нет отработанных часов.')
+      return
+    }
+    setWorkingTimesheetId(targetEmployeeId)
+    setError('')
+    const [year, selectedMonth] = month.split('-').map(Number)
+    const response = await fetch('/api/timekeeping/timesheets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        employeeId: targetEmployeeId,
+        year,
+        month: selectedMonth,
+        zeroHoursConfirmed: confirmsZero && Boolean(zeroHoursConfirmed[targetEmployeeId]),
+      }),
+    })
+    const payload = await response.json()
+    setWorkingTimesheetId('')
+    if (!response.ok) {
+      setError(payload.error?.message || 'Не удалось отправить табель на согласование')
+      return
+    }
+    setZeroHoursConfirmed((previous) => ({ ...previous, [targetEmployeeId]: false }))
+    await load()
+  }
+
+  const decideTimesheet = async (id: string, decision: 'APPROVE' | 'RETURN') => {
+    const reason = decision === 'RETURN'
+      ? window.prompt('Укажите причину возврата табеля на исправление:')?.trim()
+      : undefined
+    if (decision === 'RETURN' && !reason) return
+    setWorkingTimesheetId(id)
+    setError('')
+    const response = await fetch(`/api/timekeeping/timesheets/${id}/decision`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ decision, ...(reason ? { reason } : {}) }),
+    })
+    const payload = await response.json()
+    setWorkingTimesheetId('')
+    if (!response.ok) {
+      setError(payload.error?.message || 'Не удалось обработать табель')
+      return
+    }
+    await load()
+  }
 
   const openCreate = () => {
-    setEmployeeId(data?.employees[0]?.id || '')
+    if (!isEditable) return
+    setEmployeeId(
+      (canSubmitForOthers ? data?.employees[0]?.id : viewerEmployeeId) || '',
+    )
     setProjectId('')
     setTaskId('')
     setWorkDate(initialDate(month))
@@ -131,8 +239,17 @@ export function TimekeepingPage({ canManage }: { canManage: boolean }) {
   }
 
   const submit = async () => {
+    if (!isEditable) return
     setSaving(true)
     setError('')
+    const approvedSheet = selectedTimesheets.find((sheet) => sheet.employeeId === employeeId && sheet.status === 'APPROVED')
+    const correctionReason = approvedSheet && canCorrect
+      ? window.prompt('Укажите причину корректировки утверждённого табеля:')?.trim()
+      : undefined
+    if (approvedSheet && (!canCorrect || !correctionReason)) {
+      setSaving(false)
+      return
+    }
     const response = await fetch('/api/time-entries', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -144,6 +261,7 @@ export function TimekeepingPage({ canManage }: { canManage: boolean }) {
         type,
         hours: Number(hours),
         note: note || null,
+        ...(correctionReason ? { correctionReason } : {}),
       }),
     })
     const payload = await response.json()
@@ -156,8 +274,19 @@ export function TimekeepingPage({ canManage }: { canManage: boolean }) {
     await load()
   }
 
-  const remove = async (id: string) => {
-    const response = await fetch(`/api/time-entries/${id}`, { method: 'DELETE' })
+  const remove = async (entry: TimeEntry) => {
+    const sheet = selectedTimesheets.find((item) => item.employeeId === entry.employee.id)
+    const reason = sheet?.status === 'APPROVED'
+      ? window.prompt('Укажите причину корректировки утверждённого табеля:')?.trim()
+      : undefined
+    if (sheet?.status === 'APPROVED' && (!canCorrect || !reason)) return
+    const response = await fetch(`/api/time-entries/${entry.id}`, {
+      method: 'DELETE',
+      ...(reason ? {
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ correctionReason: reason }),
+      } : {}),
+    })
     if (!response.ok) {
       const payload = await response.json()
       setError(payload.error?.message || 'Не удалось удалить запись')
@@ -185,14 +314,86 @@ export function TimekeepingPage({ canManage }: { canManage: boolean }) {
               onChange={(event) => setMonth(event.target.value)}
             />
           </div>
-          {canManage && (
-            <Button onClick={openCreate} disabled={!data?.employees.length}>
+          {(canSubmitForOthers || canSubmitOwn) && (
+            <Button onClick={openCreate} disabled={!isEditable || !(data?.employees.length || viewerEmployeeId)}>
               <Plus className="mr-2 h-4 w-4" />
               Добавить
             </Button>
           )}
         </div>
       </div>
+
+      {isPeriodClosed && (
+        <p role="status" className="rounded-md border bg-muted p-3 text-sm">
+          Расчётный месяц закрыт. Записи и отправка табелей недоступны.
+        </p>
+      )}
+
+      <Card>
+        <CardHeader><CardTitle>Согласование табелей</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          {data?.employees.filter((employee) =>
+            canReviewTimesheets || canSubmitForOthers || (canSubmitOwn && employee.id === viewerEmployeeId),
+          ).map((employee) => {
+            const sheet = selectedTimesheets.find((item) => item.employeeId === employee.id)
+            const employeeHoursForMonth = employeeHours.get(employee.id) || 0
+            const canSubmit = isEditable && (!sheet || sheet.status === 'RETURNED' || sheet.status === 'DRAFT')
+            const canSubmitThisEmployee = employee.id === viewerEmployeeId
+              ? canSubmitOwn
+              : canSubmitForOthers
+            return (
+              <div key={employee.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3">
+                <div>
+                  <div className="font-medium">{employee.fullName}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {employee.code} · {employeeHoursForMonth.toLocaleString('ru-RU')} ч
+                    {employee.department ? ` · ${employee.department}` : ''}
+                  </div>
+                  {sheet?.decisionReason && <div className="mt-1 text-sm text-destructive">Причина возврата: {sheet.decisionReason}</div>}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={sheet?.status === 'APPROVED' ? 'default' : 'outline'}>
+                    {sheet ? timesheetStatusLabel(sheet.status) : 'Не отправлен'}
+                  </Badge>
+                  {sheet && actorName(sheet.submittedBy) && (
+                    <span className="text-xs text-muted-foreground">Отправил: {actorName(sheet.submittedBy)}</span>
+                  )}
+                  {sheet && actorName(sheet.decidedBy) && (
+                    <span className="text-xs text-muted-foreground">Решение: {actorName(sheet.decidedBy)}</span>
+                  )}
+                  {canSubmit && canSubmitThisEmployee && (
+                    <>
+                      {employeeHoursForMonth === 0 && (
+                        <label className="flex items-center gap-2 text-sm">
+                          <input type="checkbox" checked={Boolean(zeroHoursConfirmed[employee.id])} onChange={(event) => setZeroHoursConfirmed((previous) => ({ ...previous, [employee.id]: event.target.checked }))} />
+                          Подтверждаю нулевые часы
+                        </label>
+                      )}
+                      <Button size="sm" onClick={() => void submitTimesheet(employee.id)} disabled={workingTimesheetId === employee.id || (employeeHoursForMonth === 0 && !zeroHoursConfirmed[employee.id])}>
+                        <Send className="mr-2 h-4 w-4" />
+                        {workingTimesheetId === employee.id ? 'Отправка…' : 'Отправить'}
+                      </Button>
+                    </>
+                  )}
+                  {canReviewTimesheets && sheet?.status === 'SUBMITTED' && (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => void decideTimesheet(sheet.id, 'RETURN')} disabled={workingTimesheetId === sheet.id}>
+                        <Undo2 className="mr-2 h-4 w-4" /> Вернуть
+                      </Button>
+                      <Button size="sm" onClick={() => void decideTimesheet(sheet.id, 'APPROVE')} disabled={workingTimesheetId === sheet.id}>
+                        <Check className="mr-2 h-4 w-4" /> Утвердить
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+          {!loading && !data?.employees.some((employee) => canReviewTimesheets || canSubmitForOthers || (canSubmitOwn && employee.id === viewerEmployeeId)) && (
+            <p className="text-sm text-muted-foreground">Нет доступных для отправки табелей.</p>
+          )}
+        </CardContent>
+      </Card>
 
       {error && <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
 
@@ -269,7 +470,7 @@ export function TimekeepingPage({ canManage }: { canManage: boolean }) {
                 <TableHead>Часы</TableHead>
                 <TableHead>Проект / задача</TableHead>
                 <TableHead>Комментарий</TableHead>
-                {canManage && <TableHead className="w-12" />}
+                {(canSubmitForOthers || canCorrect) && <TableHead className="w-12" />}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -287,13 +488,14 @@ export function TimekeepingPage({ canManage }: { canManage: boolean }) {
                     {entry.task && <div className="text-xs text-muted-foreground">{entry.task.name}</div>}
                   </TableCell>
                   <TableCell>{entry.note || '—'}</TableCell>
-                  {canManage && (
+                  {(canSubmitForOthers || canCorrect) && (
                     <TableCell>
                       <Button
                         variant="ghost"
                         size="icon"
                         aria-label="Удалить запись"
-                        onClick={() => void remove(entry.id)}
+                        onClick={() => void remove(entry)}
+                        disabled={!isEditable || (selectedTimesheets.some((sheet) => sheet.employeeId === entry.employee.id && sheet.status === 'APPROVED') && !canCorrect)}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
@@ -302,7 +504,7 @@ export function TimekeepingPage({ canManage }: { canManage: boolean }) {
                 </TableRow>
               ))}
               {!loading && !data?.entries.length && (
-                <TableRow><TableCell colSpan={canManage ? 7 : 6} className="h-24 text-center text-muted-foreground">Нет записей</TableCell></TableRow>
+                <TableRow><TableCell colSpan={(canSubmitForOthers || canCorrect) ? 7 : 6} className="h-24 text-center text-muted-foreground">Нет записей</TableCell></TableRow>
               )}
             </TableBody>
           </Table>
@@ -319,7 +521,7 @@ export function TimekeepingPage({ canManage }: { canManage: boolean }) {
             <div className="space-y-2">
               <Label htmlFor="time-employee">Сотрудник</Label>
               <select id="time-employee" className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={employeeId} onChange={(event) => setEmployeeId(event.target.value)}>
-                {data?.employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.fullName} · {employee.code}</option>)}
+                {data?.employees.filter((employee) => canSubmitForOthers || employee.id === viewerEmployeeId).map((employee) => <option key={employee.id} value={employee.id}>{employee.fullName} · {employee.code}</option>)}
               </select>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -361,7 +563,7 @@ export function TimekeepingPage({ canManage }: { canManage: boolean }) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Отмена</Button>
-            <Button onClick={() => void submit()} disabled={saving || !employeeId || !workDate || !hours}>
+            <Button onClick={() => void submit()} disabled={saving || !isEditable || !employeeId || !workDate || !hours}>
               {saving ? 'Сохранение…' : 'Сохранить'}
             </Button>
           </DialogFooter>

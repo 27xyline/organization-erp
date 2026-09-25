@@ -139,3 +139,75 @@ test('procurement uses URL filters, 25-row pages, full-result metrics and direct
   expect(requestedPages.at(-1)).toContain('page=5')
   expect(requestedPages.at(-1)).toContain('status=APPROVED')
 })
+
+test('timekeeping requires zero-hour confirmation and updates approval status', async ({ page }) => {
+  await login(page)
+  let sheetStatus = 'DRAFT'
+  let submittedBody: Record<string, unknown> | null = null
+  let decisionBody: Record<string, unknown> | null = null
+  const employee = {
+    id: 'employee-timesheet-e2e',
+    code: 'E2E-TS-1',
+    fullName: 'E2E сотрудник',
+    department: 'QA',
+    departmentId: 'department-timesheet-e2e',
+  }
+
+  await page.route((url) => url.pathname === '/api/time-entries', async (route) => {
+    await route.fulfill({ json: { data: {
+      year: 2099,
+      month: 1,
+      normativeHours: 160,
+      entries: [],
+      summaries: [],
+      employees: [employee],
+      projects: [],
+      period: { status: 'OPEN' },
+      timesheets: [{
+        id: sheetStatus === 'DRAFT' ? 'draft:employee-timesheet-e2e:2099:1' : 'timesheet-e2e-1',
+        employeeId: employee.id,
+        year: 2099,
+        month: 1,
+        status: sheetStatus,
+        zeroHoursConfirmed: sheetStatus !== 'DRAFT',
+        employee,
+        submittedBy: sheetStatus === 'DRAFT' ? null : { id: 'admin-e2e', name: 'E2E Admin' },
+        decidedBy: sheetStatus === 'APPROVED' ? { id: 'admin-e2e', name: 'E2E Admin' } : null,
+        decisionReason: null,
+      }],
+    } } })
+  })
+  await page.route('**/api/timekeeping/timesheets', async (route) => {
+    submittedBody = route.request().postDataJSON() as Record<string, unknown>
+    sheetStatus = 'SUBMITTED'
+    await route.fulfill({ status: 201, json: { data: { id: 'timesheet-e2e-1', status: sheetStatus } } })
+  })
+  await page.route('**/api/timekeeping/timesheets/timesheet-e2e-1/decision', async (route) => {
+    decisionBody = route.request().postDataJSON() as Record<string, unknown>
+    sheetStatus = 'APPROVED'
+    await route.fulfill({ json: { data: { id: 'timesheet-e2e-1', status: sheetStatus } } })
+  })
+
+  await page.goto('/timekeeping')
+  await expect(page.getByRole('heading', { name: 'Согласование табелей' })).toBeVisible()
+  const monthReload = page.waitForResponse((response) => {
+    const url = new URL(response.url())
+    return url.pathname === '/api/time-entries' &&
+      url.searchParams.get('year') === '2099' && url.searchParams.get('month') === '1'
+  })
+  await page.getByLabel('Месяц').fill('2099-01')
+  await monthReload
+  await expect(page.getByRole('button', { name: 'Отправить' })).toBeDisabled()
+  await page.getByLabel('Подтверждаю нулевые часы').check()
+  await page.getByRole('button', { name: 'Отправить' }).click()
+  await expect.poll(() => submittedBody).toMatchObject({
+    employeeId: employee.id,
+    year: 2099,
+    month: 1,
+    zeroHoursConfirmed: true,
+  })
+  await expect(page.getByText('На согласовании')).toBeVisible()
+  await page.getByRole('button', { name: 'Утвердить' }).click()
+  await expect.poll(() => decisionBody).toMatchObject({ decision: 'APPROVE' })
+  await expect(page.getByText('Утверждён')).toBeVisible()
+})
