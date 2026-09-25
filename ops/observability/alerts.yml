@@ -1,0 +1,47 @@
+groups:
+  - name: erp-notifications
+    rules:
+      - alert: ErpNotificationWorkerUnavailable
+        expr: absent(erp_notification_worker_heartbeat_timestamp_seconds) or (time() - max(erp_notification_worker_heartbeat_timestamp_seconds) > 120)
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Worker уведомлений не отвечает
+          description: Метрика heartbeat отсутствует или не обновлялась более двух минут.
+
+      - alert: ErpNotificationOutboxGrowing
+        expr: erp_notification_outbox_pending > 10 and deriv(erp_notification_outbox_pending[15m]) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Очередь писем растёт
+          description: Более десяти писем ожидают отправки, и очередь продолжает расти.
+
+      - alert: ErpNotificationOutboxStale
+        expr: erp_notification_outbox_oldest_age_seconds > 900
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: В очереди есть старое письмо
+          description: Самое старое ожидающее письмо находится в очереди более 15 минут.
+
+      - alert: ErpNotificationGenerationMissed
+        expr: absent(erp_notification_generation_last_success_timestamp_seconds) or (time() - max(erp_notification_generation_last_success_timestamp_seconds) > 5400)
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Генерация уведомлений пропустила запуск
+          description: Последний успешный запуск был более 90 минут назад либо ещё не зарегистрирован.
+
+      - alert: ErpNotificationDeliveryFailed
+        expr: erp_notification_outbox_terminal_failed > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Есть письма с конечной ошибкой доставки
+          description: Проверьте журнал исходящих писем и настройки SMTP.

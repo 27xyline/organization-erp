@@ -3,6 +3,9 @@ import { E2E_ADMIN, E2E_VIEWER } from './global-setup'
 
 async function login(page: Page, credentials = E2E_ADMIN) {
   await page.goto('/login')
+  // SessionProvider can issue overlapping requests that rotate the CSRF cookie.
+  // Submit credentials only after those initial requests have settled.
+  await page.waitForLoadState('networkidle')
   await page.getByLabel('Пользователь').fill(credentials.username)
   await page.getByLabel('Пароль').fill(credentials.password)
   await page.getByRole('button', { name: 'Войти' }).click()

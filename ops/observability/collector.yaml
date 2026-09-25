@@ -1,0 +1,67 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 384
+    spike_limit_mib: 96
+  filter/privacy_events:
+    error_mode: ignore
+    traces:
+      spanevent:
+        - 'name != nil'
+  transform/privacy:
+    error_mode: ignore
+    trace_statements:
+      - keep_matching_keys(resource.attributes, "^(service\\.name|service\\.namespace|service\\.instance\\.id|telemetry\\.sdk\\.language)$")
+      - keep_matching_keys(span.attributes, "^(http\\.route|http\\.request\\.method|http\\.response\\.status_code|http\\.method|http\\.status_code|db\\.system|db\\.system\\.name|db\\.operation\\.name)$")
+      - set(span.name, "ERP operation")
+      - set(span.name, "HTTP request") where span.kind == SPAN_KIND_SERVER
+      - set(span.name, "Database query") where span.attributes["db.system"] != nil or span.attributes["db.system.name"] != nil
+      - set(span.status.message, "")
+    metric_statements:
+      - keep_matching_keys(resource.attributes, "^(service\\.name|service\\.namespace|service\\.instance\\.id|telemetry\\.sdk\\.language)$")
+      - keep_matching_keys(datapoint.attributes, "^(http\\.route|http\\.request\\.method|http\\.response\\.status_code|http\\.method|http\\.status_code|db\\.system|db\\.system\\.name|db\\.operation\\.name|service\\.name|span\\.name|span\\.kind|status\\.code|collector\\.instance\\.id)$")
+  batch:
+    timeout: 5s
+    send_batch_size: 512
+
+connectors:
+  spanmetrics:
+    namespace: erp.span
+    histogram:
+      unit: s
+      explicit:
+        buckets: [5ms, 10ms, 25ms, 50ms, 100ms, 250ms, 500ms, 1s, 2s, 5s, 10s]
+    dimensions:
+      - name: http.route
+      - name: http.response.status_code
+      - name: http.status_code
+      - name: db.system
+      - name: db.system.name
+    metrics_flush_interval: 15s
+
+exporters:
+  otlphttp/tempo:
+    endpoint: http://tempo:4318
+    retry_on_failure:
+      enabled: true
+  prometheus:
+    endpoint: 0.0.0.0:9464
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, filter/privacy_events, transform/privacy, batch]
+      exporters: [otlphttp/tempo, spanmetrics]
+    metrics:
+      receivers: [otlp, spanmetrics]
+      processors: [memory_limiter, transform/privacy, batch]
+      exporters: [prometheus]
