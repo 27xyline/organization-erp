@@ -365,6 +365,8 @@ model User {
   requestedProcurements   ProcurementRequest[]     @relation("ProcurementRequestedBy")
   reportPresets           ReportPreset[]           @relation("ReportPresetCreatedBy")
   assetSavedViews         AssetSavedView[]
+  submittedTimesheets     Timesheet[]              @relation("TimesheetSubmittedBy")
+  decidedTimesheets       Timesheet[]              @relation("TimesheetDecidedBy")
 
   @@index([isActive, role])
   @@map("users")
@@ -1015,6 +1017,7 @@ model Employee {
   mol                Mol?
   timeEntries        TimeEntry[]
   payrollAdjustments PayrollAdjustment[]
+  timesheets         Timesheet[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1102,6 +1105,39 @@ model TimeEntry {
   @@index([projectId, workDate])
   @@index([taskId, workDate])
   @@map("time_entries")
+}
+
+enum TimesheetStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  RETURNED
+
+  @@map("timesheet_status")
+}
+
+model Timesheet {
+  id                 String          @id @default(cuid())
+  employeeId         String
+  employee           Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  year               Int
+  month              Int
+  status             TimesheetStatus @default(DRAFT)
+  zeroHoursConfirmed Boolean         @default(false)
+  submittedById      String?
+  submittedBy        User?           @relation("TimesheetSubmittedBy", fields: [submittedById], references: [id], onDelete: SetNull)
+  submittedAt        DateTime?
+  decidedById        String?
+  decidedBy          User?           @relation("TimesheetDecidedBy", fields: [decidedById], references: [id], onDelete: SetNull)
+  decidedAt          DateTime?
+  decisionReason     String?
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  @@unique([employeeId, year, month])
+  @@index([year, month, status])
+  @@index([submittedById, year, month])
+  @@map("timesheets")
 }
 
 model StaffSchedule {
