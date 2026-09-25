@@ -14,7 +14,7 @@ export function MyActionsCard({ actions }: { actions: MyActionsResult }) {
           <CardTitle className="text-lg">Мои действия</CardTitle>
           <Badge variant="secondary">{actions.total}</Badge>
         </div>
-        <Link href="/approvals?assignedToMe=true" className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <Link href="/approvals" className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           Согласования <ArrowUpRight className="h-4 w-4" />
         </Link>
       </CardHeader>
