@@ -78,3 +78,64 @@ test('employee and finance sections render after login', async ({ page }) => {
   await page.goto('/finance/oklad')
   await expect(page.getByRole('main').getByRole('heading', { name: 'Оклад', exact: true, level: 1 })).toBeVisible()
 })
+
+test('procurement uses URL filters, 25-row pages, full-result metrics and direct approval links', async ({ page }) => {
+  const requestedPages: string[] = []
+  await login(page)
+  for (const status of ['SUBMITTED', 'APPROVED']) {
+    const response = await page.request.get(`/api/procurement?page=1&pageSize=25&status=${status}`)
+    expect(response.status()).toBe(200)
+    expect(await response.json()).toMatchObject({
+      pagination: { page: 1, pageSize: 25 },
+      summary: { active: expect.any(Number), awaiting: expect.any(Number), overdue: expect.any(Number), budget: expect.any(Number) },
+    })
+  }
+  await page.route('**/api/procurement/options', async (route) => {
+    await route.fulfill({ json: { data: { projects: [], suppliers: [], approvers: [], groups: [], mols: [], documents: [] } } })
+  })
+  await page.route(/\/api\/procurement\?/, async (route) => {
+    const query = new URL(route.request().url()).searchParams
+    requestedPages.push(query.toString())
+    const currentPage = Number(query.get('page'))
+    const data = Array.from({ length: 25 }, (_, index) => ({
+      id: `procurement-${currentPage}-${index}`,
+      number: `ЗК-${String((currentPage - 1) * 25 + index + 1).padStart(3, '0')}`,
+      title: `Закупка ${index + 1}`,
+      description: null,
+      status: 'APPROVED',
+      budgetLimit: 120_000,
+      totalPlanned: 100_000,
+      neededBy: '2026-10-20T00:00:00.000Z',
+      project: null,
+      document: null,
+      approvalRequest: { id: 'approval-e2e', status: 'APPROVED', currentStep: 1 },
+      requestedBy: { id: 'requester-e2e', name: 'Инициатор' },
+      items: [], contract: null, deliveries: [],
+    }))
+    await route.fulfill({ json: {
+      data,
+      pagination: { page: currentPage, pageSize: 25, total: 110, totalPages: 5 },
+      summary: { active: 73, awaiting: 12, overdue: 4, budget: 13_200_000 },
+    } })
+  })
+
+  await page.goto('/procurement?page=4&search=E2E&status=APPROVED')
+  await expect(page.getByRole('heading', { name: 'Закупки' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Подробнее' })).toHaveCount(25)
+  await expect(page.getByText('Страница 4 из 5 · всего 110')).toBeVisible()
+  await expect(page.getByText('73', { exact: true })).toBeVisible()
+  await expect(page.getByText(/13[\s\u00a0]?200[\s\u00a0]?000/)).toBeVisible()
+  expect(requestedPages[0]).toContain('page=4')
+  expect(requestedPages[0]).toContain('pageSize=25')
+  expect(requestedPages[0]).toContain('search=E2E')
+  expect(requestedPages[0]).toContain('status=APPROVED')
+
+  await page.getByRole('button', { name: 'Далее' }).click()
+  await expect(page).toHaveURL(/page=5/)
+  await expect(page.getByText('ЗК-101 · Закупка 1')).toBeVisible()
+  await page.getByRole('button', { name: 'Подробнее' }).first().click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Согласование' })).toHaveAttribute('href', '/approvals/approval-e2e')
+  expect(requestedPages.at(-1)).toContain('page=5')
+  expect(requestedPages.at(-1)).toContain('status=APPROVED')
+})
