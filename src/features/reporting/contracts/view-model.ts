@@ -1,5 +1,22 @@
 import type { DashboardQuery } from './dashboard'
 
+export type MyActionKind = 'task' | 'approval' | 'contract' | 'inventory'
+
+export interface MyAction {
+  id: string
+  kind: MyActionKind
+  title: string
+  detail: string
+  href: string
+  dueAt: Date | null
+  urgency: number
+}
+
+export interface MyActionsResult {
+  items: MyAction[]
+  total: number
+}
+
 export interface DashboardOverview {
   query: DashboardQuery
   options: {
@@ -117,4 +134,3 @@ export interface DashboardOverview {
     }>
   }
 }
-
