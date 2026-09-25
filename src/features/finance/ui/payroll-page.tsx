@@ -185,10 +185,14 @@ export function PayrollPage({
   }
 
   const setPeriodStatus = async (status: 'OPEN' | 'CLOSED') => {
+    const reason = status === 'OPEN'
+      ? window.prompt('Укажите причину повторного открытия расчётного месяца:')?.trim()
+      : undefined
+    if (status === 'OPEN' && !reason) return
     const response = await fetch('/api/payroll/period', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ year, month: selectedMonth, status }),
+      body: JSON.stringify({ year, month: selectedMonth, status, ...(reason ? { reason } : {}) }),
     })
     if (!response.ok) {
       const payload = await response.json().catch(() => null)

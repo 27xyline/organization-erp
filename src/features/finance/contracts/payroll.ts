@@ -18,6 +18,7 @@ export const createPayrollAdjustmentSchema = z.object({
 
 export const payrollPeriodSchema = payrollQuerySchema.extend({
   status: z.nativeEnum(PayrollPeriodStatus),
+  reason: z.string().trim().min(3).max(500).optional(),
 })
 
 export type PayrollQuery = z.infer<typeof payrollQuerySchema>

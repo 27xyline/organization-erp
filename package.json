@@ -21,7 +21,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:db": "vitest run src/features/notifications/application/outbox.integration.test.ts",
+    "test:db": "vitest run src/features/notifications/application/outbox.integration.test.ts src/features/timekeeping/application/__tests__/timekeeping-approval.integration.test.ts",
     "test:e2e": "playwright test",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build",
     "db:generate": "prisma generate",

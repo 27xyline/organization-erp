@@ -11,8 +11,13 @@ import type {
   PayrollQuery,
 } from '../contracts/payroll'
 import { calculatePayroll } from '../domain/payroll-calculator'
+import { lockPayrollPeriod } from '@/lib/payroll-period-transaction'
 
-export type PayrollErrorCode = 'PERIOD_CLOSED' | 'ADJUSTMENT_NOT_FOUND'
+export type PayrollErrorCode =
+  | 'PERIOD_CLOSED'
+  | 'ADJUSTMENT_NOT_FOUND'
+  | 'PAYROLL_TIMESHEETS_PENDING'
+  | 'REOPEN_REASON_REQUIRED'
 
 export class PayrollError extends Error {
   constructor(readonly code: PayrollErrorCode) {
@@ -22,13 +27,6 @@ export class PayrollError extends Error {
 
 function signedAdjustment(type: PayrollAdjustmentType, amount: Prisma.Decimal | number) {
   return Number(amount) * (type === PayrollAdjustmentType.DEDUCTION ? -1 : 1)
-}
-
-async function ensureOpen(year: number, month: number) {
-  const period = await getDb().payrollPeriod.findUnique({
-    where: { year_month: { year, month } },
-  })
-  if (period?.status === PayrollPeriodStatus.CLOSED) throw new PayrollError('PERIOD_CLOSED')
 }
 
 export class PayrollService {
@@ -207,9 +205,11 @@ export class PayrollService {
     actorId: string,
     requestId?: string,
   ) {
-    await ensureOpen(input.year, input.month)
     const db = getDb()
     return db.$transaction(async (tx) => {
+      if (await lockPayrollPeriod(tx, input.year, input.month) === PayrollPeriodStatus.CLOSED) {
+        throw new PayrollError('PERIOD_CLOSED')
+      }
       const adjustment = await tx.payrollAdjustment.create({
         data: { ...input, projectId: input.projectId || null, amount: new Prisma.Decimal(input.amount) },
       })
@@ -229,12 +229,19 @@ export class PayrollService {
 
   static async removeAdjustment(id: string, actorId: string, requestId?: string) {
     const db = getDb()
-    const adjustment = await db.payrollAdjustment.findUnique({ where: { id } })
-    if (!adjustment) throw new PayrollError('ADJUSTMENT_NOT_FOUND')
-    await ensureOpen(adjustment.year, adjustment.month)
-    await db.$transaction([
-      db.payrollAdjustment.delete({ where: { id } }),
-      db.auditLog.create({
+    await db.$transaction(async (tx) => {
+      const initial = await tx.payrollAdjustment.findUnique({
+        where: { id },
+        select: { year: true, month: true },
+      })
+      if (!initial) throw new PayrollError('ADJUSTMENT_NOT_FOUND')
+      if (await lockPayrollPeriod(tx, initial.year, initial.month) === PayrollPeriodStatus.CLOSED) {
+        throw new PayrollError('PERIOD_CLOSED')
+      }
+      const adjustment = await tx.payrollAdjustment.findUnique({ where: { id } })
+      if (!adjustment) throw new PayrollError('ADJUSTMENT_NOT_FOUND')
+      await tx.payrollAdjustment.delete({ where: { id } })
+      await tx.auditLog.create({
         data: {
           userId: actorId,
           requestId,
@@ -243,8 +250,8 @@ export class PayrollService {
           entityId: id,
           details: { employeeId: adjustment.employeeId, year: adjustment.year, month: adjustment.month },
         },
-      }),
-    ])
+      })
+    })
   }
 
   static async setPeriodStatus(
@@ -252,18 +259,56 @@ export class PayrollService {
     status: PayrollPeriodStatus,
     actorId: string,
     requestId?: string,
+    reason?: string,
   ) {
     const db = getDb()
     return db.$transaction(async (tx) => {
-      const period = await tx.payrollPeriod.upsert({
-        where: { year_month: query },
-        create: {
-          ...query,
-          status,
-          closedAt: status === PayrollPeriodStatus.CLOSED ? new Date() : null,
-          closedById: status === PayrollPeriodStatus.CLOSED ? actorId : null,
-        },
-        update: {
+      const currentStatus = await lockPayrollPeriod(tx, query.year, query.month)
+      const current = await tx.payrollPeriod.findUnique({ where: { year_month: query } })
+      if (!current) throw new Error('Payroll period lock did not create the period')
+      if (currentStatus === status) return current
+
+      if (
+        currentStatus === PayrollPeriodStatus.CLOSED &&
+        status === PayrollPeriodStatus.OPEN &&
+        !reason?.trim()
+      ) throw new PayrollError('REOPEN_REASON_REQUIRED')
+
+      if (status === PayrollPeriodStatus.CLOSED) {
+        const start = new Date(Date.UTC(query.year, query.month - 1, 1))
+        const end = new Date(Date.UTC(query.year, query.month, 1))
+        const employees = await tx.employee.findMany({
+          where: {
+            OR: [
+              { status: { not: 'DISMISSED' } },
+              { timeEntries: { some: { workDate: { gte: start, lt: end } } } },
+            ],
+          },
+          select: {
+            id: true,
+            timesheets: {
+              where: { year: query.year, month: query.month },
+              select: { status: true, zeroHoursConfirmed: true },
+              take: 1,
+            },
+            _count: {
+              select: {
+                timeEntries: { where: { workDate: { gte: start, lt: end } } },
+              },
+            },
+          },
+        })
+        const pendingCount = employees.filter((employee) => {
+          const timesheet = employee.timesheets[0]
+          if (timesheet?.status !== 'APPROVED') return true
+          return employee._count.timeEntries === 0 && !timesheet.zeroHoursConfirmed
+        }).length
+        if (pendingCount > 0) throw new PayrollError('PAYROLL_TIMESHEETS_PENDING')
+      }
+
+      const period = await tx.payrollPeriod.update({
+        where: { id: current.id },
+        data: {
           status,
           closedAt: status === PayrollPeriodStatus.CLOSED ? new Date() : null,
           closedById: status === PayrollPeriodStatus.CLOSED ? actorId : null,
@@ -276,7 +321,7 @@ export class PayrollService {
           action: status === PayrollPeriodStatus.CLOSED ? 'PAYROLL_PERIOD_CLOSE' : 'PAYROLL_PERIOD_REOPEN',
           entityType: 'PayrollPeriod',
           entityId: period.id,
-          details: query,
+          details: { ...query, ...(reason?.trim() ? { reason: reason.trim() } : {}) },
         },
       })
       return period
