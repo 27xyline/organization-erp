@@ -1,6 +1,5 @@
 import nodemailer from 'nodemailer'
 import { getDb } from '@/lib/prisma'
-import { NotificationOutboxStatus } from '@prisma/client'
 import { processNotificationOutbox } from './outbox.service'
 
 export interface SmtpSettingsInput {
@@ -57,10 +56,13 @@ export class SmtpService {
       host: settings.host,
       port: settings.port,
       secure: settings.secure,
-      auth: {
-        user: settings.username,
-        pass: settings.password,
-      },
+        auth: {
+          user: settings.username,
+          pass: settings.password,
+        },
+        connectionTimeout: 30_000,
+        greetingTimeout: 30_000,
+        socketTimeout: 60_000,
     } as any)
     await transporter.sendMail({
       from: settings.fromEmail,
@@ -96,69 +98,13 @@ export class SmtpService {
             },
           },
         })
-        if (!user) {
-          throw new Error(`User not found: ${input.userId}`)
-        }
+        if (!user) throw new Error('RECIPIENT_NOT_FOUND')
         const email = user.employee?.email || (user.username.includes('@') ? user.username : null)
-        if (!email) {
-          throw new Error(`User ${user.username} has no email address configured`)
-        }
+        if (!email) throw new Error('RECIPIENT_EMAIL_MISSING')
         await this.sendEmail(settings, email, input.title, input.body)
       },
     }
 
-    // Call the processing with custom backoff handling
-    // 1. Fetch pending items
-    const pending = await db.notificationOutbox.findMany({
-      where: {
-        status: { in: [NotificationOutboxStatus.PENDING, NotificationOutboxStatus.FAILED] },
-        attempts: { lt: 5 },
-        availableAt: { lte: new Date() },
-      },
-      orderBy: [{ availableAt: 'asc' }, { id: 'asc' }],
-      take: 50,
-    })
-
-    let sent = 0
-    let failed = 0
-
-    for (const item of pending) {
-      const payload = item.payload as {
-        eventType: string
-        title: string
-        body: string
-        targetUrl?: string | null
-      }
-      try {
-        await sender.send({ userId: item.userId, ...payload })
-        await db.notificationOutbox.update({
-          where: { id: item.id },
-          data: {
-            status: NotificationOutboxStatus.SENT,
-            processedAt: new Date(),
-            attempts: { increment: 1 },
-            lastError: null,
-          },
-        })
-        sent += 1
-      } catch (error: any) {
-        const attempts = item.attempts + 1
-        const minutesToWait = Math.pow(2, attempts) // Exponential backoff: 2, 4, 8, 16, 32 minutes
-        const availableAt = new Date(Date.now() + minutesToWait * 60 * 1000)
-
-        await db.notificationOutbox.update({
-          where: { id: item.id },
-          data: {
-            status: attempts >= 5 ? NotificationOutboxStatus.FAILED : NotificationOutboxStatus.PENDING,
-            attempts,
-            availableAt,
-            lastError: error instanceof Error ? error.message.slice(0, 1000) : 'UNKNOWN_ERROR',
-          },
-        })
-        failed += 1
-      }
-    }
-
-    return { sent, failed, skipped: 0 }
+    return processNotificationOutbox(sender, db)
   }
 }
