@@ -1,0 +1,31 @@
+{
+  "name": "department-code-duplicate",
+  "kind": "synthetic-contract-example",
+  "verification": "source-reviewed",
+  "request": {
+    "method": "POST",
+    "path": "/api/departments",
+    "json": {
+      "code": "demo-dup",
+      "name": "Synthetic duplicate candidate"
+    }
+  },
+  "preconditions": [
+    "Actor has departments.create",
+    "Existing department code DEMO-DUP with a different name"
+  ],
+  "expected": {
+    "status": 409,
+    "json": {
+      "error": {
+        "code": "CODE_EXISTS",
+        "message": "Подразделение с таким кодом уже существует"
+      }
+    }
+  },
+  "sources": [
+    "src/app/api/departments/route.ts",
+    "src/features/departments/application/error-mapping.ts",
+    "src/features/departments/application/__tests__/department.service.test.ts"
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "name": "approval-query-false-coercion",
+  "kind": "synthetic-contract-example",
+  "verification": "schema-only-example-not-http-response",
+  "request": {
+    "method": "GET",
+    "path": "/api/approvals",
+    "query": {
+      "assignedToMe": "false"
+    }
+  },
+  "preconditions": [
+    "Schema behavior; list security/service tested separately"
+  ],
+  "expected": {
+    "status": 200,
+    "json": {
+      "parsedQuery": {
+        "page": 1,
+        "pageSize": 25,
+        "assignedToMe": true
+      }
+    }
+  },
+  "sources": [
+    "src/features/approvals/contracts/approval.ts"
+  ]
+}

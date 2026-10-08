@@ -1,0 +1,25 @@
+{
+  "name": "unauthenticated",
+  "kind": "synthetic-contract-example",
+  "verification": "source-reviewed",
+  "request": {
+    "method": "GET",
+    "path": "/api/assets"
+  },
+  "preconditions": [
+    "No browser session"
+  ],
+  "expected": {
+    "status": 401,
+    "json": {
+      "error": {
+        "code": "UNAUTHENTICATED",
+        "message": "Требуется вход в систему"
+      }
+    }
+  },
+  "sources": [
+    "src/proxy.ts",
+    "src/lib/auth/authorization.ts"
+  ]
+}

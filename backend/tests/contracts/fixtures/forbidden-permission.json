@@ -1,0 +1,25 @@
+{
+  "name": "forbidden-permission",
+  "kind": "synthetic-contract-example",
+  "verification": "source-reviewed",
+  "request": {
+    "method": "GET",
+    "path": "/api/users"
+  },
+  "preconditions": [
+    "Active session; actor has no access.users.read permission"
+  ],
+  "expected": {
+    "status": 403,
+    "json": {
+      "error": {
+        "code": "FORBIDDEN",
+        "message": "Недостаточно прав"
+      }
+    }
+  },
+  "sources": [
+    "src/app/api/users/route.ts",
+    "src/lib/auth/authorization.ts"
+  ]
+}

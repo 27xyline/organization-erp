@@ -1,0 +1,28 @@
+{
+  "name": "document-storage-corrupted",
+  "kind": "synthetic-contract-example",
+  "verification": "source-reviewed",
+  "request": {
+    "method": "GET",
+    "path": "/api/documents/synthetic-document/download"
+  },
+  "preconditions": [
+    "Actor has documents.download and access to this document",
+    "Version metadata exists",
+    "Storage verification detects missing or SHA-256/size mismatch"
+  ],
+  "expected": {
+    "status": 503,
+    "json": {
+      "error": {
+        "code": "STORAGE_CORRUPTED",
+        "message": "Файл повреждён или отсутствует в хранилище"
+      }
+    }
+  },
+  "sources": [
+    "src/app/api/documents/[id]/download/route.ts",
+    "src/features/documents/application/document.service.ts",
+    "src/features/documents/application/http.ts"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "name": "approval-already-completed",
+  "kind": "synthetic-contract-example",
+  "verification": "source-reviewed",
+  "request": {
+    "method": "POST",
+    "path": "/api/approvals/synthetic-approval/decision",
+    "json": {
+      "decision": "APPROVE"
+    }
+  },
+  "preconditions": [
+    "Actor has approvals.decide",
+    "Existing approval status is terminal"
+  ],
+  "expected": {
+    "status": 409,
+    "json": {
+      "error": {
+        "code": "INVALID_APPROVAL_STATE",
+        "message": "Согласование уже завершено или изменилось"
+      }
+    }
+  },
+  "sources": [
+    "src/app/api/approvals/[id]/decision/route.ts",
+    "src/features/approvals/application/approval.service.ts",
+    "src/features/approvals/application/http.ts"
+  ]
+}
