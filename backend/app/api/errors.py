@@ -1,0 +1,85 @@
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from app.domain.errors import DomainError
+
+logger = logging.getLogger(__name__)
+
+
+def _error_response(
+    status_code: int,
+    code: str,
+    message: str,
+    details: Any | None = None,
+    *,
+    request: Request | None = None,
+) -> JSONResponse:
+    error: dict[str, Any] = {"code": code, "message": message}
+    if details is not None:
+        error["details"] = details
+    headers: dict[str, str] = {}
+    context = getattr(getattr(request, "state", None), "request_context", None)
+    if context is not None:
+        headers["x-request-id"] = context.request_id
+    return JSONResponse(status_code=status_code, content={"error": error}, headers=headers)
+
+
+def _validation_details(exc: RequestValidationError) -> list[dict[str, str]]:
+    return [
+        {
+            "location": ".".join(str(part) for part in error.get("loc", ())),
+            "type": str(error.get("type", "invalid")),
+            "message": str(error.get("msg", "Invalid value")),
+        }
+        for error in exc.errors()
+    ]
+
+
+def install_error_handlers(app: FastAPI) -> None:
+    @app.exception_handler(RequestValidationError)
+    async def handle_validation_error(
+        request: Request, exc: RequestValidationError
+    ) -> JSONResponse:
+        return _error_response(
+            422,
+            "validation_error",
+            "Request validation failed",
+            _validation_details(exc),
+            request=request,
+        )
+
+    @app.exception_handler(DomainError)
+    async def handle_domain_error(request: Request, exc: DomainError) -> JSONResponse:
+        return _error_response(exc.status_code, exc.code, exc.message, exc.details, request=request)
+
+    @app.exception_handler(StarletteHTTPException)
+    async def handle_http_error(request: Request, exc: StarletteHTTPException) -> JSONResponse:
+        code, message = {
+            400: ("bad_request", "Request could not be processed"),
+            401: ("unauthorized", "Authentication is required"),
+            403: ("forbidden", "Access is denied"),
+            404: ("not_found", "Resource was not found"),
+            405: ("method_not_allowed", "Method is not allowed"),
+        }.get(exc.status_code, ("http_error", "Request could not be processed"))
+        return _error_response(exc.status_code, code, message, request=request)
+
+    @app.exception_handler(Exception)
+    async def handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
+        request_id = getattr(
+            getattr(request.state, "request_context", None), "request_id", "unknown"
+        )
+        logger.error(
+            "Unhandled request failure request_id=%s exception_type=%s",
+            request_id,
+            type(exc).__name__,
+        )
+        return _error_response(
+            500, "internal_error", "An unexpected error occurred", request=request
+        )
