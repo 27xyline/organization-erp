@@ -1,0 +1,221 @@
+"""Python enum definitions matching PostgreSQL enum labels and sort order."""
+
+from enum import StrEnum
+
+
+class AssetStatus(StrEnum):
+    IN_STOCK = "IN_STOCK"
+    IN_USE = "IN_USE"
+    UNDER_REPAIR = "UNDER_REPAIR"
+    PLANNED_FOR_DISPOSAL = "PLANNED_FOR_DISPOSAL"
+    PARTIALLY_DISPOSED = "PARTIALLY_DISPOSED"
+    FULLY_DISPOSED = "FULLY_DISPOSED"
+
+
+class AssetInventoryStatus(StrEnum):
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+
+
+class AssetMaintenanceType(StrEnum):
+    INSPECTION = "INSPECTION"
+    CALIBRATION = "CALIBRATION"
+    REPAIR = "REPAIR"
+    SERVICE = "SERVICE"
+
+
+class AssetMaintenanceStatus(StrEnum):
+    PLANNED = "PLANNED"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+    CANCELED = "CANCELED"
+
+
+class OperationType(StrEnum):
+    RECEIPT = "RECEIPT"
+    TRANSFER = "TRANSFER"
+    DISPOSAL = "DISPOSAL"
+    STATUS_CHANGE = "STATUS_CHANGE"
+
+
+class UserRole(StrEnum):
+    ADMIN = "ADMIN"
+    EDITOR = "EDITOR"
+    VIEWER = "VIEWER"
+
+
+class AppRole(StrEnum):
+    ADMIN = "ADMIN"
+    HR = "HR"
+    ACCOUNTANT = "ACCOUNTANT"
+    PROJECT_MANAGER = "PROJECT_MANAGER"
+    ASSET_CUSTODIAN = "ASSET_CUSTODIAN"
+    DEPARTMENT_HEAD = "DEPARTMENT_HEAD"
+    AUDITOR = "AUDITOR"
+    EMPLOYEE = "EMPLOYEE"
+
+
+class ScopeMode(StrEnum):
+    NONE = "NONE"
+    ALL = "ALL"
+    ASSIGNED = "ASSIGNED"
+    SELF = "SELF"
+
+
+class NotificationEventType(StrEnum):
+    SYSTEM = "SYSTEM"
+    CONTRACT_EXPIRING = "CONTRACT_EXPIRING"
+    TASK_OVERDUE = "TASK_OVERDUE"
+    ASSET_DISPOSAL_DUE = "ASSET_DISPOSAL_DUE"
+    BUDGET_OVERRUN = "BUDGET_OVERRUN"
+    APPROVAL_REQUESTED = "APPROVAL_REQUESTED"
+    APPROVAL_DECIDED = "APPROVAL_DECIDED"
+    ASSET_MAINTENANCE_DUE = "ASSET_MAINTENANCE_DUE"
+
+
+class NotificationChannel(StrEnum):
+    IN_APP = "IN_APP"
+    EMAIL = "EMAIL"
+
+
+class NotificationOutboxStatus(StrEnum):
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    SENT = "SENT"
+    FAILED = "FAILED"
+    SKIPPED = "SKIPPED"
+
+
+class ApprovalRequestStatus(StrEnum):
+    DRAFT = "DRAFT"
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    CANCELLED = "CANCELLED"
+
+
+class ApprovalStepStatus(StrEnum):
+    WAITING = "WAITING"
+    PENDING = "PENDING"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    SKIPPED = "SKIPPED"
+
+
+class ProjectStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+    COMPLETED = "COMPLETED"
+    ARCHIVED = "ARCHIVED"
+
+
+class ProcurementStatus(StrEnum):
+    DRAFT = "DRAFT"
+    SUBMITTED = "SUBMITTED"
+    APPROVED = "APPROVED"
+    CONTRACTED = "CONTRACTED"
+    PARTIALLY_DELIVERED = "PARTIALLY_DELIVERED"
+    DELIVERED = "DELIVERED"
+    CAPITALIZED = "CAPITALIZED"
+    REJECTED = "REJECTED"
+    CANCELLED = "CANCELLED"
+
+
+class TaskStatus(StrEnum):
+    NOT_STARTED = "NOT_STARTED"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+    DELAYED = "DELAYED"
+
+
+class TaskPriority(StrEnum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+    CRITICAL = "CRITICAL"
+
+
+class TaskRisk(StrEnum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+
+
+class EmployeeStatus(StrEnum):
+    ACTIVE = "ACTIVE"
+    ON_VACATION = "ON_VACATION"
+    ON_SICK_LEAVE = "ON_SICK_LEAVE"
+    DISMISSED = "DISMISSED"
+
+
+class EmploymentContractType(StrEnum):
+    PRIMARY = "PRIMARY"
+    INTERNAL = "INTERNAL"
+    EXTERNAL = "EXTERNAL"
+
+
+class TimeEntryType(StrEnum):
+    REGULAR = "REGULAR"
+    VACATION = "VACATION"
+    SICK_LEAVE = "SICK_LEAVE"
+    BUSINESS_TRIP = "BUSINESS_TRIP"
+    OVERTIME = "OVERTIME"
+
+
+class TimesheetStatus(StrEnum):
+    DRAFT = "DRAFT"
+    SUBMITTED = "SUBMITTED"
+    APPROVED = "APPROVED"
+    RETURNED = "RETURNED"
+
+
+class PayrollAdjustmentType(StrEnum):
+    BONUS = "BONUS"
+    ONE_TIME = "ONE_TIME"
+    DEDUCTION = "DEDUCTION"
+
+
+class PayrollPeriodStatus(StrEnum):
+    OPEN = "OPEN"
+    CLOSED = "CLOSED"
+
+
+class FinancePlanType(StrEnum):
+    OKLAD = "OKLAD"
+    NADBAVKA = "NADBAVKA"
+
+
+class PersonnelActionType(StrEnum):
+    HIRE = "HIRE"
+    DISMISS = "DISMISS"
+    TRANSFER = "TRANSFER"
+    EXTEND = "EXTEND"
+    PROMOTE = "PROMOTE"
+    EDIT = "EDIT"
+    ARCHIVE = "ARCHIVE"
+
+
+class VacationType(StrEnum):
+    VACATION = "VACATION"
+    SICK_LEAVE = "SICK_LEAVE"
+    BUSINESS_TRIP = "BUSINESS_TRIP"
+    UNPAID_LEAVE = "UNPAID_LEAVE"
+
+
+class DocumentStatus(StrEnum):
+    DRAFT = "DRAFT"
+    IN_REVIEW = "IN_REVIEW"
+    APPROVED = "APPROVED"
+    SIGNED = "SIGNED"
+    ARCHIVED = "ARCHIVED"
+
+
+class DocumentCategory(StrEnum):
+    GENERAL = "GENERAL"
+    CONTRACT = "CONTRACT"
+    ORDER = "ORDER"
+    ACT = "ACT"
+    INVOICE = "INVOICE"
+    PERSONNEL = "PERSONNEL"
+    PROJECT = "PROJECT"
+    ASSET = "ASSET"
+    OTHER = "OTHER"
