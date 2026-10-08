@@ -53,18 +53,20 @@
 
 **Интерфейсы:** `create_app(settings: Settings | None = None) -> FastAPI`; `Actor`/`RequestContext` dataclasses; engine/session factory создаются в lifespan и освобождаются при shutdown.
 
-- [ ] Написать тесты: live 200 даже при недоступной БД; ready 503 при недоступной БД и 200 при `SELECT 1`; error response имеет `{error:{code,message}}` и request ID.
-- [ ] Создать FastAPI с `/api/health/live`, `/api/health/ready`, `/openapi.json`; docs доступны в dev, production-политика описана. Общий prefix `/api` сохраняется.
-- [ ] Настроить Python package `app`, config из env, engine pool, `expire_on_commit=False`, request ID/trace propagation. Не логировать пароль/SQL bind values/целое тело запроса.
-- [ ] Запуск dev Python на 8000; frontend остаётся 3001. В Compose backend внутренний сервис, localhost port только в dev-overlay.
-- [ ] Создать HTTPX ASGITransport fixtures с явным lifespan, AnyIO backend `asyncio`, отдельную test DB. Тест, которому нужна PostgreSQL, не заменять SQLite.
-- [ ] Реализовать архитектурный pytest-тест по AST import graph: запреты из spec, включая транзитивную зависимость через core. Контрольный запрещённый import должен выявляться.
-- [ ] Зафиксировать зависимости lockfile; CI: `uv sync --frozen`, `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy app`, `uv run pytest` из backend directory.
-- [ ] Подключить минимальный OTEL lifespan к имеющемуся Collector; недоступный Collector не валит API. Остальные метрики этап 13.
+- [x] Написать тесты: live 200 даже при недоступной БД; ready 503 при недоступной БД и 200 при `SELECT 1`; error response имеет `{error:{code,message}}` и request ID.
+- [x] Создать FastAPI с `/api/health/live`, `/api/health/ready`, `/openapi.json`; docs доступны в dev, production-политика описана. Общий prefix `/api` сохраняется.
+- [x] Настроить Python package `app`, config из env, engine pool, `expire_on_commit=False`, request ID/trace propagation. Не логировать пароль/SQL bind values/целое тело запроса.
+- [x] Запуск dev Python на 8000; frontend остаётся 3001. В Compose backend внутренний сервис, localhost port только в dev-overlay.
+- [x] Создать HTTPX ASGITransport fixtures с явным lifespan, AnyIO backend `asyncio`, отдельную test DB. Тест, которому нужна PostgreSQL, не заменять SQLite.
+- [x] Реализовать архитектурный pytest-тест по AST import graph: запреты из spec, включая транзитивную зависимость через core. Контрольный запрещённый import должен выявляться.
+- [x] Зафиксировать зависимости lockfile; CI: `uv sync --frozen`, `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy app`, `uv run pytest` из backend directory.
+- [x] Подключить минимальный OTEL lifespan к имеющемуся Collector; недоступный Collector не валит API. Остальные метрики этап 13.
 
 **Проверка:** `uv run pytest tests/unit/test_config.py tests/integration/test_health.py tests/contracts/test_error_envelope.py tests/architecture/test_layers.py -q`. Должны пройти проверенные сценарии, а не только импорт приложения.
 
 **Готово:** frontend и Python запускаются одновременно, production API всё ещё TS. **Пауза:** lifespan, Depends, настройки и тестовые fixtures.
+
+**Фактический результат 8 октября 2026:** [проверки этапа 01](../../../backend-migration/stage01-validation.md). Полный Python набор прошёл на выделенной PostgreSQL `erp_stage01_test` (25 passed); Ruff, mypy и Docker build прошли. Одновременная проверка Next.js на 3001 и Python на 8000 успешна; production сохраняет `/openapi.json`, а `/docs` и `/redoc` возвращают 404. DDL/API owner не переключался; исходная `project1` не использовалась Python backend. Этап 02 не начат. **Пауза:** разобрать lifespan, Depends, настройки и тестовые fixtures.
 
 ## Этап 02. Mapping SQLAlchemy и UoW
 

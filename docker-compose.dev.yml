@@ -2,3 +2,7 @@ services:
   postgres:
     ports:
       - "${POSTGRES_PORT:-5434}:5432"
+
+  backend:
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"

@@ -45,3 +45,44 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - run: npm audit --omit=dev --omit=optional --audit-level=high
+
+  backend-verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: project1
+          POSTGRES_PASSWORD: project1_ci_password
+          POSTGRES_DB: erp_stage01_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U project1 -d erp_stage01_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      BACKEND_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage01_test
+      BACKEND_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage01_test
+      BACKEND_ENVIRONMENT: test
+      BACKEND_OTEL_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install Python backend dependencies
+        working-directory: backend
+        run: uv sync --frozen
+      - name: Check Python formatting and types
+        working-directory: backend
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run mypy app
+      - name: Test Python backend
+        working-directory: backend
+        run: uv run pytest

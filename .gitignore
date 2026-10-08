@@ -28,3 +28,12 @@ Thumbs.db
 *.db
 *.db-journal
 .runtime/
+backend/.venv/
+backend/.uv-cache/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+coverage.xml
