@@ -74,14 +74,14 @@
 
 **Интерфейсы:** все SQLAlchemy declarative models импортируются через `app/db/registry.py`; `UnitOfWorkFactory` и `UnitOfWork` Protocol из spec. Concrete `SqlAlchemyUnitOfWork` скрывает AsyncSession.
 
-- [ ] Описать все 51 модели в группах: identity/catalogs → HR/projects → assets/documents → workflows/finance/procurement → reporting/notifications. Допустима пауза после группы; не считать этап готовым при частичном mapping.
-- [ ] Сохранить фактические имена camelCase columns и snake_case tables, PG enum names/values, string IDs, Decimal precision и timezone/date semantics. Определить Python-генерацию совместимых ID; проверить отсутствие неявной смены на integer/UUID.
-- [ ] Повторить Prisma-only поведение `@updatedAt`, relation loading и application defaults: SQLAlchemy mapping сам по себе не переносит эти гарантии.
-- [ ] Написать read/write mapping tests на отдельной копии и проверить IDs/FK/null/date/Decimal round trips; изменения тестов откатываются.
-- [ ] Написать UoW tests: rollback при ошибке после insert, rollback без commit, успешный commit, отсутствие repository commits и общий connection/session во вложенном сценарии.
-- [ ] Реализовать предметные repository factory в UoW; добавлять конкретные ports по мере этапов. Read UoW не commit-ит автоматически.
-- [ ] Проверить eager-loading сериализацию после закрытия UoW и отдельные session в двух concurrent задачах; зафиксировать запрет implicit lazy IO.
-- [ ] Alembic пока только подготовить для metadata review/будущей baseline. Не делать `upgrade`, `stamp` или autogenerate apply на исходной БД. `_prisma_migrations` не предлагается удалить.
+- [x] Описать все 51 модели в группах: identity/catalogs → HR/projects → assets/documents → workflows/finance/procurement → reporting/notifications. Допустима пауза после группы; не считать этап готовым при частичном mapping.
+- [x] Сохранить фактические имена camelCase columns и snake_case tables, PG enum names/values, string IDs, Decimal precision и timezone/date semantics. Определить Python-генерацию совместимых ID; проверить отсутствие неявной смены на integer/UUID.
+- [x] Повторить Prisma-only поведение `@updatedAt`, relation loading и application defaults: SQLAlchemy mapping сам по себе не переносит эти гарантии.
+- [x] Написать read/write mapping tests на отдельной копии и проверить IDs/FK/null/date/Decimal round trips; изменения тестов откатываются.
+- [x] Написать UoW tests: rollback при ошибке после insert, rollback без commit, успешный commit, отсутствие repository commits и общий connection/session во вложенном сценарии.
+- [x] Реализовать минимальные typed audit/notification persistence adapters в UoW; бизнес-сервисы и интеграции остаются за пределами этапа. Read UoW не commit-ит автоматически.
+- [x] Проверить eager-loading сериализацию после закрытия UoW и отдельные session в двух concurrent задачах; зафиксировать запрет implicit lazy IO.
+- [x] Подготовить Alembic для read-only metadata review/будущей baseline. Изменяющие схему команды и revision generation не запускать до этапа 14. `_prisma_migrations` не удалять.
 
 **Проверка:** `uv run pytest tests/integration/test_schema_mapping.py tests/integration/test_uow.py tests/integration/test_async_loading.py -q` на disposable PostgreSQL.
 

@@ -16,6 +16,7 @@ from app.core.logging import configure_logging
 from app.core.middleware import RequestContextMiddleware
 from app.core.observability import create_tracer_provider, get_tracer
 from app.db.session import create_engine, create_session_factory
+from app.db.uow import create_unit_of_work_factory
 
 logger = logging.getLogger(__name__)
 
@@ -36,16 +37,19 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         engine = create_engine(resolved_settings)
         session_factory = create_session_factory(engine)
+        unit_of_work_factory = create_unit_of_work_factory(session_factory)
         tracer_provider = create_tracer_provider(resolved_settings)
         tracer = get_tracer(tracer_provider, resolved_settings.service_name)
         resources = AppResources(
             engine=engine,
             session_factory=session_factory,
+            unit_of_work_factory=unit_of_work_factory,
             tracer_provider=tracer_provider,
             tracer=tracer,
         )
         app.state.engine = resources.engine
         app.state.session_factory = resources.session_factory
+        app.state.unit_of_work_factory = resources.unit_of_work_factory
         app.state.tracer_provider = resources.tracer_provider
         app.state.tracer = resources.tracer
         try:

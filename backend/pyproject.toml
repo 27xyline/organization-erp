@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Python backend foundation for Organization ERP"
 requires-python = ">=3.13,<3.15"
 dependencies = [
+    "alembic>=1.14.0",
     "asyncpg>=0.30.0",
     "fastapi>=0.115.0",
     "opentelemetry-api>=1.27.0",

@@ -56,7 +56,11 @@ async def test_readiness_queries_dedicated_postgres_database() -> None:
 
     parsed_url = make_url(database_url)
     assert parsed_url.get_backend_name() == "postgresql"
-    assert parsed_url.database in {"erp_stage01_test", "erp_stage00_test_20261007"}
+    assert parsed_url.database in {
+        "erp_stage01_test",
+        "erp_stage02_test",
+        "erp_stage00_test_20261007",
+    }
 
     settings = Settings(database_url=database_url, environment="test", otel_enabled=False)
     app = create_app(settings)
