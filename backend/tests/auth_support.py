@@ -26,13 +26,18 @@ INTERNAL_SECRET = "stage03-test-internal-secret-only-yyyyyyyyyyyy"
 
 @pytest.fixture
 async def auth_env() -> AsyncIterator[dict]:
-    url = os.environ.get("STAGE03_TEST_DATABASE_URL", "")
+    stage04_url = os.environ.get("STAGE04_TEST_DATABASE_URL")
+    url = stage04_url or os.environ.get("STAGE03_TEST_DATABASE_URL", "")
+    expected_database = "erp_stage04_test" if stage04_url else "erp_stage03_test"
     if (
         not url
-        or make_url(url).database != "erp_stage03_test"
+        or make_url(url).database != expected_database
         or make_url(url).get_backend_name() != "postgresql"
     ):
-        pytest.fail("STAGE03_TEST_DATABASE_URL must point exactly to PostgreSQL erp_stage03_test")
+        pytest.fail(
+            "STAGE03_TEST_DATABASE_URL or STAGE04_TEST_DATABASE_URL must point exactly "
+            "to its dedicated PostgreSQL test database"
+        )
     url = Settings(database_url=url).database_url.get_secret_value()
     engine = create_async_engine(url, echo=False, hide_parameters=True)
     sessions = async_sessionmaker(engine, expire_on_commit=False)

@@ -60,6 +60,7 @@ async def test_readiness_queries_dedicated_postgres_database() -> None:
         "erp_stage01_test",
         "erp_stage02_test",
         "erp_stage03_test",
+        "erp_stage04_test",
         "erp_stage00_test_20261007",
     }
 

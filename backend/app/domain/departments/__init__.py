@@ -1,0 +1,1 @@
+"""Department rules and invariants."""

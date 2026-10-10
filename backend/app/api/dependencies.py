@@ -12,6 +12,8 @@ from app.domain.errors import DomainError
 from app.integrations.auth_bridge import verify_bridge
 from app.integrations.password_hash import Argon2PasswordHasher
 from app.services.auth import AuthService
+from app.services.catalogs import CatalogService
+from app.services.departments import DepartmentService
 from app.services.users import UserService
 
 
@@ -21,6 +23,14 @@ def get_auth_service(request: Request) -> AuthService:
 
 def get_user_service(request: Request) -> UserService:
     return UserService(request.app.state.unit_of_work_factory, Argon2PasswordHasher())
+
+
+def get_department_service(request: Request) -> DepartmentService:
+    return DepartmentService(request.app.state.unit_of_work_factory)
+
+
+def get_catalog_service(request: Request) -> CatalogService:
+    return CatalogService(request.app.state.unit_of_work_factory)
 
 
 async def get_actor(

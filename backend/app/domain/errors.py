@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class DomainError(Exception):
     code: str
     message: str
@@ -13,3 +13,13 @@ class DomainError(Exception):
 
     def __str__(self) -> str:
         return self.message
+
+
+@dataclass(slots=True)
+class PersistenceConflict(Exception):
+    """A constraint conflict translated by the persistence adapter."""
+
+    constraint: str
+
+    def __str__(self) -> str:
+        return self.constraint

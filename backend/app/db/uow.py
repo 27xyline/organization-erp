@@ -8,7 +8,16 @@ from types import TracebackType
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import app.db.registry  # noqa: F401  # Register relationship targets before any repository flush.
+from app.domain.ports.audit import AuditPort
+from app.domain.ports.departments import DepartmentRepository, GroupRepository, MolRepository
+from app.domain.ports.notifications import NotificationIntentPort
+from app.domain.ports.users import UserRepository
 from app.repositories.audit import SqlAlchemyAuditRepository
+from app.repositories.departments import (
+    SqlAlchemyDepartmentRepository,
+    SqlAlchemyGroupRepository,
+    SqlAlchemyMolRepository,
+)
 from app.repositories.notifications import SqlAlchemyNotificationRepository
 from app.repositories.users import SqlAlchemyUserRepository
 
@@ -32,9 +41,16 @@ class SqlAlchemyUnitOfWork:
         self._session_factory = session_factory
         self._session: AsyncSession | None = None
         self._state = _State.NEW
-        self.users = SqlAlchemyUserRepository(self._active_session)
-        self.audit = SqlAlchemyAuditRepository(self._active_session)
-        self.notifications = SqlAlchemyNotificationRepository(self._active_session)
+        self.users: UserRepository = SqlAlchemyUserRepository(self._active_session)
+        self.audit: AuditPort = SqlAlchemyAuditRepository(self._active_session)
+        self.notifications: NotificationIntentPort = SqlAlchemyNotificationRepository(
+            self._active_session
+        )
+        self.departments: DepartmentRepository = SqlAlchemyDepartmentRepository(
+            self._active_session
+        )
+        self.groups: GroupRepository = SqlAlchemyGroupRepository(self._active_session)
+        self.mols: MolRepository = SqlAlchemyMolRepository(self._active_session)
 
     async def __aenter__(self) -> SqlAlchemyUnitOfWork:
         if self._state is not _State.NEW:

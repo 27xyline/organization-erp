@@ -71,6 +71,28 @@ def install_error_handlers(app: FastAPI) -> None:
                 status_code=422,
                 headers={"x-request-id": request.state.request_context.request_id},
             )
+        if request.url.path.startswith(("/api/departments", "/api/groups", "/api/mols")):
+            catalog_fields: dict[str, list[str]] = {}
+            for error in exc.errors():
+                location = error.get("loc", ())
+                key = str(location[-1]) if location else ""
+                if key == "body":
+                    key = "departmentId"
+                if key:
+                    catalog_fields.setdefault(key, []).append(
+                        str(error.get("msg", "Invalid value"))
+                    )
+            return JSONResponse(
+                {
+                    "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "Проверьте введённые данные",
+                        "fieldErrors": catalog_fields,
+                    }
+                },
+                status_code=422,
+                headers={"x-request-id": request.state.request_context.request_id},
+            )
         return _error_response(
             422,
             "validation_error",

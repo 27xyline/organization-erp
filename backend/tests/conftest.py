@@ -16,14 +16,21 @@ from sqlalchemy.ext.asyncio import (
 def _stage02_database_url() -> str:
     stage02_url = os.environ.get("STAGE02_TEST_DATABASE_URL")
     stage03_url = os.environ.get("STAGE03_TEST_DATABASE_URL")
-    database_url = stage02_url or stage03_url
+    stage04_url = os.environ.get("STAGE04_TEST_DATABASE_URL")
+    database_url = stage04_url or stage03_url or stage02_url
     if not database_url:
         pytest.fail(
-            "STAGE02_TEST_DATABASE_URL or STAGE03_TEST_DATABASE_URL "
+            "STAGE02_TEST_DATABASE_URL, STAGE03_TEST_DATABASE_URL, or STAGE04_TEST_DATABASE_URL "
             "must point to an isolated PostgreSQL DB"
         )
     parsed_url = make_url(database_url)
-    expected_database = "erp_stage02_test" if stage02_url else "erp_stage03_test"
+    expected_database = (
+        "erp_stage04_test"
+        if stage04_url
+        else "erp_stage03_test"
+        if stage03_url
+        else "erp_stage02_test"
+    )
     if parsed_url.get_backend_name() != "postgresql" or parsed_url.database != expected_database:
         pytest.fail(
             f"Integration tests are restricted to the {expected_database} PostgreSQL database"
@@ -57,4 +64,4 @@ def db_session_factory(db_engine: AsyncEngine) -> async_sessionmaker[AsyncSessio
     return async_sessionmaker(db_engine, expire_on_commit=False)
 
 
-pytest_plugins = ["tests.auth_support"]
+pytest_plugins = ["tests.auth_support", "tests.stage04_support"]

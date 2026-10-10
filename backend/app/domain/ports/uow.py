@@ -6,6 +6,7 @@ from types import TracebackType
 from typing import Protocol, Self, TypeVar
 
 from app.domain.ports.audit import AuditPort
+from app.domain.ports.departments import DepartmentRepository, GroupRepository, MolRepository
 from app.domain.ports.notifications import NotificationIntentPort
 from app.domain.ports.users import UserRepository
 
@@ -19,6 +20,15 @@ class UnitOfWork(Protocol):
 
     @property
     def notifications(self) -> NotificationIntentPort: ...
+
+    @property
+    def departments(self) -> DepartmentRepository: ...
+
+    @property
+    def groups(self) -> GroupRepository: ...
+
+    @property
+    def mols(self) -> MolRepository: ...
 
     async def __aenter__(self) -> Self: ...
 

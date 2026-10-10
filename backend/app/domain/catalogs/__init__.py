@@ -1,0 +1,1 @@
+"""Catalog rules and invariants."""
