@@ -3,12 +3,22 @@ from __future__ import annotations
 from contextvars import ContextVar, Token
 from dataclasses import dataclass
 
+from app.domain.auth.rules import AccessContext
+
 
 @dataclass(frozen=True, slots=True)
 class Actor:
     actor_id: str
     roles: tuple[str, ...] = ()
     is_authenticated: bool = False
+    employee_id: str | None = None
+    session_version: int = 0
+    permissions: tuple[str, ...] = ()
+    must_change_password: bool = False
+    username: str = ""
+    name: str = ""
+    role: str = ""
+    access: AccessContext | None = None
 
 
 @dataclass(frozen=True, slots=True)

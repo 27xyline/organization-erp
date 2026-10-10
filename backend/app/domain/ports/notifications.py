@@ -34,5 +34,20 @@ class NotificationIntent:
     entity_id: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class NotificationDeliveryPlan:
+    active_user_ids: tuple[str, ...]
+    deliveries: tuple[tuple[str, str], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class NotificationProduceResult:
+    created: int
+    email_queued: int
+
+
 class NotificationIntentPort(Protocol):
-    async def enqueue(self, intent: NotificationIntent) -> None: ...
+    async def deliveries(
+        self, user_ids: tuple[str, ...], event_type: str
+    ) -> NotificationDeliveryPlan: ...
+    async def enqueue(self, intent: NotificationIntent) -> NotificationProduceResult: ...

@@ -8,8 +8,9 @@ from types import TracebackType
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import app.db.registry  # noqa: F401  # Register relationship targets before any repository flush.
-from app.domain.ports.audit import AuditRecord
-from app.domain.ports.notifications import NotificationIntent
+from app.repositories.audit import SqlAlchemyAuditRepository
+from app.repositories.notifications import SqlAlchemyNotificationRepository
+from app.repositories.users import SqlAlchemyUserRepository
 
 
 class UnitOfWorkStateError(RuntimeError):
@@ -24,57 +25,6 @@ class _State(Enum):
     CLOSED = auto()
 
 
-class _AuditRepository:
-    def __init__(self, owner: SqlAlchemyUnitOfWork) -> None:
-        self._owner = owner
-
-    async def append(self, record: AuditRecord) -> None:
-        from app.models.users import AuditLog
-
-        session = self._owner._active_session()
-        session.add(
-            AuditLog(
-                userId=record.user_id,
-                action=record.action,
-                entityType=record.entity_type,
-                entityId=record.entity_id,
-                details=record.details,
-                requestId=record.request_id,
-            )
-        )
-
-
-class _NotificationRepository:
-    def __init__(self, owner: SqlAlchemyUnitOfWork) -> None:
-        self._owner = owner
-
-    async def enqueue(self, intent: NotificationIntent) -> None:
-        from app.models.enums import NotificationChannel, NotificationEventType
-        from app.models.notifications import Notification, NotificationOutbox
-
-        session = self._owner._active_session()
-        notification = Notification(
-            userId=intent.user_id,
-            eventType=NotificationEventType(intent.event_type),
-            channel=NotificationChannel(intent.channel),
-            title=intent.title,
-            body=intent.body,
-            targetUrl=intent.target_url,
-            entityType=intent.entity_type,
-            entityId=intent.entity_id,
-            dedupeKey=intent.dedupe_key,
-        )
-        session.add(notification)
-        await session.flush()
-        session.add(
-            NotificationOutbox(
-                notificationId=notification.id,
-                userId=intent.user_id,
-                payload=intent.payload,
-            )
-        )
-
-
 class SqlAlchemyUnitOfWork:
     """Own exactly one session and one terminal transaction decision."""
 
@@ -82,8 +32,9 @@ class SqlAlchemyUnitOfWork:
         self._session_factory = session_factory
         self._session: AsyncSession | None = None
         self._state = _State.NEW
-        self.audit = _AuditRepository(self)
-        self.notifications = _NotificationRepository(self)
+        self.users = SqlAlchemyUserRepository(self._active_session)
+        self.audit = SqlAlchemyAuditRepository(self._active_session)
+        self.notifications = SqlAlchemyNotificationRepository(self._active_session)
 
     async def __aenter__(self) -> SqlAlchemyUnitOfWork:
         if self._state is not _State.NEW:

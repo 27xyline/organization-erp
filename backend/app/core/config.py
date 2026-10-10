@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,6 +15,8 @@ class Settings(BaseSettings):
     )
 
     database_url: SecretStr = SecretStr("postgresql+asyncpg://localhost:5432/organization_erp")
+    bridge_secret: SecretStr | None = Field(default=None, repr=False)
+    internal_auth_secret: SecretStr | None = Field(default=None, repr=False)
     environment: Literal["development", "test", "production"] = "development"
     db_connect_timeout_seconds: float = 3.0
     db_readiness_timeout_seconds: float = 5.0

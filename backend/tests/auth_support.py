@@ -1,0 +1,99 @@
+"""Fixtures write only to the explicitly guarded stage03 PostgreSQL copy."""
+
+import os
+import uuid
+from collections.abc import AsyncIterator
+
+import pytest
+from pydantic import SecretStr
+from sqlalchemy import delete, or_
+from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+import app.db.registry  # noqa: F401
+from app.core.config import Settings
+from app.db.uow import create_unit_of_work_factory
+from app.integrations.password_hash import Argon2PasswordHasher
+from app.models.enums import AppRole, ScopeMode, UserRole
+from app.models.users import AuditLog, User, UserRoleAssignment
+from app.services.auth import AuthService
+from app.services.users import UserService
+
+PASSWORD = "Stage03-password!"
+BRIDGE_SECRET = "stage03-test-bridge-secret-only-xxxxxxxxxxxxxxxx"
+INTERNAL_SECRET = "stage03-test-internal-secret-only-yyyyyyyyyyyy"
+
+
+@pytest.fixture
+async def auth_env() -> AsyncIterator[dict]:
+    url = os.environ.get("STAGE03_TEST_DATABASE_URL", "")
+    if (
+        not url
+        or make_url(url).database != "erp_stage03_test"
+        or make_url(url).get_backend_name() != "postgresql"
+    ):
+        pytest.fail("STAGE03_TEST_DATABASE_URL must point exactly to PostgreSQL erp_stage03_test")
+    url = Settings(database_url=url).database_url.get_secret_value()
+    engine = create_async_engine(url, echo=False, hide_parameters=True)
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    factory = create_unit_of_work_factory(sessions)
+    passwords = Argon2PasswordHasher()
+    prefix = "s3-" + uuid.uuid4().hex
+    user_ids = []
+
+    async def seed(*, role="ADMIN", active=True, forced=False, username=None):
+        identifier = prefix + "-" + str(len(user_ids))
+        user_ids.append(identifier)
+        async with sessions() as session:
+            session.add(
+                User(
+                    id=identifier,
+                    username=username or identifier,
+                    name="Stage03 test",
+                    role=UserRole.ADMIN if role == "ADMIN" else UserRole.VIEWER,
+                    passwordHash=await passwords.hash(PASSWORD),
+                    isActive=active,
+                    mustChangePassword=forced,
+                )
+            )
+            await session.flush()
+            session.add(
+                UserRoleAssignment(
+                    userId=identifier,
+                    role=AppRole(role),
+                    departmentScopeMode=ScopeMode.SELF if role == "EMPLOYEE" else ScopeMode.ALL,
+                    projectScopeMode=ScopeMode.SELF if role == "EMPLOYEE" else ScopeMode.ALL,
+                )
+            )
+            await session.commit()
+        return identifier
+
+    try:
+        yield {
+            "url": SecretStr(url),
+            "engine": engine,
+            "sessions": sessions,
+            "factory": factory,
+            "passwords": passwords,
+            "auth": AuthService(factory, passwords),
+            "users": UserService(factory, passwords),
+            "seed": seed,
+            "ids": user_ids,
+            "prefix": prefix,
+        }
+    finally:
+        async with sessions() as session:
+            await session.execute(
+                delete(AuditLog).where(
+                    or_(
+                        AuditLog.userId.in_(user_ids),
+                        AuditLog.entityId.in_(user_ids),
+                        AuditLog.entityId.like(prefix + "%"),
+                    )
+                )
+            )
+            await session.execute(
+                delete(User).where(or_(User.id.in_(user_ids), User.username.like(prefix + "%")))
+            )
+            await session.commit()
+        await engine.dispose()

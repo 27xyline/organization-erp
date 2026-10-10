@@ -64,7 +64,10 @@ def find_forbidden_imports(app: Path) -> list[str]:
         source, imports = modules.get(module, (app / (module.replace(".", "/") + ".py"), set()))
         for imported in imports:
             root = imported.split(".", maxsplit=1)[0]
-            if root in FORBIDDEN_ROOTS:
+            if root in FORBIDDEN_ROOTS or (
+                origin.startswith(("domain", "services"))
+                and root in {"models", "repositories", "integrations", "db"}
+            ):
                 violations.add(f"{origin}: {source}: forbidden dependency {imported}")
                 continue
             for candidate in sorted(modules, key=len, reverse=True):
@@ -77,6 +80,8 @@ def find_forbidden_imports(app: Path) -> list[str]:
             source_module == "domain"
             or source_module.startswith("domain.")
             or source_module == "core.context"
+            or source_module == "services"
+            or source_module.startswith("services.")
         ):
             visit(source_module, source_module)
     return sorted(violations)

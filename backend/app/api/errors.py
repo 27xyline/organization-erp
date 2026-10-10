@@ -47,6 +47,30 @@ def install_error_handlers(app: FastAPI) -> None:
     async def handle_validation_error(
         request: Request, exc: RequestValidationError
     ) -> JSONResponse:
+        if request.url.path == "/api/internal/auth/credentials":
+            return JSONResponse(
+                {"data": None},
+                status_code=200,
+                headers={"x-request-id": request.state.request_context.request_id},
+            )
+        if request.url.path.startswith("/api/users") or request.url.path == "/api/account/password":
+            fields: dict[str, list[str]] = {}
+            for error in exc.errors():
+                location = error.get("loc", ())
+                key = str(location[1]) if len(location) > 1 else ""
+                if key:
+                    fields.setdefault(key, []).append(str(error.get("msg", "Invalid value")))
+            return JSONResponse(
+                {
+                    "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "Проверьте введённые данные",
+                        "fieldErrors": fields,
+                    }
+                },
+                status_code=422,
+                headers={"x-request-id": request.state.request_context.request_id},
+            )
         return _error_response(
             422,
             "validation_error",
@@ -57,7 +81,15 @@ def install_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(DomainError)
     async def handle_domain_error(request: Request, exc: DomainError) -> JSONResponse:
-        return _error_response(exc.status_code, exc.code, exc.message, exc.details, request=request)
+        message = exc.message
+        if (
+            request.method == "POST"
+            and request.url.path == "/api/users"
+            and exc.code
+            in {"INVALID_SCOPE_ASSIGNMENT", "INVALID_SCOPE_REFERENCE", "EMPLOYEE_LINK_REQUIRED"}
+        ):
+            message = "Проверьте роли, области доступа и связь с сотрудником"
+        return _error_response(exc.status_code, exc.code, message, exc.details, request=request)
 
     @app.exception_handler(StarletteHTTPException)
     async def handle_http_error(request: Request, exc: StarletteHTTPException) -> JSONResponse:

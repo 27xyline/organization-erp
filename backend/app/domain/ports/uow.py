@@ -7,9 +7,13 @@ from typing import Protocol, Self, TypeVar
 
 from app.domain.ports.audit import AuditPort
 from app.domain.ports.notifications import NotificationIntentPort
+from app.domain.ports.users import UserRepository
 
 
 class UnitOfWork(Protocol):
+    @property
+    def users(self) -> UserRepository: ...
+
     @property
     def audit(self) -> AuditPort: ...
 
