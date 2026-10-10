@@ -27,13 +27,15 @@ import type { Mol } from '@/features/assets/contracts/types'
 import type { DepartmentListItem } from '@/features/departments/contracts/types'
 import { compressImage } from '@/lib/image-compression'
 
+type MolDepartmentOption = Pick<DepartmentListItem, 'id' | 'code' | 'name' | 'isActive'>
+
 export function MolsClient({
   initialMols,
   departments,
   canEdit,
 }: {
   initialMols: Mol[]
-  departments: DepartmentListItem[]
+  departments: MolDepartmentOption[]
   canEdit: boolean
 }) {
   const [mols, setMols] = useState<Mol[]>(initialMols)

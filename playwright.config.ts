@@ -6,12 +6,12 @@ const serverPort = serverUrl.port || (serverUrl.protocol === 'https:' ? '443' : 
 const backendBaseUrl = process.env.PLAYWRIGHT_BACKEND_URL || 'http://127.0.0.1:8000'
 const backendUrl = new URL(backendBaseUrl)
 const backendPort = backendUrl.port || (backendUrl.protocol === 'https:' ? '443' : '80')
-const stage03DatabaseUrl = process.env.STAGE03_TEST_DATABASE_URL
-if (!stage03DatabaseUrl) {
-  throw new Error('STAGE03_TEST_DATABASE_URL must point to the isolated shared Node/Python E2E database')
+const isolatedE2eDatabaseUrl = process.env.STAGE04_E2E_DATABASE_URL ?? process.env.STAGE03_TEST_DATABASE_URL
+if (!isolatedE2eDatabaseUrl) {
+  throw new Error('STAGE04_E2E_DATABASE_URL (or the Stage 03 compatibility variable) must point to an isolated shared Node/Python E2E database')
 }
-if (!process.env.DATABASE_URL || process.env.DATABASE_URL !== stage03DatabaseUrl) {
-  throw new Error('DATABASE_URL and STAGE03_TEST_DATABASE_URL must be the same isolated database for E2E')
+if (!process.env.DATABASE_URL || process.env.DATABASE_URL !== isolatedE2eDatabaseUrl) {
+  throw new Error('DATABASE_URL and the isolated E2E database URL must be the same database')
 }
 for (const name of ['BACKEND_BRIDGE_SECRET', 'BACKEND_INTERNAL_AUTH_SECRET']) {
   if (!process.env[name] || Buffer.byteLength(process.env[name]!, 'utf8') < 32) {
@@ -42,7 +42,7 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
       env: {
-        DATABASE_URL: stage03DatabaseUrl,
+        DATABASE_URL: isolatedE2eDatabaseUrl,
         BACKEND_BASE_URL: backendBaseUrl,
         NEXTAUTH_URL: baseURL,
         NEXT_PUBLIC_APP_URL: baseURL,
@@ -54,9 +54,9 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
       env: {
-        BACKEND_DATABASE_URL: stage03DatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
-        BACKEND_TEST_DATABASE_URL: stage03DatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
-        STAGE03_TEST_DATABASE_URL: stage03DatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
+        BACKEND_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
+        BACKEND_TEST_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
+        STAGE04_E2E_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
         BACKEND_ENVIRONMENT: 'test',
         BACKEND_OTEL_ENABLED: 'false',
         BACKEND_BRIDGE_SECRET: process.env.BACKEND_BRIDGE_SECRET || '',

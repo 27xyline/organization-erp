@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { E2E_ADMIN, E2E_FORCED, E2E_VIEWER } from './global-setup'
+import { E2E_ADMIN, E2E_CUSTODIAN, E2E_FORCED, E2E_VIEWER } from './global-setup'
 
 async function login(page: Page, credentials = E2E_ADMIN) {
   await page.goto('/login')
@@ -109,6 +109,149 @@ test('admin creates, partially transfers and archives an asset', async ({ page }
   expect(archiveResponse.ok()).toBeTruthy()
   await page.goto(`/archive?search=${inventoryNumber}`)
   await expect(page.locator('td:visible').filter({ hasText: inventoryNumber })).toBeVisible()
+})
+
+test('Stage 04 departments and catalogs use Python for admin CRUD and scoped MOL access', async ({ page }) => {
+  await login(page)
+  const suffix = Date.now().toString(36).toUpperCase()
+
+  await page.goto('/admin/departments')
+  await expect(page.getByRole('heading', { name: 'Подразделения', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Подразделение', exact: true }).click()
+  await page.locator('#department-code').fill(`E2E-${suffix}`)
+  await page.locator('#department-name').fill(`E2E подразделение ${suffix}`)
+  const departmentCreate = page.waitForResponse((response) =>
+    response.url().endsWith('/api/departments') && response.request().method() === 'POST',
+  )
+  await page.getByRole('button', { name: 'Сохранить' }).click()
+  const createdDepartmentResponse = await departmentCreate
+  const createdDepartmentBody = await createdDepartmentResponse.json()
+  expect(createdDepartmentResponse.status(), JSON.stringify(createdDepartmentBody)).toBe(201)
+  const department = createdDepartmentBody.data as { id: string; code: string; name: string }
+  await expect(page.getByRole('row').filter({ hasText: department.code })).toContainText(department.name)
+
+  const departmentRow = page.getByRole('row').filter({ hasText: department.code })
+  await departmentRow.getByRole('button', { name: 'Редактировать' }).click()
+  await page.locator('#department-name').fill(`E2E переименовано ${suffix}`)
+  const departmentUpdate = page.waitForResponse((response) =>
+    response.url().endsWith(`/api/departments/${department.id}`) && response.request().method() === 'PATCH',
+  )
+  await page.getByRole('button', { name: 'Сохранить' }).click()
+  expect((await departmentUpdate).status()).toBe(200)
+  await expect(page.getByRole('row').filter({ hasText: department.code })).toContainText(`E2E переименовано ${suffix}`)
+
+  const duplicateDepartment = await page.request.post('/api/departments', {
+    data: { code: department.code, name: 'E2E duplicate' },
+  })
+  expect(duplicateDepartment.status()).toBe(409)
+  expect(await duplicateDepartment.json()).toMatchObject({ error: { code: 'CODE_EXISTS' } })
+
+  await page.goto('/groups')
+  await expect(page.getByRole('heading', { name: 'Группы имущества' })).toBeVisible()
+  await page.getByRole('button', { name: 'Добавить группу' }).click()
+  const groupCode = `E2E-${suffix}`
+  await page.getByLabel('Код группы *').fill(groupCode)
+  await page.getByLabel('Наименование *').fill(`E2E группа ${suffix}`)
+  await page.getByRole('button', { name: 'Создать' }).click()
+  const groupRow = page.getByRole('row').filter({ hasText: groupCode })
+  await expect(groupRow).toContainText(`E2E группа ${suffix}`)
+  await groupRow.getByRole('button').first().click()
+  await page.getByLabel('Наименование *').fill(`E2E группа изменена ${suffix}`)
+  await page.getByRole('button', { name: 'Сохранить' }).click()
+  await expect(page.getByRole('row').filter({ hasText: groupCode })).toContainText(`E2E группа изменена ${suffix}`)
+  const duplicateGroup = await page.request.post('/api/groups', {
+    data: { code: groupCode, name: 'E2E duplicate' },
+  })
+  expect(duplicateGroup.status()).toBe(409)
+  expect(await duplicateGroup.json()).toMatchObject({ error: { code: 'CODE_EXISTS' } })
+
+  await page.goto('/mols')
+  await expect(page.getByRole('heading', { name: /МОЛ \(Материально-ответственные лица\)/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Добавить МОЛ' }).click()
+  const molCode = `E2E-${suffix}`
+  await page.getByLabel('Код МОЛ *').fill(molCode)
+  await page.getByLabel('ФИО *').fill(`E2E Иванов ${suffix}`)
+  await page.getByLabel('Место хранения *').fill(`E2E кабинет ${suffix}`)
+  await page.locator('#department').click()
+  await page.getByRole('option', { name: 'QA (DEP-QA)' }).click()
+  const molCreate = page.waitForResponse((response) =>
+    response.url().endsWith('/api/mols') && response.request().method() === 'POST',
+  )
+  await page.getByRole('button', { name: 'Создать' }).click()
+  const molCreateResponse = await molCreate
+  expect(molCreateResponse.status()).toBe(201)
+  const molsAfterCreate = (await (await page.request.get('/api/mols')).json()).data as Array<{
+    id: string; code: string
+  }>
+  const mol = molsAfterCreate.find((item) => item.code === molCode)!
+  const molRow = page.getByRole('row').filter({ hasText: mol.code })
+  await expect(molRow).toContainText(`E2E Иванов ${suffix}`)
+  await molRow.getByRole('button').first().click()
+  await page.getByLabel('Место хранения *').fill(`E2E переехал ${suffix}`)
+  const molUpdate = page.waitForResponse((response) =>
+    response.url().endsWith(`/api/mols/${mol.id}`) && response.request().method() === 'PUT',
+  )
+  await page.getByRole('button', { name: 'Сохранить' }).click()
+  expect((await molUpdate).status()).toBe(200)
+  await expect(page.getByRole('row').filter({ hasText: mol.code })).toContainText(`E2E переехал ${suffix}`)
+  const duplicateMol = await page.request.post('/api/mols', {
+    data: {
+      code: mol.code, fullName: 'E2E duplicate', storageLocation: 'E2E',
+      departmentId: department.id, department: department.name,
+    },
+  })
+  expect(duplicateMol.status()).toBe(409)
+  expect(await duplicateMol.json()).toMatchObject({ error: { code: 'CODE_EXISTS' } })
+
+  const knownMols = (await (await page.request.get('/api/mols')).json()).data as Array<{
+    id: string; code: string; departmentId: string; department: string
+  }>
+  const qaMol = knownMols.find((item) => item.code === 'E2E-MOL-1')!
+  const outsideMol = knownMols.find((item) => item.code === 'E2E-MOL-OUTSIDE')!
+  const departments = (await (await page.request.get('/api/departments')).json()).data as Array<{
+    id: string; code: string; name: string
+  }>
+  const qaDepartment = departments.find((item) => item.code === 'DEP-QA')!
+  const scopedPage = await page.context().newPage()
+  await login(scopedPage, E2E_CUSTODIAN)
+  await scopedPage.goto('/mols')
+  await expect(scopedPage.getByRole('heading', { name: /МОЛ \(Материально-ответственные лица\)/ })).toBeVisible()
+  await expect(scopedPage.getByRole('cell', { name: 'E2E-MOL-1', exact: true })).toBeVisible()
+  await expect(scopedPage.getByRole('cell', { name: 'E2E-MOL-OUTSIDE', exact: true })).toHaveCount(0)
+  const scopedList = await scopedPage.request.get('/api/mols')
+  expect(scopedList.status()).toBe(200)
+  const scopedMols = (await scopedList.json()).data as Array<{ id: string; departmentId: string }>
+  expect(scopedMols.map((item) => item.departmentId)).toContain(qaMol.departmentId)
+  expect(scopedMols.some((item) => item.id === outsideMol.id)).toBe(false)
+  const forbiddenRead = await scopedPage.request.get(`/api/mols/${outsideMol.id}`)
+  expect(forbiddenRead.status()).toBe(403)
+  expect(await forbiddenRead.json()).toMatchObject({ error: { code: 'FORBIDDEN' } })
+
+  const scopedCreate = await scopedPage.request.post('/api/mols', {
+    data: {
+      code: `E2E-SCOPED-${suffix}`, fullName: `E2E scoped ${suffix}`,
+      storageLocation: 'QA', departmentId: qaMol.departmentId, department: qaMol.department,
+    },
+  })
+  expect(scopedCreate.status()).toBe(201)
+  const scopedMol = (await scopedCreate.json()).data as { id: string }
+  const scopedUpdate = await scopedPage.request.put(`/api/mols/${scopedMol.id}`, {
+    data: {
+      code: `E2E-SCOPED-${suffix}`, fullName: `E2E scoped updated ${suffix}`,
+      storageLocation: 'QA updated', departmentId: qaMol.departmentId, department: qaMol.department,
+    },
+  })
+  expect(scopedUpdate.status()).toBe(200)
+  expect(await scopedUpdate.json()).toMatchObject({ data: { fullName: `E2E scoped updated ${suffix}` } })
+  const forbiddenCreate = await scopedPage.request.post('/api/mols', {
+    data: {
+      code: `E2E-FOREIGN-${suffix}`, fullName: 'E2E foreign', storageLocation: 'Outside',
+      departmentId: outsideMol.departmentId, department: outsideMol.department,
+    },
+  })
+  expect(forbiddenCreate.status()).toBe(403)
+  expect(await forbiddenCreate.json()).toMatchObject({ error: { code: 'FORBIDDEN' } })
+  await scopedPage.close()
 })
 
 test('employee and finance sections render after login', async ({ page }) => {

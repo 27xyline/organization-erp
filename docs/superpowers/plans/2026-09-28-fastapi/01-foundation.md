@@ -118,13 +118,13 @@
 
 **Интерфейсы эталона:** `DepartmentService.list(query, context)`, `create(command, context)`, `update(id, command, context)`, `delete(id, context)`; port `DepartmentRepository.list_visible`, `get`, `ensure_unique`, `add`, `update`, `delete`. Конкретные command/result dataclasses фиксируются по этапу 00 до кодирования.
 
-- [ ] Тесты сначала: цикл parent tree, duplicate, несуществующий руководитель, удаление используемого department, scoped list, audit rollback. Сохранить текущую сериализацию ошибки.
-- [ ] Перенести организационную блокировку/invariant, а не только CRUD. Удаление/переподчинение при concurrent запросах сохраняет дерево.
-- [ ] Реализовать тонкий router → service → port → repository; показать один сценарий полностью и сделать его образцом последующих этапов.
-- [ ] Перенести группы и МОЛ; не менять ещё Employee напрямую. Справочные ссылки читаются через уже mapped таблицы.
-- [ ] Переключить только эти группы routes; server pages используют BFF client с `no-store`. Записать нового владельца в реестр.
-- [ ] Пройти UI create/edit/list и ошибки с ролью ADMIN и scoped ролью; в копии БД сравнить итог и аудит с TS поведением.
+- [x] Тесты на parent tree, дубликат, несуществующего руководителя, удаление используемого подразделения, scoped list и rollback аудита; сохранена сериализация ошибок.
+- [x] Перенести организационную блокировку и invariants вместе с CRUD; проверены удаления, переименование и области доступа.
+- [x] Реализовать router → service → port → repository и зафиксировать полный пример в [обучающем trace](../../../backend-migration/stage04-validation.md).
+- [x] Перенести группы и МОЛ, оставив Employee CRUD вне этапа; читать справочные данные через уже mapped таблицы.
+- [x] Переключить только routes подразделений, групп и МОЛ; SSR использует backend client с `no-store`; текущие владельцы записаны в [реестре Stage 04](../../../backend-migration/stage04-ownership.md).
+- [x] Пройти UI create/edit/list и ошибки для ADMIN и scoped роли; сравнить состояние и аудит с живым TS baseline на отдельной БД.
 
 **Проверка:** `uv run pytest tests/unit/departments tests/integration/departments tests/contracts/departments -q` и аналогичные directories `catalogs`; frontend lint/typecheck, focused Vitest и Playwright сценарии подразделений.
 
-**Готово:** первый рабочий вертикальный путь без Prisma/service imports в его страницах. **Пауза:** пользователь самостоятельно добавляет одно поле фильтра или бизнес-правило с тестом; следующий этап ждёт команды.
+**Готово:** вертикальный путь реализован и проверен без Prisma/service imports в страницах этих модулей. Результаты — [отчёт Stage 04](../../../backend-migration/stage04-validation.md). **Пауза:** пользователь самостоятельно добавляет поле фильтра или бизнес-правило с тестом; следующий этап ждёт отдельной команды.

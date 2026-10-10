@@ -1,6 +1,8 @@
-import { DepartmentService } from '@/features/departments/application/department.service'
+import type { DepartmentHeadCandidate, DepartmentListItem } from '@/features/departments/contracts/types'
 import { DepartmentsClient } from '@/features/departments/ui/departments-client'
 import { requirePagePermission } from '@/lib/auth/authorization'
+import { backendUserFetch } from '@/lib/backend/bridge'
+import { readBackendData } from '@/lib/backend/page-data'
 
 export default async function DepartmentsPage() {
   const user = await requirePagePermission({
@@ -11,15 +13,28 @@ export default async function DepartmentsPage() {
       'departments.delete',
     ],
   })
-  const [departments, headCandidates] = await Promise.all([
-    DepartmentService.list({}, user.access),
-    DepartmentService.listHeadCandidates(),
+  let listResponse: Response
+  let referencesResponse: Response
+  try {
+    [listResponse, referencesResponse] = await Promise.all([
+      backendUserFetch('/api/departments', user),
+      backendUserFetch('/api/departments/references', user),
+    ])
+  } catch (cause) {
+    throw new Error('Не удалось загрузить подразделения из backend', { cause })
+  }
+  const [departments, references] = await Promise.all([
+    readBackendData<DepartmentListItem[]>(listResponse, 'Не удалось загрузить подразделения из backend'),
+    readBackendData<{ headCandidates: DepartmentHeadCandidate[] }>(
+      referencesResponse,
+      'Не удалось загрузить справочники подразделений из backend',
+    ),
   ])
 
   return (
     <DepartmentsClient
       initialDepartments={departments}
-      headCandidates={headCandidates}
+      headCandidates={references.headCandidates}
     />
   )
 }

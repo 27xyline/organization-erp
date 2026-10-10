@@ -1,14 +1,14 @@
 # Прогресс переноса
 
-План создан 28 сентября 2026. Этап 00 выполнен 7 октября 2026: инвентаризация и изолированные baseline-копии готовы. Пользовательская команда перейти к этапу 01 закрыла учебную паузу этапа 00. Этап 01 проверен; пользовательская команда продолжить работу закрыла его учебную паузу. Этап 02 реализован и проверен 8 октября 2026; пользовательская явная авторизация на этап 03 от 10 октября закрыла его учебную паузу. Этап 03 реализован и проверен 10 октября 2026; он ожидает разбора пользователя. Этапы 04–14 не начаты.
+План создан 28 сентября 2026. Этап 00 выполнен 7 октября 2026: инвентаризация и изолированные baseline-копии готовы. Пользовательская команда перейти к этапу 01 закрыла учебную паузу этапа 00. Этап 01 проверен; пользовательская команда продолжить работу закрыла его учебную паузу. Этап 02 реализован и проверен 8 октября 2026; пользовательская явная авторизация на этап 03 от 10 октября закрыла его учебную паузу. Этап 03 реализован и проверен 10 октября 2026; пользовательская авторизация на Stage 04 закрыла его учебную паузу. Этап 04 реализован и проверен 10 октября 2026; он ожидает учебного разбора. Этапы 05–14 не начаты.
 
 | Этап | Статус | Проверки | Учебная пауза |
 |---|---|---|---|
 | 00 Контракты и writers | Выполнен; baseline defects записаны | Unit 308, E2E 5; DB 3/5; copy/restore verified | Закрыта командой пользователя перейти к этапу 01 |
 | 01 Основа FastAPI | Выполнен; учебная пауза закрыта командой пользователя продолжить | Python 25/25 на real PG; Ruff/mypy; Compose build и concurrent HTTP smoke | Закрыта командой пользователя продолжить работу |
 | 02 ORM и UoW | Реализован и проверен | Python 40/40 на real PG; Ruff check/format; mypy; read-only metadata comparison без diff | Закрыта явной авторизацией пользователя продолжить на этап 03 от 10 октября |
-| 03 Auth/RBAC/bridge | Реализован и проверен; ожидает разбора пользователя | Python 71; Vitest 313 passed/5 skipped; E2E 6/6; Webpack build; Docker readiness 200 | Ожидает разбора пользователя |
-| 04 Подразделения/справочники | Не начат | Не запускались | Впереди |
+| 03 Auth/RBAC/bridge | Реализован и проверен | Python 71; Vitest 313 passed/5 skipped; E2E 6/6; Webpack build; Docker readiness 200 | Закрыта явной авторизацией пользователя на Stage 04 от 10 октября |
+| 04 Подразделения/справочники | Реализован и проверен; ожидает учебного разбора | Python 95; Vitest 309 passed/5 skipped; Playwright 7/7; typecheck/ESLint; Webpack build; Docker app/backend readiness 200; legacy parity 9 audit events | Ожидает учебного разбора; Stage 05 не начат |
 | 05 Кадры | Не начат | Не запускались | Впереди |
 | 06 Проекты/задачи | Не начат | Не запускались | Впереди |
 | 07 Имущество | Не начат | Не запускались | Впереди |
@@ -91,4 +91,12 @@ Rollback, который действительно проверен:
 - CI workflow расширен изолированными backend/e2e базами, но remote GitHub Actions не запускался. В локальном npm audit при сборке обнаружены 26 уязвимостей полного дерева (1 low, 5 moderate, 19 high, 1 critical) и 7 production dependency findings (2 moderate, 4 high, 1 critical); они не исправлялись в этом этапе.
 - Пользовательский `next-env.d.ts` сохранён с SHA-256 `d55d89a99f49bee7df149125eb311367460827b1d986ae98ca312c9e10caa478`; `tsconfig.json` не менялся. Private env/logs и generated files не добавлены в Git. История этапа содержит Python commit и отдельный BFF/ops/docs commit; push не выполнялся.
 - Модели: Python auth/RBAC implementer — Sol Medium; BFF/operations implementer — Luna High; independent reviewer — Luna High. Review не обнаружил actionable security/spec дефектов.
-- Статус: этап 03 реализован и проверен, ожидает разбора пользователя. Этап 04 не начат; переход к нему требует отдельной явной команды пользователя.
+- Статус на момент закрытия этапа 03: реализация проверена; переход к Stage 04 позднее был отдельно авторизован пользователем 10 октября 2026 года.
+
+## Этап 04 — 10 октября 2026
+
+- Browser API `/api/departments*`, `/api/groups*`, `/api/mols*` и SSR-данные страниц подразделений, групп и МОЛ переведены на Python через существующий Stage 03 bridge. Next.js сохраняет URL, публичные envelopes/statuses, session/Origin/forced-password и permission prechecks; backend повторно проверяет actor, права и scopes. Prisma fallback-записи отключены для этих API. Остальные Prisma readers остались для неперенесённых модулей.
+- Python владеет department/group/MOL CRUD, scopes и audit в UoW. Department rename сохраняет три legacy denormalized обновления (`Employee.department`, `StaffSchedule.department`, `Mol.department`). Employee CRUD остаётся TS; `clearEmployeeDepartmentLeadership` также остаётся TS под общей блокировкой до Stage 05. Demo seed остаётся отдельным gated bootstrap writer. Актуальное распределение владельцев — [stage04-ownership.md](../../../backend-migration/stage04-ownership.md); исторический Stage 00 writer snapshot не изменялся.
+- Legacy TypeScript из `3850217` действительно выполнен на изолированной `erp_stage04_legacy`; normalized результат закреплён fixture. Python сравнил ответы, ошибки, side effects и девять audit events с fixture. Очистка legacy capture подтвердила ноль записей в проверенных business/audit таблицах.
+- Проверки: полный Python `95 passed`, Ruff check/format и mypy; полный Vitest `309 passed, 5 skipped`; TypeScript typecheck и changed-file ESLint; полный Playwright `7/7`; Next.js Webpack build; Docker Compose build обоих образов и health readiness `200` у обоих smoke-контейнеров. [Отчёт Stage 04](../../../backend-migration/stage04-validation.md) содержит изоляцию БД, parity scope и восстановленный SHA пользовательского `next-env.d.ts`.
+- Статус: реализация Stage 04 проверена и ожидает учебного разбора. Самостоятельное упражнение: добавить тестируемый фильтр списка подразделений по `parentId`. Stage 05 не начат; для него нужна отдельная команда пользователя.
