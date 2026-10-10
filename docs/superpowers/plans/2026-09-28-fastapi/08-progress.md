@@ -1,13 +1,13 @@
 # Прогресс переноса
 
-План создан 28 сентября 2026. Этап 00 выполнен 7 октября 2026: инвентаризация и изолированные baseline-копии готовы. Пользовательская команда перейти к этапу 01 закрыла учебную паузу этапа 00. Этап 01 проверен; пользовательская команда продолжить работу закрыла его учебную паузу. Этап 02 реализован и проверен 8 октября 2026; он ожидает учебного разбора. Этап 03 и следующие не начаты.
+План создан 28 сентября 2026. Этап 00 выполнен 7 октября 2026: инвентаризация и изолированные baseline-копии готовы. Пользовательская команда перейти к этапу 01 закрыла учебную паузу этапа 00. Этап 01 проверен; пользовательская команда продолжить работу закрыла его учебную паузу. Этап 02 реализован и проверен 8 октября 2026; пользовательская явная авторизация на этап 03 от 10 октября закрыла его учебную паузу. Этап 03 реализован и проверен 10 октября 2026; он ожидает разбора пользователя. Этапы 04–14 не начаты.
 
 | Этап | Статус | Проверки | Учебная пауза |
 |---|---|---|---|
 | 00 Контракты и writers | Выполнен; baseline defects записаны | Unit 308, E2E 5; DB 3/5; copy/restore verified | Закрыта командой пользователя перейти к этапу 01 |
 | 01 Основа FastAPI | Выполнен; учебная пауза закрыта командой пользователя продолжить | Python 25/25 на real PG; Ruff/mypy; Compose build и concurrent HTTP smoke | Закрыта командой пользователя продолжить работу |
-| 02 ORM и UoW | Реализован и проверен; ожидает разбора пользователя | Python 40/40 на real PG; Ruff check/format; mypy; read-only metadata comparison без diff | Ожидает разбора пользователя |
-| 03 Auth/RBAC/bridge | Не начат | Не запускались | Впереди |
+| 02 ORM и UoW | Реализован и проверен | Python 40/40 на real PG; Ruff check/format; mypy; read-only metadata comparison без diff | Закрыта явной авторизацией пользователя продолжить на этап 03 от 10 октября |
+| 03 Auth/RBAC/bridge | Реализован и проверен; ожидает разбора пользователя | Python 71; Vitest 313 passed/5 skipped; E2E 6/6; Webpack build; Docker readiness 200 | Ожидает разбора пользователя |
 | 04 Подразделения/справочники | Не начат | Не запускались | Впереди |
 | 05 Кадры | Не начат | Не запускались | Впереди |
 | 06 Проекты/задачи | Не начат | Не запускались | Впереди |
@@ -79,4 +79,16 @@ Rollback, который действительно проверен:
 - Схемы после тестов: исходная `project1` осталась с 38 миграциями / 50 таблицами; `erp_migration_20261007` — 41 / 52; `erp_stage02_test` — schema-only restore, 0 migration rows / 52 таблицы. `alembic_version` отсутствует во всех трёх; тестовые записи откатились.
 - Встроенная команда `alembic check` ранее создала пустую version table в тестовой БД; её удалили. Финальная сверка выполнялась read-only. `env.py` guard не перехватывает обычный `alembic revision` без autogenerate; по политике этапа revision generation не запускался. SQL trigger/function bodies остаются вне metadata comparison.
 - Изменения этапа 02 описаны в [stage02-validation.md](../../../backend-migration/stage02-validation.md). Next.js/Prisma по-прежнему владеют API/SSR/worker и DDL; этап 03 не начат.
-- Статус: реализация этапа 02 проверена, ожидает разбора пользователя. Продолжение на этап 03 требует отдельной команды пользователя.
+- Статус: реализация этапа 02 проверена; пользователь явно авторизовал переход к этапу 03 10 октября 2026.
+
+## Этап 03 — 10 октября 2026
+
+- Python владеет credentials verification, user/role/scope/password mutations, проверкой actor/permissions на перенесённых API и атомарными audit/notification-intent writes. NextAuth сохраняет browser session lifecycle; переходный TS `requireUser()` остаётся read-only Prisma actor/scope check для неперенесённых модулей и отвергает неактивные/stale `sessionVersion`. Остальные business API, SSR, delivery worker и Prisma DDL не переносились. Детали owners — [stage03-ownership.md](../../../backend-migration/stage03-ownership.md).
+- Next.js user/password URLs работают как BFF к Python: `GET/POST /api/users`, `PATCH /api/users/{id}`, `POST /api/account/password`; SSR использует Python `GET /api/users` и `GET /api/users/references`. Bridge JWT — HS256, `iss=erp-next`, `aud=erp-python`, sessionVersion и TTL 60s; bearer secret credentials endpoint отдельный. Backend outage, timeout или отсутствующие auth secrets не включают Prisma fallback.
+- Перенос mutations намеренно усиливает отзыв сессий: изменения ролей/scopes, employee link или active status обновляют `sessionVersion`, и старый JWE отклоняется. Оригинальная TS session/version read guard остаётся для старых бизнес routes; Python internal actor endpoint не объявлен владельцем всех legacy API.
+- Проверки: 71 pytest на PostgreSQL; Ruff check/format и mypy; Vitest 313 passed/5 skipped; focused auth/BFF 10 passed; typecheck и ESLint changed files; Playwright 6/6 на общей тестовой БД, включая forced password change и stale JWE; production Webpack build; Docker images сборка и shared-DB readiness 200 для обоих runtime. Host Turbopack build имел sandbox `EPERM` на PostCSS subprocess; Docker Turbopack build прошёл. Подробности и runbook: [stage03-validation.md](../../../backend-migration/stage03-validation.md).
+- Исходный `project1` не использовался как target и DDL не менялся. `erp_stage03_test` и `erp_stage03_e2e` — schema-only копии из 52-табличной `erp_migration_20261007`; auth-тесты не отправляли реальные внешние сообщения. Послетестовая cleanup-проверка Python подтвердила ноль строк в семи проверенных таблицах `erp_stage03_test`.
+- CI workflow расширен изолированными backend/e2e базами, но remote GitHub Actions не запускался. В локальном npm audit при сборке обнаружены 26 уязвимостей полного дерева (1 low, 5 moderate, 19 high, 1 critical) и 7 production dependency findings (2 moderate, 4 high, 1 critical); они не исправлялись в этом этапе.
+- Пользовательский `next-env.d.ts` сохранён с SHA-256 `d55d89a99f49bee7df149125eb311367460827b1d986ae98ca312c9e10caa478`; `tsconfig.json` не менялся. Private env/logs и generated files не добавлены в Git. История этапа содержит Python commit и отдельный BFF/ops/docs commit; push не выполнялся.
+- Модели: Python auth/RBAC implementer — Sol Medium; BFF/operations implementer — Luna High; independent reviewer — Luna High. Review не обнаружил actionable security/spec дефектов.
+- Статус: этап 03 реализован и проверен, ожидает разбора пользователя. Этап 04 не начат; переход к нему требует отдельной явной команды пользователя.

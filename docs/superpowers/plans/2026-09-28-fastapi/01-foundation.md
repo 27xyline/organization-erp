@@ -91,20 +91,20 @@
 
 **Источники:** `src/lib/auth.ts`, `src/lib/auth/{authorization,permissions,access-context,resource-scopes}.ts`, `src/proxy.ts`, `src/features/users/`, `src/lib/prisma.ts`, notification producer contracts.
 
-**Создать:** `backend/app/domain/{auth/rules,ports/users,ports/audit,ports/notifications}.py`, `app/services/{auth,users,audit,notification_intents}.py`, `app/services/dto/auth.py`, `app/repositories/{users,audit,notifications}.py`, `app/schemas/{auth,users}.py`, `app/api/routes/{auth_internal,users,account}.py`, `app/integrations/auth_bridge.py`; `src/lib/backend/{client,bridge,ownership}.ts`.
+**Создать:** `backend/app/domain/{auth/rules,ports/users,ports/audit,ports/notifications}.py`, `app/services/{auth,users,audit,notification_intents}.py`, `app/services/dto/auth.py`, `app/repositories/{users,audit,notifications}.py`, `app/schemas/{auth,users}.py`, `app/api/routes/{auth_internal,users,account}.py`, `app/integrations/auth_bridge.py`; `src/lib/backend/{client,bridge}.ts`. Переходные владельцы Next.js/Python зафиксированы в `docs/backend-migration/stage03-ownership.md`.
 
 **Изменить:** NextAuth Credentials provider и user/password routes; существующие session/UI пока сохраняются. Добавить связанные Python/TS тесты.
 
 **Интерфейсы:** `authenticate_credentials(username: str, password: str) -> CredentialResult`; `resolve_actor(user_id: str, session_version: int) -> Actor`; `require_permission(actor, permission, target)`; `AuditPort.append(record)` и `NotificationIntentPort.enqueue(intent)` внутри UoW. DTO pure dataclass.
 
-- [ ] Перенести нормализацию логина, Argon2id verification/rehash policy, 5 неудачных попыток и блокировку 15 минут; неизвестный пользователь не раскрывается отдельной ошибкой.
-- [ ] Защитить counters lock/update от concurrent login; покрыть threshold/lock expiry/reset тестом на PostgreSQL.
-- [ ] Перенести role assignments, scopes NONE/ALL/ASSIGNED/SELF, descendant departments, membership и `sessionVersion`. Проверять actor в БД на каждый запрос.
-- [ ] Реализовать internal bridge JWT из spec (HS256, отдельный secret, 60 секунд); закрыть internal credentials endpoint от недоверенного клиента. Проверки wrong aud/iss/alg, expired token, forged header, stale version.
-- [ ] BFF client forwarding: URL/query/method/body, status, request ID/traceparent; timeout и сетевые ошибки без fallback writes. Не пересылать внутреннюю подпись браузеру.
-- [ ] Написать negative tests: disabled user, смена пароля, forced password change (разрешён только account password path), доступ к чужому project/department, list фильтрация, direct ID, export option scope.
-- [ ] Реализовать совместимые audit/outbox producers: rollback вместе с доменной записью, payload понимает старый TS worker. Append-only repository не предоставляет update/delete API.
-- [ ] Перенести `/api/users*` и `/api/account/password`; NextAuth авторизация делегирует проверку паролей в Python. Старые дублирующие user/password writers отключить.
+- [x] Перенести нормализацию логина, Argon2id verification/rehash policy, 5 неудачных попыток и блокировку 15 минут; неизвестный пользователь не раскрывается отдельной ошибкой.
+- [x] Защитить counters lock/update от concurrent login; покрыть threshold/lock expiry/reset тестом на PostgreSQL.
+- [x] Перенести role assignments, scopes NONE/ALL/ASSIGNED/SELF, descendant departments, membership и `sessionVersion`. Проверять actor в БД на каждый запрос.
+- [x] Реализовать internal bridge JWT из spec (HS256, отдельный secret, 60 секунд); закрыть internal credentials endpoint от недоверенного клиента. Проверки wrong aud/iss/alg, expired token, forged header, stale version.
+- [x] BFF client forwarding: URL/query/method/body, status, request ID/traceparent; timeout и сетевые ошибки без fallback writes. Не пересылать внутреннюю подпись браузеру.
+- [x] Написать negative tests: disabled user, смена пароля, forced password change (разрешён только account password path), доступ к чужому project/department, list фильтрация, direct ID, export option scope.
+- [x] Реализовать совместимые audit/outbox producers: rollback вместе с доменной записью, payload понимает старый TS worker. Append-only repository не предоставляет update/delete API.
+- [x] Перенести `/api/users*` и `/api/account/password`; NextAuth авторизация делегирует проверку паролей в Python. Старые дублирующие user/password writers отключить.
 
 **Проверка:** `uv run pytest tests/unit/auth tests/integration/auth tests/contracts/auth -q`; Vitest bridge/client tests; реальный браузер login → restricted screen → смена пароля → повторный вход. Нужные test directories создать в этом этапе.
 

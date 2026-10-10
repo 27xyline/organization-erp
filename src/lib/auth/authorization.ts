@@ -247,7 +247,8 @@ function sameOriginIsValid(request: NextRequest): boolean {
   const origin = request.headers.get('origin')
   if (!origin) return true
   try {
-    return new URL(origin).origin === request.nextUrl.origin
+    const targetOrigin = request.nextUrl.origin
+    return new URL(origin).origin === targetOrigin
   } catch {
     return false
   }

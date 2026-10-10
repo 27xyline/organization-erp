@@ -1,18 +1,9 @@
 import type { NextRequest } from 'next/server'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
 import { updateUserSchema } from '@/features/users/contracts/schemas'
-import { UserService, UserServiceError } from '@/features/users/application/user.service'
-
-const userErrorMessages: Record<string, [string, number]> = {
-  USER_NOT_FOUND: ['Пользователь не найден', 404],
-  CANNOT_DEACTIVATE_SELF: ['Нельзя отключить собственную учётную запись', 409],
-  LAST_ADMIN_REQUIRED: ['В системе должен остаться хотя бы один активный администратор', 409],
-  INVALID_SCOPE_ASSIGNMENT: ['Недопустимая область доступа для выбранной роли', 422],
-  INVALID_SCOPE_REFERENCE: ['Подразделение, проект или сотрудник не найден', 422],
-  EMPLOYEE_LINK_REQUIRED: ['Для роли сотрудника нужна кадровая карточка', 422],
-  EMPLOYEE_ALREADY_LINKED: ['Кадровая карточка уже связана с другим пользователем', 409],
-}
+import { apiValidationError } from '@/lib/http/api-response'
+import { backendUnavailableResponse } from '@/lib/backend/client'
+import { proxyBackendRequest } from '@/lib/backend/bridge'
 
 export async function PATCH(
   request: NextRequest,
@@ -21,16 +12,17 @@ export async function PATCH(
   const auth = await authorizeApiRequest(request, 'access.users.update')
   if (auth.response) return auth.response
 
-  const input = updateUserSchema.safeParse(await request.json())
+  const input = updateUserSchema.safeParse(await request.clone().json())
   if (!input.success) return apiValidationError(input.error)
 
   try {
-    return apiData(await UserService.update((await params).id, input.data, auth.user.id, auth.requestId))
+    return await proxyBackendRequest(
+      request,
+      `/api/users/${encodeURIComponent((await params).id)}`,
+      auth.user,
+      auth.requestId,
+    )
   } catch (error) {
-    if (error instanceof UserServiceError && userErrorMessages[error.code]) {
-      const [message, status] = userErrorMessages[error.code]
-      return apiError(error.code, message, status)
-    }
-    throw error
+    return backendUnavailableResponse(error, auth.requestId)
   }
 }

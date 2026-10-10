@@ -1,23 +1,20 @@
 import type { NextRequest } from 'next/server'
 import { changePasswordSchema } from '@/features/users/contracts/schemas'
-import { UserService, UserServiceError } from '@/features/users/application/user.service'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
+import { apiValidationError } from '@/lib/http/api-response'
+import { backendUnavailableResponse } from '@/lib/backend/client'
+import { proxyBackendRequest } from '@/lib/backend/bridge'
 
 export async function POST(request: NextRequest) {
   const auth = await authorizeApiRequest(request)
   if (auth.response) return auth.response
 
-  const input = changePasswordSchema.safeParse(await request.json())
+  const input = changePasswordSchema.safeParse(await request.clone().json())
   if (!input.success) return apiValidationError(input.error)
 
   try {
-    await UserService.changePassword(auth.user.id, input.data, auth.requestId)
-    return apiData({ success: true })
+    return await proxyBackendRequest(request, '/api/account/password', auth.user, auth.requestId)
   } catch (error) {
-    if (error instanceof UserServiceError && error.code === 'INVALID_CURRENT_PASSWORD') {
-      return apiError('INVALID_CURRENT_PASSWORD', 'Текущий пароль указан неверно', 422)
-    }
-    throw error
+    return backendUnavailableResponse(error, auth.requestId)
   }
 }

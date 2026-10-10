@@ -3,24 +3,26 @@ import { hash } from '@node-rs/argon2'
 
 export const E2E_ADMIN = { username: 'e2e-admin', password: 'E2e-Admin-Password-2026!' }
 export const E2E_VIEWER = { username: 'e2e-viewer', password: 'E2e-Viewer-Password-2026!' }
+export const E2E_FORCED = { username: 'e2e-forced', password: 'E2e-Forced-Password-2026!' }
 
 export default async function globalSetup() {
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required for E2E tests')
   const db = new PrismaClient()
   try {
     for (const fixture of [
-      { ...E2E_ADMIN, name: 'E2E Admin', role: 'ADMIN' as const, appRole: 'ADMIN' as const },
-      { ...E2E_VIEWER, name: 'E2E Viewer', role: 'VIEWER' as const, appRole: 'AUDITOR' as const },
+      { ...E2E_ADMIN, name: 'E2E Admin', role: 'ADMIN' as const, appRole: 'ADMIN' as const, mustChangePassword: false },
+      { ...E2E_VIEWER, name: 'E2E Viewer', role: 'VIEWER' as const, appRole: 'AUDITOR' as const, mustChangePassword: false },
+      { ...E2E_FORCED, name: 'E2E Forced Change', role: 'VIEWER' as const, appRole: 'AUDITOR' as const, mustChangePassword: true },
     ]) {
       const user = await db.user.upsert({
         where: { username: fixture.username },
         update: {
           passwordHash: await hash(fixture.password), role: fixture.role,
-          isActive: true, mustChangePassword: false, failedLoginAttempts: 0, lockedUntil: null,
+          isActive: true, mustChangePassword: fixture.mustChangePassword, failedLoginAttempts: 0, lockedUntil: null,
         },
         create: {
           username: fixture.username, name: fixture.name,
-          passwordHash: await hash(fixture.password), role: fixture.role, mustChangePassword: false,
+          passwordHash: await hash(fixture.password), role: fixture.role, mustChangePassword: fixture.mustChangePassword,
         },
       })
       await db.$transaction([

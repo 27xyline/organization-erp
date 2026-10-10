@@ -16,6 +16,7 @@ describe('auth session version propagation', () => {
         role: 'VIEWER',
         roles: ['AUDITOR'],
         sessionVersion: 9,
+        mustChangePassword: true,
       },
     } as never)
     expect(token).toMatchObject({
@@ -32,6 +33,7 @@ describe('auth session version propagation', () => {
           role: 'VIEWER',
           roles: [],
           sessionVersion: 0,
+          mustChangePassword: false,
         },
         expires: new Date(Date.now() + 60_000).toISOString(),
       },
@@ -40,6 +42,7 @@ describe('auth session version propagation', () => {
     expect(session.user).toMatchObject({
       id: 'user-1',
       sessionVersion: 9,
+      mustChangePassword: true,
     })
   })
 })

@@ -1,18 +1,14 @@
-import { verify } from '@node-rs/argon2'
 import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { z } from 'zod'
-import { getDb } from '@/lib/prisma'
+import { BackendRequestError } from '@/lib/backend/client'
+import { authenticateBackendCredentials } from '@/lib/backend/bridge'
 
 const credentialsSchema = z.object({
   username: z.string().trim().min(1).max(100).transform((value) => value.toLowerCase()),
   password: z.string().min(1).max(512),
 })
 
-const DUMMY_PASSWORD_HASH =
-  '$argon2id$v=19$m=19456,t=2,p=1$+36IIFx11COz7QN/lSuvTw$mH1nOGOKWcF2DybAY21pMM2Wetr5VL1IleeYHCasrfs'
-const MAX_FAILED_ATTEMPTS = 5
-const LOCK_DURATION_MS = 15 * 60 * 1000
 const localHosts = new Set(['localhost', '127.0.0.1'])
 
 export const authOptions: NextAuthOptions = {
@@ -28,55 +24,34 @@ export const authOptions: NextAuthOptions = {
         const parsed = credentialsSchema.safeParse(credentials)
         if (!parsed.success) return null
 
-        const db = getDb()
-        const user = await db.user.findUnique({
-          where: { username: parsed.data.username },
-          include: { roleAssignments: { select: { role: true } } },
-        })
-
-        if (!user) {
-          await verify(DUMMY_PASSWORD_HASH, parsed.data.password)
-          return null
+        let response: Response
+        try {
+          response = await authenticateBackendCredentials(parsed.data.username, parsed.data.password)
+        } catch (error) {
+          // Authentication fails closed when Python is unavailable or its secrets are missing.
+          if (error instanceof BackendRequestError) throw error
+          throw new BackendRequestError('Authentication service is unavailable', 503, error)
+        }
+        if (response.status === 401) return null
+        if (!response.ok) {
+          throw new BackendRequestError('Authentication service is unavailable', response.status)
         }
 
-        const now = new Date()
-        if (!user.isActive || (user.lockedUntil && user.lockedUntil > now)) {
-          return null
+        const result = await response.json() as { data?: {
+          id: string
+          name: string
+          username: string
+          role: 'ADMIN' | 'EDITOR' | 'VIEWER'
+          roles: import('@/lib/auth/permissions').AppRole[]
+          sessionVersion: number
+          mustChangePassword: boolean
+        } | null }
+        const user = result.data
+        if (!user) return null
+        if (!user.id || !user.username || !Number.isSafeInteger(user.sessionVersion)) {
+          throw new BackendRequestError('Authentication service returned invalid data', 502)
         }
-
-        const passwordIsValid = await verify(user.passwordHash, parsed.data.password)
-        if (!passwordIsValid) {
-          const failedLoginAttempts = user.failedLoginAttempts + 1
-          await db.user.update({
-            where: { id: user.id },
-            data: {
-              failedLoginAttempts,
-              lockedUntil:
-                failedLoginAttempts >= MAX_FAILED_ATTEMPTS
-                  ? new Date(now.getTime() + LOCK_DURATION_MS)
-                  : null,
-            },
-          })
-          return null
-        }
-
-        await db.user.update({
-          where: { id: user.id },
-          data: {
-            failedLoginAttempts: 0,
-            lockedUntil: null,
-            lastLoginAt: now,
-          },
-        })
-
-        return {
-          id: user.id,
-          name: user.name,
-          username: user.username,
-          role: user.role,
-          roles: user.roleAssignments.map((assignment) => assignment.role),
-          sessionVersion: user.sessionVersion,
-        }
+        return user
       },
     }),
   ],
@@ -92,6 +67,7 @@ export const authOptions: NextAuthOptions = {
         token.roles = user.roles
         token.username = user.username
         token.sessionVersion = user.sessionVersion
+        token.mustChangePassword = user.mustChangePassword
       }
       return token
     },
@@ -102,6 +78,7 @@ export const authOptions: NextAuthOptions = {
         session.user.roles = token.roles
         session.user.username = token.username
         session.user.sessionVersion = token.sessionVersion
+        session.user.mustChangePassword = token.mustChangePassword
       }
       return session
     },

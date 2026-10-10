@@ -10,11 +10,35 @@ The backend reads these environment variables:
 | --- | --- |
 | `BACKEND_DATABASE_URL` | Async PostgreSQL connection used by the application. Local Compose defaults to the prepared `erp_migration_20261007` copy. |
 | `BACKEND_TEST_DATABASE_URL` | Separate PostgreSQL database for integration tests, such as `erp_stage01_test`. |
+| `BACKEND_BRIDGE_SECRET` | Private HS256 key used only for short-lived Next.js-to-Python actor tokens; at least 32 bytes. |
+| `BACKEND_INTERNAL_AUTH_SECRET` | Separate private bearer secret used only by Next.js for the internal credential-auth endpoint; at least 32 bytes. |
+| `BACKEND_BASE_URL` | Next.js server-side address for the backend, usually `http://backend:8000` in Compose and `http://127.0.0.1:8000` for host tests. |
 | `BACKEND_ENVIRONMENT` | Runtime environment; use `production` to disable the interactive API documentation pages. |
 | `BACKEND_OTEL_ENABLED` | Enables OpenTelemetry export when set to `true`. |
 | `BACKEND_OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP HTTP endpoint; defaults to the Compose collector address. |
 
 Keep the backend URLs pointed at the isolated migration/test databases. Do not point them at the original `project1` database. For direct host execution, use `127.0.0.1` and the published PostgreSQL port; inside Compose, use the `postgres` service name.
+
+During the Stage 03 transition, the Next.js session/version check and Python authorization must read the same database copy. `requireUser()` still makes a read-only Prisma lookup to reject inactive users and stale `sessionVersion` values; Python independently reloads the actor for bridged APIs. Configure `DATABASE_URL` and `BACKEND_DATABASE_URL` to the same isolated copy when running auth flows; never use the original `project1` database as a test target. The two backend secrets must be different, at least 32 bytes, and never committed. Missing or invalid backend auth configuration fails closed; there is no Prisma password-writer fallback.
+
+For a clean checkout, create schema-only `erp_stage03_test` and `erp_stage03_e2e` databases from the prepared `erp_migration_20261007` schema. The test database is used by Python integration tests. The E2E database is shared by Prisma and Python so session-version checks see the same users. Use a private ignored environment file with mode `0600`; never copy a live source-database URL into it. Required values are:
+
+| File | Required database values | Required secrets |
+| --- | --- | --- |
+| `.runtime/stage03/test.env` | `STAGE03_TEST_DATABASE_URL`, `BACKEND_TEST_DATABASE_URL`, and `BACKEND_DATABASE_URL` point to `erp_stage03_test` | distinct `BACKEND_BRIDGE_SECRET` and `BACKEND_INTERNAL_AUTH_SECRET` |
+| `.runtime/stage03/e2e.env` | `DATABASE_URL` and `STAGE03_TEST_DATABASE_URL` are identical native PostgreSQL URLs for `erp_stage03_e2e`; `BACKEND_DATABASE_URL` targets that same database with the `postgresql+asyncpg` driver | distinct `BACKEND_BRIDGE_SECRET` and `BACKEND_INTERNAL_AUTH_SECRET`, plus `NEXTAUTH_SECRET` |
+
+Generate each secret privately with `openssl rand -hex 32`. For the E2E file, set `NEXTAUTH_URL` and `PLAYWRIGHT_BASE_URL` to `http://localhost:3001` and `PLAYWRIGHT_BACKEND_URL` to `http://127.0.0.1:8000`. Keeping the browser host on `localhost` matches the origin used by Next.js dev mode.
+
+Run the checks from the repository root:
+
+```sh
+(cd backend && uv run --env-file ../.runtime/stage03/test.env pytest)
+
+node --env-file=.runtime/stage03/e2e.env node_modules/@playwright/test/cli.js test
+```
+
+The Playwright configuration starts Next.js and Python on the host and rejects a missing/mismatched shared E2E database or missing/identical bridge secrets before startup. Keep these environment files private and ignored by Git.
 
 ## Run locally
 

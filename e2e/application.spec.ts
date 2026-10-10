@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { E2E_ADMIN, E2E_VIEWER } from './global-setup'
+import { E2E_ADMIN, E2E_FORCED, E2E_VIEWER } from './global-setup'
 
 async function login(page: Page, credentials = E2E_ADMIN) {
   await page.goto('/login')
@@ -23,6 +23,46 @@ test('unauthenticated API is rejected and viewer cannot mutate', async ({ reques
     data: {},
   })
   expect(forbidden.status()).toBe(403)
+})
+
+test('Python auth enforces forced password change and invalidates the stale browser session', async ({ page }) => {
+  const nextPassword = 'E2e-Forced-Password-Changed-2026!'
+  await page.goto('/login')
+  await page.waitForLoadState('networkidle')
+  await page.getByLabel('Пользователь').fill(E2E_FORCED.username)
+  await page.getByLabel('Пароль').fill(E2E_FORCED.password)
+  await page.getByRole('button', { name: 'Войти' }).click()
+  await expect(page).toHaveURL(/\/account\/password/)
+
+  const oldCookies = await page.context().cookies()
+  const oldCookieHeader = oldCookies.map(({ name, value }) => `${name}=${value}`).join('; ')
+  const blocked = await page.request.get('/api/users')
+  expect(blocked.status()).toBe(403)
+  expect(await blocked.json()).toMatchObject({ error: { code: 'PASSWORD_CHANGE_REQUIRED' } })
+
+  await page.getByLabel('Текущий пароль').fill(E2E_FORCED.password)
+  await page.getByLabel('Новый пароль').fill(nextPassword)
+  const passwordResponse = page.waitForResponse('/api/account/password')
+  await page.getByRole('button', { name: 'Изменить пароль' }).click()
+  const passwordChange = await passwordResponse
+  expect(passwordChange.status(), JSON.stringify(await passwordChange.json())).toBe(200)
+  await expect(page).toHaveURL(/\/login\?passwordChanged=1/)
+
+  const staleSession = await page.request.get('/api/users', {
+    headers: { cookie: oldCookieHeader },
+  })
+  expect(staleSession.status()).toBe(401)
+
+  await page.goto('/login')
+  await page.waitForLoadState('networkidle')
+  await page.getByLabel('Пользователь').fill(E2E_FORCED.username)
+  await page.getByLabel('Пароль').fill(E2E_FORCED.password)
+  await page.getByRole('button', { name: 'Войти' }).click()
+  await expect(page.getByText('Неверный логин или пароль')).toBeVisible()
+
+  await page.getByLabel('Пароль').fill(nextPassword)
+  await page.getByRole('button', { name: 'Войти' }).click()
+  await expect(page).toHaveURL(/\/$/)
 })
 
 test('admin creates, partially transfers and archives an asset', async ({ page }) => {

@@ -1,0 +1,130 @@
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+import {
+  backendFetch,
+  backendUnavailableResponse,
+  forwardRequestHeaders,
+  forwardedResponse,
+} from './client'
+import { proxyBackendRequest } from './bridge'
+
+describe('backend client', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.unstubAllGlobals()
+  })
+
+  it('preserves the fixed backend path, query, method, body and trace headers', async () => {
+    vi.stubEnv('BACKEND_BASE_URL', 'http://127.0.0.1:8000')
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response('ok'))
+    vi.stubGlobal('fetch', fetchMock)
+    const request = new Request('https://erp.example/api/users?page=2', {
+      method: 'POST',
+      headers: {
+        cookie: 'session=secret',
+        authorization: 'Basic browser-value',
+        'x-request-id': 'request-1',
+        traceparent: '00-11111111111111111111111111111111-2222222222222222-01',
+        'content-type': 'application/json',
+      },
+    })
+    const headers = forwardRequestHeaders(request)
+    expect(headers.get('cookie')).toBeNull()
+    expect(headers.get('authorization')).toBeNull()
+
+    await backendFetch('/api/users?page=2', {
+      method: request.method,
+      headers,
+      body: JSON.stringify({ username: 'new-user' }),
+    })
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL('http://127.0.0.1:8000/api/users?page=2'),
+      expect.objectContaining({ method: 'POST', cache: 'no-store' }),
+    )
+    const forwardedHeaders = new Headers(fetchMock.mock.calls[0][1]?.headers)
+    expect(forwardedHeaders.get('x-request-id')).toBe('request-1')
+    expect(forwardedHeaders.get('traceparent')).toBe(
+      '00-11111111111111111111111111111111-2222222222222222-01',
+    )
+  })
+
+  it('will not accept a caller-controlled backend URL and filters response headers', async () => {
+    vi.stubEnv('BACKEND_BASE_URL', 'http://127.0.0.1:8000')
+    await expect(backendFetch('https://attacker.example/')).rejects.toThrow(/absolute API path/)
+    const response = forwardedResponse(new Response('streamed', {
+      status: 206,
+      headers: {
+        'content-type': 'application/octet-stream',
+        'x-request-id': 'request-2',
+        'set-cookie': 'private=1',
+        connection: 'close',
+      },
+    }))
+    expect(response.status).toBe(206)
+    expect(response.headers.get('x-request-id')).toBe('request-2')
+    expect(response.headers.get('cache-control')).toBe('private, no-store')
+    expect(response.headers.get('set-cookie')).toBeNull()
+    expect(await response.text()).toBe('streamed')
+  })
+
+  it('maps a backend timeout to 503 with a request id without retrying', async () => {
+    vi.stubEnv('BACKEND_BASE_URL', 'http://127.0.0.1:8000')
+    const timeout = new DOMException('timed out', 'TimeoutError')
+    const fetchMock = vi.fn<typeof fetch>(async () => { throw timeout })
+    vi.stubGlobal('fetch', fetchMock)
+
+    let caught: unknown
+    try {
+      await backendFetch('/api/users', { method: 'POST', body: '{}' })
+    } catch (error) {
+      caught = error
+    }
+
+    expect(caught).toMatchObject({ name: 'BackendRequestError', status: 503 })
+    const response = backendUnavailableResponse(caught, 'request-timeout')
+    expect(response.status).toBe(503)
+    expect(response.headers.get('x-request-id')).toBe('request-timeout')
+    expect(await response.json()).toMatchObject({ error: { code: 'BACKEND_UNAVAILABLE' } })
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('forwards a user request with a signed bridge token and streams the backend response', async () => {
+    vi.stubEnv('BACKEND_BASE_URL', 'http://127.0.0.1:8000')
+    vi.stubEnv('BACKEND_BRIDGE_SECRET', 'bridge-secret-for-tests-only-32-bytes')
+    vi.stubEnv('BACKEND_INTERNAL_AUTH_SECRET', 'different-internal-secret-for-test')
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response('backend-stream', {
+      status: 206,
+      headers: { 'x-request-id': 'request-from-python', 'content-type': 'application/octet-stream' },
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    const request = new Request('https://erp.example/api/users?search=a', {
+      method: 'POST',
+      headers: {
+        authorization: 'Basic browser-credential',
+        cookie: 'next-auth.session-token=private',
+        'content-type': 'application/json',
+        traceparent: '00-11111111111111111111111111111111-2222222222222222-01',
+      },
+      body: JSON.stringify({ username: 'new-user' }),
+    })
+    const response = await proxyBackendRequest(request, '/api/users?search=a', {
+      id: 'user-7', sessionVersion: 4,
+    }, 'request-from-next')
+
+    expect(response.status).toBe(206)
+    expect(response.headers.get('x-request-id')).toBe('request-from-python')
+    expect(await response.text()).toBe('backend-stream')
+    const [url, init] = fetchMock.mock.calls[0]
+    expect(url).toBeInstanceOf(URL)
+    expect((url as URL).pathname + (url as URL).search).toBe('/api/users?search=a')
+    const headers = new Headers(init?.headers)
+    expect(headers.get('authorization')).toMatch(/^Bearer [^.]+\.[^.]+\.[^.]+$/)
+    expect(headers.get('authorization')).not.toContain('browser-credential')
+    expect(headers.get('cookie')).toBeNull()
+    expect(headers.get('x-request-id')).toBe('request-from-next')
+    expect(headers.get('traceparent')).toBe(
+      '00-11111111111111111111111111111111-2222222222222222-01',
+    )
+    expect(await new Response(init?.body).text()).toBe(JSON.stringify({ username: 'new-user' }))
+  })
+})

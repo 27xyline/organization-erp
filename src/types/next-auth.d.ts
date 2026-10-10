@@ -12,6 +12,7 @@ declare module 'next-auth' {
       role: LegacyRole
       roles: AppRole[]
       sessionVersion: number
+      mustChangePassword: boolean
     } & DefaultSession['user']
   }
 
@@ -21,6 +22,7 @@ declare module 'next-auth' {
     role: LegacyRole
     roles: AppRole[]
     sessionVersion: number
+    mustChangePassword: boolean
   }
 }
 
@@ -31,5 +33,6 @@ declare module 'next-auth/jwt' {
     role: LegacyRole
     roles: AppRole[]
     sessionVersion: number
+    mustChangePassword: boolean
   }
 }

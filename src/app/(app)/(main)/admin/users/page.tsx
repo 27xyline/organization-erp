@@ -1,14 +1,45 @@
-import { UsersManager, type UserRow } from '@/features/users/ui/users-manager'
-import { UserService } from '@/features/users/application/user.service'
+import { UsersManager, type AccessReferences, type UserRow } from '@/features/users/ui/users-manager'
 import { requirePagePermission } from '@/lib/auth/authorization'
+import { backendUserFetch } from '@/lib/backend/bridge'
+import { BackendRequestError } from '@/lib/backend/client'
 
 export const dynamic = 'force-dynamic'
 
 export default async function UsersPage() {
-  await requirePagePermission('access.users.read')
-  const [{ users }, references] = await Promise.all([
-    UserService.list({ page: 1, pageSize: 100 }),
-    UserService.references(),
+  const user = await requirePagePermission('access.users.read')
+  let listResponse: Response
+  let referencesResponse: Response
+  try {
+    const responses = await Promise.all([
+      backendUserFetch('/api/users?page=1&pageSize=100', user),
+      backendUserFetch('/api/users/references', user),
+    ])
+    ;[listResponse, referencesResponse] = responses
+  } catch (error) {
+    throw new Error('Не удалось загрузить пользователей из backend', { cause: error })
+  }
+  if (!listResponse.ok || !referencesResponse.ok) {
+    throw new BackendRequestError('Не удалось загрузить пользователей из backend', 502)
+  }
+  const [{ data: users }, { data: references }] = await Promise.all([
+    listResponse.json() as Promise<{ data: Array<{
+      id: string
+      username: string
+      name: string
+      employeeId: string | null
+      roleAssignments: Array<{
+        role: UserRow['assignments'][number]['role']
+        departmentScopeMode: UserRow['assignments'][number]['departmentScopeMode']
+        projectScopeMode: UserRow['assignments'][number]['projectScopeMode']
+        departmentScopes: Array<{ departmentId: string }>
+        projectScopes: Array<{ projectId: string }>
+      }>
+      isActive: boolean
+      mustChangePassword: boolean
+      lockedUntil: string | null
+      lastLoginAt: string | null
+    }> }>,
+    referencesResponse.json() as Promise<{ data: AccessReferences }>,
   ])
   const initialUsers: UserRow[] = users.map((user) => ({
     id: user.id,
@@ -24,8 +55,8 @@ export default async function UsersPage() {
     })),
     isActive: user.isActive,
     mustChangePassword: user.mustChangePassword,
-    lockedUntil: user.lockedUntil?.toISOString() ?? null,
-    lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+    lockedUntil: user.lockedUntil,
+    lastLoginAt: user.lastLoginAt,
   }))
 
   return (
