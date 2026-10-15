@@ -16,16 +16,20 @@ from sqlalchemy.ext.asyncio import (
 def _stage02_database_url() -> str:
     stage02_url = os.environ.get("STAGE02_TEST_DATABASE_URL")
     stage03_url = os.environ.get("STAGE03_TEST_DATABASE_URL")
+    stage05_url = os.environ.get("STAGE05_TEST_DATABASE_URL")
     stage04_url = os.environ.get("STAGE04_TEST_DATABASE_URL")
-    database_url = stage04_url or stage03_url or stage02_url
+    database_url = stage05_url or stage04_url or stage03_url or stage02_url
     if not database_url:
         pytest.fail(
-            "STAGE02_TEST_DATABASE_URL, STAGE03_TEST_DATABASE_URL, or STAGE04_TEST_DATABASE_URL "
+            "STAGE02_TEST_DATABASE_URL, STAGE03_TEST_DATABASE_URL, STAGE04_TEST_DATABASE_URL, "
+            "or STAGE05_TEST_DATABASE_URL "
             "must point to an isolated PostgreSQL DB"
         )
     parsed_url = make_url(database_url)
     expected_database = (
-        "erp_stage04_test"
+        "erp_stage05_test"
+        if stage05_url
+        else "erp_stage04_test"
         if stage04_url
         else "erp_stage03_test"
         if stage03_url

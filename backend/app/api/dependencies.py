@@ -14,7 +14,10 @@ from app.integrations.password_hash import Argon2PasswordHasher
 from app.services.auth import AuthService
 from app.services.catalogs import CatalogService
 from app.services.departments import DepartmentService
+from app.services.employees import EmployeeService
+from app.services.personnel_actions import PersonnelActionService
 from app.services.users import UserService
+from app.services.workforce import WorkforceService
 
 
 def get_auth_service(request: Request) -> AuthService:
@@ -58,3 +61,15 @@ async def get_authenticated_context(
 async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
     async with request.app.state.session_factory() as session:
         yield session
+
+
+def get_employee_service(request: Request) -> EmployeeService:
+    return EmployeeService(request.app.state.unit_of_work_factory)
+
+
+def get_workforce_service(request: Request) -> WorkforceService:
+    return WorkforceService(request.app.state.unit_of_work_factory)
+
+
+def get_personnel_action_service(request: Request) -> PersonnelActionService:
+    return PersonnelActionService(request.app.state.unit_of_work_factory)

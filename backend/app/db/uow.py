@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 import app.db.registry  # noqa: F401  # Register relationship targets before any repository flush.
 from app.domain.ports.audit import AuditPort
 from app.domain.ports.departments import DepartmentRepository, GroupRepository, MolRepository
+from app.domain.ports.employees import EmployeeRepository, WorkforceRepository
 from app.domain.ports.notifications import NotificationIntentPort
 from app.domain.ports.users import UserRepository
 from app.repositories.audit import SqlAlchemyAuditRepository
@@ -18,8 +19,10 @@ from app.repositories.departments import (
     SqlAlchemyGroupRepository,
     SqlAlchemyMolRepository,
 )
+from app.repositories.employees import SqlAlchemyEmployeeRepository
 from app.repositories.notifications import SqlAlchemyNotificationRepository
 from app.repositories.users import SqlAlchemyUserRepository
+from app.repositories.workforce import SqlAlchemyWorkforceRepository
 
 
 class UnitOfWorkStateError(RuntimeError):
@@ -50,6 +53,8 @@ class SqlAlchemyUnitOfWork:
             self._active_session
         )
         self.groups: GroupRepository = SqlAlchemyGroupRepository(self._active_session)
+        self.employees: EmployeeRepository = SqlAlchemyEmployeeRepository(self._active_session)
+        self.workforce: WorkforceRepository = SqlAlchemyWorkforceRepository(self._active_session)
         self.mols: MolRepository = SqlAlchemyMolRepository(self._active_session)
 
     async def __aenter__(self) -> SqlAlchemyUnitOfWork:
