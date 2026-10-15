@@ -1,8 +1,9 @@
 import type { NextRequest } from 'next/server'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { employeeTarget } from '@/lib/auth/resource-scopes'
-import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
-import { EmployeeProfileService } from '@/features/employees/application/employee-profile.service'
+import { proxyBackendRequest } from '@/lib/backend/bridge'
+import { backendUnavailableResponse } from '@/lib/backend/client'
+import { apiError, apiValidationError } from '@/lib/http/api-response'
 import { employeeProfileSchema } from '@/features/employees/contracts/profile'
 
 export async function PUT(
@@ -11,7 +12,7 @@ export async function PUT(
 ) {
   const auth = await authorizeApiRequest(request, 'employees.update')
   if (auth.response) return auth.response
-  const input = employeeProfileSchema.safeParse(await request.json().catch(() => null))
+  const input = employeeProfileSchema.safeParse(await request.clone().json().catch(() => null))
   if (!input.success) return apiValidationError(input.error)
   const { id } = await context.params
   const target = await employeeTarget(id)
@@ -26,19 +27,13 @@ export async function PUT(
     }
   }
   try {
-    return apiData(await EmployeeProfileService.update(
-      id,
-      input.data,
-      auth.user.id,
+    return await proxyBackendRequest(
+      request,
+      `/api/employees/${encodeURIComponent(id)}/profile`,
+      auth.user,
       auth.requestId,
-    ))
+    )
   } catch (error) {
-    if (error instanceof Error && error.message === 'INVALID_MANAGER') {
-      return apiError('INVALID_MANAGER', 'Нельзя назначить этого руководителя', 422)
-    }
-    if (error instanceof Error && error.message === 'EMPLOYEE_NOT_FOUND') {
-      return apiError('EMPLOYEE_NOT_FOUND', 'Сотрудник не найден', 404)
-    }
-    throw error
+    return backendUnavailableResponse(error, auth.requestId)
   }
 }

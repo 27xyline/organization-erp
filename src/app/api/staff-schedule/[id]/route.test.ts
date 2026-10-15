@@ -1,63 +1,49 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('@/lib/auth/authorization', () => ({
-  authorizeApiRequest: vi.fn(async () => ({
-    user: { id: 'admin-1', username: 'admin', name: 'Admin', role: 'ADMIN' },
-    access: { allows: vi.fn(() => true) },
-    requestId: 'request-1',
-  })),
+const mocks = vi.hoisted(() => ({
+  authorize: vi.fn(), proxy: vi.fn(), unavailable: vi.fn(), allows: vi.fn(() => true),
+  staffPositionTarget: vi.fn(), departmentForReference: vi.fn(),
 }))
 
+vi.mock('@/lib/auth/authorization', () => ({ authorizeApiRequest: mocks.authorize }))
 vi.mock('@/lib/auth/resource-scopes', () => ({
-  staffPositionTarget: vi.fn(async () => ({ departmentId: 'department-current' })),
-  departmentForReference: vi.fn(async () => 'department-new'),
+  staffPositionTarget: mocks.staffPositionTarget,
+  departmentForReference: mocks.departmentForReference,
 }))
+vi.mock('@/lib/backend/bridge', () => ({ proxyBackendRequest: mocks.proxy }))
+vi.mock('@/lib/backend/client', () => ({ backendUnavailableResponse: mocks.unavailable }))
 
-vi.mock('@/features/employees/application/workforce.service', async () => {
-  const actual = await vi.importActual<
-    typeof import('@/features/employees/application/workforce.service')
-  >('@/features/employees/application/workforce.service')
-  return {
-    ...actual,
-    WorkforceService: {
-      updatePosition: vi.fn(),
-      deletePosition: vi.fn(),
-    },
-  }
-})
+import { PUT } from './route'
 
-describe('staff-schedule item route', () => {
-  beforeEach(() => vi.clearAllMocks())
+describe('staff-schedule item BFF', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.authorize.mockResolvedValue({
+      user: { id: 'admin-1', sessionVersion: 1 },
+      access: { allows: mocks.allows },
+      requestId: 'req-1',
+    })
+    mocks.allows.mockReturnValue(true)
+    mocks.staffPositionTarget.mockResolvedValue({ departmentId: 'department-current' })
+    mocks.departmentForReference.mockResolvedValue('department-new')
+    mocks.proxy.mockResolvedValue(new Response(JSON.stringify({ data: { id: 'position-1' } }), { status: 200 }))
+    mocks.unavailable.mockReturnValue(new Response(null, { status: 503 }))
+  })
 
-  it('maps an occupied position department change to HTTP 409', async () => {
-    const {
-      WorkforceService,
-      WorkforceServiceError,
-    } = await import('@/features/employees/application/workforce.service')
-    const { PUT } = await import('./route')
-    vi.mocked(WorkforceService.updatePosition).mockRejectedValueOnce(
-      new WorkforceServiceError('POSITION_DEPARTMENT_CHANGE_IN_USE'),
+  it('checks both current and destination departments before forwarding updates', async () => {
+    const req = new Request('http://localhost/api/staff-schedule/position-1', {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ position: 'Инженер', departmentId: 'department-new', rate: 2, salary: 150000 }),
+    }) as never
+    const response = await PUT(req, { params: Promise.resolve({ id: 'position-1' }) })
+
+    expect(mocks.authorize).toHaveBeenCalledWith(req, 'staffSchedule.update')
+    expect(mocks.allows).toHaveBeenCalledWith('staffSchedule.update', {
+      departmentIds: ['department-current', 'department-new'],
+    })
+    expect(mocks.proxy).toHaveBeenCalledWith(
+      req, '/api/staff-schedule/position-1', { id: 'admin-1', sessionVersion: 1 }, 'req-1',
     )
-
-    const response = await PUT(new Request('http://localhost/api/staff-schedule/staff-1', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        position: 'Инженер',
-        departmentId: 'department-new',
-        rate: 2,
-        salary: 150000,
-      }),
-    }) as never, {
-      params: Promise.resolve({ id: 'staff-1' }),
-    })
-
-    expect(response.status).toBe(409)
-    expect(await response.json()).toEqual({
-      error: {
-        code: 'POSITION_DEPARTMENT_CHANGE_IN_USE',
-        message: 'Нельзя изменить подразделение должности с назначенными сотрудниками',
-      },
-    })
+    expect(response.status).toBe(200)
   })
 })

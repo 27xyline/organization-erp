@@ -1,26 +1,15 @@
 import type { NextRequest } from 'next/server'
-import { WorkforceService, WorkforceServiceError } from '@/features/employees/application/workforce.service'
 import { createStaffScheduleSchema } from '@/features/employees/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
-import {
-  DepartmentReferenceError,
-  getDepartmentReferenceErrorMeta,
-} from '@/lib/organization/department-reference'
+import { proxyBackendRequest } from '@/lib/backend/bridge'
+import { backendUnavailableResponse } from '@/lib/backend/client'
+import { apiError, apiValidationError } from '@/lib/http/api-response'
 import { departmentForReference, staffPositionTarget } from '@/lib/auth/resource-scopes'
-
-const mapError = (error: WorkforceServiceError) => error.code === 'NOT_FOUND'
-  ? apiError(error.code, 'Должность не найдена', 404)
-  : error.code === 'POSITION_DEPARTMENT_CHANGE_IN_USE'
-    ? apiError(error.code, 'Нельзя изменить подразделение должности с назначенными сотрудниками', 409)
-  : apiError(error.code, error.code === 'POSITION_IN_USE'
-    ? 'Нельзя удалить должность с назначенными сотрудниками'
-    : 'Нельзя уменьшить количество ставок ниже занятого значения', 409)
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authorizeApiRequest(request, 'staffSchedule.update')
   if (auth.response) return auth.response
-  const input = createStaffScheduleSchema.safeParse(await request.json())
+  const input = createStaffScheduleSchema.safeParse(await request.clone().json())
   if (!input.success) return apiValidationError(input.error)
   const id = (await params).id
   const [currentTarget, nextDepartmentId] = await Promise.all([
@@ -34,14 +23,14 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     ],
   })) return apiError('FORBIDDEN', 'Недостаточно прав', 403)
   try {
-    return apiData(await WorkforceService.updatePosition(id, input.data, auth.user.id, auth.requestId))
+    return await proxyBackendRequest(
+      request,
+      `/api/staff-schedule/${encodeURIComponent(id)}`,
+      auth.user,
+      auth.requestId,
+    )
   } catch (error) {
-    if (error instanceof WorkforceServiceError) return mapError(error)
-    if (error instanceof DepartmentReferenceError) {
-      const meta = getDepartmentReferenceErrorMeta(error.code)
-      return apiError(error.code, meta.message, meta.status)
-    }
-    throw error
+    return backendUnavailableResponse(error, auth.requestId)
   }
 }
 
@@ -54,9 +43,13 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     return apiError('FORBIDDEN', 'Недостаточно прав', 403)
   }
   try {
-    return apiData(await WorkforceService.deletePosition(id, auth.user.id, auth.requestId))
+    return await proxyBackendRequest(
+      request,
+      `/api/staff-schedule/${encodeURIComponent(id)}`,
+      auth.user,
+      auth.requestId,
+    )
   } catch (error) {
-    if (error instanceof WorkforceServiceError) return mapError(error)
-    throw error
+    return backendUnavailableResponse(error, auth.requestId)
   }
 }

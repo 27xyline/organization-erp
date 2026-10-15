@@ -1,7 +1,10 @@
 import { notFound } from 'next/navigation'
 import { requirePagePermission } from '@/lib/auth/authorization'
-import { EmployeeProfileService } from '@/features/employees/application/employee-profile.service'
 import { EmployeeProfileClient } from '@/features/employees/ui/employee-profile-client'
+import { backendUserFetch } from '@/lib/backend/bridge'
+import { readBackendData } from '@/lib/backend/page-data'
+
+type EmployeeProfileData = Parameters<typeof EmployeeProfileClient>[0]['initialData']
 
 export const dynamic = 'force-dynamic'
 
@@ -11,7 +14,17 @@ export default async function EmployeeProfilePage({
   params: Promise<{ id: string }>
 }) {
   const user = await requirePagePermission('employees.read')
-  const profile = await EmployeeProfileService.get((await params).id, user.access)
+  const { id } = await params
+  let response: Response
+  try {
+    response = await backendUserFetch(`/api/employees/${encodeURIComponent(id)}/profile`, user)
+  } catch (cause) {
+    throw new Error('Не удалось загрузить карточку сотрудника из backend', { cause })
+  }
+  const profile = await readBackendData<EmployeeProfileData | null>(
+    response,
+    'Не удалось загрузить карточку сотрудника из backend',
+  )
   if (!profile) notFound()
 
   return (

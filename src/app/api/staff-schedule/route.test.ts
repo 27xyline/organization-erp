@@ -1,64 +1,46 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('@/lib/auth/authorization', () => ({
-  authorizeApiRequest: vi.fn(async () => ({
-    user: { id: 'admin-1', username: 'admin', name: 'Admin', role: 'ADMIN' },
-    access: { allows: vi.fn(() => true) },
-    requestId: 'request-1',
-  })),
+const mocks = vi.hoisted(() => ({
+  authorize: vi.fn(), proxy: vi.fn(), unavailable: vi.fn(), allows: vi.fn(() => true),
+  departmentForReference: vi.fn(),
 }))
 
-vi.mock('@/features/employees/application/workforce.service', () => ({
-  WorkforceService: {
-    listPositions: vi.fn(),
-    createPosition: vi.fn(),
-  },
-}))
+vi.mock('@/lib/auth/authorization', () => ({ authorizeApiRequest: mocks.authorize }))
+vi.mock('@/lib/auth/resource-scopes', () => ({ departmentForReference: mocks.departmentForReference }))
+vi.mock('@/lib/backend/bridge', () => ({ proxyBackendRequest: mocks.proxy }))
+vi.mock('@/lib/backend/client', () => ({ backendUnavailableResponse: mocks.unavailable }))
 
-describe('staff-schedule route department errors', () => {
-  beforeEach(() => vi.clearAllMocks())
+import { POST } from './route'
 
-  it('maps an inactive department to HTTP 409', async () => {
-    const { WorkforceService } = await import('@/features/employees/application/workforce.service')
-    const { DepartmentReferenceError } = await import('@/lib/organization/department-reference')
-    const { POST } = await import('./route')
-    vi.mocked(WorkforceService.createPosition).mockRejectedValueOnce(
-      new DepartmentReferenceError('INACTIVE_DEPARTMENT'),
-    )
-
-    const response = await POST(new Request('http://localhost/api/staff-schedule', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        position: 'Инженер',
-        departmentId: 'department-inactive',
-        rate: 1,
-        salary: 100000,
-      }),
-    }) as never)
-
-    expect(response.status).toBe(409)
-    expect(await response.json()).toEqual({
-      error: {
-        code: 'INACTIVE_DEPARTMENT',
-        message: 'Нельзя назначить неактивное подразделение',
-      },
+describe('staff-schedule BFF', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.authorize.mockResolvedValue({
+      user: { id: 'admin-1', sessionVersion: 1 },
+      access: { allows: mocks.allows },
+      requestId: 'req-1',
     })
+    mocks.allows.mockReturnValue(true)
+    mocks.departmentForReference.mockResolvedValue('department-1')
+    mocks.proxy.mockResolvedValue(new Response(JSON.stringify({ data: { id: 'position-1' } }), { status: 201 }))
+    mocks.unavailable.mockReturnValue(new Response(null, { status: 503 }))
   })
 
-  it('returns HTTP 422 when neither department ID nor legacy name is provided', async () => {
-    const { POST } = await import('./route')
-    const response = await POST(new Request('http://localhost/api/staff-schedule', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        position: 'Инженер',
-        rate: 1,
-        salary: 100000,
-      }),
+  it('keeps input validation and department scope prechecks before Python forwarding', async () => {
+    const invalid = await POST(new Request('http://localhost/api/staff-schedule', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({}),
     }) as never)
+    expect(invalid.status).toBe(422)
+    expect(mocks.proxy).not.toHaveBeenCalled()
 
-    expect(response.status).toBe(422)
-    expect((await response.json()).error.code).toBe('VALIDATION_ERROR')
+    const req = new Request('http://localhost/api/staff-schedule', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ position: 'Инженер', departmentId: 'department-1', rate: 1, salary: 100000 }),
+    }) as never
+    const response = await POST(req)
+    expect(mocks.authorize).toHaveBeenCalledWith(req, 'staffSchedule.create')
+    expect(mocks.allows).toHaveBeenCalledWith('staffSchedule.create', { departmentId: 'department-1' })
+    expect(mocks.proxy).toHaveBeenCalledWith(req, '/api/staff-schedule', { id: 'admin-1', sessionVersion: 1 }, 'req-1')
+    expect(response.status).toBe(201)
   })
 })

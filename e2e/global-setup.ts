@@ -5,6 +5,8 @@ export const E2E_ADMIN = { username: 'e2e-admin', password: 'E2e-Admin-Password-
 export const E2E_VIEWER = { username: 'e2e-viewer', password: 'E2e-Viewer-Password-2026!' }
 export const E2E_FORCED = { username: 'e2e-forced', password: 'E2e-Forced-Password-2026!' }
 export const E2E_CUSTODIAN = { username: 'e2e-custodian', password: 'E2e-Custodian-Password-2026!' }
+export const E2E_HR = { username: 'e2e-hr', password: 'E2e-HR-Password-2026!' }
+export const E2E_EMPLOYEE = { username: 'e2e-employee', password: 'E2e-Employee-Password-2026!' }
 
 export default async function globalSetup() {
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is required for E2E tests')
@@ -15,6 +17,8 @@ export default async function globalSetup() {
       { ...E2E_VIEWER, name: 'E2E Viewer', role: 'VIEWER' as const, appRole: 'AUDITOR' as const, mustChangePassword: false },
       { ...E2E_FORCED, name: 'E2E Forced Change', role: 'VIEWER' as const, appRole: 'AUDITOR' as const, mustChangePassword: true },
       { ...E2E_CUSTODIAN, name: 'E2E Scoped Custodian', role: 'VIEWER' as const, appRole: 'ASSET_CUSTODIAN' as const, mustChangePassword: false },
+      { ...E2E_HR, name: 'E2E Scoped HR', role: 'VIEWER' as const, appRole: 'HR' as const, mustChangePassword: false },
+      { ...E2E_EMPLOYEE, name: 'E2E Employee', role: 'VIEWER' as const, appRole: 'EMPLOYEE' as const, mustChangePassword: false },
     ]) {
       const user = await db.user.upsert({
         where: { username: fixture.username },
@@ -67,6 +71,44 @@ export default async function globalSetup() {
     await db.userDepartmentScope.deleteMany({ where: { roleAssignmentId: custodianAssignment.id } })
     await db.userDepartmentScope.create({
       data: { roleAssignmentId: custodianAssignment.id, departmentId: qaDepartment.id },
+    })
+    const hr = await db.user.findUniqueOrThrow({ where: { username: E2E_HR.username } })
+    const hrAssignment = await db.userRoleAssignment.upsert({
+      where: { userId_role: { userId: hr.id, role: 'HR' } },
+      update: { departmentScopeMode: 'ASSIGNED', projectScopeMode: 'NONE' },
+      create: {
+        userId: hr.id, role: 'HR', departmentScopeMode: 'ASSIGNED', projectScopeMode: 'NONE',
+      },
+    })
+    await db.userDepartmentScope.deleteMany({ where: { roleAssignmentId: hrAssignment.id } })
+    await db.userDepartmentScope.create({
+      data: { roleAssignmentId: hrAssignment.id, departmentId: qaDepartment.id },
+    })
+    const employeePosition = await db.staffSchedule.upsert({
+      where: { id: 'e2e-employee-position' },
+      update: { department: qaDepartment.name, departmentId: qaDepartment.id },
+      create: {
+        id: 'e2e-employee-position', position: 'E2E employee position', department: qaDepartment.name,
+        departmentId: qaDepartment.id, rate: 1, salary: 100_000,
+      },
+    })
+    const employee = await db.employee.upsert({
+      where: { code: 'E2E-EMPLOYEE-SCOPE' },
+      update: { department: qaDepartment.name, departmentId: qaDepartment.id, staffScheduleId: employeePosition.id },
+      create: {
+        code: 'E2E-EMPLOYEE-SCOPE', fullName: 'E2E Scoped Employee', department: qaDepartment.name,
+        departmentId: qaDepartment.id, staffScheduleId: employeePosition.id, employmentRate: 1,
+        contractSignedDate: new Date('2026-01-01T00:00:00.000Z'), contractNumber: 'E2E-EMPLOYEE-SCOPE',
+      },
+    })
+    const employeeUser = await db.user.findUniqueOrThrow({ where: { username: E2E_EMPLOYEE.username } })
+    await db.user.update({ where: { id: employeeUser.id }, data: { employeeId: employee.id } })
+    await db.userRoleAssignment.upsert({
+      where: { userId_role: { userId: employeeUser.id, role: 'EMPLOYEE' } },
+      update: { departmentScopeMode: 'SELF', projectScopeMode: 'SELF' },
+      create: {
+        userId: employeeUser.id, role: 'EMPLOYEE', departmentScopeMode: 'SELF', projectScopeMode: 'SELF',
+      },
     })
     await Promise.all([
       db.mol.upsert({

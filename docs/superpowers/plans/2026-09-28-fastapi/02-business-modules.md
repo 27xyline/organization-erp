@@ -32,16 +32,16 @@ ORM-модели уже mapped в 02. Ни один repository не commit-ит 
 
 **Потребляет:** auth/department ports, mapped Employee/Skill/Certificate/PersonnelAction/Vacation/StaffSchedule. **Производит:** Python кадровые use cases и совместимый employee reference API для проектов.
 
-- [ ] Профиль, list/filter/pagination, skills/certificates: сохранить скрытие зарплатных/персональных полей, null/date и relation shape. Eager load без N+1.
-- [ ] Workforce/contracts: повторить правила ставок и типов занятости из `hr-domain.ts`; duplicate/invalid rate/неактивная позиция проверяются тестами.
-- [ ] Приём/перевод/увольнение: бизнес-изменения, аудит и notification intent атомарны. Повторный кадровый sync не создаёт дублей.
-- [ ] Отпуска/больничные: границы дат, пересечения и access rules сохраняются; false assumptions о датах не заменяют текущий контракт.
-- [ ] Staff schedule и salary-related read contracts: сохранить permissions. Для связанного закрытого периода использовать минимальный Python port/lock helper `app/repositories/payroll_periods.py`, перенося текущую блокировку, а не разрешая запись до этапа 10.
-- [ ] Переключить API и все кадровые SSR-callers; department head/MOL references продолжают работать. Не переключать финансовый расчёт раньше 10.
+- [x] Профиль, list/filter/pagination, skills/certificates: сохранить legacy visibility полей по прежним правам и scope, а также null/date и relation shape. Не вводить новое сокрытие зарплатных полей; eager load без N+1.
+- [x] Workforce/contracts: повторить правила ставок и типов занятости из `hr-domain.ts`; duplicate/invalid rate/неактивная позиция проверяются тестами.
+- [x] Приём/перевод/увольнение: бизнес-изменения и аудит атомарны. Сохранить фактический legacy behavior без нового notification intent. Повторный кадровый sync не создаёт дублей и ограничен actor scope; не затрагивает чужие подразделения.
+- [x] Отпуска/больничные: границы дат, пересечения и access rules сохраняются; false assumptions о датах не заменяют текущий контракт.
+- [x] Staff schedule и salary-related read contracts: сохранить permissions и фактическую visibility. Payroll-period lock здесь не применяется: в переносимых кадровых маршрутах нет записи payroll-периода; финансовые расчёты и payroll остаются в этапе 10.
+- [x] Переключить API и все кадровые SSR-callers; department head/MOL references продолжают работать. Не переключать финансовый расчёт раньше 10.
 
 **Проверки:** `uv run pytest tests/unit/employees tests/integration/employees tests/contracts/employees -q`; frontend typecheck; UI сотрудник → контракт → перевод → отпуск → увольнение; HR против EMPLOYEE и чужого department.
 
-**Готово:** кадровые workflows на Python, история и права сохранены. **Пауза:** разбор увольнения с транзакцией; самостоятельное правило срока сертификата с тестом.
+**Готово:** кадровые workflows на Python, история и права сохранены. Реализация ожидает пользовательского разбора. **Пауза:** разбор увольнения с транзакцией; самостоятельное правило срока сертификата с тестом (правило истечения сертификата в этом этапе не реализовывать).
 
 ## Этап 06. Проекты и задачи
 

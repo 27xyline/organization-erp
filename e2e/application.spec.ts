@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { E2E_ADMIN, E2E_CUSTODIAN, E2E_FORCED, E2E_VIEWER } from './global-setup'
+import { E2E_ADMIN, E2E_CUSTODIAN, E2E_EMPLOYEE, E2E_FORCED, E2E_HR, E2E_VIEWER } from './global-setup'
 
 async function login(page: Page, credentials = E2E_ADMIN) {
   await page.goto('/login')
@@ -208,10 +208,6 @@ test('Stage 04 departments and catalogs use Python for admin CRUD and scoped MOL
   }>
   const qaMol = knownMols.find((item) => item.code === 'E2E-MOL-1')!
   const outsideMol = knownMols.find((item) => item.code === 'E2E-MOL-OUTSIDE')!
-  const departments = (await (await page.request.get('/api/departments')).json()).data as Array<{
-    id: string; code: string; name: string
-  }>
-  const qaDepartment = departments.find((item) => item.code === 'DEP-QA')!
   const scopedPage = await page.context().newPage()
   await login(scopedPage, E2E_CUSTODIAN)
   await scopedPage.goto('/mols')
@@ -260,6 +256,117 @@ test('employee and finance sections render after login', async ({ page }) => {
   await expect(page.getByRole('main').getByRole('heading', { name: 'Сотрудники', exact: true, level: 1 })).toBeVisible()
   await page.goto('/finance/oklad')
   await expect(page.getByRole('main').getByRole('heading', { name: 'Оклад', exact: true, level: 1 })).toBeVisible()
+})
+
+test('Stage 05 HR workflow is department scoped and employee reads stay self scoped', async ({ page, browser }) => {
+  await login(page)
+  const departmentsResponse = await page.request.get('/api/departments')
+  expect(departmentsResponse.status()).toBe(200)
+  const departments = (await departmentsResponse.json()).data as Array<{ id: string; code: string; name: string }>
+  const outsideDepartment = departments.find((department) => department.code === 'DEP-E2E-OUT')!
+
+  const outsidePositionResponse = await page.request.post('/api/staff-schedule', {
+    data: { position: 'E2E foreign expired', departmentId: outsideDepartment.id, rate: 1, salary: 50000 },
+  })
+  expect(outsidePositionResponse.status()).toBe(201)
+  const outsidePosition = (await outsidePositionResponse.json()).data as { id: string }
+  const foreignCode = `E2E-FOREIGN-EXPIRED-${Date.now()}`
+  const foreignEmployeeResponse = await page.request.post('/api/employees', {
+    data: {
+      code: foreignCode, fullName: 'E2E Foreign Expired Employee', department: outsideDepartment.name,
+      departmentId: outsideDepartment.id, staffScheduleId: outsidePosition.id, employmentRate: 1,
+      contractSignedDate: '2020-01-01', contractEndDate: '2020-12-31', contractNumber: foreignCode,
+    },
+  })
+  expect(foreignEmployeeResponse.status()).toBe(201)
+  const foreignEmployee = (await foreignEmployeeResponse.json()).data as { id: string }
+
+  const employeePage = await browser.newPage()
+  await login(employeePage, E2E_EMPLOYEE)
+  const selfListResponse = await employeePage.request.get('/api/employees?scope=all')
+  expect(selfListResponse.status()).toBe(200)
+  const selfList = (await selfListResponse.json()).data as Array<{ id: string; code: string }>
+  expect(selfList.map((employee) => employee.code)).toEqual(['E2E-EMPLOYEE-SCOPE'])
+  await employeePage.close()
+
+  const hrPage = await browser.newPage()
+  await login(hrPage, E2E_HR)
+  const hrListResponse = await hrPage.request.get('/api/employees?scope=all')
+  expect(hrListResponse.status()).toBe(200)
+  const hrList = (await hrListResponse.json()).data as Array<{ id: string; code: string }>
+  expect(hrList.some((employee) => employee.id === foreignEmployee.id)).toBe(false)
+
+  const qaDepartment = departments.find((department) => department.code === 'DEP-QA')!
+  const suffix = Date.now().toString(36).toUpperCase()
+  const positionResponse = await hrPage.request.post('/api/staff-schedule', {
+    data: { position: `E2E HR position ${suffix}`, departmentId: qaDepartment.id, rate: 1, salary: 80000 },
+  })
+  expect(positionResponse.status()).toBe(201)
+  const position = (await positionResponse.json()).data as { id: string }
+  const transferPositionResponse = await hrPage.request.post('/api/staff-schedule', {
+    data: { position: `E2E HR transfer position ${suffix}`, departmentId: qaDepartment.id, rate: 1, salary: 85000 },
+  })
+  expect(transferPositionResponse.status()).toBe(201)
+  const transferPosition = (await transferPositionResponse.json()).data as { id: string; position: string }
+  const employeeCode = `E2E-HR-${suffix}`
+  const hired = await hrPage.request.post('/api/employees', {
+    data: {
+      code: employeeCode, fullName: `E2E HR сотрудник ${suffix}`, department: qaDepartment.name,
+      departmentId: qaDepartment.id, staffScheduleId: position.id, employmentRate: 1,
+      contractSignedDate: new Date().toISOString(), contractEndDate: '2026-12-31',
+      contractNumber: employeeCode,
+    },
+  })
+  expect(hired.status()).toBe(201)
+  const hiredEmployee = (await hired.json()).data as { id: string }
+
+  const extended = await hrPage.request.post('/api/personnel-actions', {
+    data: {
+      type: 'EXTEND', employeeId: hiredEmployee.id, date: new Date().toISOString(),
+      newContractEndDate: '2027-12-31', description: 'E2E продление договора',
+    },
+  })
+  expect(extended.status(), JSON.stringify(await extended.json())).toBe(201)
+
+  const transferred = await hrPage.request.post('/api/personnel-actions', {
+    data: {
+      type: 'TRANSFER', employeeId: hiredEmployee.id, date: new Date().toISOString(),
+      newDepartment: qaDepartment.name, newPosition: transferPosition.position,
+      staffScheduleId: transferPosition.id, employmentRate: 1, description: 'E2E перевод',
+    },
+  })
+  expect(transferred.status(), JSON.stringify(await transferred.json())).toBe(201)
+  expect(await transferred.json()).toMatchObject({ data: { newPosition: transferPosition.position } })
+
+  const vacation = await hrPage.request.post('/api/vacations', {
+    data: {
+      employeeId: hiredEmployee.id, startDate: '2026-11-01', endDate: '2026-11-10', type: 'VACATION',
+    },
+  })
+  expect(vacation.status(), JSON.stringify(await vacation.json())).toBe(201)
+
+  const sync = await hrPage.request.post('/api/personnel-actions/sync')
+  expect(sync.status()).toBe(200)
+  expect(await sync.json()).toMatchObject({ data: { success: true, createdCount: 0 } })
+  const foreignActions = await page.request.get('/api/personnel-actions')
+  expect(foreignActions.status()).toBe(200)
+  const actions = (await foreignActions.json()).data as Array<{ employeeId: string; type: string }>
+  expect(actions.some((action) => action.employeeId === foreignEmployee.id && action.type === 'ARCHIVE')).toBe(false)
+  const expiredBody = await (await page.request.get('/api/employees?scope=expired&pageSize=100')).json()
+  const expiredEmployees = expiredBody.data as Array<{
+    id: string; contractEndDate: string | null
+  }>
+  expect(expiredEmployees.find((employee) => employee.id === foreignEmployee.id)?.contractEndDate, JSON.stringify(expiredBody)).toContain('2020-12-31')
+
+  const dismissed = await hrPage.request.delete(`/api/employees/${hiredEmployee.id}`)
+  expect(dismissed.status(), JSON.stringify(await dismissed.json())).toBe(200)
+  expect(await dismissed.json()).toMatchObject({ data: { success: true, archived: true, status: 'DISMISSED' } })
+  const archive = await hrPage.request.get('/api/employees?scope=archive')
+  expect(archive.status()).toBe(200)
+  expect((await archive.json()).data).toEqual(expect.arrayContaining([
+    expect.objectContaining({ id: hiredEmployee.id, status: 'DISMISSED' }),
+  ]))
+  await hrPage.close()
 })
 
 test('procurement uses URL filters, 25-row pages, full-result metrics and direct approval links', async ({ page }) => {

@@ -1,10 +1,10 @@
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
-import { PersonnelActionService } from '@/features/employees/application/personnel-action.service'
-import { getPersonnelActionRouteErrorMeta } from '@/features/employees/application/error-mapping'
 import { createPersonnelActionSchema } from '@/features/employees/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { apiData, apiError, apiList, apiValidationError } from '@/lib/http/api-response'
+import { proxyBackendRequest } from '@/lib/backend/bridge'
+import { backendUnavailableResponse } from '@/lib/backend/client'
+import { apiError, apiValidationError } from '@/lib/http/api-response'
 import {
   departmentForPosition,
   employeeTarget,
@@ -22,14 +22,18 @@ export async function GET(request: NextRequest) {
   if (raw.limit && !raw.pageSize) raw.pageSize = raw.limit
   const query = querySchema.safeParse(raw)
   if (!query.success) return apiValidationError(query.error)
-  const result = await PersonnelActionService.list(query.data, auth.access)
-  return apiList(result.actions, { ...query.data, total: result.total })
+  try {
+    const target = `/api/personnel-actions${request.nextUrl.search ? `?${request.nextUrl.searchParams.toString()}` : ''}`
+    return await proxyBackendRequest(request, target, auth.user, auth.requestId)
+  } catch (error) {
+    return backendUnavailableResponse(error, auth.requestId)
+  }
 }
 
 export async function POST(request: NextRequest) {
   const auth = await authorizeApiRequest(request, 'personnelActions.create')
   if (auth.response) return auth.response
-  const input = createPersonnelActionSchema.safeParse(await request.json())
+  const input = createPersonnelActionSchema.safeParse(await request.clone().json())
   if (!input.success) return apiValidationError(input.error)
   const employeeId = input.data.employeeId || input.data.employeeData?.id
   const [currentTarget, nextDepartmentId] = await Promise.all([
@@ -51,10 +55,8 @@ export async function POST(request: NextRequest) {
     return apiError('FORBIDDEN', 'Недостаточно прав', 403)
   }
   try {
-    return apiData(await PersonnelActionService.createAction(input.data, auth.user.id, auth.requestId), { status: 201 })
+    return await proxyBackendRequest(request, '/api/personnel-actions', auth.user, auth.requestId)
   } catch (error) {
-    const mapped = getPersonnelActionRouteErrorMeta(error)
-    if (mapped) return apiError('PERSONNEL_ACTION_INVALID', mapped.error, mapped.status)
-    throw error
+    return backendUnavailableResponse(error, auth.requestId)
   }
 }

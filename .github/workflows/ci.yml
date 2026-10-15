@@ -54,15 +54,18 @@ jobs:
       - name: Prepare isolated shared E2E database
         env:
           DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/project1_test
-        run: createdb --template=project1_test erp_stage03_e2e
+        run: createdb --template=project1_test erp_stage05_e2e
       - name: Install Python backend dependencies for E2E
         working-directory: backend
         run: uv sync --frozen
       - name: Run browser tests against the shared E2E database
         env:
-          DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage03_e2e
-          STAGE03_TEST_DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage03_e2e
-          BACKEND_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage03_e2e
+          DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage05_e2e
+          STAGE05_E2E_DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage05_e2e
+          STAGE04_E2E_DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage05_e2e
+          STAGE03_TEST_DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage05_e2e
+          STAGE05_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage05_e2e
+          BACKEND_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage05_e2e
         run: npm run test:e2e
       - run: npm audit --omit=dev --omit=optional --audit-level=high
 
@@ -85,6 +88,7 @@ jobs:
       BACKEND_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage02_test
       STAGE02_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage02_test
       STAGE03_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage03_test
+      STAGE05_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage05_test
       BACKEND_ENVIRONMENT: test
       BACKEND_OTEL_ENABLED: "false"
     steps:
@@ -100,6 +104,8 @@ jobs:
         run: npx prisma migrate deploy
       - name: Create isolated Stage 03 test copy
         run: createdb --template=erp_stage02_test erp_stage03_test
+      - name: Create isolated Stage 05 test copy
+        run: createdb --template=erp_stage02_test erp_stage05_test
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
