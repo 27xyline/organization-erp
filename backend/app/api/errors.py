@@ -53,6 +53,55 @@ def install_error_handlers(app: FastAPI) -> None:
                 status_code=200,
                 headers={"x-request-id": request.state.request_context.request_id},
             )
+        if request.url.path.startswith(("/api/projects", "/api/tasks")):
+            errors = exc.errors()
+            member_path = "/members" in request.url.path
+            if member_path:
+                first = errors[0] if errors else {}
+                location = first.get("loc", ())
+                key = str(location[-1]) if location else ""
+                message = (
+                    "Сотрудник обязателен"
+                    if key == "employeeId" and first.get("type") in {"missing", "string_too_short"}
+                    else "Required"
+                    if first.get("type") == "missing"
+                    else "Expected boolean, received null"
+                    if key == "isArchived" and first.get("input") is None
+                    else str(first.get("msg", "Ошибка валидации данных"))
+                )
+                return JSONResponse({"error": message}, status_code=400)
+            project_fields: dict[str, list[str]] = {}
+            for error in errors:
+                location = error.get("loc", ())
+                key = str(location[1]) if len(location) > 1 else ""
+                if key:
+                    message = str(error.get("msg", "Invalid value"))
+                    if error.get("type") == "value_error" and error.get("input") is None:
+                        kind = (
+                            "boolean"
+                            if key == "isMilestone"
+                            else "array"
+                            if key in {"employeeIds", "predecessorIds", "checklist"}
+                            else "string"
+                        )
+                        message = f"Expected {kind}, received null"
+                    if key == "name" and error.get("type") == "string_too_short":
+                        message = (
+                            "Название задачи обязательно"
+                            if "/tasks" in request.url.path
+                            else "Название проекта обязательно"
+                        )
+                    project_fields.setdefault(key, []).append(message)
+            return JSONResponse(
+                {
+                    "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "Проверьте введённые данные",
+                        "fieldErrors": project_fields,
+                    }
+                },
+                status_code=422,
+            )
         if request.url.path.startswith("/api/users") or request.url.path == "/api/account/password":
             fields: dict[str, list[str]] = {}
             for error in exc.errors():

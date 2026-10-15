@@ -1,0 +1,181 @@
+{
+  "fixture": "stage06-legacy-projects-v1",
+  "source": "git archive 2d9da58320a27d0a4de03d813153d4ccbb5ce1de",
+  "scenario": [
+    "project-create",
+    "project-update",
+    "member-add",
+    "task-create-assignee-checklist",
+    "task-create-dependency",
+    "task-status-update",
+    "task-update",
+    "comment-create",
+    "member-archive",
+    "task-delete",
+    "project-delete"
+  ],
+  "project": {
+    "code": "<project-code>",
+    "name": "Synthetic Stage06 project updated",
+    "status": "ACTIVE",
+    "plannedBudget": "125000",
+    "actualBudget": "3500",
+    "startDate": "2026-01-02",
+    "_count": {
+      "assets": 0,
+      "tasksList": 2,
+      "financePlanEntries": 0
+    }
+  },
+  "member": {
+    "department": "<department>",
+    "position": "Synthetic engineer",
+    "rate": "1.00",
+    "salary": "50000.00",
+    "isArchived": true
+  },
+  "tasks": [
+    {
+      "name": "Synthetic predecessor",
+      "status": "NOT_STARTED",
+      "progress": 0,
+      "predecessorNames": [],
+      "checklist": [],
+      "assignees": [
+        {
+          "employeeId": "<employee>",
+          "projectMemberId": "<member>"
+        }
+      ],
+      "comments": []
+    },
+    {
+      "name": "Synthetic successor updated",
+      "status": "IN_PROGRESS",
+      "progress": 20,
+      "predecessorNames": [
+        "Synthetic predecessor"
+      ],
+      "checklist": [
+        {
+          "title": "Synthetic checklist",
+          "completed": false,
+          "order": 0
+        }
+      ],
+      "assignees": [
+        {
+          "employeeId": "<employee>",
+          "projectMemberId": "<member>"
+        }
+      ],
+      "comments": [
+        {
+          "body": "Synthetic comment",
+          "author": "Synthetic Stage06"
+        }
+      ]
+    }
+  ],
+  "memberAfterArchive": {
+    "archived": true,
+    "archivedAt": "<timestamp>"
+  },
+  "auditActions": [
+    "PROJECT_CREATE",
+    "PROJECT_UPDATE",
+    "TASK_CREATE",
+    "TASK_CREATE",
+    "TASK_UPDATE",
+    "TASK_COMMENT",
+    "TASK_DELETE",
+    "PROJECT_DELETE"
+  ],
+  "notificationOutboxCount": 0,
+  "deleteResults": {
+    "task": {
+      "success": true
+    },
+    "project": {
+      "success": true
+    }
+  },
+  "auditRecords": [
+    {
+      "action": "PROJECT_CREATE",
+      "entityType": "Project",
+      "details": {
+        "after": {
+          "code": "<project-code>",
+          "name": "Synthetic Stage06 project",
+          "status": "ACTIVE"
+        }
+      }
+    },
+    {
+      "action": "PROJECT_UPDATE",
+      "entityType": "Project",
+      "details": {
+        "after": {
+          "code": "<project-code>",
+          "name": "Synthetic Stage06 project updated",
+          "status": "ACTIVE"
+        },
+        "before": {
+          "code": "<project-code>",
+          "name": "Synthetic Stage06 project",
+          "status": "ACTIVE"
+        }
+      }
+    },
+    {
+      "action": "TASK_CREATE",
+      "entityType": "Task",
+      "details": {
+        "risk": "LOW",
+        "priority": "HIGH",
+        "projectId": "<project>"
+      }
+    },
+    {
+      "action": "TASK_CREATE",
+      "entityType": "Task",
+      "details": {
+        "risk": "MEDIUM",
+        "priority": "MEDIUM",
+        "projectId": "<project>"
+      }
+    },
+    {
+      "action": "TASK_UPDATE",
+      "entityType": "Task",
+      "details": {
+        "projectId": "<project>"
+      }
+    },
+    {
+      "action": "TASK_COMMENT",
+      "entityType": "Task",
+      "details": {
+        "projectId": "<project>"
+      }
+    },
+    {
+      "action": "TASK_DELETE",
+      "entityType": "Task",
+      "details": {
+        "projectId": "<project>"
+      }
+    },
+    {
+      "action": "PROJECT_DELETE",
+      "entityType": "Project",
+      "details": {
+        "before": {
+          "code": "<project-code>",
+          "name": "Synthetic Stage06 project updated"
+        }
+      }
+    }
+  ]
+}

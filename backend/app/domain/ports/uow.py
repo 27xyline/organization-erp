@@ -9,10 +9,14 @@ from app.domain.ports.audit import AuditPort
 from app.domain.ports.departments import DepartmentRepository, GroupRepository, MolRepository
 from app.domain.ports.employees import EmployeeRepository, WorkforceRepository
 from app.domain.ports.notifications import NotificationIntentPort
+from app.domain.ports.projects import ProjectRepository
 from app.domain.ports.users import UserRepository
 
 
 class UnitOfWork(Protocol):
+    @property
+    def projects(self) -> ProjectRepository: ...
+
     @property
     def users(self) -> UserRepository: ...
 

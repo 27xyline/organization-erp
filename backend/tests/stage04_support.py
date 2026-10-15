@@ -32,9 +32,16 @@ def wire(record):
 
 @pytest.fixture
 async def organization_env() -> AsyncIterator[dict]:
+    stage06_url = os.environ.get("STAGE06_TEST_DATABASE_URL")
     stage05_url = os.environ.get("STAGE05_TEST_DATABASE_URL")
-    url = stage05_url or os.environ.get("STAGE04_TEST_DATABASE_URL", "")
-    expected_database = "erp_stage05_test" if stage05_url else "erp_stage04_test"
+    url = stage06_url or stage05_url or os.environ.get("STAGE04_TEST_DATABASE_URL", "")
+    expected_database = (
+        "erp_stage06_test"
+        if stage06_url
+        else "erp_stage05_test"
+        if stage05_url
+        else "erp_stage04_test"
+    )
     parsed = make_url(url) if url else None
     if (
         parsed is None
@@ -42,7 +49,8 @@ async def organization_env() -> AsyncIterator[dict]:
         or parsed.database != expected_database
     ):
         pytest.fail(
-            "STAGE04_TEST_DATABASE_URL or STAGE05_TEST_DATABASE_URL must point exactly "
+            "STAGE04_TEST_DATABASE_URL, STAGE05_TEST_DATABASE_URL, or "
+            "STAGE06_TEST_DATABASE_URL must point exactly "
             "to its dedicated PostgreSQL test database"
         )
     url = Settings(database_url=url).database_url.get_secret_value()

@@ -7,7 +7,9 @@ from app.api.routes.departments import router as departments_router
 from app.api.routes.employees import router as employees_router
 from app.api.routes.health import router as health_router
 from app.api.routes.personnel_actions import router as personnel_actions_router
+from app.api.routes.projects import router as projects_router
 from app.api.routes.staff_schedule import router as staff_schedule_router
+from app.api.routes.tasks import router as tasks_router
 from app.api.routes.users import router as users_router
 from app.api.routes.vacations import router as vacations_router
 
@@ -24,3 +26,7 @@ api_router.include_router(employees_router)
 api_router.include_router(personnel_actions_router)
 api_router.include_router(vacations_router)
 api_router.include_router(staff_schedule_router)
+
+
+api_router.include_router(projects_router)
+api_router.include_router(tasks_router)

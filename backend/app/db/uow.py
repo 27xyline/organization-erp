@@ -12,6 +12,7 @@ from app.domain.ports.audit import AuditPort
 from app.domain.ports.departments import DepartmentRepository, GroupRepository, MolRepository
 from app.domain.ports.employees import EmployeeRepository, WorkforceRepository
 from app.domain.ports.notifications import NotificationIntentPort
+from app.domain.ports.projects import ProjectRepository
 from app.domain.ports.users import UserRepository
 from app.repositories.audit import SqlAlchemyAuditRepository
 from app.repositories.departments import (
@@ -21,6 +22,7 @@ from app.repositories.departments import (
 )
 from app.repositories.employees import SqlAlchemyEmployeeRepository
 from app.repositories.notifications import SqlAlchemyNotificationRepository
+from app.repositories.projects import SqlAlchemyProjectRepository
 from app.repositories.users import SqlAlchemyUserRepository
 from app.repositories.workforce import SqlAlchemyWorkforceRepository
 
@@ -44,6 +46,7 @@ class SqlAlchemyUnitOfWork:
         self._session_factory = session_factory
         self._session: AsyncSession | None = None
         self._state = _State.NEW
+        self.projects: ProjectRepository = SqlAlchemyProjectRepository(self._active_session)
         self.users: UserRepository = SqlAlchemyUserRepository(self._active_session)
         self.audit: AuditPort = SqlAlchemyAuditRepository(self._active_session)
         self.notifications: NotificationIntentPort = SqlAlchemyNotificationRepository(
