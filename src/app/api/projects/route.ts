@@ -1,9 +1,10 @@
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
-import { ProjectService, ProjectServiceError } from '@/features/projects/application/project.service'
+import { proxyBackendRequest } from '@/lib/backend/bridge'
+import { backendUnavailableResponse } from '@/lib/backend/client'
 import { createProjectSchema } from '@/features/projects/contracts/project'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { apiData, apiError, apiList, apiValidationError } from '@/lib/http/api-response'
+import { apiValidationError } from '@/lib/http/api-response'
 
 const querySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -18,19 +19,26 @@ export async function GET(request: NextRequest) {
   if (raw.limit && !raw.pageSize) raw.pageSize = raw.limit
   const query = querySchema.safeParse(raw)
   if (!query.success) return apiValidationError(query.error)
-  const result = await ProjectService.list(query.data, auth.access)
-  return apiList(result.projects, { ...query.data, total: result.total })
+  const params = new URLSearchParams({
+    page: String(query.data.page),
+    pageSize: String(query.data.pageSize),
+    ...(query.data.status ? { status: query.data.status } : {}),
+  })
+  try {
+    return await proxyBackendRequest(request, `/api/projects?${params.toString()}`, auth.user, auth.requestId)
+  } catch (error) {
+    return backendUnavailableResponse(error, auth.requestId)
+  }
 }
 
 export async function POST(request: NextRequest) {
   const auth = await authorizeApiRequest(request, 'projects.create')
   if (auth.response) return auth.response
-  const input = createProjectSchema.safeParse(await request.json())
+  const input = createProjectSchema.safeParse(await request.clone().json())
   if (!input.success) return apiValidationError(input.error)
   try {
-    return apiData(await ProjectService.create(input.data, auth.user.id, auth.requestId, auth.access), { status: 201 })
+    return await proxyBackendRequest(request, '/api/projects', auth.user, auth.requestId)
   } catch (error) {
-    if (error instanceof ProjectServiceError) return apiError(error.code, 'Проект с таким кодом уже существует', 409)
-    throw error
+    return backendUnavailableResponse(error, auth.requestId)
   }
 }

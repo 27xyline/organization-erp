@@ -7,21 +7,22 @@ const serverHost = serverUrl.hostname === 'localhost' ? '127.0.0.1' : serverUrl.
 const backendBaseUrl = process.env.PLAYWRIGHT_BACKEND_URL || 'http://127.0.0.1:8000'
 const backendUrl = new URL(backendBaseUrl)
 const backendPort = backendUrl.port || (backendUrl.protocol === 'https:' ? '443' : '80')
-const isolatedE2eDatabaseUrl = process.env.STAGE05_E2E_DATABASE_URL ??
+const isolatedE2eDatabaseUrl = process.env.STAGE06_E2E_DATABASE_URL ??
+  process.env.STAGE05_E2E_DATABASE_URL ??
   process.env.STAGE04_E2E_DATABASE_URL ?? process.env.STAGE03_TEST_DATABASE_URL
 if (!isolatedE2eDatabaseUrl) {
   throw new Error('STAGE05_E2E_DATABASE_URL (or a Stage 03/04 compatibility variable) must point to an isolated shared Node/Python E2E database')
 }
 const e2eDatabaseName = new URL(isolatedE2eDatabaseUrl).pathname.replace(/^\//, '')
-if (!/^erp_stage0[345]_e2e$/.test(e2eDatabaseName)) {
-  throw new Error('Playwright requires an isolated erp_stage03_e2e, erp_stage04_e2e, or erp_stage05_e2e database')
+if (!/^erp_stage0[3456]_e2e$/.test(e2eDatabaseName)) {
+  throw new Error('Playwright requires an isolated erp_stage03_e2e, erp_stage04_e2e, erp_stage05_e2e, or erp_stage06_e2e database')
 }
 if (!process.env.DATABASE_URL || process.env.DATABASE_URL !== isolatedE2eDatabaseUrl) {
   throw new Error('DATABASE_URL and the isolated E2E database URL must be the same isolated database')
 }
 for (const name of ['BACKEND_BRIDGE_SECRET', 'BACKEND_INTERNAL_AUTH_SECRET']) {
   if (!process.env[name] || Buffer.byteLength(process.env[name]!, 'utf8') < 32) {
-    throw new Error(`${name} must be a distinct secret of at least 32 bytes for Stage 05 E2E`)
+      throw new Error(`${name} must be a distinct secret of at least 32 bytes for Stage 06 E2E`)
   }
 }
 if (process.env.BACKEND_BRIDGE_SECRET === process.env.BACKEND_INTERNAL_AUTH_SECRET) {
@@ -62,6 +63,8 @@ export default defineConfig({
       env: {
         BACKEND_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
         BACKEND_TEST_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
+        STAGE06_TEST_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
+        STAGE06_E2E_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
         STAGE05_TEST_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
         STAGE05_E2E_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
         STAGE04_E2E_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),

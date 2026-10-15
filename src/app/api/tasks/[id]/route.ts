@@ -1,15 +1,10 @@
 import type { NextRequest } from 'next/server'
-import { TaskService, TaskServiceError } from '@/features/projects/application/task.service'
+import { proxyBackendRequest } from '@/lib/backend/bridge'
+import { backendUnavailableResponse } from '@/lib/backend/client'
 import { updateTaskSchema } from '@/features/projects/contracts/task'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
+import { apiError, apiValidationError } from '@/lib/http/api-response'
 import { taskTarget } from '@/lib/auth/resource-scopes'
-
-const mapError = (error: TaskServiceError) => apiError(
-  error.code,
-  error.message,
-  error.code === 'TASK_NOT_FOUND' ? 404 : 422,
-)
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authorizeApiRequest(request, 'tasks.update')
@@ -19,13 +14,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   if (target && !auth.access.allows('tasks.update', target)) {
     return apiError('FORBIDDEN', 'Недостаточно прав', 403)
   }
-  const input = updateTaskSchema.safeParse(await request.json())
+  const input = updateTaskSchema.safeParse(await request.clone().json())
   if (!input.success) return apiValidationError(input.error)
   try {
-    return apiData(await TaskService.update(id, input.data, auth.user.id, auth.requestId))
+    return await proxyBackendRequest(request, `/api/tasks/${encodeURIComponent(id)}`, auth.user, auth.requestId)
   } catch (error) {
-    if (error instanceof TaskServiceError) return mapError(error)
-    throw error
+    return backendUnavailableResponse(error, auth.requestId)
   }
 }
 
@@ -38,9 +32,8 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     return apiError('FORBIDDEN', 'Недостаточно прав', 403)
   }
   try {
-    return apiData(await TaskService.delete(id, auth.user.id, auth.requestId))
+    return await proxyBackendRequest(request, `/api/tasks/${encodeURIComponent(id)}`, auth.user, auth.requestId)
   } catch (error) {
-    if (error instanceof TaskServiceError) return mapError(error)
-    throw error
+    return backendUnavailableResponse(error, auth.requestId)
   }
 }

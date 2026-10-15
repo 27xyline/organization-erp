@@ -1,8 +1,9 @@
 import type { NextRequest } from 'next/server'
-import { TaskService, TaskServiceError } from '@/features/projects/application/task.service'
+import { proxyBackendRequest } from '@/lib/backend/bridge'
+import { backendUnavailableResponse } from '@/lib/backend/client'
 import { createTaskSchema } from '@/features/projects/contracts/task'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { apiData, apiError, apiValidationError } from '@/lib/http/api-response'
+import { apiError, apiValidationError } from '@/lib/http/api-response'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const auth = await authorizeApiRequest(request, 'tasks.read')
@@ -11,7 +12,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!auth.access.allows('tasks.read', { projectId })) {
     return apiError('FORBIDDEN', 'Недостаточно прав', 403)
   }
-  return apiData(await TaskService.list(projectId))
+  try {
+    return await proxyBackendRequest(request, `/api/projects/${encodeURIComponent(projectId)}/tasks`, auth.user, auth.requestId)
+  } catch (error) {
+    return backendUnavailableResponse(error, auth.requestId)
+  }
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -21,15 +26,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!auth.access.allows('tasks.create', { projectId })) {
     return apiError('FORBIDDEN', 'Недостаточно прав', 403)
   }
-  const input = createTaskSchema.safeParse(await request.json())
+  const input = createTaskSchema.safeParse(await request.clone().json())
   if (!input.success) return apiValidationError(input.error)
   try {
-    return apiData(
-      await TaskService.create(projectId, input.data, auth.user.id, auth.requestId),
-      { status: 201 },
-    )
+    return await proxyBackendRequest(request, `/api/projects/${encodeURIComponent(projectId)}/tasks`, auth.user, auth.requestId)
   } catch (error) {
-    if (error instanceof TaskServiceError) return apiError(error.code, error.message, 422)
-    throw error
+    return backendUnavailableResponse(error, auth.requestId)
   }
 }

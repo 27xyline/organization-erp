@@ -51,16 +51,16 @@ ORM-модели уже mapped в 02. Ни один repository не commit-ит 
 
 **Потребляет:** Employee references, project scopes, notification intent, audit. **Производит:** Project/Member/Task/Dependency/Checklist/Comment/Assignee workflows. `/projects/{id}/payroll` остаётся на TS до 10.
 
-- [ ] Проект и участники: budgets/status/archive, ставки, membership, допустимость назначения и scope фильтрация.
-- [ ] Задачи: hierarchy depth, parent relationships, dates/status/assignees, checklist/comments. Перенести правила из domain, не прятать их в Pydantic validators/repository.
-- [ ] Dependencies/critical path: numeric fixtures, цикл, cross-project edge, удаление parent с зависимыми элементами. Algorithm tests на чистом Python.
-- [ ] Составные updates записывают audit/outbox через тот же UoW; rollback при invalid dependency не меняет задачу частично.
-- [ ] Workspace aggregates заменяются Python API; пока документы ещё TS, composition страницы делает отдельные read calls. Мутация не распределяется между двумя backend.
-- [ ] Переключить project/task API и SSR; сохранить PUT `{status}` для Kanban, optimistic rollback и Gantt DTO.
+- [x] Проект и участники: budgets/status/archive, ставки, membership, допустимость назначения и scope фильтрация.
+- [x] Задачи: hierarchy depth, parent relationships, dates/status/assignees, checklist/comments. Перенести правила из domain, не прятать их в Pydantic validators/repository.
+- [x] Dependencies/critical path: numeric fixtures, цикл, cross-project edge, удаление parent с зависимыми элементами. Algorithm tests на чистом Python.
+- [x] Составные updates записывают audit через тот же UoW; rollback при invalid dependency не меняет задачу частично. Notification outbox сохраняет фактический legacy behavior без новых записей.
+- [x] Workspace aggregates заменяются Python API; пока документы ещё TS, composition страницы делает отдельные read calls. Мутация не распределяется между двумя backend.
+- [x] Переключить project/task API и SSR; сохранить PUT `{status}` для Kanban, optimistic rollback и Gantt DTO.
 
 **Проверки:** `uv run pytest tests/unit/projects tests/integration/projects tests/contracts/projects -q`; существующий Playwright дополняется реальным drag → refresh → status persisted; error → optimistic rollback; scoped member denied.
 
-**Готово:** проектный UI питается Python, кроме явно оставленного payroll. **Пауза:** граф зависимостей и правила задачи; самостоятельно добавить проверку deadline с тестом.
+**Готово:** проектный UI питается Python, кроме явно оставленного payroll. **Пауза:** разберите пример A → B → C: это означает, что B нельзя начать до A, а C — до B; критический путь — самый длинный путь по оценкам длительности. Для задачи отдельно проверьте правила родителя (тот же проект, допустимая глубина), дат и статуса, а для dependency — отсутствие цикла. Затем самостоятельно добавьте правило deadline (например, срок не раньше даты старта) с красным тестом и проведите его через domain → service → API. Deadline-правило и упражнение в Stage 06 не реализованы.
 
 ## Этап 07. Имущество и учёт остатков
 

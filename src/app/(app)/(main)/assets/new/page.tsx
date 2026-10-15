@@ -1,16 +1,21 @@
 import { AssetForm } from '@/features/assets/ui/asset-form'
 import { AssetService } from '@/features/assets/application/asset.service'
-import { ProjectService } from '@/features/projects/application/project.service'
 import { requirePagePermission } from '@/lib/auth/authorization'
+import { backendUserFetch } from '@/lib/backend/bridge'
+import { readBackendData } from '@/lib/backend/page-data'
 
 export const dynamic = 'force-dynamic'
 
 export default async function NewAssetPage() {
   const user = await requirePagePermission('assets.create')
-  const [{ mols, groups }, { projects }] = await Promise.all([
+  const [{ mols, groups }, projectResponse] = await Promise.all([
     AssetService.listCatalogs(user.access),
-    ProjectService.listReferences({ page: 1, pageSize: 100, status: 'ACTIVE' }, user.access),
+    backendUserFetch('/api/projects/references?page=1&pageSize=100&status=ACTIVE', user),
   ])
+  const projects = await readBackendData<Array<{ id: string; code: string; name: string }>>(
+    projectResponse,
+    'Не удалось загрузить проекты из backend',
+  )
 
   return (
     <main className="container mx-auto py-8 px-4">

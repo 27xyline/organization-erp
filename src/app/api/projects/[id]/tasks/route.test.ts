@@ -1,333 +1,86 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { prisma } from '@/lib/prisma'
 
-const authMocks = vi.hoisted(() => ({
+const mocks = vi.hoisted(() => ({
   allows: vi.fn(() => true),
+  proxy: vi.fn(),
 }))
-
-const dbMocks = vi.hoisted(() => {
-  const db = {
-    projectMember: { findMany: vi.fn() },
-    task: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
-    auditLog: { create: vi.fn() },
-  }
-  return {
-    ...db,
-    $transaction: vi.fn(async (callback: (tx: typeof db) => unknown) => callback(db)),
-  }
-})
 
 vi.mock('@/lib/auth/authorization', () => ({
   authorizeApiRequest: vi.fn(async () => ({
-    user: { id: 'admin-1', username: 'admin', name: 'Admin', role: 'ADMIN' },
-    access: { allows: authMocks.allows },
+    user: { id: 'admin-1', sessionVersion: 1 },
+    access: { allows: mocks.allows },
     requestId: 'request-1',
   })),
 }))
+vi.mock('@/lib/backend/bridge', () => ({ proxyBackendRequest: mocks.proxy }))
+vi.mock('@/lib/backend/client', () => ({
+  backendUnavailableResponse: vi.fn(() => Response.json({ error: 'backend unavailable' }, { status: 503 })),
+}))
 
-vi.mock('@/lib/prisma', () => ({ prisma: dbMocks }))
-
-describe('projects/[id]/tasks route', () => {
+describe('projects/[id]/tasks BFF route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.allows.mockReturnValue(true)
+    mocks.proxy.mockImplementation(async () => Response.json({ data: [] }))
   })
 
-  it('creates a root task', async () => {
-    const { POST } = await import('@/app/api/projects/[id]/tasks/route')
-
-    vi.mocked(prisma.projectMember.findMany).mockResolvedValueOnce([])
-    vi.mocked(prisma.task.create).mockResolvedValueOnce({
-      id: 'task-1',
-      name: 'Корневая задача',
-      level: 1,
-      parentId: null,
-      assignees: [],
-    } as never)
-
-    const response = await POST(
-      new Request('http://localhost/api/projects/project-1/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'Корневая задача',
-          level: 1,
-        }),
-      }) as never,
-      { params: Promise.resolve({ id: 'project-1' }) }
-    )
-    const body = await response.json()
-
-    expect(response.status).toBe(201)
-    expect(prisma.task.findUnique).not.toHaveBeenCalled()
-    expect(prisma.task.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          name: 'Корневая задача',
-          level: 1,
-          parentId: null,
-          projectId: 'project-1',
-        }),
-      })
-    )
-    expect(body.data).toEqual(
-      expect.objectContaining({
-        id: 'task-1',
-        name: 'Корневая задача',
-        assignees: [],
-      })
-    )
-  })
-
-  it('creates a subtask when parent belongs to the project and level matches', async () => {
-    const { POST } = await import('@/app/api/projects/[id]/tasks/route')
-
-    vi.mocked(prisma.task.findUnique).mockResolvedValueOnce({
-      projectId: 'project-1',
-      level: 1,
-    } as never)
-    vi.mocked(prisma.projectMember.findMany).mockResolvedValueOnce([])
-    vi.mocked(prisma.task.create).mockResolvedValueOnce({
-      id: 'task-2',
-      name: 'Подзадача',
-      level: 2,
-      parentId: 'task-1',
-      assignees: [],
-    } as never)
-
-    const response = await POST(
-      new Request('http://localhost/api/projects/project-1/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'Подзадача',
-          level: 2,
-          parentId: 'task-1',
-        }),
-      }) as never,
-      { params: Promise.resolve({ id: 'project-1' }) }
-    )
-    const body = await response.json()
-
-    expect(response.status).toBe(201)
-    expect(prisma.task.findUnique).toHaveBeenCalledWith({
-      where: { id: 'task-1' },
-      select: {
-        projectId: true,
-        level: true,
-      },
-    })
-    expect(prisma.task.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          level: 2,
-          parentId: 'task-1',
-          projectId: 'project-1',
-        }),
-      })
-    )
-    expect(body.data).toEqual(
-      expect.objectContaining({
-        id: 'task-2',
-        parentId: 'task-1',
-        assignees: [],
-      })
-    )
-  })
-
-  it('rejects root task creation when level is not 1', async () => {
-    const { POST } = await import('@/app/api/projects/[id]/tasks/route')
-
-    const response = await POST(
-      new Request('http://localhost/api/projects/project-1/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'Некорректная корневая задача',
-          level: 2,
-        }),
-      }) as never,
-      { params: Promise.resolve({ id: 'project-1' }) }
-    )
-    const body = await response.json()
-
-    expect(response.status).toBe(422)
-    expect(body).toMatchObject({ error: { message: 'Корневая задача должна иметь уровень 1' } })
-    expect(prisma.projectMember.findMany).not.toHaveBeenCalled()
-    expect(prisma.task.create).not.toHaveBeenCalled()
-  })
-
-  it('rejects task creation when parent does not exist', async () => {
-    const { POST } = await import('@/app/api/projects/[id]/tasks/route')
-
-    vi.mocked(prisma.task.findUnique).mockResolvedValueOnce(null)
-
-    const response = await POST(
-      new Request('http://localhost/api/projects/project-1/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'Подзадача',
-          level: 2,
-          parentId: 'missing-task',
-        }),
-      }) as never,
-      { params: Promise.resolve({ id: 'project-1' }) }
-    )
-    const body = await response.json()
-
-    expect(response.status).toBe(422)
-    expect(body).toMatchObject({ error: { message: 'Родительская задача не найдена' } })
-    expect(prisma.projectMember.findMany).not.toHaveBeenCalled()
-    expect(prisma.task.create).not.toHaveBeenCalled()
-  })
-
-  it('rejects task creation when parent is already on the third level', async () => {
-    const { POST } = await import('@/app/api/projects/[id]/tasks/route')
-
-    vi.mocked(prisma.task.findUnique).mockResolvedValueOnce({
-      projectId: 'project-1',
-      level: 3,
-    } as never)
-
-    const response = await POST(
-      new Request('http://localhost/api/projects/project-1/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'Слишком глубокая подзадача',
-          level: 3,
-          parentId: 'task-level-3',
-        }),
-      }) as never,
-      { params: Promise.resolve({ id: 'project-1' }) }
-    )
-    const body = await response.json()
-
-    expect(response.status).toBe(422)
-    expect(body).toMatchObject({ error: { message: 'Нельзя создать подзадачу глубже третьего уровня' } })
-    expect(prisma.task.findUnique).toHaveBeenCalledWith({
-      where: { id: 'task-level-3' },
-      select: {
-        projectId: true,
-        level: true,
-      },
-    })
-    expect(prisma.projectMember.findMany).not.toHaveBeenCalled()
-    expect(prisma.task.create).not.toHaveBeenCalled()
-  })
-
-  it('rejects task creation when parent belongs to another project', async () => {
-    const { POST } = await import('@/app/api/projects/[id]/tasks/route')
-
-    vi.mocked(prisma.task.findUnique).mockResolvedValueOnce({
-      projectId: 'project-2',
-      level: 1,
-    } as never)
-
-    const response = await POST(
-      new Request('http://localhost/api/projects/project-1/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'Подзадача',
-          level: 2,
-          parentId: 'task-from-another-project',
-        }),
-      }) as never,
-      { params: Promise.resolve({ id: 'project-1' }) }
-    )
-    const body = await response.json()
-
-    expect(response.status).toBe(422)
-    expect(body).toMatchObject({ error: { message: 'Родительская задача должна принадлежать этому проекту' } })
-    expect(prisma.projectMember.findMany).not.toHaveBeenCalled()
-    expect(prisma.task.create).not.toHaveBeenCalled()
-  })
-
-  it('rejects task creation when subtask level does not match parent level', async () => {
-    const { POST } = await import('@/app/api/projects/[id]/tasks/route')
-
-    vi.mocked(prisma.task.findUnique).mockResolvedValueOnce({
-      projectId: 'project-1',
-      level: 1,
-    } as never)
-
-    const response = await POST(
-      new Request('http://localhost/api/projects/project-1/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'Подзадача',
-          level: 3,
-          parentId: 'task-1',
-        }),
-      }) as never,
-      { params: Promise.resolve({ id: 'project-1' }) }
-    )
-    const body = await response.json()
-
-    expect(response.status).toBe(422)
-    expect(body).toMatchObject({ error: { message: 'Уровень подзадачи должен быть на один больше уровня родительской задачи' } })
-    expect(prisma.projectMember.findMany).not.toHaveBeenCalled()
-    expect(prisma.task.create).not.toHaveBeenCalled()
-  })
-
-  it('rejects task creation when assignee is not in active project members', async () => {
-    const { POST } = await import('@/app/api/projects/[id]/tasks/route')
-
-    vi.mocked(prisma.projectMember.findMany).mockResolvedValueOnce([])
-
-    const response = await POST(
-      new Request('http://localhost/api/projects/project-1/tasks', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'Новая задача',
-          employeeIds: ['emp-1'],
-        }),
-      }) as never,
-      { params: Promise.resolve({ id: 'project-1' }) }
-    )
-    const body = await response.json()
-
-    expect(response.status).toBe(422)
-    expect(body).toMatchObject({ error: { message: 'Можно назначать только активных участников проекта' } })
-  })
-
-  it('returns normalized assignees on GET', async () => {
+  it('forwards the authorized task list and preserves the data envelope', async () => {
     const { GET } = await import('@/app/api/projects/[id]/tasks/route')
-
-    vi.mocked(prisma.task.findMany).mockResolvedValueOnce([
-      {
-        id: 'task-1',
-        name: 'Задача',
-        assignees: [
-          {
-            employeeId: 'emp-1',
-            projectMemberId: 'member-1',
-            employee: {
-              fullName: 'Иван Иванов',
-            },
-          },
-        ],
-        children: [],
-      },
-    ] as never)
-
-    const response = await GET(
-      new NextRequest('http://localhost/api/projects/project-1/tasks'),
-      { params: Promise.resolve({ id: 'project-1' }) }
-    )
-    const body = await response.json()
+    const request = new NextRequest('http://localhost/api/projects/project-1/tasks')
+    const response = await GET(request, { params: Promise.resolve({ id: 'project-1' }) })
 
     expect(response.status).toBe(200)
-    expect(body.data[0].assignees).toEqual([
-      {
-        employeeId: 'emp-1',
-        fullName: 'Иван Иванов',
-        projectMemberId: 'member-1',
-      },
-    ])
+    expect(await response.json()).toEqual({ data: [] })
+    expect(mocks.proxy).toHaveBeenCalledWith(
+      request,
+      '/api/projects/project-1/tasks',
+      expect.objectContaining({ id: 'admin-1' }),
+      'request-1',
+    )
+  })
+
+  it('keeps the public task payload and 201 status when creating a task', async () => {
+    mocks.proxy.mockImplementationOnce(async () => Response.json(
+      { data: { id: 'task-1', name: 'Корневая задача', assignees: [] } },
+      { status: 201 },
+    ))
+    const { POST } = await import('@/app/api/projects/[id]/tasks/route')
+    const request = new Request('http://localhost/api/projects/project-1/tasks', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Корневая задача', employeeIds: [] }),
+    })
+    const response = await POST(request as never, { params: Promise.resolve({ id: 'project-1' }) })
+
+    expect(response.status).toBe(201)
+    expect(await response.json()).toMatchObject({ data: { name: 'Корневая задача' } })
+    expect(mocks.proxy).toHaveBeenCalledWith(request, '/api/projects/project-1/tasks', expect.anything(), 'request-1')
+  })
+
+  it('keeps input validation before forwarding', async () => {
+    const { POST } = await import('@/app/api/projects/[id]/tasks/route')
+    const response = await POST(
+      new Request('http://localhost/api/projects/project-1/tasks', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: '', level: 4 }),
+      }) as never,
+      { params: Promise.resolve({ id: 'project-1' }) },
+    )
+
+    expect(response.status).toBe(422)
+    expect(await response.json()).toMatchObject({ error: { code: 'VALIDATION_ERROR' } })
+    expect(mocks.proxy).not.toHaveBeenCalled()
+  })
+
+  it('blocks task list reads when the project scope is denied', async () => {
+    mocks.allows.mockReturnValue(false)
+    const { GET } = await import('@/app/api/projects/[id]/tasks/route')
+    const response = await GET(
+      new NextRequest('http://localhost/api/projects/project-1/tasks'),
+      { params: Promise.resolve({ id: 'project-1' }) },
+    )
+
+    expect(response.status).toBe(403)
+    expect(mocks.proxy).not.toHaveBeenCalled()
   })
 })

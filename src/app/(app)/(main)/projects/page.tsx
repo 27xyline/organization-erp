@@ -6,15 +6,25 @@ import { Plus, FolderKanban, Calendar, Wallet } from 'lucide-react'
 import { ProjectStatusLabels } from '@/features/projects/contracts/types'
 import { PageHeader } from '@/components/page-header'
 import { formatDate, formatCurrency, cn } from '@/lib/utils'
-import { ProjectService } from '@/features/projects/application/project.service'
 import { requirePagePermission } from '@/lib/auth/authorization'
+import { backendUserFetch } from '@/lib/backend/bridge'
+import { readBackendData } from '@/lib/backend/page-data'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ProjectsPage() {
   const user = await requirePagePermission('projects.read')
-  const result = await ProjectService.list({ page: 1, pageSize: 100 }, user.access)
-  const projects = result.projects
+  let response: Response
+  try {
+    response = await backendUserFetch('/api/projects?page=1&pageSize=100', user)
+  } catch (cause) {
+    throw new Error('Не удалось загрузить проекты из backend', { cause })
+  }
+  const projects = await readBackendData<Array<{
+    id: string; code: string; name: string; description?: string | null; status: 'ACTIVE' | 'COMPLETED' | 'ARCHIVED'
+    plannedBudget: string | number; actualBudget: string | number; startDate: string | null; endDate: string | null
+    _count: { assets: number; tasksList: number }
+  }>>(response, 'Не удалось загрузить проекты из backend')
 
   return (
     <main className="container mx-auto py-8 px-4">

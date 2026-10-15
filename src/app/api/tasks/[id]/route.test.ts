@@ -1,85 +1,69 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { prisma } from '@/lib/prisma'
 
-const authMocks = vi.hoisted(() => ({
+const mocks = vi.hoisted(() => ({
   allows: vi.fn(() => true),
-}))
-
-const scopeMocks = vi.hoisted(() => ({
   taskTarget: vi.fn(async () => ({ projectId: 'project-1' })),
+  proxy: vi.fn(),
 }))
 
 vi.mock('@/lib/auth/authorization', () => ({
   authorizeApiRequest: vi.fn(async () => ({
-    user: { id: 'admin-1', username: 'admin', name: 'Admin', role: 'ADMIN' },
-    access: { allows: authMocks.allows },
+    user: { id: 'admin-1', sessionVersion: 1 },
+    access: { allows: mocks.allows },
     requestId: 'request-1',
   })),
 }))
-
-vi.mock('@/lib/auth/resource-scopes', () => scopeMocks)
-
-vi.mock('@/lib/prisma', () => ({
-  prisma: {
-    projectMember: {
-      findMany: vi.fn(),
-    },
-    task: {
-      findUnique: vi.fn(),
-      update: vi.fn(),
-      delete: vi.fn(),
-    },
-  },
+vi.mock('@/lib/auth/resource-scopes', () => ({ taskTarget: mocks.taskTarget }))
+vi.mock('@/lib/backend/bridge', () => ({ proxyBackendRequest: mocks.proxy }))
+vi.mock('@/lib/backend/client', () => ({
+  backendUnavailableResponse: vi.fn(() => Response.json({ error: 'backend unavailable' }, { status: 503 })),
 }))
 
-describe('tasks/[id] route', () => {
+describe('tasks/[id] BFF route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.allows.mockReturnValue(true)
+    mocks.taskTarget.mockResolvedValue({ projectId: 'project-1' })
+    mocks.proxy.mockImplementation(async () => Response.json({ data: { id: 'task-1', status: 'IN_PROGRESS' } }))
   })
 
-  it('returns 404 when updating a missing task', async () => {
+  it('preserves the Kanban status-only PUT contract', async () => {
     const { PUT } = await import('@/app/api/tasks/[id]/route')
+    const request = new Request('http://localhost/api/tasks/task-1', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'IN_PROGRESS' }),
+    })
+    const response = await PUT(request as never, { params: Promise.resolve({ id: 'task-1' }) })
 
-    vi.mocked(prisma.task.findUnique).mockResolvedValueOnce(null)
-
-    const response = await PUT(
-      new Request('http://localhost/api/tasks/task-1', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'Обновлённая задача',
-        }),
-      }) as never,
-      { params: Promise.resolve({ id: 'task-1' }) }
-    )
-    const body = await response.json()
-
-    expect(response.status).toBe(404)
-    expect(body).toEqual({ error: { code: 'TASK_NOT_FOUND', message: 'Задача не найдена' } })
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ data: { status: 'IN_PROGRESS' } })
+    expect(mocks.proxy).toHaveBeenCalledWith(request, '/api/tasks/task-1', expect.anything(), 'request-1')
   })
 
-  it('rejects update when assignee is outside active project members', async () => {
+  it('keeps the task resource scope precheck before forwarding', async () => {
+    mocks.allows.mockReturnValue(false)
     const { PUT } = await import('@/app/api/tasks/[id]/route')
-
-    vi.mocked(prisma.task.findUnique).mockResolvedValueOnce({
-      id: 'task-1',
-      projectId: 'project-1',
-    } as never)
-    vi.mocked(prisma.projectMember.findMany).mockResolvedValueOnce([])
-
     const response = await PUT(
       new Request('http://localhost/api/tasks/task-1', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          employeeIds: ['emp-1'],
-        }),
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'COMPLETED' }),
       }) as never,
-      { params: Promise.resolve({ id: 'task-1' }) }
+      { params: Promise.resolve({ id: 'task-1' }) },
     )
-    const body = await response.json()
+
+    expect(response.status).toBe(403)
+    expect(mocks.proxy).not.toHaveBeenCalled()
+  })
+
+  it('keeps Zod validation on the Next.js boundary', async () => {
+    const { PUT } = await import('@/app/api/tasks/[id]/route')
+    const response = await PUT(
+      new Request('http://localhost/api/tasks/task-1', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'UNKNOWN' }),
+      }) as never,
+      { params: Promise.resolve({ id: 'task-1' }) },
+    )
 
     expect(response.status).toBe(422)
-    expect(body).toEqual({ error: { code: 'INVALID_ASSIGNEES', message: 'Можно назначать только активных участников проекта' } })
+    expect(await response.json()).toMatchObject({ error: { code: 'VALIDATION_ERROR' } })
+    expect(mocks.proxy).not.toHaveBeenCalled()
   })
 })

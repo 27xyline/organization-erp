@@ -111,7 +111,7 @@ test('admin creates, partially transfers and archives an asset', async ({ page }
   await expect(page.locator('td:visible').filter({ hasText: inventoryNumber })).toBeVisible()
 })
 
-test('Stage 04 departments and catalogs use Python for admin CRUD and scoped MOL access', async ({ page }) => {
+test('Stage 04 departments and catalogs use Python for admin CRUD and scoped MOL access', async ({ page, browser }) => {
   await login(page)
   const suffix = Date.now().toString(36).toUpperCase()
 
@@ -208,7 +208,8 @@ test('Stage 04 departments and catalogs use Python for admin CRUD and scoped MOL
   }>
   const qaMol = knownMols.find((item) => item.code === 'E2E-MOL-1')!
   const outsideMol = knownMols.find((item) => item.code === 'E2E-MOL-OUTSIDE')!
-  const scopedPage = await page.context().newPage()
+  const scopedContext = await browser.newContext({ baseURL: new URL(page.url()).origin })
+  const scopedPage = await scopedContext.newPage()
   await login(scopedPage, E2E_CUSTODIAN)
   await scopedPage.goto('/mols')
   await expect(scopedPage.getByRole('heading', { name: /МОЛ \(Материально-ответственные лица\)/ })).toBeVisible()
@@ -248,6 +249,7 @@ test('Stage 04 departments and catalogs use Python for admin CRUD and scoped MOL
   expect(forbiddenCreate.status()).toBe(403)
   expect(await forbiddenCreate.json()).toMatchObject({ error: { code: 'FORBIDDEN' } })
   await scopedPage.close()
+  await scopedContext.close()
 })
 
 test('employee and finance sections render after login', async ({ page }) => {

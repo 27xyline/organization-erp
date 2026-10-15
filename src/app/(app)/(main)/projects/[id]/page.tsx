@@ -27,16 +27,107 @@ import { ProjectStatusLabels } from '@/features/projects/contracts/types'
 import { formatDate, formatCurrency, formatDateTime } from '@/lib/utils'
 import { LazyProjectGantt } from '@/features/projects/ui/lazy-gantt'
 import { ProjectPayrollSection } from '@/features/finance/ui/project-payroll-section'
-import { ProjectService } from '@/features/projects/application/project.service'
 import { requirePagePermission } from '@/lib/auth/authorization'
 import { getDocumentService } from '@/features/documents/application/document.service'
 import type { DocumentView } from '@/features/documents/contracts/ui-types'
-import { ProjectWorkspaceService } from '@/features/projects/application/project-workspace.service'
 import { ProjectWorkspaceSection } from './project-workspace-section'
 import { ProjectDetailTabs, type ProjectDetailTab } from '@/features/projects/ui/project-detail-tabs'
+import { backendUserFetch } from '@/lib/backend/bridge'
+import { BackendRequestError } from '@/lib/backend/client'
+import { readBackendData } from '@/lib/backend/page-data'
+import type { Task } from '@/features/projects/contracts/types'
 
 interface ProjectPageProps {
   params: Promise<{ id: string }>
+}
+
+type TaskComment = NonNullable<Task['comments']>[number]
+type ProjectTaskWire = Omit<Task, 'assignees' | 'startDate' | 'endDate' | 'createdAt' | 'updatedAt' | 'comments'> & {
+  startDate: string | null
+  endDate: string | null
+  createdAt: string
+  updatedAt: string
+  assignees: Array<{
+    employeeId: string
+    projectMemberId: string | null
+    employee: { id: string; fullName: string }
+  }>
+  comments: Array<Omit<TaskComment, 'createdAt'> & { createdAt: string }>
+}
+
+interface ProjectWorkspaceWire {
+  id: string
+  code: string
+  name: string
+  description: string | null
+  goals: string | null
+  tasks: string | null
+  results: string | null
+  startDate: string | null
+  endDate: string | null
+  status: 'ACTIVE' | 'COMPLETED' | 'ARCHIVED'
+  plannedBudget: string | number
+  actualBudget: string | number
+  tasksList: ProjectTaskWire[]
+  assets: Array<{
+    name: string
+    inventoryNumber: string
+    operations: Array<{
+      id: string
+      type: string
+      date: string
+      totalCost: string | number
+      quantity: string | number
+      documentType: string
+      documentDetails: string
+      reason: string | null
+    }>
+  }>
+  financePlanEntries: Array<{
+    id: string
+    type: FinancePlanType
+    year: number
+    month: number
+    amount: string | number
+    createdAt: string
+    employee: { id: string; fullName: string; department: string }
+  }>
+  _count: { assets: number; tasksList: number; financePlanEntries: number }
+}
+
+function normalizeWorkspace(workspace: ProjectWorkspaceWire) {
+  return {
+    ...workspace,
+    startDate: workspace.startDate ? new Date(workspace.startDate) : null,
+    endDate: workspace.endDate ? new Date(workspace.endDate) : null,
+    tasksList: workspace.tasksList.map((task): Task => ({
+      ...task,
+      startDate: task.startDate ? new Date(task.startDate) : null,
+      endDate: task.endDate ? new Date(task.endDate) : null,
+      createdAt: new Date(task.createdAt),
+      updatedAt: new Date(task.updatedAt),
+      assignees: task.assignees.map((assignee) => ({
+        employeeId: assignee.employeeId,
+        fullName: assignee.employee.fullName,
+        projectMemberId: assignee.projectMemberId,
+      })),
+      comments: task.comments.map((comment) => ({
+        ...comment,
+        createdAt: new Date(comment.createdAt),
+      })),
+    })),
+    assets: workspace.assets.map((asset) => ({
+      ...asset,
+      operations: asset.operations.map((operation) => ({
+        ...operation,
+        date: new Date(operation.date),
+      })),
+    })),
+    financePlanEntries: workspace.financePlanEntries.map((entry) => ({
+      ...entry,
+      createdAt: new Date(entry.createdAt),
+    })),
+  }
 }
 
 export default async function ProjectPage(props: ProjectPageProps) {
@@ -44,7 +135,24 @@ export default async function ProjectPage(props: ProjectPageProps) {
     requirePagePermission('projects.read'),
     props.params,
   ])
-  const project = await ProjectService.getDetail(params.id, user.access)
+  let workspaceResponse: Response
+  try {
+    workspaceResponse = await backendUserFetch(
+      `/api/projects/${encodeURIComponent(params.id)}/workspace`,
+      user,
+    )
+  } catch (cause) {
+    throw new Error('Не удалось загрузить рабочую область проекта из backend', { cause })
+  }
+  if (workspaceResponse.status === 404) notFound()
+  let workspace: ProjectWorkspaceWire
+  try {
+    workspace = await readBackendData<ProjectWorkspaceWire>(workspaceResponse, 'Не удалось загрузить проект из backend')
+  } catch (error) {
+    if (error instanceof BackendRequestError && error.status === 404) notFound()
+    throw error
+  }
+  const project = normalizeWorkspace(workspace)
 
   if (!project) {
     notFound()
@@ -65,7 +173,7 @@ export default async function ProjectPage(props: ProjectPageProps) {
   const documentTarget = { documentProjectId: project.id }
   const canReadDocuments = user.access.allows('documents.read', documentTarget)
   const canCreateDocuments = user.access.allows('documents.create', documentTarget)
-  const [documentResult, projectActivities] = await Promise.all([
+  const [documentResult, activityResponse] = await Promise.all([
     canReadDocuments
       ? getDocumentService().list({
           page: 1,
@@ -74,12 +182,12 @@ export default async function ProjectPage(props: ProjectPageProps) {
           archived: false,
         }, { id: user.id, access: user.access })
       : Promise.resolve({ documents: [], total: 0 }),
-    ProjectWorkspaceService.activity(project.id, {
-      canReadTasks,
-      canReadDocuments,
-      canReadAll: user.access.has('auditLogs.read'),
-    }),
+    backendUserFetch(`/api/projects/${encodeURIComponent(project.id)}/activity`, user),
   ])
+  const projectActivities = await readBackendData<Array<{
+    id: string; action: string; entityType: string; entityId: string; createdAt: string
+    user: { id: string; name: string; username: string } | null
+  }>>(activityResponse, 'Не удалось загрузить историю проекта из backend')
   const projectDocuments = documentResult.documents.map((document) => ({
     ...document,
     archivedAt: document.archivedAt?.toISOString() || null,
@@ -271,14 +379,7 @@ export default async function ProjectPage(props: ProjectPageProps) {
           <LazyProjectGantt
             projectId={project.id}
             canEdit={canEditTasks}
-            tasks={project.tasksList.map((task) => ({
-              ...task,
-              assignees: task.assignees.map((assignee) => ({
-                employeeId: assignee.employeeId,
-                fullName: assignee.employee.fullName,
-                projectMemberId: assignee.projectMemberId,
-              })),
-            }))}
+            tasks={project.tasksList}
           />
         </div>
       ),
@@ -466,7 +567,7 @@ export default async function ProjectPage(props: ProjectPageProps) {
           documents={[]}
           activities={projectActivities.map((activity) => ({
             ...activity,
-            createdAt: activity.createdAt.toISOString(),
+            createdAt: new Date(activity.createdAt).toISOString(),
           }))}
           canCreateDocuments={false}
           canReadDocuments={false}
