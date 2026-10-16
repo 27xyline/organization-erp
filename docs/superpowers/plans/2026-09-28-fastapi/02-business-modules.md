@@ -70,17 +70,19 @@ ORM-модели уже mapped в 02. Ни один repository не commit-ит 
 
 **Потребляет:** catalogs/MOL/project references, UoW, audit. **Производит:** все asset commands и внутренняя `create_asset_in_uow(command, context, uow)` для будущей капитализации закупок.
 
-- [ ] List/detail/saved views/archive/restore: preserve filter/order/access; архив не равен физическому удалению.
-- [ ] Приход/перемещение/списание/AssetHolding: Decimal quantity, nonnegative totals, нельзя списать больше наличия. Гонка двух операций тестируется двумя независимыми connections.
-- [ ] Повторить serializable/locking и bounded retries только для допустимых serialization/deadlock errors; rollback перед retry; не повторять произвольную ошибку с внешним эффектом.
-- [ ] Maintenance/inventory/scan/complete/resolve: переходы статусов, двойной scan, повтор complete, агрегаты и акты. Зафиксировать семантику идемпотентности текущих команд.
-- [ ] Import preview/commit/template: одинаковый разбор, duplicate inventory number, неподходящий файл, пустые строки, частичный сбой и atomicity как в старом контракте.
-- [ ] QR/binary outputs: Content-Type/Disposition и access. Предварительный экспорт assets не должен оставаться скрытым TS DB writer/read path после 12.
-- [ ] Переключить routes/SSR, проверить totals по project/MOL и состояние после одновременных операций.
+- [x] List/detail/saved views/archive/restore: preserve filter/order/access; архив не равен физическому удалению.
+- [x] Приход/перемещение/списание/AssetHolding: Decimal quantity, nonnegative totals, нельзя списать больше наличия. Гонка двух операций тестируется двумя независимыми connections.
+- [x] Повторить serializable/locking и bounded retries только для допустимых serialization/deadlock errors; rollback перед retry; не повторять произвольную ошибку с внешним эффектом.
+- [x] Maintenance/inventory/scan/complete/resolve: переходы статусов, двойной scan, повтор complete, агрегаты и акты. Зафиксировать семантику идемпотентности текущих команд.
+- [x] Import preview/commit/template: одинаковый разбор, duplicate inventory number, неподходящий файл, пустые строки, частичный сбой и atomicity как в старом контракте.
+- [x] QR/binary outputs: Content-Type/Disposition и access. Python exporter исправляет legacy `WorksheetWriter.views` getter-only failure; точное бинарное сравнение с неработавшим legacy export недоступно.
+- [x] Переключить routes/SSR, проверить totals по project/MOL и состояние после одновременных операций.
 
 **Проверки:** `uv run pytest tests/unit/assets tests/integration/assets tests/contracts/assets -q`; UI движение имущества → inventory → archive/restore; количественные инварианты в PostgreSQL, не только 200 response.
 
-**Готово:** asset lifecycle целиком Python, резервный frontend route не исполняет старую запись. **Пауза:** concurrent write и optimistic/pessimistic/serializable механизм; самостоятельно написать regression test на двойное списание.
+**Готово:** asset lifecycle целиком Python, публичный BFF/SSR не имеет Prisma fallback; единственное временное TS исключение — капитализация закупки до Stage 11. Обязательный regression на конкурентное двойное списание уже проходит на двух соединениях. **Пауза:** сравнить optimistic/pessimistic/serializable механизм и самостоятельно добавить regression test на две одновременные передачи одного остатка разным МОЛ. Это exercise не реализовано. Stage 07 локально проверен 16 октября; ожидает разбора пользователя.
+
+**Итог Stage 07 (16 октября 2026):** публичные asset API и SSR callers переключены на FastAPI. Единственное временное TypeScript владение — callback капитализации закупки: текущий TS код сначала создаёт asset отдельной транзакцией, затем выполняет procurement update отдельной транзакцией; до Stage 11 сохраняется существующая двухтранзакционная семантика, без HTTP-вызова Python. См. [Stage 07 ownership](../../../backend-migration/stage07-ownership.md) и [проверки](../../../backend-migration/stage07-validation.md). Stage 08 не начат.
 
 ## Этап 08. Документы и файловая инфраструктура
 

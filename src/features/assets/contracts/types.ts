@@ -55,13 +55,13 @@ export interface Asset {
   contractCode?: string
   internalFundingCode?: string
   isExistingAsset: boolean
-  recordingDate: Date
+  recordingDate: Date | string
   documentType: string
   documentDetails: string
   documentFiles: string[]
   status: AssetStatus
   isArchived: boolean
-  plannedDisposalDate?: Date
+  plannedDisposalDate?: Date | string | null
   plannedDisposalReason?: string
   accountingForm?: string
   photos?: string[]

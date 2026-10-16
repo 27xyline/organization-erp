@@ -1,11 +1,11 @@
-import { Prisma } from '@prisma/client'
 import type { NextRequest } from 'next/server'
-import { AssetService } from '@/features/assets/application/asset.service'
 import { assetsQuerySchema } from '@/features/assets/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { apiData, apiError, apiList, apiValidationError } from '@/lib/http/api-response'
+import { apiError, apiValidationError } from '@/lib/http/api-response'
 import { createAssetSchema } from '@/features/assets/contracts/schemas'
 import { departmentForMol } from '@/lib/auth/resource-scopes'
+import { proxyStage07AssetJsonRequest, proxyStage07Request } from '@/lib/backend/stage07'
+import { normalizeLegacyAssetDates } from '@/features/assets/infrastructure/legacy-date-transport'
 
 export async function GET(request: NextRequest) {
   const auth = await authorizeApiRequest(request, 'assets.read')
@@ -21,27 +21,21 @@ export async function GET(request: NextRequest) {
   const query = assetsQuerySchema.safeParse(rawQuery)
   if (!query.success) return apiValidationError(query.error)
 
-  const result = await AssetService.list(query.data, auth.access)
-  return apiList(result.assets, { page: query.data.page, pageSize: query.data.pageSize, total: result.total })
+  return proxyStage07Request(request, `${request.nextUrl.pathname}${request.nextUrl.search}`, auth.user, auth.requestId)
 }
 
 export async function POST(request: NextRequest) {
   const auth = await authorizeApiRequest(request, 'assets.create')
   if (auth.response) return auth.response
 
-  const input = createAssetSchema.safeParse(await request.json())
+  const input = createAssetSchema.safeParse(await request.clone().json())
   if (!input.success) return apiValidationError(input.error)
   const departmentId = await departmentForMol(input.data.molId)
   if (departmentId && !auth.access.allows('assets.create', { departmentId })) {
     return apiError('FORBIDDEN', 'Недостаточно прав', 403)
   }
 
-  try {
-    return apiData(await AssetService.create(input.data, auth.user.id, auth.requestId), { status: 201 })
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return apiError('INVENTORY_NUMBER_EXISTS', 'Инвентарный номер уже используется', 409)
-    }
-    throw error
-  }
+  return proxyStage07AssetJsonRequest(
+    request, '/api/assets', auth.user, auth.requestId, normalizeLegacyAssetDates(input.data),
+  )
 }

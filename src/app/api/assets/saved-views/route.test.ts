@@ -1,89 +1,60 @@
-import { Prisma } from '@prisma/client'
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({
-  authorizeApiRequest: vi.fn(),
-  list: vi.fn(),
-  create: vi.fn(),
-}))
-
-vi.mock('@/lib/auth/authorization', () => ({
-  authorizeApiRequest: mocks.authorizeApiRequest,
-}))
-
-vi.mock('@/features/assets/application/saved-view.service', () => ({
-  getAssetSavedViewService: () => ({ list: mocks.list, create: mocks.create }),
-}))
+const mocks = vi.hoisted(() => ({ authorize: vi.fn(), proxy: vi.fn() }))
+vi.mock('@/lib/auth/authorization', () => ({ authorizeApiRequest: mocks.authorize }))
+vi.mock('@/lib/backend/stage07', () => ({ proxyStage07Request: mocks.proxy }))
 
 import { GET, POST } from './route'
 
-describe('assets/saved-views route', () => {
+describe('assets/saved-views BFF', () => {
   beforeEach(() => {
     vi.resetAllMocks()
-    mocks.authorizeApiRequest.mockResolvedValue({
-      user: { id: 'user-17' },
-      response: null,
+    mocks.authorize.mockResolvedValue({
+      user: { id: 'user-17', sessionVersion: 4 }, requestId: 'request-7', response: null,
     })
+    mocks.proxy.mockResolvedValue(Response.json({ data: [] }))
   })
 
-  it('lists only the current user views after checking read access', async () => {
-    mocks.list.mockResolvedValueOnce([{
-      id: 'view-1', name: 'На ремонте', filters: { status: 'UNDER_REPAIR' },
-    }])
+  it('proxies reads to FastAPI after checking current-user permission', async () => {
     const request = new NextRequest('http://localhost/api/assets/saved-views')
 
-    const response = await GET(request)
+    await GET(request)
 
-    expect(mocks.authorizeApiRequest).toHaveBeenCalledWith(request, 'assets.read')
-    expect(mocks.list).toHaveBeenCalledWith('user-17')
-    expect(await response.json()).toEqual({
-      data: [{ id: 'view-1', name: 'На ремонте', filters: { status: 'UNDER_REPAIR' } }],
-    })
+    expect(mocks.authorize).toHaveBeenCalledWith(request, 'assets.read')
+    expect(mocks.proxy).toHaveBeenCalledWith(request, '/api/assets/saved-views', expect.objectContaining({ id: 'user-17' }), 'request-7')
   })
 
-  it('creates a named view for the authenticated owner', async () => {
-    const view = { id: 'view-2', name: 'Ноутбуки', filters: { search: 'Ноутбук' } }
-    mocks.create.mockResolvedValueOnce(view)
-
-    const response = await POST(new NextRequest('http://localhost/api/assets/saved-views', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name: 'Ноутбуки', filters: { search: 'Ноутбук' } }),
-    }))
-
-    expect(mocks.authorizeApiRequest.mock.calls[0]?.[1]).toBe('assets.read')
-    expect(mocks.create).toHaveBeenCalledWith('user-17', {
-      name: 'Ноутбуки', filters: { search: 'Ноутбук' },
+  it('validates the public input on a clone and forwards the untouched body', async () => {
+    const request = new NextRequest('http://localhost/api/assets/saved-views', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Ноутбуки', filters: { search: 'Dell' } }),
     })
-    expect(response.status).toBe(201)
-    expect(await response.json()).toEqual({ data: view })
+
+    const response = await POST(request)
+
+    expect(response.status).toBe(200)
+    expect(mocks.proxy).toHaveBeenCalledWith(request, '/api/assets/saved-views', expect.anything(), 'request-7')
+    expect(await request.json()).toEqual({ name: 'Ноутбуки', filters: { search: 'Dell' } })
   })
 
-  it('rejects unknown filter fields', async () => {
+  it('rejects unknown filter fields before reaching FastAPI', async () => {
     const response = await POST(new NextRequest('http://localhost/api/assets/saved-views', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name: 'Все данные', filters: { archived: true } }),
     }))
 
     expect(response.status).toBe(422)
-    expect(mocks.create).not.toHaveBeenCalled()
+    expect(mocks.proxy).not.toHaveBeenCalled()
   })
 
-  it('returns a conflict when the owner already used that view name', async () => {
-    mocks.create.mockRejectedValueOnce(new Prisma.PrismaClientKnownRequestError(
-      'Unique constraint failed',
-      { code: 'P2002', clientVersion: '6.19.3' },
-    ))
+  it('does not contact Python when the browser permission check denies access', async () => {
+    mocks.authorize.mockResolvedValue({ response: Response.json({ error: { code: 'FORBIDDEN' } }, { status: 403 }) })
+    const request = new NextRequest('http://localhost/api/assets/saved-views')
 
-    const response = await POST(new NextRequest('http://localhost/api/assets/saved-views', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name: 'Все данные', filters: {} }),
-    }))
+    const response = await GET(request)
 
-    expect(response.status).toBe(409)
-    expect(await response.json()).toMatchObject({ error: { code: 'SAVED_VIEW_EXISTS' } })
+    expect(response.status).toBe(403)
+    expect(mocks.proxy).not.toHaveBeenCalled()
   })
 })

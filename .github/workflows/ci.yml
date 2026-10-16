@@ -21,13 +21,13 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 12
     env:
       DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/project1_test
-      NEXTAUTH_URL: http://localhost:3000
+      NEXTAUTH_URL: http://localhost:3001
       NEXTAUTH_SECRET: ci-only-secret-with-at-least-thirty-two-characters
       BACKEND_BASE_URL: http://127.0.0.1:8000
       BACKEND_BRIDGE_SECRET: ci-only-bridge-secret-with-at-least-thirty-two-characters
       BACKEND_INTERNAL_AUTH_SECRET: ci-only-internal-secret-with-at-least-thirty-two-characters
-      NEXT_PUBLIC_APP_URL: http://localhost:3000
-      PLAYWRIGHT_BASE_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3001
+      PLAYWRIGHT_BASE_URL: http://localhost:3001
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -55,8 +55,8 @@ jobs:
         env:
           DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/project1_test
         run: |
-          createdb --template=project1_test erp_stage06_e2e
-          psql postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage06_e2e -v ON_ERROR_STOP=1 <<'SQL'
+          createdb --template=project1_test erp_stage07_e2e
+          psql postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage07_e2e -v ON_ERROR_STOP=1 <<'SQL'
           DO $$
           DECLARE all_tables text;
           BEGIN
@@ -73,14 +73,12 @@ jobs:
         run: uv sync --frozen
       - name: Run browser tests against the shared E2E database
         env:
-          DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage06_e2e
-          STAGE06_E2E_DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage06_e2e
-          STAGE06_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage06_e2e
-          STAGE05_E2E_DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage06_e2e
-          STAGE04_E2E_DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage06_e2e
-          STAGE03_TEST_DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage06_e2e
-          STAGE05_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage06_e2e
-          BACKEND_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage06_e2e
+          DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage07_e2e
+          STAGE07_E2E_DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage07_e2e
+          STAGE07_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage07_e2e
+          BACKEND_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage07_e2e
+          BACKEND_BRIDGE_SECRET: ci-only-stage07-bridge-secret-with-at-least-thirty-two-characters
+          BACKEND_INTERNAL_AUTH_SECRET: ci-only-stage07-internal-secret-with-at-least-thirty-two-characters
         run: npm run test:e2e
       - run: npm audit --omit=dev --omit=optional --audit-level=high
 
@@ -105,6 +103,7 @@ jobs:
       STAGE03_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage03_test
       STAGE05_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage05_test
       STAGE06_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage06_test
+      STAGE07_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage07_test
       BACKEND_ENVIRONMENT: test
       BACKEND_OTEL_ENABLED: "false"
     steps:
@@ -126,6 +125,21 @@ jobs:
         run: |
           createdb --template=erp_stage02_test erp_stage06_test
           psql postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage06_test -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          DECLARE all_tables text;
+          BEGIN
+            SELECT string_agg(format('%I.%I', schemaname, tablename), ', ')
+              INTO all_tables
+              FROM pg_tables
+             WHERE schemaname = 'public';
+            EXECUTE 'TRUNCATE TABLE ' || all_tables || ' CASCADE';
+          END
+          $$;
+          SQL
+      - name: Create isolated Stage 07 test copy
+        run: |
+          createdb --template=erp_stage02_test erp_stage07_test
+          psql postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage07_test -v ON_ERROR_STOP=1 <<'SQL'
           DO $$
           DECLARE all_tables text;
           BEGIN

@@ -1,8 +1,7 @@
-import type { Asset } from '@/features/assets/contracts/types'
-import { AssetService } from '@/features/assets/application/asset.service'
 import { assetsQuerySchema } from '@/features/assets/contracts/schemas'
 import { requirePagePermission } from '@/lib/auth/authorization'
 import { ArchiveClient } from '@/features/assets/ui/archive-client'
+import { assetQueryString, readAssetCatalogs, readAssetList } from '@/features/assets/infrastructure/backend-ssr'
 
 interface ArchivePageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>
@@ -22,28 +21,20 @@ export default async function ArchivePage({ searchParams }: ArchivePageProps) {
     archived: 'true',
   })
   const query = parsed.success ? parsed.data : assetsQuerySchema.parse({ archived: 'true' })
-  const [{ assets, total }, { mols, groups }] = await Promise.all([
-    AssetService.list(query, user.access),
-    AssetService.listCatalogs(user.access),
+  const [assetPage, { mols, groups }] = await Promise.all([
+    readAssetList(user, assetQueryString({ ...query, archived: true }), 'Не удалось загрузить архив имущества'),
+    readAssetCatalogs(user),
   ])
-  const serializedAssets = assets.map((asset) => ({
-    ...asset,
-    initialCost: asset.initialCost.toString(),
-    unitPrice: asset.unitPrice.toString(),
-    quantity: asset.quantity.toString(),
-    totalCost: asset.totalCost.toString(),
-    holdings: asset.holdings.map((holding) => ({ ...holding, quantity: holding.quantity.toString() })),
-  })) as unknown as Asset[]
 
   return <ArchiveClient
-    assets={serializedAssets}
+    assets={assetPage.assets}
     mols={mols}
     groups={groups}
     pagination={{
       page: query.page,
       pageSize: query.pageSize,
-      total,
-      totalPages: Math.max(1, Math.ceil(total / query.pageSize)),
+      total: assetPage.pagination.total,
+      totalPages: assetPage.pagination.totalPages,
     }}
     filters={{ search: query.search, molId: query.molId, groupId: query.groupId, status: query.status }}
     canEdit={user.access.has('assets.restore')}

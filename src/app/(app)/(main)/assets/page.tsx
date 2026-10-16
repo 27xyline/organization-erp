@@ -1,11 +1,9 @@
-import type { Asset } from '@/features/assets/contracts/types'
-import { AssetService } from '@/features/assets/application/asset.service'
-import { getAssetSavedViewService } from '@/features/assets/application/saved-view.service'
 import { assetSavedViewFiltersSchema } from '@/features/assets/contracts/saved-view'
 import { assetsQuerySchema } from '@/features/assets/contracts/schemas'
 import { defaultLandingPath, requirePageUser } from '@/lib/auth/authorization'
 import { AssetsPageClient } from '@/features/assets/ui/assets-page-client'
 import { redirect } from 'next/navigation'
+import { assetQueryString, readAssetCatalogs, readAssetList, readAssetSavedViews } from '@/features/assets/infrastructure/backend-ssr'
 
 interface AssetsPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>
@@ -37,32 +35,18 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
     archived: 'false',
   })
   const query = parsed.success ? parsed.data : assetsQuerySchema.parse({ archived: 'false' })
-  const [{ assets, total }, { mols, groups }, savedViews] = await Promise.all([
-    AssetService.list(query, user.access),
-    AssetService.listCatalogs(user.access),
-    getAssetSavedViewService().list(user.id),
+  const [assetPage, { mols, groups }, savedViews] = await Promise.all([
+    readAssetList(user, assetQueryString({ ...query, archived: false }), 'Не удалось загрузить имущество'),
+    readAssetCatalogs(user),
+    readAssetSavedViews(user),
   ])
-  const serializedAssets = assets.map((asset) => ({
-    ...asset,
-    initialCost: asset.initialCost.toString(),
-    unitPrice: asset.unitPrice.toString(),
-    quantity: asset.quantity.toString(),
-    totalCost: asset.totalCost.toString(),
-    holdings: asset.holdings
-      ? asset.holdings.map((holding) => ({
-          ...holding,
-          quantity: holding.quantity.toString(),
-        }))
-      : [],
-  })) as unknown as Asset[]
-  const totalPages = Math.max(1, Math.ceil(total / query.pageSize))
 
   return (
     <AssetsPageClient
-      assets={serializedAssets}
+      assets={assetPage.assets}
       mols={mols}
       groups={groups}
-      pagination={{ page: query.page, pageSize: query.pageSize, total, totalPages }}
+      pagination={assetPage.pagination}
       filters={{
         search: query.search,
         molId: query.molId,
@@ -72,10 +56,7 @@ export default async function AssetsPage({ searchParams }: AssetsPageProps) {
         dateFrom: query.dateFrom,
         dateTo: query.dateTo,
       }}
-      savedViews={savedViews.map((view) => ({
-        ...view,
-        filters: assetSavedViewFiltersSchema.parse(view.filters),
-      }))}
+      savedViews={savedViews.map((view) => ({ ...view, filters: assetSavedViewFiltersSchema.parse(view.filters) }))}
       canEdit={user.access.has('assets.update')}
       canImport={canCreateAssets}
       canInventory={canManageInventory}

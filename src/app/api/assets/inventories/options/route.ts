@@ -1,10 +1,9 @@
 import type { NextRequest } from 'next/server'
-import { getAssetInventoryService } from '@/features/assets/application/inventory.service'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { apiData } from '@/lib/http/api-response'
+import { proxyStage07Request } from '@/lib/backend/stage07'
 
 export async function GET(request: NextRequest) {
   const auth = await authorizeApiRequest(request, 'assets.inventory.manage')
   if (auth.response) return auth.response
-  return apiData(await getAssetInventoryService().mols(auth.access))
+  return proxyStage07Request(request, '/api/assets/inventories/options', auth.user, auth.requestId)
 }

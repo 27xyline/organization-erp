@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
-import { getAssetInventoryService } from '@/features/assets/application/inventory.service'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { apiData, apiError } from '@/lib/http/api-response'
+import { apiError } from '@/lib/http/api-response'
+import { proxyStage07Request } from '@/lib/backend/stage07'
 
 export async function GET(request: NextRequest) {
   const auth = await authorizeApiRequest(request, 'assets.inventory.manage')
@@ -10,6 +10,5 @@ export async function GET(request: NextRequest) {
   if (!inventoryNumber || inventoryNumber.length > 100) {
     return apiError('VALIDATION_ERROR', 'Укажите корректный инвентарный номер', 422)
   }
-  const entries = await getAssetInventoryService().resolve(inventoryNumber, auth.access)
-  return apiData(entries)
+  return proxyStage07Request(request, `${request.nextUrl.pathname}${request.nextUrl.search}`, auth.user, auth.requestId)
 }

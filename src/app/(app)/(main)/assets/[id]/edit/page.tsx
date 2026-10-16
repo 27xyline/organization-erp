@@ -2,11 +2,11 @@ import { notFound } from 'next/navigation'
 import { AssetForm } from '@/features/assets/ui/asset-form'
 import { OperationsHistory } from '@/features/assets/ui/operations-history'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { AssetService } from '@/features/assets/application/asset.service'
 import { requirePagePermission } from '@/lib/auth/authorization'
 import { assetTarget } from '@/lib/auth/resource-scopes'
 import { backendUserFetch } from '@/lib/backend/bridge'
 import { readBackendData } from '@/lib/backend/page-data'
+import { readAssetById, readAssetCatalogs } from '@/features/assets/infrastructure/backend-ssr'
 
 interface EditAssetPageProps {
   params: Promise<{ id: string }>
@@ -20,8 +20,8 @@ export default async function EditAssetPage(props: EditAssetPageProps) {
     departmentIds: target.departmentIds,
   })
   const [asset, { mols, groups }, projectResponse] = await Promise.all([
-    AssetService.get(params.id, user.access),
-    AssetService.listCatalogs(user.access),
+    readAssetById(user, params.id),
+    readAssetCatalogs(user),
     backendUserFetch('/api/projects/references?page=1&pageSize=100&status=ACTIVE', user),
   ])
   const projects = await readBackendData<Array<{ id: string; code: string; name: string }>>(

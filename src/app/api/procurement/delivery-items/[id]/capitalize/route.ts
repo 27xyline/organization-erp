@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client'
 import type { NextRequest } from 'next/server'
-import { AssetService } from '@/features/assets/application/asset.service'
+import { createTransitionalCapitalizationAsset } from '@/features/assets/application/transitional-capitalization-asset.adapter'
 import { getProcurementService } from '@/features/procurement/application/procurement.service'
 import { procurementApiError } from '@/features/procurement/application/http'
 import { capitalizeDeliveryItemSchema } from '@/features/procurement/contracts/procurement'
@@ -19,11 +19,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
         input.data,
         auth.user.id,
         auth.requestId,
-        (assetInput) => AssetService.create(
-          assetInput,
-          auth.user.id,
-          auth.requestId,
-        ),
+        (assetInput) => createTransitionalCapitalizationAsset(assetInput, auth.user.id, auth.requestId),
       ),
     )
   } catch (error) {

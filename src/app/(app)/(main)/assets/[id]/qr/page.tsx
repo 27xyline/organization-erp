@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
-import { AssetService } from '@/features/assets/application/asset.service'
 import { AssetQrLabelClient } from '@/features/assets/ui/asset-qr-label-client'
 import { requirePagePermission } from '@/lib/auth/authorization'
+import { readAssetById } from '@/features/assets/infrastructure/backend-ssr'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,7 +10,7 @@ export default async function AssetQrLabelPage({ params }: { params: Promise<{ i
     requirePagePermission('assets.read'),
     params,
   ])
-  const asset = await AssetService.get(id, user.access)
+  const asset = await readAssetById(user, id)
   if (!asset) notFound()
 
   return <AssetQrLabelClient asset={{

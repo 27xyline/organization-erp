@@ -1,7 +1,6 @@
 import type { NextRequest } from 'next/server'
-import { getAssetSavedViewService } from '@/features/assets/application/saved-view.service'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { apiError } from '@/lib/http/api-response'
+import { proxyStage07Request } from '@/lib/backend/stage07'
 
 export async function DELETE(
   request: NextRequest,
@@ -10,10 +9,6 @@ export async function DELETE(
   const auth = await authorizeApiRequest(request, 'assets.read')
   if (auth.response) return auth.response
 
-  const { id } = await context.params
-  const deleted = await getAssetSavedViewService().delete(auth.user.id, id)
-  if (!deleted) {
-    return apiError('SAVED_VIEW_NOT_FOUND', 'Представление не найдено', 404)
-  }
-  return new Response(null, { status: 204 })
+  await context.params
+  return proxyStage07Request(request, `${request.nextUrl.pathname}${request.nextUrl.search}`, auth.user, auth.requestId)
 }

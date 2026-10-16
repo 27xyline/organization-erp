@@ -6,9 +6,9 @@ import { formatDate, formatCurrency, formatDecimal } from '@/lib/utils'
 import { AssetStatusLabels } from '@/features/assets/contracts/types'
 import { ArrowLeft, Edit, ArrowRightLeft, FileText, Calendar, Image as ImageIcon, QrCode } from 'lucide-react'
 import { AssetOperationsHistory } from '@/features/assets/ui/asset-operations-history'
-import { AssetService } from '@/features/assets/application/asset.service'
 import { requirePagePermission } from '@/lib/auth/authorization'
 import { AssetMaintenanceSection } from '@/features/assets/ui/asset-maintenance-section'
+import { readAssetById } from '@/features/assets/infrastructure/backend-ssr'
 
 interface AssetDetailPageProps {
   params: Promise<{ id: string }>
@@ -19,7 +19,7 @@ export default async function AssetDetailPage(props: AssetDetailPageProps) {
     requirePagePermission('assets.read'),
     props.params,
   ])
-  const asset = await AssetService.get(params.id, user.access)
+  const asset = await readAssetById(user, params.id)
 
   if (!asset) {
     notFound()

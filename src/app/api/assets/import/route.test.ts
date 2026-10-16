@@ -1,138 +1,121 @@
 import { NextRequest } from 'next/server'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({
-  authorizeApiRequest: vi.fn(),
-  parseWorkbook: vi.fn(),
-  preview: vi.fn(),
-  createTemplate: vi.fn(),
-  validateCommit: vi.fn(),
-  createMany: vi.fn(),
-}))
-
-vi.mock('@/lib/auth/authorization', () => ({ authorizeApiRequest: mocks.authorizeApiRequest }))
-vi.mock('@/features/assets/application/asset-import.service', () => ({
-  AssetImportService: {
-    parseWorkbook: mocks.parseWorkbook,
-    preview: mocks.preview,
-    createTemplate: mocks.createTemplate,
-    validateCommit: mocks.validateCommit,
-  },
-  MAX_ASSET_IMPORT_ROWS: 100,
-  MAX_ASSET_IMPORT_FILE_BYTES: 5 * 1024 * 1024,
-}))
-vi.mock('@/features/assets/application/asset.service', () => ({
-  AssetService: { createMany: mocks.createMany },
-}))
+const mocks = vi.hoisted(() => ({ authorize: vi.fn(), proxy: vi.fn(), departmentForMol: vi.fn(), allows: vi.fn() }))
+vi.mock('@/lib/auth/authorization', () => ({ authorizeApiRequest: mocks.authorize }))
+vi.mock('@/lib/backend/stage07', () => ({ proxyStage07Request: mocks.proxy }))
+vi.mock('@/lib/auth/resource-scopes', () => ({ departmentForMol: mocks.departmentForMol }))
 
 import { GET as getTemplate } from './template/route'
 import { POST as previewFile } from './preview/route'
 import { POST as commitImport } from './commit/route'
 
-const access = { allows: vi.fn(), allowedDepartmentIds: vi.fn() }
 const input = {
   name: 'Ноутбук', inventoryNumber: 'INV-1', unitPrice: 1250.5, unitOfMeasure: 'шт', quantity: 2,
-  molId: 'mol-1', groupId: 'group-1', projectId: null, contractCode: undefined,
-  internalFundingCode: undefined, isExistingAsset: false, recordingDate: '2026-07-16',
+  molId: 'mol-1', groupId: 'group-1', projectId: null, isExistingAsset: false, recordingDate: '2026-07-16',
   documentType: 'Накладная', documentDetails: '№ 7', documentFiles: [], status: 'IN_STOCK',
-  notes: undefined, plannedDisposalDate: undefined, plannedDisposalReason: undefined,
   photos: [], accountingForm: '145',
 }
 
-function nextRequest(url: string, body?: BodyInit) {
-  return new NextRequest(url, { method: 'POST', ...(body ? { body } : {}) })
-}
-
-describe('asset import routes', () => {
+describe('asset import BFF', () => {
   beforeEach(() => {
     vi.resetAllMocks()
-    mocks.authorizeApiRequest.mockResolvedValue({
-      user: { id: 'user-1' }, access, requestId: 'request-1', response: null,
+    mocks.authorize.mockResolvedValue({
+      user: { id: 'user-1', sessionVersion: 1 }, access: { allows: mocks.allows },
+      requestId: 'request-1', response: null,
     })
-    mocks.parseWorkbook.mockResolvedValue([{ rowNumber: 2, values: {} }])
-    mocks.preview.mockResolvedValue([{
-      rowNumber: 2,
-      inventoryNumber: 'INV-1',
-      name: 'Ноутбук',
-      molCode: 'M-1',
-      groupCode: 'G-1',
-      quantity: '2',
-      unitPrice: '1250.5',
-      unitOfMeasure: 'шт',
-      input,
-      errors: [],
-    }])
-    mocks.validateCommit.mockResolvedValue(new Map())
-    mocks.createMany.mockResolvedValue(1)
+    mocks.allows.mockReturnValue(true)
+    mocks.proxy.mockResolvedValue(Response.json({ data: { ok: true } }, { status: 201 }))
+    mocks.departmentForMol.mockResolvedValue('department-1')
+  })
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('checks create permission before proxying the binary template download', async () => {
+    const request = new NextRequest('http://localhost/api/assets/import/template')
+    await getTemplate(request)
+
+    expect(mocks.authorize).toHaveBeenCalledWith(request, 'assets.create')
+    expect(mocks.proxy).toHaveBeenCalledWith(request, '/api/assets/import/template', expect.anything(), 'request-1')
   })
 
-  it('downloads the template only after checking asset-creation access', async () => {
-    mocks.createTemplate.mockResolvedValue(Buffer.from('xlsx'))
+  it('checks multipart presence, extension, and size before forwarding the untouched upload', async () => {
+    const emptyForm = new FormData()
+    const emptyResponse = await previewFile(new NextRequest('http://localhost/api/assets/import/preview', {
+      method: 'POST', body: emptyForm,
+    }))
+    expect(emptyResponse.status).toBe(422)
+    expect(mocks.proxy).not.toHaveBeenCalled()
 
-    const response = await getTemplate(new NextRequest('http://localhost/api/assets/import/template'))
-
-    expect(mocks.authorizeApiRequest).toHaveBeenCalledWith(expect.any(Request), 'assets.create')
-    expect(response.status).toBe(200)
-    expect(response.headers.get('content-disposition')).toContain('asset-import-template.xlsx')
-    expect(await response.text()).toBe('xlsx')
-  })
-
-  it('requires an .xlsx file and returns the validation preview', async () => {
-    const emptyForm = await previewFile(nextRequest('http://localhost/api/assets/import/preview', new FormData()))
-    expect(emptyForm.status).toBe(422)
-    expect(mocks.parseWorkbook).not.toHaveBeenCalled()
-
-    const request = {
-      formData: async () => ({ get: () => ({
-        name: 'inventory.xlsx',
-        size: 3,
-        arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
-      }) }),
-    } as unknown as NextRequest
+    const form = new FormData()
+    form.append('file', new File(['xlsx-content'], 'inventory.xlsx', {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    }))
+    const request = new NextRequest('http://localhost/api/assets/import/preview', { method: 'POST', body: form })
+    Object.defineProperty(request, 'clone', {
+      value: () => ({
+        formData: async () => ({
+          get: () => ({ name: 'inventory.xlsx', size: 11, arrayBuffer: async () => new ArrayBuffer(11) }),
+        }),
+      }),
+    })
     const response = await previewFile(request)
 
-    expect(response.status, await response.clone().text()).toBe(200)
-    expect(mocks.preview).toHaveBeenCalledWith([{ rowNumber: 2, values: {} }], access)
-    expect(await response.json()).toEqual({ data: {
-      rows: [{
-        rowNumber: 2,
-        inventoryNumber: 'INV-1',
-        name: 'Ноутбук',
-        molCode: 'M-1',
-        groupCode: 'G-1',
-        quantity: '2',
-        unitPrice: '1250.5',
-        unitOfMeasure: 'шт',
-        input,
-        errors: [],
-      }],
-      validCount: 1,
-      errorCount: 0,
-    } })
-  })
-
-  it('revalidates every row and writes the import as one authorized batch', async () => {
-    const response = await commitImport(nextRequest(
-      'http://localhost/api/assets/import/commit',
-      JSON.stringify({ assets: [input] }),
-    ))
-
-    expect(mocks.authorizeApiRequest).toHaveBeenCalledWith(expect.any(NextRequest), 'assets.create')
-    expect(mocks.validateCommit).toHaveBeenCalledWith([expect.objectContaining({ inventoryNumber: 'INV-1' })], access)
-    expect(mocks.createMany).toHaveBeenCalledWith([expect.objectContaining({ inventoryNumber: 'INV-1' })], 'user-1', 'request-1')
     expect(response.status).toBe(201)
-    expect(await response.json()).toEqual({ data: { importedCount: 1, inventoryNumbers: ['INV-1'] } })
+    expect(mocks.proxy).toHaveBeenCalledWith(request, '/api/assets/import/preview', expect.anything(), 'request-1')
+    expect(request.bodyUsed).toBe(false)
+    expect(request.headers.get('content-type')).toContain('multipart/form-data; boundary=')
   })
 
-  it('requires a new preview when access, catalogs, or inventory numbers changed', async () => {
-    mocks.validateCommit.mockResolvedValue(new Map([[2, ['Инвентарный номер уже используется']]]))
+  it('validates rows and checks each MOL department before commit', async () => {
+    const request = new NextRequest('http://localhost/api/assets/import/commit', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ assets: [input] }),
+    })
+    const response = await commitImport(request)
 
-    const response = await commitImport(nextRequest(
-      'http://localhost/api/assets/import/commit',
-      JSON.stringify({ assets: [input] }),
-    ))
+    expect(mocks.authorize).toHaveBeenCalledWith(request, 'assets.create')
+    expect(mocks.departmentForMol).toHaveBeenCalledWith('mol-1')
+    expect(mocks.allows).toHaveBeenCalledWith('assets.create', { departmentId: 'department-1' })
+    expect(mocks.proxy).toHaveBeenCalledWith(request, '/api/assets/import/commit', expect.anything(), 'request-1')
+    expect(await request.json()).toEqual({ assets: [input] })
+    expect(response.status).toBe(201)
+  })
 
-    expect(response.status).toBe(409)
-    expect(mocks.createMany).not.toHaveBeenCalled()
+  it('checks import departments individually instead of passing a combined scope target', async () => {
+    const second = { ...input, inventoryNumber: 'INV-2', molId: 'mol-2' }
+    mocks.departmentForMol.mockImplementation(async (molId: string) =>
+      molId === 'mol-1' ? 'department-1' : 'department-2',
+    )
+    const request = new NextRequest('http://localhost/api/assets/import/commit', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ assets: [input, second] }),
+    })
+    await commitImport(request)
+
+    expect(mocks.allows).toHaveBeenCalledWith('assets.create', { departmentId: 'department-1' })
+    expect(mocks.allows).toHaveBeenCalledWith('assets.create', { departmentId: 'department-2' })
+    expect(mocks.allows).toHaveBeenCalledTimes(2)
+    expect(mocks.proxy).toHaveBeenCalledWith(request, '/api/assets/import/commit', expect.anything(), 'request-1')
+  })
+
+  it('denies a row whose MOL department is outside the browser actor scope', async () => {
+    mocks.allows.mockReturnValue(false)
+    const request = new NextRequest('http://localhost/api/assets/import/commit', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ assets: [input] }),
+    })
+    const response = await commitImport(request)
+
+    expect(response.status).toBe(403)
+    expect(mocks.proxy).not.toHaveBeenCalled()
+  })
+
+  it('rejects malformed commit input before reaching Python', async () => {
+    const response = await commitImport(new NextRequest('http://localhost/api/assets/import/commit', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ assets: [] }),
+    }))
+
+    expect(response.status).toBe(422)
+    expect(mocks.proxy).not.toHaveBeenCalled()
   })
 })

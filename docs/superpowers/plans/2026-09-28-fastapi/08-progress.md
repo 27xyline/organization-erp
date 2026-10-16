@@ -1,6 +1,6 @@
 # Прогресс переноса
 
-План создан 28 сентября 2026. Этап 00 выполнен 7 октября 2026: инвентаризация и изолированные baseline-копии готовы. Пользовательские команды закрыли учебные паузы этапов 00–05 по мере продолжения работ; Stage 05 завершён и проверен 15 октября 2026. Stage 06 реализован и проверен 15 октября 2026; он ожидает пользовательского разбора. Этапы 07–14 не начаты.
+План создан 28 сентября 2026. Этап 00 выполнен 7 октября 2026: инвентаризация и изолированные baseline-копии готовы. Пользовательские команды закрыли учебные паузы этапов 00–05 по мере продолжения работ; Stage 05 завершён и проверен 15 октября 2026. Stage 06 реализован и проверен 15 октября 2026; пользователь закрыл его паузу 16 октября, самостоятельное упражнение остаётся учебной задачей. Stage 07 реализован и прошёл локальные проверки 16 октября 2026; ожидает разбора пользователя. Stage 08 не начат.
 
 | Этап | Статус | Проверки | Учебная пауза |
 |---|---|---|---|
@@ -10,8 +10,8 @@
 | 03 Auth/RBAC/bridge | Реализован и проверен | Python 71; Vitest 313 passed/5 skipped; E2E 6/6; Webpack build; Docker readiness 200 | Закрыта явной авторизацией пользователя на Stage 04 от 10 октября |
 | 04 Подразделения/справочники | Реализован и проверен | Python 95; Vitest 309 passed/5 skipped; Playwright 7/7; typecheck/ESLint; Webpack build; Docker app/backend readiness 200; legacy parity 9 audit events | Закрыта командой пользователя 13 октября 2026 |
 | 05 Кадровые процессы | Реализован и проверен | Python 154; Vitest 294 passed/5 skipped; Playwright 8/8; typecheck/ESLint; Webpack build 48 pages; Docker app/backend build и readiness 200 на `erp_stage05_e2e`; 8 audit events, outbox 0 | Закрыта пользовательской командой продолжить работу 15 октября 2026 |
-| 06 Проекты/задачи | Реализован и проверен | Python 173; Vitest 284 passed/5 skipped; Playwright 9/9; typecheck; changed-file ESLint 0 errors; Webpack и Docker app/backend build; app/backend readiness 200; 8 parity audit payloads; Stage06 outbox 0 | Ожидает пользовательского разбора; exercise deadline не реализовано |
-| 07 Имущество | Не начат | Не запускались | Впереди |
+| 06 Проекты/задачи | Реализован и проверен | Python 173; Vitest 284 passed/5 skipped; Playwright 9/9; typecheck; changed-file ESLint 0 errors; Webpack и Docker app/backend build; app/backend readiness 200; 8 parity audit payloads; Stage06 outbox 0 | Закрыта 16 октября командой продолжить; deadline exercise не реализовано |
+| 07 Имущество | Реализован и проверен; ожидает разбора пользователя | Python 215; golden replay 5 + affected replay 1; Vitest 273/5 skipped; Playwright 10/10; typecheck/changed-file ESLint; Docker builds и live/ready 200; parity | Ожидает разбора; exercise на две передачи не реализовано |
 | 08 Документы | Не начат | Не запускались | Впереди |
 | 09 Согласования/уведомления | Не начат | Не запускались | Впереди |
 | 10 Табель/финансы | Не начат | Не запускались | Впереди |
@@ -28,6 +28,15 @@
 - Операционный incident: по ошибке был кратковременно запущен default Dockerfile target (notification worker) на изолированной `erp_stage06_e2e`; stdout говорит `SMTP settings not configured, skipping outbox processing`. Контейнер немедленно остановлен/удалён; последующая read-only проверка подтвердила outbox total=0 (pending/processing/sent/failed=0). Полный факт и ограничения указаны в validation report.
 - База создавалась как template-copy `erp_migration_20261007` с локальной очисткой только изолированных Stage06 копий; это не `pg_dump --schema-only`. Источники и миграции не использовались как targets. Docker smoke storage был отдельным writable volume.
 - Коммит API: `827fa102160ee5f58fdca0075d330830c0b3a3d8` — «Перенести проекты и задачи на FastAPI». Frontend/BFF и Stage06 отчёты входят в отдельный завершающий коммит этого этапа; push и удалённые CI проверки не выполнялись. Stage 07 остаётся не начатым.
+
+## Запись Stage 07 — 16 октября 2026
+
+- Browser asset API и SSR callers переключены на typed FastAPI bridge; маршруты сохраняют публичные URL, auth/Origin/Zod/resource prechecks и не имеют TS fallback. Ownership и оставшееся исключение закупочной капитализации описаны в [Stage 07 ownership](../../../backend-migration/stage07-ownership.md).
+- Legacy baseline изолированно capture-нут: 46 вызовов и 14 audit payloads. Golden replay подтвердил 31 success DTO shape, 42 HTTP status assertions, оба binary header contracts, persisted state, все 14 audit payloads и outbox delta 0; два legacy XLSX 500 исправлены на рабочий Python export. Подробности и ограничения — [Stage 07 validation](../../../backend-migration/stage07-validation.md).
+- Проверки: Python 215 passed; replay 5 passed плюс затронутый строгий replay после test-only assertions 1 passed; Ruff, format 196 files, mypy 130 modules и uv lock check passed; Vitest 273 passed / 5 skipped; typecheck и changed-file ESLint passed; Playwright 10/10; host Webpack build 48 pages до последнего date helper и финальный app Docker runner build после него; backend image собран. Оба runtime на общей `erp_stage07_e2e` вернули live/ready 200, app-to-backend live — 200, documents volume writable для uid 1001. Полный репозиторий ESLint и remote CI не заявляются как проверенные.
+- Первичная zero-row cleanup запись оказалась false green: template copies содержали seed rows. Копии создавались PostgreSQL template-copy из `erp_migration_20261007` (не `pg_dump --schema-only`); строки удалены только в приватных Stage07 БД, затем проверены 52 таблицы/0 строк. Источники не были write targets. Финальные smoke containers/network/volume удалены, PostgreSQL оставлен запущенным. Protected `next-env.d.ts` и `tsconfig.json` подтверждены по ожидаемым SHA. Remote CI не запускался.
+- Stage 07 локально проверен и ожидает учебного разбора пользователя. Обязательный regression на конкурентное двойное списание уже проходит на двух соединениях; предлагаемое самостоятельное exercise, которое не реализовано в этом этапе: написать regression на две одновременные передачи одного остатка разным МОЛ и сравнить optimistic/pessimistic/serializable защиту. Stage 08 не начат.
+- Backend commit: `3d83bef7a90a207469cf17dd11df42f9a7839899` (52 files); BFF/SSR/CI/docs оформлены завершающим коммитом Stage 07. Push не выполнялся.
 
 ## Запись после этапа
 
