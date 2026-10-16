@@ -23,3 +23,7 @@ class PersistenceConflict(Exception):
 
     def __str__(self) -> str:
         return self.constraint
+
+
+class RetryableTransactionError(Exception):
+    """Persistence reports PostgreSQL serialization or deadlock; transaction rolled back."""

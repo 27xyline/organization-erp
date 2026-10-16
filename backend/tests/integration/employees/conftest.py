@@ -25,9 +25,16 @@ from app.services.workforce import WorkforceService
 
 @pytest.fixture
 async def hr_env() -> AsyncIterator[dict]:
+    stage07_url = os.environ.get("STAGE07_TEST_DATABASE_URL")
     stage06_url = os.environ.get("STAGE06_TEST_DATABASE_URL")
-    url = stage06_url or os.environ.get("STAGE05_TEST_DATABASE_URL", "")
-    expected = "erp_stage06_test" if stage06_url else "erp_stage05_test"
+    url = stage07_url or stage06_url or os.environ.get("STAGE05_TEST_DATABASE_URL", "")
+    expected = (
+        "erp_stage07_test"
+        if stage07_url
+        else "erp_stage06_test"
+        if stage06_url
+        else "erp_stage05_test"
+    )
     if not url or make_url(url).database != expected:
         pytest.fail(f"HR tests must point to isolated {expected}")
     engine = create_async_engine(Settings(database_url=url).database_url.get_secret_value())

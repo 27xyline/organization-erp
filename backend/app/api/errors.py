@@ -53,6 +53,32 @@ def install_error_handlers(app: FastAPI) -> None:
                 status_code=200,
                 headers={"x-request-id": request.state.request_context.request_id},
             )
+        if request.url.path.startswith(("/api/assets", "/api/operations")):
+            errors = exc.errors()
+            safe_parse_path = any(
+                part in request.url.path
+                for part in ("/maintenance", "/saved-views", "/import/", "/inventories")
+            )
+            if any(error.get("type") == "json_invalid" for error in errors) and not safe_parse_path:
+                return _error_response(
+                    500, "internal_error", "An unexpected error occurred", request=request
+                )
+            asset_fields: dict[str, list[str]] = {}
+            for error in errors:
+                location = error.get("loc", ())
+                key = str(location[1]) if len(location) > 1 else ""
+                if key:
+                    asset_fields.setdefault(key, []).append(str(error.get("msg", "Invalid value")))
+            return JSONResponse(
+                {
+                    "error": {
+                        "code": "VALIDATION_ERROR",
+                        "message": "Проверьте введённые данные",
+                        "fieldErrors": asset_fields,
+                    }
+                },
+                status_code=422,
+            )
         if request.url.path.startswith(("/api/projects", "/api/tasks")):
             errors = exc.errors()
             member_path = "/members" in request.url.path
@@ -160,6 +186,22 @@ def install_error_handlers(app: FastAPI) -> None:
             in {"INVALID_SCOPE_ASSIGNMENT", "INVALID_SCOPE_REFERENCE", "EMPLOYEE_LINK_REQUIRED"}
         ):
             message = "Проверьте роли, области доступа и связь с сотрудником"
+        if exc.code == "ASSET_IMPORT_REVIEW_REQUIRED":
+            return JSONResponse(
+                {"error": {"code": exc.code, "message": message, "fieldErrors": exc.details}},
+                status_code=exc.status_code,
+            )
+        if request.url.path.endswith("/transfers"):
+            message = {
+                "ASSET_ARCHIVED": "Архивный объект нельзя передать",
+                "INSUFFICIENT_QUANTITY": "Недостаточный остаток для передачи",
+                "MOL_NOT_FOUND": "МОЛ-получатель не найден",
+            }.get(exc.code, message)
+        if request.url.path.endswith("/disposals"):
+            message = {
+                "ASSET_ARCHIVED": "Архивный объект нельзя списать",
+                "INSUFFICIENT_QUANTITY": "Недостаточный остаток для списания",
+            }.get(exc.code, message)
         return _error_response(exc.status_code, exc.code, message, exc.details, request=request)
 
     @app.exception_handler(StarletteHTTPException)

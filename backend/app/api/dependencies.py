@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import replace
 from typing import Annotated, cast
 
@@ -9,8 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.context import Actor, RequestContext
 from app.domain.errors import DomainError
+from app.integrations.asset_import import OpenpyxlAssetWorkbook
+from app.integrations.asset_qr import render_asset_qr
 from app.integrations.auth_bridge import verify_bridge
 from app.integrations.password_hash import Argon2PasswordHasher
+from app.services.asset_export import AssetExportService
+from app.services.asset_import import AssetImportService
 from app.services.auth import AuthService
 from app.services.catalogs import CatalogService
 from app.services.departments import DepartmentService
@@ -73,3 +77,15 @@ def get_workforce_service(request: Request) -> WorkforceService:
 
 def get_personnel_action_service(request: Request) -> PersonnelActionService:
     return PersonnelActionService(request.app.state.unit_of_work_factory)
+
+
+def get_asset_import_service(request: Request) -> AssetImportService:
+    return AssetImportService(request.app.state.unit_of_work_factory, OpenpyxlAssetWorkbook())
+
+
+def get_asset_export_service(request: Request) -> AssetExportService:
+    return AssetExportService(request.app.state.unit_of_work_factory, OpenpyxlAssetWorkbook())
+
+
+def get_asset_qr_renderer() -> Callable[[str], bytes]:
+    return render_asset_qr
