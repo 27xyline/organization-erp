@@ -25,11 +25,16 @@ from app.services.workforce import WorkforceService
 
 @pytest.fixture
 async def hr_env() -> AsyncIterator[dict]:
+    stage08_url = os.environ.get("STAGE08_TEST_DATABASE_URL")
     stage07_url = os.environ.get("STAGE07_TEST_DATABASE_URL")
     stage06_url = os.environ.get("STAGE06_TEST_DATABASE_URL")
-    url = stage07_url or stage06_url or os.environ.get("STAGE05_TEST_DATABASE_URL", "")
+    url = (
+        stage08_url or stage07_url or stage06_url or os.environ.get("STAGE05_TEST_DATABASE_URL", "")
+    )
     expected = (
-        "erp_stage07_test"
+        "erp_stage08_test"
+        if stage08_url
+        else "erp_stage07_test"
         if stage07_url
         else "erp_stage06_test"
         if stage06_url

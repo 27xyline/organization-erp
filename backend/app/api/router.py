@@ -6,6 +6,7 @@ from app.api.routes.assets import router as assets_router
 from app.api.routes.auth_internal import router as auth_router
 from app.api.routes.catalogs import router as catalogs_router
 from app.api.routes.departments import router as departments_router
+from app.api.routes.documents import router as documents_router
 from app.api.routes.employees import router as employees_router
 from app.api.routes.health import router as health_router
 from app.api.routes.inventory import router as inventory_router
@@ -40,3 +41,5 @@ api_router.include_router(asset_import_router)
 api_router.include_router(inventory_router)
 api_router.include_router(assets_router)
 api_router.include_router(operations_router)
+
+api_router.include_router(documents_router)

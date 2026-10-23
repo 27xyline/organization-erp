@@ -24,6 +24,7 @@ from app.repositories.departments import (
     SqlAlchemyGroupRepository,
     SqlAlchemyMolRepository,
 )
+from app.repositories.documents import SqlAlchemyDocumentRepository
 from app.repositories.employees import SqlAlchemyEmployeeRepository
 from app.repositories.notifications import SqlAlchemyNotificationRepository
 from app.repositories.projects import SqlAlchemyProjectRepository
@@ -50,6 +51,7 @@ class SqlAlchemyUnitOfWork:
         self._session_factory = session_factory
         self._session: AsyncSession | None = None
         self._state = _State.NEW
+        self.documents = SqlAlchemyDocumentRepository(self._active_session)
         self.assets: AssetRepository = SqlAlchemyAssetRepository(self._active_session)
         self.projects: ProjectRepository = SqlAlchemyProjectRepository(self._active_session)
         self.users: UserRepository = SqlAlchemyUserRepository(self._active_session)

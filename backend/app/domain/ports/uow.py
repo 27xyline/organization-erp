@@ -8,6 +8,7 @@ from typing import Protocol, Self, TypeVar
 from app.domain.ports.assets import AssetRepository
 from app.domain.ports.audit import AuditPort
 from app.domain.ports.departments import DepartmentRepository, GroupRepository, MolRepository
+from app.domain.ports.documents import DocumentRepository
 from app.domain.ports.employees import EmployeeRepository, WorkforceRepository
 from app.domain.ports.notifications import NotificationIntentPort
 from app.domain.ports.projects import ProjectRepository
@@ -15,6 +16,9 @@ from app.domain.ports.users import UserRepository
 
 
 class UnitOfWork(Protocol):
+    @property
+    def documents(self) -> DocumentRepository: ...
+
     @property
     def assets(self) -> AssetRepository: ...
 

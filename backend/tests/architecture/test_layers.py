@@ -64,9 +64,13 @@ def find_forbidden_imports(app: Path) -> list[str]:
         source, imports = modules.get(module, (app / (module.replace(".", "/") + ".py"), set()))
         for imported in imports:
             root = imported.split(".", maxsplit=1)[0]
-            if root in FORBIDDEN_ROOTS or (
-                origin.startswith(("domain", "services"))
-                and root in {"models", "repositories", "integrations", "db"}
+            if (
+                root in FORBIDDEN_ROOTS
+                or (
+                    origin.startswith(("domain", "services"))
+                    and root in {"models", "repositories", "integrations", "db"}
+                )
+                or (origin.startswith("domain") and root == "services")
             ):
                 violations.add(f"{origin}: {source}: forbidden dependency {imported}")
                 continue
@@ -123,6 +127,19 @@ def test_import_checker_resolves_relative_imports(tmp_path: Path) -> None:
 
     assert any("sqlalchemy" in violation for violation in violations)
     assert any("domain.rules" in violation for violation in violations)
+
+
+def test_domain_ports_cannot_depend_on_application_dtos(tmp_path: Path) -> None:
+    app = tmp_path / "app"
+    (app / "domain" / "ports").mkdir(parents=True)
+    (app / "services" / "dto").mkdir(parents=True)
+    (app / "services" / "dto" / "documents.py").write_text(
+        "from dataclasses import dataclass\n", encoding="utf-8"
+    )
+    (app / "domain" / "ports" / "documents.py").write_text(
+        "from app.services.dto.documents import DocumentView\n", encoding="utf-8"
+    )
+    assert any("services.dto.documents" in item for item in find_forbidden_imports(app))
 
 
 @pytest.mark.parametrize(

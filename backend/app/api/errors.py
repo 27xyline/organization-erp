@@ -43,6 +43,21 @@ def _validation_details(exc: RequestValidationError) -> list[dict[str, str]]:
 
 
 def install_error_handlers(app: FastAPI) -> None:
+    from app.api.routes.documents import DocumentValidation
+
+    @app.exception_handler(DocumentValidation)
+    async def document_validation(request: Request, exc: DocumentValidation) -> JSONResponse:
+        return JSONResponse(
+            {
+                "error": {
+                    "code": "VALIDATION_ERROR",
+                    "message": "Проверьте введённые данные",
+                    "fieldErrors": exc.fields,
+                }
+            },
+            status_code=422,
+        )
+
     @app.exception_handler(RequestValidationError)
     async def handle_validation_error(
         request: Request, exc: RequestValidationError

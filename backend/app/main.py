@@ -17,6 +17,8 @@ from app.core.middleware import RequestContextMiddleware
 from app.core.observability import create_tracer_provider, get_tracer
 from app.db.session import create_engine, create_session_factory
 from app.db.uow import create_unit_of_work_factory
+from app.integrations.document_rendering import DocumentRenderer
+from app.integrations.document_storage import LocalDocumentStorage
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +64,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
                         resolved_settings.otel_shutdown_timeout_seconds,
                     )
             finally:
-                await resources.engine.dispose()
+                try:
+                    app.state.document_storage.close()
+                finally:
+                    await resources.engine.dispose()
 
     docs_enabled = resolved_settings.environment != "production"
     app = FastAPI(
@@ -74,6 +79,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         lifespan=lifespan,
     )
     app.state.settings = resolved_settings
+    app.state.document_storage = LocalDocumentStorage(resolved_settings.document_storage_root)
+    app.state.document_rendering = DocumentRenderer()
     app.add_middleware(RequestContextMiddleware)
     app.include_router(api_router)
     install_error_handlers(app)

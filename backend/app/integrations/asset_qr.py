@@ -14,6 +14,13 @@ def render_asset_qr(url: str) -> bytes:
     output = io.BytesIO()
     code.make_image(image_factory=SvgPathImage).save(output)
     root = ElementTree.fromstring(output.getvalue())
+    # Serialize a per-document default namespace without mutating ElementTree's
+    # process-global prefix registry (lxml is present once DOCX support is installed).
+    namespace = "{http://www.w3.org/2000/svg}"
+    for element in root.iter():
+        if isinstance(element.tag, str) and element.tag.startswith(namespace):
+            element.tag = element.tag.removeprefix(namespace)
+    root.set("xmlns", "http://www.w3.org/2000/svg")
     root.set("width", "256")
     root.set("height", "256")
     return bytes(ElementTree.tostring(root, encoding="utf-8"))
