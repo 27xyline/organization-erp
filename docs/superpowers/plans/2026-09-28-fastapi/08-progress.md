@@ -14,7 +14,7 @@
 | 07 Имущество | Реализован и проверен | Python 215; golden replay 5 + affected replay 1; Vitest 273/5 skipped; Playwright 10/10; typecheck/changed-file ESLint; Docker builds и live/ready 200; parity | Закрыта командой пользователя перейти к Stage 08; exercise на две передачи не реализовано |
 | 08 Документы | Реализован; code/spec review clean; Docker integration gates пройдены | Python 279; Vitest 273 passed/5 skipped; focused fix 9/9; Playwright 11/11 + docs-only 1/1; typecheck/ESLint; host Webpack и app/backend Docker builds; readiness 200; authenticated BFF 200; cross-image volume smoke под uid 1001 | Реализация готова; ждёт разбора пользователя |
 | 09 Согласования/уведомления | Реализован и проверен | Python 13; PostgreSQL integration 9; Playwright 1; typecheck/ESLint; Vitest 6; Ruff/mypy | Учебная пауза впереди |
-| 10 Табель/финансы | Не начат | Не запускались | Впереди |
+| 10 Табель/финансы | В работе: timekeeping, finance plans/salary и project payroll переключены на Python; payroll period/adjustments/exports остаются TS | Targeted PG18 finance integration 2; HTTP contracts 13 combined with unit/contract checks; BFF Vitest 5; scoped typecheck/Ruff/mypy | Впереди |
 | 11 Закупки | Не начат | Не запускались | Впереди |
 | 12 Отчёты/поиск/экспорт | Не начат | Не запускались | Впереди |
 | 13 Worker/observability | Не начат | Не запускались | Впереди |

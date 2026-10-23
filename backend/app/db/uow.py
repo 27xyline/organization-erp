@@ -15,6 +15,7 @@ from app.domain.ports.assets import AssetRepository
 from app.domain.ports.audit import AuditPort
 from app.domain.ports.departments import DepartmentRepository, GroupRepository, MolRepository
 from app.domain.ports.employees import EmployeeRepository, WorkforceRepository
+from app.domain.ports.finance import FinanceRepository
 from app.domain.ports.notifications import NotificationIntentPort
 from app.domain.ports.payroll_periods import PayrollPeriodRepository
 from app.domain.ports.projects import ProjectRepository
@@ -31,6 +32,7 @@ from app.repositories.departments import (
 )
 from app.repositories.documents import SqlAlchemyDocumentRepository
 from app.repositories.employees import SqlAlchemyEmployeeRepository
+from app.repositories.finance import SqlAlchemyFinanceRepository
 from app.repositories.notifications import SqlAlchemyNotificationRepository
 from app.repositories.payroll_periods import SqlAlchemyPayrollPeriodRepository
 from app.repositories.projects import SqlAlchemyProjectRepository
@@ -83,6 +85,7 @@ class SqlAlchemyUnitOfWork:
         self.timekeeping: TimekeepingRepository = SqlAlchemyTimekeepingRepository(
             self._active_session
         )
+        self.finance: FinanceRepository = SqlAlchemyFinanceRepository(self._active_session)
         self.mols: MolRepository = SqlAlchemyMolRepository(self._active_session)
 
     async def __aenter__(self) -> SqlAlchemyUnitOfWork:

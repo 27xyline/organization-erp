@@ -23,3 +23,11 @@ def test_time_entry_delete_body_remains_optional_for_legacy_callers() -> None:
     ]["delete"]
 
     assert operation.get("requestBody", {}).get("required", False) is False
+
+
+def test_finance_plan_salary_and_project_payroll_routes_are_registered() -> None:
+    routes = create_app(Settings(_env_file=None)).openapi()["paths"]
+
+    assert {"get", "post", "delete"} <= set(routes["/api/finance/plans"])
+    assert "get" in routes["/api/finance/salary"]
+    assert {"get", "put", "delete"} <= set(routes["/api/projects/{project_id}/payroll"])

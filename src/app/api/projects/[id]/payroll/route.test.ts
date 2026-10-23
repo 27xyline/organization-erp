@@ -1,74 +1,66 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ServiceError } from '@/lib/errors/service-error'
 
-const authMocks = vi.hoisted(() => ({
-  allows: vi.fn(() => true),
-}))
+const mocks = vi.hoisted(() => ({ authorize: vi.fn(), allows: vi.fn(), proxy: vi.fn() }))
+vi.mock('@/lib/auth/authorization', () => ({ authorizeApiRequest: mocks.authorize }))
+vi.mock('@/lib/backend/stage10', () => ({ proxyStage10Request: mocks.proxy }))
 
-vi.mock('@/lib/auth/authorization', () => ({
-  AuthorizationError: class AuthorizationError extends Error {},
-  authorizeApiRequest: vi.fn(async () => ({
-    user: { id: 'admin-1', username: 'admin', name: 'Admin', role: 'ADMIN' },
-    access: { allows: authMocks.allows },
-    requestId: 'request-1',
-  })),
-}))
+import { DELETE, GET, PUT } from './route'
 
-vi.mock('@/features/finance/application/project-payroll.service', async () => {
-  const actual = await vi.importActual<typeof import('@/features/finance/application/project-payroll.service')>('@/features/finance/application/project-payroll.service')
+const user = { id: 'accountant-1', sessionVersion: 3 }
+const access = { allows: mocks.allows }
+const params = { params: Promise.resolve({ id: 'project-1' }) }
 
-  return {
-    ...actual,
-    ProjectPayrollService: {
-      getTable: vi.fn(),
-      saveCell: vi.fn(),
-      clearCell: vi.fn(),
-    },
-  }
-})
-
-describe('projects/[id]/payroll route', () => {
+describe('project payroll Stage10 BFF routes', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.authorize.mockResolvedValue({ user, access, requestId: 'request-project-payroll' })
+    mocks.allows.mockReturnValue(true)
+    mocks.proxy.mockResolvedValue(new Response('{"data":{}}', { status: 200 }))
   })
 
-  it('returns 400 for invalid payroll year', async () => {
-    const { GET } = await import('@/app/api/projects/[id]/payroll/route')
+  it('keeps query validation and project-scoped read authorization', async () => {
+    const invalid = new NextRequest('http://localhost/api/projects/project-1/payroll?year=1900')
+    expect((await GET(invalid, params)).status).toBe(400)
+    expect(mocks.proxy).not.toHaveBeenCalled()
 
-    const response = await GET(
-      new NextRequest('http://localhost/api/projects/project-1/payroll?year=1900'),
-      { params: Promise.resolve({ id: 'project-1' }) }
+    mocks.allows.mockReturnValue(false)
+    const forbidden = new NextRequest('http://localhost/api/projects/project-1/payroll?year=2026')
+    expect((await GET(forbidden, params)).status).toBe(403)
+    expect(mocks.proxy).not.toHaveBeenCalled()
+
+    mocks.allows.mockReturnValue(true)
+    expect((await GET(forbidden, params)).status).toBe(200)
+    expect(mocks.authorize).toHaveBeenCalledWith(forbidden, 'projectPayroll.read')
+    expect(mocks.allows).toHaveBeenCalledWith('projectPayroll.read', { projectId: 'project-1' })
+    expect(mocks.proxy).toHaveBeenCalledWith(
+      forbidden, '/api/projects/project-1/payroll?year=2026', user, 'request-project-payroll',
     )
-    const body = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(body).toEqual({ error: 'Invalid payroll year' })
   })
 
-  it('maps payroll service errors to api response', async () => {
-    const { ProjectPayrollService } = await import('@/features/finance/application/project-payroll.service')
-    const { PUT } = await import('@/app/api/projects/[id]/payroll/route')
+  it('validates save and clear bodies before forwarding', async () => {
+    const invalid = new Request('http://localhost/api/projects/project-1/payroll', {
+      method: 'PUT', headers: { 'content-type': 'application/json' }, body: '{}',
+    })
+    expect((await PUT(invalid as never, params)).status).toBe(400)
+    expect(mocks.proxy).not.toHaveBeenCalled()
 
-    vi.mocked(ProjectPayrollService.saveCell).mockRejectedValueOnce(new ServiceError('INVALID_NADBAVKA_AMOUNT'))
+    const save = new Request('http://localhost/api/projects/project-1/payroll', {
+      method: 'PUT', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ year: 2026, month: 3, employeeId: 'employee-1', okladEnabled: true }),
+    })
+    expect((await PUT(save as never, params)).status).toBe(200)
+    expect(mocks.authorize).toHaveBeenCalledWith(save, {
+      anyOf: ['projectPayroll.create', 'projectPayroll.update'],
+    })
+    expect(mocks.proxy).toHaveBeenCalledWith(save, '/api/projects/project-1/payroll', user, 'request-project-payroll')
 
-    const response = await PUT(
-      new Request('http://localhost/api/projects/project-1/payroll', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          employeeId: 'emp-1',
-          year: 2024,
-          month: 1,
-          okladEnabled: false,
-          nadbavkaAmount: 'abc',
-        }),
-      }) as never,
-      { params: Promise.resolve({ id: 'project-1' }) }
-    )
-    const body = await response.json()
-
-    expect(response.status).toBe(400)
-    expect(body).toEqual({ error: 'Введите корректную сумму надбавки' })
+    const clear = new Request('http://localhost/api/projects/project-1/payroll', {
+      method: 'DELETE', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ year: 2026, month: 3, employeeId: 'employee-1' }),
+    })
+    expect((await DELETE(clear as never, params)).status).toBe(200)
+    expect(mocks.authorize).toHaveBeenCalledWith(clear, 'projectPayroll.delete')
+    expect(mocks.proxy).toHaveBeenCalledWith(clear, '/api/projects/project-1/payroll', user, 'request-project-payroll')
   })
 })

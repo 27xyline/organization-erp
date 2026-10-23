@@ -50,8 +50,8 @@
 | `/api/employees/[id]` | PUT, DELETE | 05 | Python (Next BFF) |
 | `/api/employees` | GET, POST | 05 | Python (Next BFF) |
 | `/api/export` | GET | 12 | TS |
-| `/api/finance/plans` | GET, POST, DELETE | 10 | TS |
-| `/api/finance/salary` | GET | 10 | TS |
+| `/api/finance/plans` | GET, POST, DELETE | 10 | Python (Next BFF) |
+| `/api/finance/salary` | GET | 10 | Python (Next BFF) |
 | `/api/groups/[id]` | GET, PUT, DELETE | 04 | Python (Next BFF) |
 | `/api/groups` | GET, POST | 04 | Python (Next BFF) |
 | `/api/health/live` | GET | 01 | TS |
@@ -86,7 +86,7 @@
 | `/api/procurement/suppliers` | POST | 11 | TS |
 | `/api/projects/[id]/members/[memberId]` | PATCH | 06 | Python (Next BFF) |
 | `/api/projects/[id]/members` | GET, POST | 06 | Python (Next BFF) |
-| `/api/projects/[id]/payroll` | GET, PUT, DELETE | 10 | TS |
+| `/api/projects/[id]/payroll` | GET, PUT, DELETE | 10 | Python (Next BFF) |
 | `/api/projects/[id]` | GET, PUT, DELETE | 06 | Python (Next BFF) |
 | `/api/projects/[id]/tasks` | GET, POST | 06 | Python (Next BFF) |
 | `/api/projects` | GET, POST | 06 | Python (Next BFF) |

@@ -9,6 +9,7 @@ from app.api.routes.catalogs import router as catalogs_router
 from app.api.routes.departments import router as departments_router
 from app.api.routes.documents import router as documents_router
 from app.api.routes.employees import router as employees_router
+from app.api.routes.finance import finance_router, project_payroll_router
 from app.api.routes.health import router as health_router
 from app.api.routes.inventory import router as inventory_router
 from app.api.routes.notifications import router as notifications_router
@@ -53,3 +54,5 @@ api_router.include_router(notifications_router)
 api_router.include_router(smtp_settings_router)
 api_router.include_router(payroll_router)
 api_router.include_router(timekeeping_router)
+api_router.include_router(finance_router)
+api_router.include_router(project_payroll_router)

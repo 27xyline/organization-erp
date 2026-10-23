@@ -11,6 +11,7 @@ from app.domain.ports.audit import AuditPort
 from app.domain.ports.departments import DepartmentRepository, GroupRepository, MolRepository
 from app.domain.ports.documents import DocumentRepository
 from app.domain.ports.employees import EmployeeRepository, WorkforceRepository
+from app.domain.ports.finance import FinanceRepository
 from app.domain.ports.notifications import NotificationIntentPort
 from app.domain.ports.payroll_periods import PayrollPeriodRepository
 from app.domain.ports.projects import ProjectRepository
@@ -63,6 +64,9 @@ class UnitOfWork(Protocol):
 
     @property
     def timekeeping(self) -> TimekeepingRepository: ...
+
+    @property
+    def finance(self) -> FinanceRepository: ...
 
     async def __aenter__(self) -> Self: ...
 
