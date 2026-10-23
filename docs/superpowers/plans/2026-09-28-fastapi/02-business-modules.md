@@ -92,14 +92,14 @@ ORM-модели уже mapped в 02. Ни один repository не commit-ит 
 
 **Потребляет:** StoragePort (put/get/delete/stage/promote), auth scopes, related entity references. **Производит:** document/version/download APIs; metadata/read port для approvals/procurement.
 
-- [ ] Upload/options/versions/archive/generate: сохранить categories/status/entity links и rule доступа. Multipart transport проходит BFF без потери boundary/файла.
-- [ ] Сопоставить Python storage с существующим path/key layout, проверить symlink/path traversal, max size, MIME/file policy и SHA-256. Файлы не становятся публичными.
-- [ ] Создание version/currentVersion атомарно в БД; сначала version существует, затем назначается currentVersion. Уникальность номера защищена при двух concurrent uploads.
-- [ ] Описать и проверить протокол FS+DB: stage/temp, finalize, DB commit, cleanup/orphan recovery. Файловая система не участвует в DB transaction; падение в каждом промежутке должно быть воспроизводимо.
-- [ ] Download streaming проверяет доступ до чтения, hash/size integrity, Content-Disposition и полный файл; BFF не буферизует большой upload/download без лимита.
-- [ ] Document rendering вынести из event loop через thread pool; большой export не держит transaction. Повторить шаблоны, таблицы и русские шрифты; открыть реальные DOCX/PDF результаты.
-- [ ] Переключить docs API/SSR, проверить ранее созданные файлы по copy volume, обновить workspace composition из 06.
+- [x] Upload/options/versions/archive/generate: сохранить categories/status/entity links и rule доступа. Multipart transport проходит BFF без потери boundary/файла.
+- [x] Сопоставить Python storage с существующим path/key layout, проверить symlink/path traversal, max size, MIME/file policy и SHA-256. Файлы не становятся публичными.
+- [x] Создание version/currentVersion атомарно в БД; сначала version существует, затем назначается currentVersion. Уникальность номера защищена при двух concurrent uploads.
+- [x] Описать и проверить протокол FS+DB: stage/temp, finalize, DB commit, cleanup/orphan recovery. Файловая система не участвует в DB transaction; падение в каждом промежутке должно быть воспроизводимо.
+- [x] Download streaming проверяет доступ до чтения, hash/size integrity, Content-Disposition и полный файл; BFF не буферизует большой upload/download без лимита.
+- [x] Document rendering вынести из event loop через thread pool; большой export не держит transaction. Повторить шаблоны, таблицы и русские шрифты; открыть реальные DOCX/PDF результаты.
+- [x] Переключить docs API/SSR, проверить ранее созданные файлы по copy volume, обновить workspace composition из 06.
 
 **Проверки:** `uv run pytest tests/unit/documents tests/integration/documents tests/contracts/documents -q`; upload → version → download → compare SHA → archive, отказ доступа и повреждённый файл.
 
-**Готово:** документы сохранены и доступны через Python, нет фиктивных currentVersion. **Пауза:** repository vs storage integration, транзакция БД vs внешний эффект; самостоятельно протестировать превышение размера.
+**Готово:** документы сохранены и доступны через Python, нет фиктивных currentVersion. **Учебная пауза:** обсудить repository vs storage integration и границу транзакции БД с внешним файловым эффектом.
