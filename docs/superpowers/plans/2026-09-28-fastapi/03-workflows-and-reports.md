@@ -22,12 +22,12 @@
 
 **Интерфейсы:** `create_approval_in_uow(command, context, uow)`; `ApprovalService.decide(id, command, context)`; notification producer из 03; delivery processor ещё TS до 13.
 
-- [ ] Templates/create/list/detail/options/cancel: current statuses, approver order, deadline и visibility. Согласование неизвестной entity не создаёт dangling link.
-- [ ] Decision transition/version/locking: два одновременных решения не завершают один шаг дважды; неактивный/чужой approver получает прежний error contract.
-- [ ] Audit и notification intent записываются атомарно; сбой enqueue откатывает decision. Нельзя отправить SMTP прямо в DB transaction.
-- [ ] In-app list/count/read/read-all/preferences; duplicate event/dedupe поведение по текущему source contract. Чтение чужой notification запрещено.
-- [ ] SMTP settings/test port: secret не возвращается клиенту; test email outside transaction; совместимость существующих settings/encryption проверена. Не создавать новую incompatible схему секрета в mixed phase.
-- [ ] Переключить API/SSR этих групп. Manual `/smtp/process` и `/generate-alerts` остаются контролируемыми TS processors до 13; backend ownership registry фиксирует исключение.
+- [x] Templates/create/list/detail/options/cancel: current statuses, approver order, deadline и visibility. Согласование неизвестной entity не создаёт dangling link.
+- [x] Decision transition/version/locking: два одновременных решения не завершают один шаг дважды; неактивный/чужой approver получает прежний error contract.
+- [x] Audit и notification intent записываются атомарно; сбой enqueue откатывает decision. Нельзя отправить SMTP прямо в DB transaction.
+- [x] In-app list/count/read/read-all/preferences; duplicate event/dedupe поведение по текущему source contract. Чтение чужой notification запрещено.
+- [x] SMTP settings/test port: secret не возвращается клиенту; test email outside transaction; совместимость существующих settings/encryption проверена. Не создавать новую incompatible схему секрета в mixed phase.
+- [x] Переключить API/SSR этих групп. Manual `/smtp/process` и `/generate-alerts` остаются контролируемыми TS processors до 13; backend ownership registry фиксирует исключение.
 
 **Проверки:** `uv run pytest tests/unit/approvals tests/integration/approvals tests/contracts/approvals tests/integration/notifications -q`; Playwright двухшаговое approve/reject/cancel, правильное уведомление, гонка на PostgreSQL.
 

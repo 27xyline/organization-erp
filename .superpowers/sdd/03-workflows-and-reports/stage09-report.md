@@ -38,4 +38,4 @@ Stage 09 реализован в ветке `fastapi-runtime-foundation`, баз
 
 ## Commits и caveats
 
-Коммит реализации: `136248aed0487e832aa36e805d6a23d5e0f42051` — `Перенести Stage 09 согласования и уведомления на FastAPI`. Отчёт будет записан отдельным русским docs commit. Push не выполнялся. Stage 10 и Stage 13 не запускались. Единственный внешний verification caveat — SMTP сервер/credentials не проверялись реальным сетевым подключением; обработка test connection выполняется вне DB transaction и покрыта без реального email.
+Коммит реализации: `136248aed0487e832aa36e805d6a23d5e0f42051` — `Перенести Stage 09 согласования и уведомления на FastAPI`; отчёт записан коммитом `67ccebd Добавить отчёт Stage 09`. Push не выполнялся. Stage 10 и Stage 13 не запускались. Единственный внешний verification caveat — SMTP сервер/credentials не проверялись реальным сетевым подключением; обработка test connection выполняется вне DB transaction и покрыта без реального email.
