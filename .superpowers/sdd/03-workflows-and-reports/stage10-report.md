@@ -66,6 +66,15 @@ Stage 10 остаётся **в работе**. В этом срезе завер
 - `/timekeeping` не имел серверной загрузки таблицы; серверная permission gate сохранена, данные идут через переключённый BFF.
 - `next-env.d.ts` был изменён до начала этого среза пользователем; файл не редактировался и не должен попадать в индекс.
 
+## Review follow-up — timekeeping lifecycle
+
+- RED: PG18 regression `test_submit_creates_timesheet_approval_and_audit_in_same_uow` воспроизвёл RETURN → повторную отправку → approve: решение падало на `INVALID_APPROVAL_STATE`, потому что entity lookup возвращал старый rejected request.
+- GREEN: repository добавил `get_pending_for_entity`, фильтрующий только `PENDING` и использующий `scalar_one_or_none`; неоднозначное состояние с несколькими pending requests завершается ошибкой вместо произвольного выбора. PG18 regression проверяет полный путь RETURN → создание time entry → повторная отправка → `REJECTED`, `PENDING` → approve новой заявки.
+- RED: `test_corrected_entry_update_and_delete_reset_approved_timesheet` показал отсутствие `correctionReason` в audit details для update/delete.
+- GREEN: correction audit включает переданную причину; обе записи проверяются на PG18.
+- Scoped verification: оба targeted PG18 tests → **2 passed**; `ruff check` → passed; `ruff format --check` → 4 files formatted; scoped mypy → `Success: no issues found in 3 source files`.
+- Эти follow-up fixes отдельны от следующего finance slice и не меняют финансовые writers.
+
 ## Изменённые пути
 
 Backend domain/calculations: `app/domain/timekeeping/`, `app/domain/finance/`, `app/domain/ports/payroll_periods.py`.

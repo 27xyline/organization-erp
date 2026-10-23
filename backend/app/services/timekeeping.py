@@ -448,6 +448,11 @@ class TimekeepingService:
                         "employeeId": employee_id,
                         "workDate": work_date.isoformat(),
                         "hours": str(hours),
+                        **(
+                            {"correctionReason": value.correctionReason}
+                            if old_correction or next_correction
+                            else {}
+                        ),
                     },
                     context.request_id,
                 )
@@ -480,7 +485,11 @@ class TimekeepingService:
                     "TimeEntry",
                     identifier,
                     actor.actor_id,
-                    {"employeeId": row.employeeId, "workDate": row.workDate.isoformat()},
+                    {
+                        "employeeId": row.employeeId,
+                        "workDate": row.workDate.isoformat(),
+                        **({"correctionReason": correction_reason} if correcting else {}),
+                    },
                     context.request_id,
                 )
             )
@@ -621,7 +630,7 @@ class TimekeepingService:
                     "Согласовать табель должен руководитель подразделения",
                     403,
                 )
-            approval = await uow.approvals.get_for_entity("Timesheet", identifier)
+            approval = await uow.approvals.get_pending_for_entity("Timesheet", identifier)
             if approval is None:
                 _fail("TIMESHEET_APPROVAL_NOT_FOUND", "Не найдено согласование табеля")
             approval_result = await decide_approval_in_uow(

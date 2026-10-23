@@ -25,6 +25,7 @@ from app.repositories.payroll_periods import SqlAlchemyPayrollPeriodRepository
 from app.repositories.timekeeping import SqlAlchemyTimekeepingRepository
 from app.schemas.timekeeping import (
     SubmitTimesheetInput,
+    TimeEntryInput,
     TimeEntryUpdateInput,
     TimesheetDecisionInput,
 )
@@ -632,9 +633,51 @@ async def test_submit_creates_timesheet_approval_and_audit_in_same_uow(
                 )
                 is None
             )
-        decided = await TimekeepingService(
-            SqlAlchemyUnitOfWorkFactory(stage10_session_factory)
-        ).decide(
+        timekeeping = TimekeepingService(SqlAlchemyUnitOfWorkFactory(stage10_session_factory))
+        returned = await timekeeping.decide(
+            result["id"],
+            TimesheetDecisionInput(decision="RETURN", reason="Please correct the report"),
+            reviewer_context,
+        )
+        assert returned["status"] == "RETURNED"
+        await timekeeping.create(
+            TimeEntryInput.model_construct(
+                employeeId=submitter_employee,
+                projectId=None,
+                taskId=None,
+                workDate=date(year, month, 3),
+                type="REGULAR",
+                hours=Decimal("2.00"),
+                note="Added after return",
+                correctionReason=None,
+            ),
+            context,
+        )
+        resubmitted = await timekeeping.submit(
+            SubmitTimesheetInput.model_construct(
+                employeeId=submitter_employee,
+                year=year,
+                month=month,
+                zeroHoursConfirmed=True,
+            ),
+            context,
+        )
+        assert resubmitted["id"] == result["id"]
+        async with stage10_session_factory() as after_resubmit:
+            requests = list(
+                (
+                    await after_resubmit.scalars(
+                        select(ApprovalRequest)
+                        .where(
+                            ApprovalRequest.entityType == "Timesheet",
+                            ApprovalRequest.entityId == result["id"],
+                        )
+                        .order_by(ApprovalRequest.createdAt, ApprovalRequest.id)
+                    )
+                ).all()
+            )
+            assert [item.status for item in requests] == ["REJECTED", "PENDING"]
+        decided = await timekeeping.decide(
             result["id"],
             TimesheetDecisionInput(decision="APPROVE"),
             reviewer_context,
@@ -645,6 +688,7 @@ async def test_submit_creates_timesheet_approval_and_audit_in_same_uow(
                 select(ApprovalRequest).where(
                     ApprovalRequest.entityType == "Timesheet",
                     ApprovalRequest.entityId == result["id"],
+                    ApprovalRequest.status == "APPROVED",
                 )
             )
             assert approval is not None and approval.requestedById == submitter_id
@@ -676,15 +720,21 @@ async def test_submit_creates_timesheet_approval_and_audit_in_same_uow(
             assert saved_sheet is not None and str(saved_sheet.status) == "APPROVED"
     finally:
         async with stage10_session_factory() as cleanup:
-            approval = await cleanup.scalar(
-                select(ApprovalRequest).where(
-                    ApprovalRequest.entityType == "Timesheet",
-                    ApprovalRequest.entityId.in_(
-                        select(Timesheet.id).where(Timesheet.employeeId == submitter_employee)
-                    ),
-                )
+            approvals = list(
+                (
+                    await cleanup.scalars(
+                        select(ApprovalRequest).where(
+                            ApprovalRequest.entityType == "Timesheet",
+                            ApprovalRequest.entityId.in_(
+                                select(Timesheet.id).where(
+                                    Timesheet.employeeId == submitter_employee
+                                )
+                            ),
+                        )
+                    )
+                ).all()
             )
-            if approval:
+            for approval in approvals:
                 await cleanup.delete(approval)
             for entity in (UserRoleAssignment,):
                 row = await cleanup.get(entity, role_id)
@@ -695,6 +745,15 @@ async def test_submit_creates_timesheet_approval_and_audit_in_same_uow(
             )
             if sheet:
                 await cleanup.delete(sheet)
+            entries = list(
+                (
+                    await cleanup.scalars(
+                        select(TimeEntry).where(TimeEntry.employeeId == submitter_employee)
+                    )
+                ).all()
+            )
+            for entry in entries:
+                await cleanup.delete(entry)
             for user_id in (submitter_id, head_user_id):
                 user = await cleanup.get(User, user_id)
                 if user:
@@ -919,6 +978,14 @@ async def test_corrected_entry_update_and_delete_reset_approved_timesheet(
             context,
         )
         async with stage10_session_factory() as after_update:
+            update_audit = await after_update.scalar(
+                select(AuditLog).where(
+                    AuditLog.action == "TIME_ENTRY_CORRECTION",
+                    AuditLog.entityId == entry_id,
+                )
+            )
+            assert update_audit is not None
+            assert update_audit.details["correctionReason"] == "Fix hours"
             sheet = await after_update.scalar(
                 select(Timesheet).where(
                     Timesheet.employeeId == employee_id,
@@ -932,6 +999,22 @@ async def test_corrected_entry_update_and_delete_reset_approved_timesheet(
             await after_update.commit()
         await service.remove(entry_id, context, correction_reason="Remove wrong entry")
         async with stage10_session_factory() as after_delete:
+            correction_audits = list(
+                (
+                    await after_delete.scalars(
+                        select(AuditLog)
+                        .where(
+                            AuditLog.action == "TIME_ENTRY_CORRECTION",
+                            AuditLog.entityId == entry_id,
+                        )
+                        .order_by(AuditLog.createdAt, AuditLog.id)
+                    )
+                ).all()
+            )
+            assert [item.details["correctionReason"] for item in correction_audits] == [
+                "Fix hours",
+                "Remove wrong entry",
+            ]
             sheet = await after_delete.scalar(
                 select(Timesheet).where(
                     Timesheet.employeeId == employee_id,

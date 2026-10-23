@@ -302,6 +302,19 @@ class SqlAlchemyApprovalRepository:
         )
         return await self._record(request) if request else None
 
+    async def get_pending_for_entity(
+        self, entity_type: str, entity_id: str
+    ) -> dict[str, Any] | None:
+        result = await self._session().execute(
+            select(ApprovalRequest).where(
+                ApprovalRequest.entityType == entity_type,
+                ApprovalRequest.entityId == entity_id,
+                ApprovalRequest.status == ApprovalRequestStatus.PENDING,
+            )
+        )
+        request = result.scalar_one_or_none()
+        return await self._record(request) if request else None
+
     async def update_step(self, identifier: str, values: dict[str, Any]) -> None:
         await self._session().execute(
             update(ApprovalStep).where(ApprovalStep.id == identifier).values(**values)

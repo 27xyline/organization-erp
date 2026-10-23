@@ -24,3 +24,5 @@ Pre-flight scan (Stage 10 interfaces):
 Self-consistency: all eight Stage10 acceptance bullets fit the architecture spec. Concurrency, approval, and all financial writes converge on the period lock and caller-owned UoW. No Stage11+ work is included.
 
 Task 1 (foundation + timekeeping slice) has a completed, verified timekeeping workflow/BFF slice; finance/payroll routes and the full Stage 10 acceptance remain in progress. Targeted PG18, backend, frontend route, typecheck, lint, and ownership evidence is recorded in `stage10-report.md`. Stage 10 plan checkboxes remain unchecked until each full acceptance item is confirmed.
+
+Review follow-up for the timekeeping slice: fixed stale rejected-approval selection after RETURN/edit/resubmit and added correctionReason to update/delete audit details. Both regressions were reproduced RED and verified GREEN with focused PostgreSQL 18 tests; evidence is appended to `stage10-report.md`.
