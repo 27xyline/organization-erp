@@ -8,7 +8,7 @@
 
 | URL | Методы в исходнике | Этап | Владелец сейчас |
 |---|---|---|---|
-| `/api/account/password` | POST | 03 | TS |
+| `/api/account/password` | POST | 03 | Python (Next BFF) |
 | `/api/approvals/[id]/cancel` | POST | 09 | Python (Next BFF) |
 | `/api/approvals/[id]/decision` | POST | 09 | Python (Next BFF) |
 | `/api/approvals/[id]` | GET | 09 | Python (Next BFF) |
@@ -16,48 +16,48 @@
 | `/api/approvals` | GET, POST | 09 | Python (Next BFF) |
 | `/api/approvals/templates/[id]` | PATCH | 09 | Python (Next BFF) |
 | `/api/approvals/templates` | GET, POST | 09 | Python (Next BFF) |
-| `/api/assets/[id]/archive` | POST | 07 | TS |
-| `/api/assets/[id]/disposals` | POST | 07 | TS |
-| `/api/assets/[id]/maintenance/[maintenanceId]` | PUT | 07 | TS |
-| `/api/assets/[id]/maintenance` | GET, POST | 07 | TS |
-| `/api/assets/[id]/qr` | GET | 07 | TS |
-| `/api/assets/[id]/restore` | POST | 07 | TS |
-| `/api/assets/[id]` | GET, PUT | 07 | TS |
-| `/api/assets/[id]/transfers` | POST | 07 | TS |
-| `/api/assets/import/commit` | POST | 07 | TS |
-| `/api/assets/import/preview` | POST | 07 | TS |
-| `/api/assets/import/template` | GET | 07 | TS |
-| `/api/assets/inventories/[id]/complete` | POST | 07 | TS |
-| `/api/assets/inventories/[id]` | GET | 07 | TS |
-| `/api/assets/inventories/[id]/scan` | POST | 07 | TS |
-| `/api/assets/inventories/options` | GET | 07 | TS |
-| `/api/assets/inventories/resolve` | GET | 07 | TS |
-| `/api/assets/inventories` | GET, POST | 07 | TS |
-| `/api/assets` | GET, POST | 07 | TS |
-| `/api/assets/saved-views/[id]` | DELETE | 07 | TS |
-| `/api/assets/saved-views` | GET, POST | 07 | TS |
+| `/api/assets/[id]/archive` | POST | 07 | Python (Next BFF) |
+| `/api/assets/[id]/disposals` | POST | 07 | Python (Next BFF) |
+| `/api/assets/[id]/maintenance/[maintenanceId]` | PUT | 07 | Python (Next BFF) |
+| `/api/assets/[id]/maintenance` | GET, POST | 07 | Python (Next BFF) |
+| `/api/assets/[id]/qr` | GET | 07 | Python (Next BFF) |
+| `/api/assets/[id]/restore` | POST | 07 | Python (Next BFF) |
+| `/api/assets/[id]` | GET, PUT | 07 | Python (Next BFF) |
+| `/api/assets/[id]/transfers` | POST | 07 | Python (Next BFF) |
+| `/api/assets/import/commit` | POST | 07 | Python (Next BFF) |
+| `/api/assets/import/preview` | POST | 07 | Python (Next BFF) |
+| `/api/assets/import/template` | GET | 07 | Python (Next BFF) |
+| `/api/assets/inventories/[id]/complete` | POST | 07 | Python (Next BFF) |
+| `/api/assets/inventories/[id]` | GET | 07 | Python (Next BFF) |
+| `/api/assets/inventories/[id]/scan` | POST | 07 | Python (Next BFF) |
+| `/api/assets/inventories/options` | GET | 07 | Python (Next BFF) |
+| `/api/assets/inventories/resolve` | GET | 07 | Python (Next BFF) |
+| `/api/assets/inventories` | GET, POST | 07 | Python (Next BFF) |
+| `/api/assets` | GET, POST | 07 | Python (Next BFF) |
+| `/api/assets/saved-views/[id]` | DELETE | 07 | Python (Next BFF) |
+| `/api/assets/saved-views` | GET, POST | 07 | Python (Next BFF) |
 | `/api/auth/[...nextauth]` | GET, POST | 14 | TS |
-| `/api/departments/[id]` | PATCH, DELETE | 04 | TS |
-| `/api/departments` | GET, POST | 04 | TS |
-| `/api/documents/[id]/archive` | POST | 08 | TS |
-| `/api/documents/[id]/download` | GET | 08 | TS |
-| `/api/documents/[id]` | GET, PATCH | 08 | TS |
-| `/api/documents/[id]/versions` | POST | 08 | TS |
-| `/api/documents/generate` | POST | 08 | TS |
-| `/api/documents/options` | GET | 08 | TS |
-| `/api/documents` | GET, POST | 08 | TS |
-| `/api/employees/[id]/profile` | PUT | 05 | TS |
-| `/api/employees/[id]` | PUT, DELETE | 05 | TS |
-| `/api/employees` | GET, POST | 05 | TS |
+| `/api/departments/[id]` | PATCH, DELETE | 04 | Python (Next BFF) |
+| `/api/departments` | GET, POST | 04 | Python (Next BFF) |
+| `/api/documents/[id]/archive` | POST | 08 | Python (Next BFF) |
+| `/api/documents/[id]/download` | GET | 08 | Python (Next BFF) |
+| `/api/documents/[id]` | GET, PATCH | 08 | Python (Next BFF) |
+| `/api/documents/[id]/versions` | POST | 08 | Python (Next BFF) |
+| `/api/documents/generate` | POST | 08 | Python (Next BFF) |
+| `/api/documents/options` | GET | 08 | Python (Next BFF) |
+| `/api/documents` | GET, POST | 08 | Python (Next BFF) |
+| `/api/employees/[id]/profile` | PUT | 05 | Python (Next BFF) |
+| `/api/employees/[id]` | PUT, DELETE | 05 | Python (Next BFF) |
+| `/api/employees` | GET, POST | 05 | Python (Next BFF) |
 | `/api/export` | GET | 12 | TS |
 | `/api/finance/plans` | GET, POST, DELETE | 10 | TS |
 | `/api/finance/salary` | GET | 10 | TS |
-| `/api/groups/[id]` | GET, PUT, DELETE | 04 | TS |
-| `/api/groups` | GET, POST | 04 | TS |
+| `/api/groups/[id]` | GET, PUT, DELETE | 04 | Python (Next BFF) |
+| `/api/groups` | GET, POST | 04 | Python (Next BFF) |
 | `/api/health/live` | GET | 01 | TS |
 | `/api/health/ready` | GET | 01 | TS |
-| `/api/mols/[id]` | GET, PUT, DELETE | 04 | TS |
-| `/api/mols` | GET, POST | 04 | TS |
+| `/api/mols/[id]` | GET, PUT, DELETE | 04 | Python (Next BFF) |
+| `/api/mols` | GET, POST | 04 | Python (Next BFF) |
 | `/api/notifications/[id]` | PATCH, DELETE | 09 | Python (Next BFF) |
 | `/api/notifications/generate-alerts` | POST | 13 | TS |
 | `/api/notifications/preferences` | GET, PUT | 09 | Python (Next BFF) |
@@ -67,15 +67,15 @@
 | `/api/notifications/smtp` | GET, POST | 09 | Python (Next BFF) |
 | `/api/notifications/smtp/test` | POST | 09 | Python (Next BFF) |
 | `/api/notifications/unread-count` | GET | 09 | Python (Next BFF) |
-| `/api/operations` | GET | 07 | TS |
+| `/api/operations` | GET | 07 | Python (Next BFF) |
 | `/api/payroll/adjustments/[id]` | DELETE | 10 | TS |
 | `/api/payroll/export` | GET | 10 | TS |
 | `/api/payroll/export-payslip` | GET | 10 | TS |
 | `/api/payroll/period` | PUT | 10 | TS |
 | `/api/payroll` | GET, POST | 10 | TS |
-| `/api/personnel-actions/[id]` | DELETE | 05 | TS |
-| `/api/personnel-actions` | GET, POST | 05 | TS |
-| `/api/personnel-actions/sync` | POST | 05 | TS |
+| `/api/personnel-actions/[id]` | DELETE | 05 | Python (Next BFF) |
+| `/api/personnel-actions` | GET, POST | 05 | Python (Next BFF) |
+| `/api/personnel-actions/sync` | POST | 05 | Python (Next BFF) |
 | `/api/procurement/[id]/contract` | POST | 11 | TS |
 | `/api/procurement/[id]/deliveries` | POST | 11 | TS |
 | `/api/procurement/[id]` | GET, PUT | 11 | TS |
@@ -84,12 +84,12 @@
 | `/api/procurement/options` | GET | 11 | TS |
 | `/api/procurement` | GET, POST | 11 | TS |
 | `/api/procurement/suppliers` | POST | 11 | TS |
-| `/api/projects/[id]/members/[memberId]` | PATCH | 06 | TS |
-| `/api/projects/[id]/members` | GET, POST | 06 | TS |
+| `/api/projects/[id]/members/[memberId]` | PATCH | 06 | Python (Next BFF) |
+| `/api/projects/[id]/members` | GET, POST | 06 | Python (Next BFF) |
 | `/api/projects/[id]/payroll` | GET, PUT, DELETE | 10 | TS |
-| `/api/projects/[id]` | GET, PUT, DELETE | 06 | TS |
-| `/api/projects/[id]/tasks` | GET, POST | 06 | TS |
-| `/api/projects` | GET, POST | 06 | TS |
+| `/api/projects/[id]` | GET, PUT, DELETE | 06 | Python (Next BFF) |
+| `/api/projects/[id]/tasks` | GET, POST | 06 | Python (Next BFF) |
+| `/api/projects` | GET, POST | 06 | Python (Next BFF) |
 | `/api/reports/custom` | POST | 12 | TS |
 | `/api/reports/depreciation` | GET | 12 | TS |
 | `/api/reports/export` | GET | 12 | TS |
@@ -98,18 +98,18 @@
 | `/api/reports/turnover` | GET | 12 | TS |
 | `/api/reports/vacations` | GET | 12 | TS |
 | `/api/search` | GET | 12 | TS |
-| `/api/staff-schedule/[id]` | PUT, DELETE | 05 | TS |
-| `/api/staff-schedule` | GET, POST | 05 | TS |
-| `/api/tasks/[id]/comments` | POST | 06 | TS |
-| `/api/tasks/[id]` | PUT, DELETE | 06 | TS |
+| `/api/staff-schedule/[id]` | PUT, DELETE | 05 | Python (Next BFF) |
+| `/api/staff-schedule` | GET, POST | 05 | Python (Next BFF) |
+| `/api/tasks/[id]/comments` | POST | 06 | Python (Next BFF) |
+| `/api/tasks/[id]` | PUT, DELETE | 06 | Python (Next BFF) |
 | `/api/time-entries/[id]` | PUT, DELETE | 10 | TS |
 | `/api/time-entries` | GET, POST | 10 | TS |
 | `/api/timekeeping/timesheets/[id]/decision` | POST | 10 | TS |
 | `/api/timekeeping/timesheets` | POST | 10 | TS |
-| `/api/users/[id]` | PATCH | 03 | TS |
-| `/api/users` | GET, POST | 03 | TS |
-| `/api/vacations/[id]` | PUT, DELETE | 05 | TS |
-| `/api/vacations` | GET, POST | 05 | TS |
+| `/api/users/[id]` | PATCH | 03 | Python (Next BFF) |
+| `/api/users` | GET, POST | 03 | Python (Next BFF) |
+| `/api/vacations/[id]` | PUT, DELETE | 05 | Python (Next BFF) |
+| `/api/vacations` | GET, POST | 05 | Python (Next BFF) |
 
 Итого: 102 route файлов. Новые internal bridge/session endpoints добавляются отдельно. Все найденные методы должны быть учтены, включая negative permissions и binary/multipart ответы.
 

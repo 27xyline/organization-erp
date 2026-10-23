@@ -16,7 +16,7 @@ Stage 09 реализован в ветке `fastapi-runtime-foundation`, баз
 - `create_approval_in_uow(command, context, uow)` принимает caller-owned UoW, проверяет наличие связанных сущностей и активных согласующих. Неизвестный тип/идентификатор entity отклоняется до создания dangling link. Создание согласования, Document `IN_REVIEW`/`lockVersion`, audit и notification intent входят в один commit/rollback.
 - Решение и отмена блокируют approval row через PostgreSQL `FOR UPDATE`, обновляют статус/шаги/Document status и версии, добавляют audit и enqueue notification intent в том же UoW. Параллельный тест подтверждает, что конкурентные попытки не продвигают один шаг дважды. Сохранён legacy error contract: неверный активный шаг/согласующий может вернуть `FORBIDDEN`; коды отсутствующей/изменённой заявки переводятся в `APPROVAL_NOT_FOUND` и `INVALID_APPROVAL_STATE`. Cancel API, как и TS источник, возвращает pre-cancel snapshot, хотя сохранённое состояние уже `CANCELLED`.
 - Notification inbox сортируется по `createdAt DESC, id DESC`, ограничен текущим пользователем и `IN_APP`; read/delete чужого уведомления возвращает 404. Уникальный `(userId,eventType,channel)` preference upsert выдерживает конкуренцию; notification dedupe остаётся `(userId,dedupeKey,channel)`.
-- SMTP singleton остаётся совместимым с текущими текстовыми значениями. Пароль сохраняется строкой, публичный ответ всегда содержит `password: ""`; пустое значение при update не затирает ранее сохранённый пароль. Test probe поднимает сеть через `asyncio.to_thread` после закрытия read session. `/smtp/process` и `/generate-alerts` не переводились.
+- SMTP singleton остаётся совместимым с текущими текстовыми значениями. Пароль сохраняется строкой, публичный ответ всегда содержит `password: ""`; пустое значение при update не затирает ранее сохранённый пароль. Test probe поднимает сеть через `asyncio.to_thread` после закрытия UoW. `/smtp/process` и `/generate-alerts` не переводились.
 
 ## TDD и verification
 
@@ -28,6 +28,13 @@ Stage 09 реализован в ветке `fastapi-runtime-foundation`, баз
 - `npm run typecheck` — exit 0. Changed-file ESLint — exit 0, без warnings после очистки unused import. BFF Vitest route tests — `3 files passed, 6 tests passed`.
 - Ruff format check — 23 файла уже отформатированы; Stage09 `ruff check` — `All checks passed!`. Targeted mypy — `Success: no issues found in 8 source files`. `git diff --check` — exit 0.
 - SMTP сеть не вызывалась в тестах: проверка connection adapter подменена, проверены redaction и сохранение legacy password. Реальная SMTP доступность и отправка письма не тестировались.
+
+## Пост-аудитная проверка архитектуры — 23 октября 2026
+
+- Общий архитектурный гейт выявил, что три Stage09 services напрямую импортировали ORM/SQLAlchemy/SMTP adapter и model enums. Статусы вынесены в framework-independent `app.domain.enums`; approval repository переводит unique-constraint ошибки в `PersistenceConflict`; SMTP settings получили domain port и SQLAlchemy adapter в UoW, а verifier внедряется composition root. API contract, row lock, текстовый пароль и probe после закрытия UoW сохранены.
+- Регрессионная архитектурная проверка, SMTP unit test и approvals router unit test: `11 passed`. Ruff по изменённым Python-файлам: `All checks passed!`. Полный `uv run mypy app`: `Success: no issues found in 160 source files`.
+- PostgreSQL Stage09 integration suite не запускался повторно после этого рефакторинга: в проверочном окружении не был задан изолированный `STAGE09_TEST_DATABASE_URL`. Ранее записанные `9 passed` относятся к Stage09 до этого архитектурного follow-up. Docker и реальные SMTP-соединения в follow-up не использовались.
+- Исправлены слои и добавлены файлы `backend/app/domain/enums.py`, `backend/app/domain/ports/smtp.py`, `backend/app/repositories/smtp_settings.py`, `backend/tests/architecture/test_layers.py`, `backend/tests/unit/test_smtp_settings.py`; адаптирована SMTP integration test для внедряемого verifier.
 
 ## Изолированные базы и cleanup
 
