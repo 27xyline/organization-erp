@@ -13,11 +13,13 @@ from app.api.routes.health import router as health_router
 from app.api.routes.inventory import router as inventory_router
 from app.api.routes.notifications import router as notifications_router
 from app.api.routes.operations import router as operations_router
+from app.api.routes.payroll import router as payroll_router
 from app.api.routes.personnel_actions import router as personnel_actions_router
 from app.api.routes.projects import router as projects_router
 from app.api.routes.smtp_settings import router as smtp_settings_router
 from app.api.routes.staff_schedule import router as staff_schedule_router
 from app.api.routes.tasks import router as tasks_router
+from app.api.routes.timekeeping import router as timekeeping_router
 from app.api.routes.users import router as users_router
 from app.api.routes.vacations import router as vacations_router
 
@@ -49,3 +51,5 @@ api_router.include_router(documents_router)
 api_router.include_router(approvals_router)
 api_router.include_router(notifications_router)
 api_router.include_router(smtp_settings_router)
+api_router.include_router(payroll_router)
+api_router.include_router(timekeeping_router)

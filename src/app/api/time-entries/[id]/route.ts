@@ -1,9 +1,8 @@
 import type { NextRequest } from 'next/server'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { apiData, apiValidationError } from '@/lib/http/api-response'
+import { apiValidationError } from '@/lib/http/api-response'
 import { timeEntryDeleteSchema, updateTimeEntrySchema } from '@/features/timekeeping/contracts/time-entry'
-import { TimekeepingService } from '@/features/timekeeping/application/timekeeping.service'
-import { timekeepingApiError } from '@/features/timekeeping/application/http'
+import { proxyStage10Request } from '@/lib/backend/stage10'
 
 export async function PUT(
   request: NextRequest,
@@ -11,22 +10,10 @@ export async function PUT(
 ) {
   const auth = await authorizeApiRequest(request, 'timekeeping.update')
   if (auth.response) return auth.response
-  const input = updateTimeEntrySchema.safeParse(await request.json().catch(() => null))
+  const input = updateTimeEntrySchema.safeParse(await request.clone().json().catch(() => null))
   if (!input.success) return apiValidationError(input.error)
   const { id } = await context.params
-  try {
-    return apiData(
-      await TimekeepingService.update(
-        id,
-        input.data,
-        auth.access,
-        auth.user.id,
-        auth.requestId,
-      ),
-    )
-  } catch (error) {
-    return timekeepingApiError(error)
-  }
+  return proxyStage10Request(request, `/api/time-entries/${id}`, auth.user, auth.requestId)
 }
 
 export async function DELETE(
@@ -35,19 +22,8 @@ export async function DELETE(
 ) {
   const auth = await authorizeApiRequest(request, 'timekeeping.delete')
   if (auth.response) return auth.response
-  const input = timeEntryDeleteSchema.safeParse(await request.json().catch(() => ({})))
+  const input = timeEntryDeleteSchema.safeParse(await request.clone().json().catch(() => ({})))
   if (!input.success) return apiValidationError(input.error)
   const { id } = await context.params
-  try {
-    await TimekeepingService.remove(
-      id,
-      auth.access,
-      auth.user.id,
-      auth.requestId,
-      input.data.correctionReason,
-    )
-    return apiData({ success: true })
-  } catch (error) {
-    return timekeepingApiError(error)
-  }
+  return proxyStage10Request(request, `/api/time-entries/${id}`, auth.user, auth.requestId)
 }

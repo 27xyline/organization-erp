@@ -12,8 +12,10 @@ from app.domain.ports.departments import DepartmentRepository, GroupRepository, 
 from app.domain.ports.documents import DocumentRepository
 from app.domain.ports.employees import EmployeeRepository, WorkforceRepository
 from app.domain.ports.notifications import NotificationIntentPort
+from app.domain.ports.payroll_periods import PayrollPeriodRepository
 from app.domain.ports.projects import ProjectRepository
 from app.domain.ports.smtp import SmtpSettingsPort
+from app.domain.ports.timekeeping import TimekeepingRepository
 from app.domain.ports.users import UserRepository
 
 
@@ -55,6 +57,12 @@ class UnitOfWork(Protocol):
 
     @property
     def workforce(self) -> WorkforceRepository: ...
+
+    @property
+    def payroll_periods(self) -> PayrollPeriodRepository: ...
+
+    @property
+    def timekeeping(self) -> TimekeepingRepository: ...
 
     async def __aenter__(self) -> Self: ...
 

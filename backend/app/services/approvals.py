@@ -115,6 +115,132 @@ async def create_approval_in_uow(
     return result
 
 
+async def decide_approval_in_uow(
+    identifier: str,
+    command: ApprovalDecisionCommand,
+    context: RequestContext,
+    uow: UnitOfWork,
+) -> dict[str, Any]:
+    """Apply an approval decision and its audit/notification in a caller-owned UoW."""
+    assert context.actor is not None
+    actor = context.actor
+    request = await uow.approvals.get_for_update(identifier)
+    if request is None:
+        fail("NOT_FOUND")
+    if request["status"] != ApprovalRequestStatus.PENDING.value:
+        fail("INVALID_STATE")
+    step = next(
+        (
+            item
+            for item in request["steps"]
+            if item["sequence"] == request["currentStep"]
+            and item["status"] == ApprovalStepStatus.PENDING.value
+        ),
+        None,
+    )
+    if step is None:
+        fail("INVALID_STATE")
+    if step["approverId"] != actor.actor_id:
+        fail("FORBIDDEN")
+    now = datetime.now(UTC).replace(tzinfo=None)
+    rejected = command.decision == "REJECT"
+    status = ApprovalRequestStatus.REJECTED if rejected else ApprovalRequestStatus.PENDING
+    next_step = (
+        None
+        if rejected
+        else next(
+            (item for item in request["steps"] if item["sequence"] == step["sequence"] + 1), None
+        )
+    )
+    await uow.approvals.update_step(
+        step["id"],
+        {
+            "status": ApprovalStepStatus.REJECTED if rejected else ApprovalStepStatus.APPROVED,
+            "comment": command.comment or None,
+            "decidedAt": now,
+        },
+    )
+    next_approver_id = None
+    if rejected:
+        await uow.approvals.update_waiting_steps(identifier, ApprovalStepStatus.SKIPPED.value)
+        await uow.approvals.update_request(
+            identifier,
+            {"status": status, "completedAt": now, "lockVersion": request["lockVersion"] + 1},
+        )
+        if request["documentId"]:
+            await uow.approvals.set_document_status(
+                request["documentId"], DocumentStatus.DRAFT.value
+            )
+    elif next_step:
+        next_approver_id = next_step["approverId"]
+        await uow.approvals.update_step(next_step["id"], {"status": ApprovalStepStatus.PENDING})
+        await uow.approvals.update_request(
+            identifier,
+            {"currentStep": next_step["sequence"], "lockVersion": request["lockVersion"] + 1},
+        )
+    else:
+        status = ApprovalRequestStatus.APPROVED
+        await uow.approvals.update_request(
+            identifier,
+            {"status": status, "completedAt": now, "lockVersion": request["lockVersion"] + 1},
+        )
+        if request["documentId"]:
+            await uow.approvals.set_document_status(
+                request["documentId"], DocumentStatus.APPROVED.value
+            )
+    await uow.audit.append(
+        AuditRecord(
+            "APPROVAL_REJECT" if rejected else "APPROVAL_APPROVE",
+            "ApprovalRequest",
+            identifier,
+            actor.actor_id,
+            {"sequence": step["sequence"], "comment": command.comment or None},
+            context.request_id,
+        )
+    )
+    recipient = next_approver_id or request["requestedById"]
+    event: Literal["APPROVAL_REQUESTED", "APPROVAL_DECIDED"] = (
+        "APPROVAL_REQUESTED" if next_approver_id else "APPROVAL_DECIDED"
+    )
+    title = "Требуется согласование" if next_approver_id else "Согласование завершено"
+    dedupe = (
+        f"approval:{identifier}:step:{step['sequence'] + 1}"
+        if next_approver_id
+        else f"approval:{identifier}:result:{status.value}"
+    )
+    await publish(
+        uow,
+        (recipient,),
+        NotificationIntent(
+            user_id=recipient,
+            event_type=event,
+            channel="IN_APP",
+            title=title,
+            body=request["title"],
+            dedupe_key=dedupe,
+            payload={
+                "eventType": event,
+                "title": title,
+                "body": request["title"],
+                "targetUrl": "/approvals",
+            },
+            target_url="/approvals",
+            entity_type="ApprovalRequest",
+            entity_id=identifier,
+        ),
+        actor_id=actor.actor_id,
+        request_id=context.request_id,
+    )
+    return {
+        "requestId": identifier,
+        "title": request["title"],
+        "requestedById": request["requestedById"],
+        "nextApproverId": next_approver_id,
+        "nextSequence": step["sequence"] + 1,
+        "status": status.value,
+    }
+
+
 class ApprovalService:
     def __init__(self, factory: UnitOfWorkFactory[UnitOfWork]) -> None:
         self._factory = factory
@@ -252,140 +378,9 @@ class ApprovalService:
         actor = context.actor
         authorize(actor, "approvals.decide")
         async with self._factory() as uow:
-            request = await uow.approvals.get_for_update(identifier)
-            if request is None:
-                fail("NOT_FOUND")
-            if request["status"] != ApprovalRequestStatus.PENDING.value:
-                fail("INVALID_STATE")
-            step = next(
-                (
-                    item
-                    for item in request["steps"]
-                    if item["sequence"] == request["currentStep"]
-                    and item["status"] == ApprovalStepStatus.PENDING.value
-                ),
-                None,
-            )
-            if step is None:
-                fail("INVALID_STATE")
-            if step["approverId"] != actor.actor_id:
-                fail("FORBIDDEN")
-            now = datetime.now(UTC).replace(tzinfo=None)
-            rejected = command.decision == "REJECT"
-            status = ApprovalRequestStatus.REJECTED if rejected else ApprovalRequestStatus.PENDING
-            next_step = (
-                None
-                if rejected
-                else next(
-                    (item for item in request["steps"] if item["sequence"] == step["sequence"] + 1),
-                    None,
-                )
-            )
-            await uow.approvals.update_step(
-                step["id"],
-                {
-                    "status": ApprovalStepStatus.REJECTED
-                    if rejected
-                    else ApprovalStepStatus.APPROVED,
-                    "comment": command.comment or None,
-                    "decidedAt": now,
-                },
-            )
-            next_approver_id = None
-            if rejected:
-                await uow.approvals.update_waiting_steps(
-                    identifier, ApprovalStepStatus.SKIPPED.value
-                )
-                await uow.approvals.update_request(
-                    identifier,
-                    {
-                        "status": status,
-                        "completedAt": now,
-                        "lockVersion": request["lockVersion"] + 1,
-                    },
-                )
-                if request["documentId"]:
-                    await uow.approvals.set_document_status(
-                        request["documentId"], DocumentStatus.DRAFT.value
-                    )
-            elif next_step:
-                next_approver_id = next_step["approverId"]
-                await uow.approvals.update_step(
-                    next_step["id"], {"status": ApprovalStepStatus.PENDING}
-                )
-                await uow.approvals.update_request(
-                    identifier,
-                    {
-                        "currentStep": next_step["sequence"],
-                        "lockVersion": request["lockVersion"] + 1,
-                    },
-                )
-            else:
-                status = ApprovalRequestStatus.APPROVED
-                await uow.approvals.update_request(
-                    identifier,
-                    {
-                        "status": status,
-                        "completedAt": now,
-                        "lockVersion": request["lockVersion"] + 1,
-                    },
-                )
-                if request["documentId"]:
-                    await uow.approvals.set_document_status(
-                        request["documentId"], DocumentStatus.APPROVED.value
-                    )
-            await uow.audit.append(
-                AuditRecord(
-                    "APPROVAL_REJECT" if rejected else "APPROVAL_APPROVE",
-                    "ApprovalRequest",
-                    identifier,
-                    actor.actor_id,
-                    {"sequence": step["sequence"], "comment": command.comment or None},
-                    context.request_id,
-                )
-            )
-            recipient = next_approver_id or request["requestedById"]
-            event: Literal["APPROVAL_REQUESTED", "APPROVAL_DECIDED"] = (
-                "APPROVAL_REQUESTED" if next_approver_id else "APPROVAL_DECIDED"
-            )
-            title = "Требуется согласование" if next_approver_id else "Согласование завершено"
-            dedupe = (
-                f"approval:{identifier}:step:{step['sequence'] + 1}"
-                if next_approver_id
-                else f"approval:{identifier}:result:{status.value}"
-            )
-            await publish(
-                uow,
-                (recipient,),
-                NotificationIntent(
-                    user_id=recipient,
-                    event_type=event,
-                    channel="IN_APP",
-                    title=title,
-                    body=request["title"],
-                    dedupe_key=dedupe,
-                    payload={
-                        "eventType": event,
-                        "title": title,
-                        "body": request["title"],
-                        "targetUrl": "/approvals",
-                    },
-                    target_url="/approvals",
-                    entity_type="ApprovalRequest",
-                    entity_id=identifier,
-                ),
-                actor_id=actor.actor_id,
-                request_id=context.request_id,
-            )
+            result = await decide_approval_in_uow(identifier, command, context, uow)
             await uow.commit()
-        return {
-            "requestId": identifier,
-            "title": request["title"],
-            "requestedById": request["requestedById"],
-            "nextApproverId": next_approver_id,
-            "nextSequence": step["sequence"] + 1,
-            "status": status.value,
-        }
+        return result
 
     async def cancel(self, identifier: str, context: RequestContext) -> dict[str, Any]:
         assert context.actor is not None

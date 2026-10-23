@@ -19,6 +19,7 @@ from app.services.auth import AuthService
 from app.services.catalogs import CatalogService
 from app.services.departments import DepartmentService
 from app.services.employees import EmployeeService
+from app.services.finance_periods import PayrollPeriodService
 from app.services.personnel_actions import PersonnelActionService
 from app.services.users import UserService
 from app.services.workforce import WorkforceService
@@ -69,6 +70,10 @@ async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
 
 def get_employee_service(request: Request) -> EmployeeService:
     return EmployeeService(request.app.state.unit_of_work_factory)
+
+
+def get_payroll_period_service(request: Request) -> PayrollPeriodService:
+    return PayrollPeriodService(request.app.state.unit_of_work_factory)
 
 
 def get_workforce_service(request: Request) -> WorkforceService:

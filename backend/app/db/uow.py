@@ -16,8 +16,10 @@ from app.domain.ports.audit import AuditPort
 from app.domain.ports.departments import DepartmentRepository, GroupRepository, MolRepository
 from app.domain.ports.employees import EmployeeRepository, WorkforceRepository
 from app.domain.ports.notifications import NotificationIntentPort
+from app.domain.ports.payroll_periods import PayrollPeriodRepository
 from app.domain.ports.projects import ProjectRepository
 from app.domain.ports.smtp import SmtpSettingsPort
+from app.domain.ports.timekeeping import TimekeepingRepository
 from app.domain.ports.users import UserRepository
 from app.repositories.approvals import SqlAlchemyApprovalRepository
 from app.repositories.assets import SqlAlchemyAssetRepository
@@ -30,8 +32,10 @@ from app.repositories.departments import (
 from app.repositories.documents import SqlAlchemyDocumentRepository
 from app.repositories.employees import SqlAlchemyEmployeeRepository
 from app.repositories.notifications import SqlAlchemyNotificationRepository
+from app.repositories.payroll_periods import SqlAlchemyPayrollPeriodRepository
 from app.repositories.projects import SqlAlchemyProjectRepository
 from app.repositories.smtp_settings import SqlAlchemySmtpSettingsRepository
+from app.repositories.timekeeping import SqlAlchemyTimekeepingRepository
 from app.repositories.users import SqlAlchemyUserRepository
 from app.repositories.workforce import SqlAlchemyWorkforceRepository
 
@@ -73,6 +77,12 @@ class SqlAlchemyUnitOfWork:
         self.groups: GroupRepository = SqlAlchemyGroupRepository(self._active_session)
         self.employees: EmployeeRepository = SqlAlchemyEmployeeRepository(self._active_session)
         self.workforce: WorkforceRepository = SqlAlchemyWorkforceRepository(self._active_session)
+        self.payroll_periods: PayrollPeriodRepository = SqlAlchemyPayrollPeriodRepository(
+            self._active_session
+        )
+        self.timekeeping: TimekeepingRepository = SqlAlchemyTimekeepingRepository(
+            self._active_session
+        )
         self.mols: MolRepository = SqlAlchemyMolRepository(self._active_session)
 
     async def __aenter__(self) -> SqlAlchemyUnitOfWork:

@@ -102,10 +102,10 @@
 | `/api/staff-schedule` | GET, POST | 05 | Python (Next BFF) |
 | `/api/tasks/[id]/comments` | POST | 06 | Python (Next BFF) |
 | `/api/tasks/[id]` | PUT, DELETE | 06 | Python (Next BFF) |
-| `/api/time-entries/[id]` | PUT, DELETE | 10 | TS |
-| `/api/time-entries` | GET, POST | 10 | TS |
-| `/api/timekeeping/timesheets/[id]/decision` | POST | 10 | TS |
-| `/api/timekeeping/timesheets` | POST | 10 | TS |
+| `/api/time-entries/[id]` | PUT, DELETE | 10 | Python (Next BFF) |
+| `/api/time-entries` | GET, POST | 10 | Python (Next BFF) |
+| `/api/timekeeping/timesheets/[id]/decision` | POST | 10 | Python (Next BFF) |
+| `/api/timekeeping/timesheets` | POST | 10 | Python (Next BFF) |
 | `/api/users/[id]` | PATCH | 03 | Python (Next BFF) |
 | `/api/users` | GET, POST | 03 | Python (Next BFF) |
 | `/api/vacations/[id]` | PUT, DELETE | 05 | Python (Next BFF) |

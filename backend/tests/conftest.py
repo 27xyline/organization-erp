@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import (
 
 
 def _stage02_database_url() -> str:
+    stage10_url = os.environ.get("STAGE10_TEST_DATABASE_URL")
     stage09_url = os.environ.get("STAGE09_TEST_DATABASE_URL")
     stage08_url = os.environ.get("STAGE08_TEST_DATABASE_URL")
     stage07_url = os.environ.get("STAGE07_TEST_DATABASE_URL")
@@ -23,7 +24,8 @@ def _stage02_database_url() -> str:
     stage05_url = os.environ.get("STAGE05_TEST_DATABASE_URL")
     stage04_url = os.environ.get("STAGE04_TEST_DATABASE_URL")
     database_url = (
-        stage09_url
+        stage10_url
+        or stage09_url
         or stage08_url
         or stage07_url
         or stage06_url
@@ -34,14 +36,17 @@ def _stage02_database_url() -> str:
     )
     if not database_url:
         pytest.fail(
-            "STAGE02_TEST_DATABASE_URL, STAGE03_TEST_DATABASE_URL, STAGE04_TEST_DATABASE_URL, "
+            "STAGE10_TEST_DATABASE_URL, STAGE02_TEST_DATABASE_URL, "
+            "STAGE03_TEST_DATABASE_URL, STAGE04_TEST_DATABASE_URL, "
             "STAGE05_TEST_DATABASE_URL, or STAGE06_TEST_DATABASE_URL "
             "or STAGE07_TEST_DATABASE_URL or STAGE08_TEST_DATABASE_URL must point "
             "to an isolated PostgreSQL DB"
         )
     parsed_url = make_url(database_url)
     expected_database = (
-        "erp_stage09_test"
+        "erp_stage10_test"
+        if stage10_url
+        else "erp_stage09_test"
         if stage09_url
         else
         "erp_stage08_test"
