@@ -20,6 +20,7 @@ from app.services.catalogs import CatalogService
 from app.services.departments import DepartmentService
 from app.services.employees import EmployeeService
 from app.services.finance_periods import PayrollPeriodService
+from app.services.payroll import PayrollService
 from app.services.personnel_actions import PersonnelActionService
 from app.services.users import UserService
 from app.services.workforce import WorkforceService
@@ -74,6 +75,10 @@ def get_employee_service(request: Request) -> EmployeeService:
 
 def get_payroll_period_service(request: Request) -> PayrollPeriodService:
     return PayrollPeriodService(request.app.state.unit_of_work_factory)
+
+
+def get_payroll_service(request: Request) -> PayrollService:
+    return PayrollService(request.app.state.unit_of_work_factory)
 
 
 def get_workforce_service(request: Request) -> WorkforceService:

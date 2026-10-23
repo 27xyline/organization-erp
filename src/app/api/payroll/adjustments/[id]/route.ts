@@ -1,8 +1,6 @@
 import type { NextRequest } from 'next/server'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { apiData } from '@/lib/http/api-response'
-import { PayrollService } from '@/features/finance/application/payroll.service'
-import { payrollApiError } from '@/features/finance/application/payroll-http'
+import { proxyStage10Request } from '@/lib/backend/stage10'
 
 export async function DELETE(
   request: NextRequest,
@@ -10,10 +8,10 @@ export async function DELETE(
 ) {
   const auth = await authorizeApiRequest(request, 'payroll.manage')
   if (auth.response) return auth.response
-  try {
-    await PayrollService.removeAdjustment((await context.params).id, auth.user.id, auth.requestId)
-    return apiData({ success: true })
-  } catch (error) {
-    return payrollApiError(error)
-  }
+  return proxyStage10Request(
+    request,
+    `/api/payroll/adjustments/${(await context.params).id}`,
+    auth.user,
+    auth.requestId,
+  )
 }

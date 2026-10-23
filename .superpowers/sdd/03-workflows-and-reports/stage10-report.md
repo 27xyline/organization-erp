@@ -2,7 +2,7 @@
 
 ## Статус
 
-Stage 10 остаётся **в работе**. Timekeeping workflow, finance plans/salary и project payroll ownership slices переключены на Python через Next BFF. Payroll period routes, payroll month/adjustments, exports/payslips и полный close/edit/approve browser E2E остаются незавершёнными. Полный Stage 10 acceptance пока не достигнут.
+Stage 10 остаётся **в работе**. Timekeeping workflow, finance plans/salary, project payroll, payroll month/adjustments и payroll period ownership slices переключены на Python через Next BFF. Payroll exports/payslips и полный close/edit/approve browser E2E остаются незавершёнными. Полный Stage 10 acceptance пока не достигнут.
 
 ## Готовые изменения
 
@@ -42,10 +42,19 @@ Stage 10 остаётся **в работе**. Timekeeping workflow, finance pla
 - Plan/project payroll workflow: PG18 integration подтверждает replace/clear, fixed-two-decimal strings, legacy salary detail strings и атомарные изменения `Project.actualBudget`; scope ограничивает замену project payroll только текущим проектом. Все finance writes вызывают общий `payroll_periods.assert_open()` до изменения данных.
 - HTTP envelopes: RED — новый contract test обнаружил лишний `{data: ...}` в plan/project payroll responses; GREEN — GET plans/project payroll возвращают legacy raw payload, POST/PUT/DELETE сохраняют legacy `success` shape, salary GET сохраняет `{data: ...}`.
 - BFF ownership: RED — исходные Next handlers вызывали Prisma services; GREEN — plans/salary/project-payroll handlers сохраняют permission/schema/year/project scope checks и проксируют в authenticated Stage10 bridge. Упоминаний `FinancePlanService`/`ProjectPayrollService` вне самих TS service modules больше нет.
-- SSR/caller review: finance pages сохраняют permission gate и используют клиентские BFF URLs; project page permission-gates SSR workspace, а payroll section загружает данные через `/api/projects/{id}/payroll`. Отдельный SSR payroll query отсутствовал.
+- SSR/caller review: finance pages сохраняют permission gate и используют клиентские BFF URLs; project page permission-gates SSR workspace, а payroll section загружает данные через `/api/projects/{id}/payroll`. `/finance/payroll` SSR только проверяет `payroll.read` и передаёт permission flags; клиент загружает таблицу через `/api/payroll`. Отдельный SSR payroll query отсутствует.
 - Finance RED→GREEN targeted checks: `tests/contracts/finance/test_http_envelopes.py` сначала падал на envelope mismatch, затем прошёл; PG18 integration + schema/route/UoW checks: **14 passed**; Vitest BFF routes: **3 files, 5 passed**; `npm run typecheck` passed; changed-route ESLint passed; scoped mypy **7 source files** passed; Ruff check/format passed после форматирования contract test.
 - Отдельный предыдущий timekeeping commit `44684c4` исправил review findings RETURN→edit→resubmit→approve и audit `correctionReason`; его evidence в разделе Review follow-up выше. Проверки этих fixes были targeted, не полный Stage10 suite.
 - Дополнительный money contract RED→GREEN: обновлённая PG18 salary-table assertion сначала поймала `details[].amount` как JSON number, тогда как legacy TS serializer возвращает `toFixed(2)` string; service serializer исправлен. Один affected PG18 test после фикса → **1 passed**.
+
+### Payroll month, adjustments и period slice
+
+- RED→GREEN: `tests/contracts/finance/test_payroll_schemas.py` сначала не импортировался из-за отсутствовавших payroll schemas; camelCase query/adjustment inputs, CUID/period validation, positive amount и trimmed description проходят. `PayrollPeriodInput` экспортируется из payroll schema module без изменения payload contract.
+- RED→GREEN: `tests/contracts/finance/test_payroll_http.py` выявил отсутствующие payroll route dependencies/handlers; GET month, POST adjustment, DELETE adjustment и PUT period сохраняют legacy `{data: ...}` envelope и POST 201 (**8 schema/HTTP tests passed**).
+- RED→GREEN: PG18 payroll golden проверяет fallback `SalaryEntry → OKLAD → schedule salary × employmentRate`, payroll formulas, cent rounding, числовые JSON поля, options, department totals, project forecast, dismissed employees и department access filtering. Отдельный RED выявил пропущенные `closedById`, `createdAt`, `updatedAt` в существующем period response; добавленные поля проходят legacy-shape assertion. Adjustment create/delete использует общий `payroll_periods.assert_open()` до записи и audit в той же транзакции (**3 PG18 service tests passed**).
+- RED→GREEN: новый unauthenticated unit test обнаружил `AttributeError` до UoW; service теперь возвращает `UNAUTHENTICATED` (**1 passed**).
+- Реальные lock acceptance на PostgreSQL 18.6: `PayrollPeriodService.set_status(CLOSED)` удерживает row lock, а настоящий `TimekeepingService.update()` ждёт и затем получает `PERIOD_CLOSED`, без изменения записи/audit. Во втором тесте submitted sheet блокирует close; реальный approve коммитит state/audit, затем реальный close проходит и post-close decision получает `PERIOD_CLOSED`. Оба теста используют отдельные DB sessions (**2 PG18 tests passed**). Первый RED был вызван оставшейся точной `s10-` fixture предыдущего падения без sheet для нового random period; удалена только эта fixture.
+- BFF RED→GREEN: tests сначала вызвали прежние Prisma handlers; после переключения `/api/payroll` GET/POST, `/api/payroll/adjustments/{id}` DELETE и `/api/payroll/period` PUT сохраняют auth/Zod prechecks и проксируют через authenticated Stage10 bridge (**3 Vitest files, 4 passed**). Export и payslip остаются TypeScript-owned.
 
 ## Проверки
 
@@ -64,18 +73,22 @@ Stage 10 остаётся **в работе**. Timekeeping workflow, finance pla
 - `npm run typecheck` → passed; ESLint по трём изменённым BFF routes и их tests → passed.
 - Changed backend finance scope: `ruff check` → passed; `ruff format --check` → 13 files formatted; `mypy` → **Success: no issues found in 7 source files**.
 - Scoped backend mypy → `Success: no issues found in 23 source files`; scoped Ruff check → `All checks passed`.
+- Итоговый scoped backend run на PostgreSQL 18.6 `erp_stage10_test`: `uv run pytest tests/unit/test_payroll_service.py tests/contracts/finance/test_payroll_schemas.py tests/contracts/finance/test_payroll_http.py tests/integration/finance/test_payroll_service.py tests/integration/finance/test_payroll_locks.py tests/integration/finance/test_plan_project_payroll.py -q` → **16 passed**.
+- Payroll BFF: `./node_modules/.bin/vitest run src/app/api/payroll/route.test.ts src/app/api/payroll/period/route.test.ts 'src/app/api/payroll/adjustments/[id]/route.test.ts'` → **3 files, 4 passed**. Один `pnpm vitest` вызов был недоступен offline и временно переместил пакеты в `node_modules/.ignored`; локальные пакеты восстановлены из recovery directory. Direct local Vitest после восстановления прошёл; зависимости не устанавливались.
+- Frontend: `npm run typecheck` и ESLint для шести изменённых payroll BFF route/test files → passed.
+- Payroll changed backend scope: `ruff check` → **All checks passed**; `ruff format --check` → **11 files formatted**; targeted mypy → **Success: no issues found in 6 source files**.
 - `/timekeeping` SSR source review: server page only calls `requirePagePermission('timekeeping.read')` and renders the client component; отдельного SSR data loader не существовало. Client loads the month through the stable `/api/time-entries` URL, now owned by the BFF bridge.
 - Playwright stage-wide workflow отложен до финансового slice, как оговорено в `stage10-timekeeping-brief.md`.
 
 ## Фактические writer observations
 
-- Текущие TS writers периода: time-entry create/update/delete; timesheet submit/decision; payroll adjustment create/update/delete; payroll period close/reopen. В них используется общий TS `lockPayrollPeriod`/`lockPayrollPeriods` protocol.
-- Finance-plan и project-payroll mutations теперь Python-owned и используют `payroll_periods.assert_open()` общий Stage10 row-lock protocol. Оставшиеся TS period writers — payroll adjustment create/update/delete, payroll month save/delete, period close/reopen; они пока не switched.
+- Текущие Python writers периода: time-entry create/update/delete; timesheet submit/decision; finance plan/project payroll; payroll adjustment create/delete; payroll period close/reopen. Они используют общий Stage10 row-lock protocol.
+- Payroll month/adjustment/period handlers теперь проксируются в Python. Payroll export/payslip handlers пока используют legacy TypeScript `PayrollService.getMonth()` до следующего slice.
 - HR `StaffSchedule.salary` меняет базу для будущего payroll расчёта, однако текущий TS HR handler не берёт payroll period lock. В Stage 05 HR mutations периода напрямую не записывают; фиктивный lock в несвязанные endpoints не добавлялся. Требуется отдельная проверка временной семантики salary edits перед ownership switch.
 
 ## Caveats / оставшаяся работа
 
-- Оставшиеся Stage10 slices: payroll month/table and adjustment workflows, payroll export and payslip renderers, their BFF/SSR ownership, plus stage-wide close/edit/approve browser E2E. Finance plans/salary and project payroll are switched, but Stage10 checklist remains unchecked until all acceptance points are verified.
+- Оставшиеся Stage10 slices: payroll export and payslip renderers and their BFF/SSR ownership, plus stage-wide close/edit/approve browser E2E. Payroll month/adjustment/period routes, finance plans/salary and project payroll are switched, but Stage10 checklist remains unchecked until all acceptance points are verified.
 - Временный PostgreSQL 18.6 использует пустую изолированную `erp_stage10_test`; mapped schema создана через `Base.metadata.create_all`, source dump/migration baseline не загружались. При cleanup удалялись только тестовые fixture rows с `s10-` идентификаторами.
 - Close-vs-edit для timekeeping и close-vs-approve в period integration проверялись на независимых PostgreSQL sessions; полная browser цепочка табель → финансы → close → reopen остаётся отложенной до finance slice.
 - Временный PostgreSQL test container создан координатором; он остаётся под его управлением и здесь не останавливался.
@@ -93,12 +106,12 @@ Stage 10 остаётся **в работе**. Timekeeping workflow, finance pla
 
 ## Изменённые пути
 
-Backend domain/calculations: `app/domain/timekeeping/`, `app/domain/finance/`, `app/domain/ports/payroll_periods.py`.
+Backend domain/calculations: `app/domain/timekeeping/`, `app/domain/finance/`, `app/domain/ports/payroll_periods.py`, `app/domain/ports/finance.py`.
 
-Backend transaction/repository/API: `app/db/uow.py`, `app/domain/ports/{approvals,payroll_periods,timekeeping,uow}.py`, `app/repositories/{approvals,payroll_periods,timekeeping}.py`, `app/services/{approvals,finance_periods,timekeeping}.py`, `app/schemas/{finance,timekeeping}.py`, `app/api/{dependencies.py,router.py,routes/payroll.py,routes/timekeeping.py}`.
+Backend transaction/repository/API: `app/db/uow.py`, `app/domain/ports/{approvals,payroll_periods,timekeeping,finance,uow}.py`, `app/repositories/{approvals,payroll_periods,timekeeping,finance}.py`, `app/services/{approvals,finance_periods,timekeeping,payroll}.py`, `app/schemas/{finance,timekeeping,payroll}.py`, `app/api/{dependencies.py,router.py,routes/payroll.py,routes/timekeeping.py}`.
 
 Tests: `tests/conftest.py`, `tests/unit/{approvals,finance,timekeeping}/`, `tests/unit/test_stage10_*.py`, `tests/integration/{finance,timekeeping}/`, `tests/contracts/{finance,timekeeping}/`.
 
-Frontend BFF/tests: `src/lib/backend/stage10.ts`, `src/app/api/time-entries/`, `src/app/api/timekeeping/timesheets/`, `src/app/api/finance/{plans,salary}/`, `src/app/api/projects/[id]/payroll/`.
+Frontend BFF/tests: `src/lib/backend/stage10.ts`, `src/app/api/time-entries/`, `src/app/api/timekeeping/timesheets/`, `src/app/api/finance/{plans,salary}/`, `src/app/api/projects/[id]/payroll/`, `src/app/api/payroll/{route,period,adjustments}/`.
 
 Ownership evidence: `docs/backend-migration/stage10-ownership.md`, `docs/backend-migration/frontend-callers.md`, and timekeeping rows in `docs/superpowers/plans/2026-09-28-fastapi/07-coverage.md`. Stage 10 plan checkboxes remain unchecked because this is one workflow slice, not full Stage 10 acceptance.

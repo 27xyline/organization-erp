@@ -68,11 +68,11 @@
 | `/api/notifications/smtp/test` | POST | 09 | Python (Next BFF) |
 | `/api/notifications/unread-count` | GET | 09 | Python (Next BFF) |
 | `/api/operations` | GET | 07 | Python (Next BFF) |
-| `/api/payroll/adjustments/[id]` | DELETE | 10 | TS |
+| `/api/payroll/adjustments/[id]` | DELETE | 10 | Python (Next BFF) |
 | `/api/payroll/export` | GET | 10 | TS |
 | `/api/payroll/export-payslip` | GET | 10 | TS |
-| `/api/payroll/period` | PUT | 10 | TS |
-| `/api/payroll` | GET, POST | 10 | TS |
+| `/api/payroll/period` | PUT | 10 | Python (Next BFF) |
+| `/api/payroll` | GET, POST | 10 | Python (Next BFF) |
 | `/api/personnel-actions/[id]` | DELETE | 05 | Python (Next BFF) |
 | `/api/personnel-actions` | GET, POST | 05 | Python (Next BFF) |
 | `/api/personnel-actions/sync` | POST | 05 | Python (Next BFF) |

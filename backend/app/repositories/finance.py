@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.employees import Employee
-from app.models.finance import FinancePlanEntry
+from app.models.finance import FinancePlanEntry, PayrollAdjustment, PayrollPeriod, SalaryEntry
 from app.models.projects import Project, ProjectMember
 
 
@@ -26,6 +26,62 @@ class SqlAlchemyFinanceRepository:
             .order_by(Employee.fullName)
         )
         return list(result.all())
+
+    async def payroll_period(self, year: int, month: int) -> PayrollPeriod | None:
+        return await self._session().scalar(
+            select(PayrollPeriod)
+            .where(PayrollPeriod.year == year, PayrollPeriod.month == month)
+            .options(selectinload(PayrollPeriod.closedBy))
+        )
+
+    async def salary_entries(
+        self, year: int, month: int, employee_ids: tuple[str, ...]
+    ) -> list[SalaryEntry]:
+        if not employee_ids:
+            return []
+        result = await self._session().scalars(
+            select(SalaryEntry).where(
+                SalaryEntry.year == year,
+                SalaryEntry.month == month,
+                SalaryEntry.employeeId.in_(employee_ids),
+            )
+        )
+        return list(result.all())
+
+    async def payroll_adjustments(
+        self,
+        year: int,
+        month: int,
+        *,
+        employee_ids: tuple[str, ...] = (),
+        project_id: str | None = None,
+    ) -> list[PayrollAdjustment]:
+        query = (
+            select(PayrollAdjustment)
+            .where(PayrollAdjustment.year == year, PayrollAdjustment.month == month)
+            .options(selectinload(PayrollAdjustment.project))
+        )
+        if employee_ids:
+            query = query.where(PayrollAdjustment.employeeId.in_(employee_ids))
+        if project_id is not None:
+            query = query.where(PayrollAdjustment.projectId == project_id)
+        result = await self._session().scalars(
+            query.order_by(PayrollAdjustment.createdAt.desc(), PayrollAdjustment.id)
+        )
+        return list(result.all())
+
+    async def payroll_adjustment(self, identifier: str) -> PayrollAdjustment | None:
+        return await self._session().get(PayrollAdjustment, identifier)
+
+    async def create_payroll_adjustment(self, values: dict[str, object]) -> PayrollAdjustment:
+        adjustment = PayrollAdjustment(**values)
+        self._session().add(adjustment)
+        await self._session().flush()
+        return adjustment
+
+    async def delete_payroll_adjustment(self, adjustment: PayrollAdjustment) -> None:
+        await self._session().delete(adjustment)
+        await self._session().flush()
 
     async def projects_for_plan(self, included_ids: tuple[str, ...] = ()) -> list[Project]:
         status_filter = (
