@@ -23,10 +23,11 @@ import {
   TimeEntryType,
   UserRole,
 } from '@prisma/client'
-import { Readable } from 'node:stream'
-import { LocalFilesystemStorage } from '../src/features/documents/infrastructure/local-filesystem-storage'
 import { withOrganizationMutation } from '../src/lib/organization/organization-mutation'
+import { writeDemoDocument } from './demo-document-storage'
 
+// Demo seeding is the sole TypeScript document writer retained after Stage 08.
+// It creates deterministic demo content only; application reads/writes belong to Python.
 const departments = [
   ['Отдел информационных технологий', 'IT'],
   ['Бухгалтерия', 'ACC'],
@@ -649,7 +650,6 @@ export async function seedDemoData(prisma: PrismaClient) {
   }
 
   // Documents have real local text files and checksums, so preview and version download flows work.
-  const storage = new LocalFilesystemStorage()
   const documentRows = []
   for (let index = 0; index < 60; index += 1) {
     const documentId = id('document', index + 1)
@@ -675,7 +675,7 @@ export async function seedDemoData(prisma: PrismaClient) {
         `Демонстрационный документ № ${index + 1}\nВерсия: 1\nНазвание: ${title}\n\nЭто тестовый файл для проверки загрузки и скачивания документов.\n`,
         'utf8',
       )
-      const stored = await storage.write(Readable.from([content]), { maxSizeBytes: 2 * 1024 * 1024 })
+      const stored = await writeDemoDocument(content)
       document = await prisma.document.create({
         data: {
           id: documentId,
@@ -705,7 +705,7 @@ export async function seedDemoData(prisma: PrismaClient) {
           `Демонстрационный документ № ${index + 1}\nВерсия: ${versionNumber}\nНазвание: ${document.title}\n\nЭто тестовый файл для проверки загрузки и скачивания документов.\n`,
           'utf8',
         )
-        const stored = await storage.write(Readable.from([content]), { maxSizeBytes: 2 * 1024 * 1024 })
+        const stored = await writeDemoDocument(content)
         await prisma.$transaction(async (tx) => {
           await tx.documentVersion.create({
             data: {

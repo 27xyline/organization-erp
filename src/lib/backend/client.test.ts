@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  backendStreamFetch,
   backendFetch,
   backendUnavailableResponse,
+  forwardDocumentRequestHeaders,
   forwardRequestHeaders,
   forwardedResponse,
 } from './client'
@@ -65,6 +67,108 @@ describe('backend client', () => {
     expect(response.headers.get('cache-control')).toBe('private, no-store')
     expect(response.headers.get('set-cookie')).toBeNull()
     expect(await response.text()).toBe('streamed')
+  })
+
+  it('forwards document metadata and declared length without forwarding browser credentials', () => {
+    const request = new Request('https://erp.example/api/documents', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/pdf',
+        'content-length': '1234',
+        'x-document-metadata': 'eyJ0aXRsZSI6ImRvYyJ9',
+        cookie: 'session=secret',
+        authorization: 'Basic browser-value',
+      },
+      body: 'x'.repeat(1234),
+    })
+
+    const headers = forwardDocumentRequestHeaders(request)
+
+    expect(headers.get('content-type')).toBe('application/pdf')
+    expect(headers.get('content-length')).toBe('1234')
+    expect(headers.get('x-document-metadata')).toBe('eyJ0aXRsZSI6ImRvYyJ9')
+    expect(headers.get('cookie')).toBeNull()
+    expect(headers.get('authorization')).toBeNull()
+  })
+
+  it('preserves download security headers through the response allowlist', () => {
+    const response = forwardedResponse(new Response('bytes', {
+      headers: {
+        'content-type': 'application/pdf',
+        'content-length': '5',
+        'content-disposition': 'attachment; filename="a.pdf"',
+        etag: '"sha256-abc"',
+        'x-content-type-options': 'nosniff',
+      },
+    }))
+
+    expect(response.headers.get('content-type')).toBe('application/pdf')
+    expect(response.headers.get('content-length')).toBe('5')
+    expect(response.headers.get('content-disposition')).toContain('a.pdf')
+    expect(response.headers.get('etag')).toBe('"sha256-abc"')
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff')
+  })
+
+  it('bounds backend headers but does not time out a slow streamed body', async () => {
+    vi.stubEnv('BACKEND_BASE_URL', 'http://127.0.0.1:8000')
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response(new ReadableStream({
+      async start(controller) {
+        await new Promise((resolve) => setTimeout(resolve, 30))
+        controller.enqueue(new TextEncoder().encode('late'))
+        controller.close()
+      },
+    })))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const response = await backendStreamFetch('/api/documents/1/download', {}, { headerTimeoutMs: 10 })
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(await response.text()).toBe('late')
+    expect(fetchMock).toHaveBeenCalledWith(
+      new URL('http://127.0.0.1:8000/api/documents/1/download'),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    )
+  })
+
+  it('resets the header timeout as upload chunks continue arriving', async () => {
+    vi.stubEnv('BACKEND_BASE_URL', 'http://127.0.0.1:8000')
+    const fetchMock = vi.fn<typeof fetch>(async (_input, init) => {
+      const reader = (init?.body as ReadableStream<Uint8Array>).getReader()
+      while (!(await reader.read()).done) { /* consume the incoming upload */ }
+      return new Response('uploaded')
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    const upload = new ReadableStream<Uint8Array>({
+      async start(controller) {
+        for (let chunk = 0; chunk < 4; chunk += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 8))
+          controller.enqueue(new Uint8Array([chunk]))
+        }
+        controller.close()
+      },
+    })
+
+    const startedAt = Date.now()
+    const response = await backendStreamFetch('/api/documents', {
+      method: 'POST', body: upload, duplex: 'half',
+    } as RequestInit, { headerTimeoutMs: 15 })
+
+    expect(Date.now() - startedAt).toBeGreaterThan(15)
+    expect(fetchMock.mock.calls[0]?.[1]?.signal?.aborted).toBe(false)
+    expect(await response.text()).toBe('uploaded')
+  })
+
+  it('aborts a pending document request when the client disconnects', async () => {
+    vi.stubEnv('BACKEND_BASE_URL', 'http://127.0.0.1:8000')
+    const fetchMock = vi.fn<typeof fetch>((_input, init) => new Promise((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
+    }))
+    vi.stubGlobal('fetch', fetchMock)
+    const client = new AbortController()
+    const pending = backendStreamFetch('/api/documents/1/download', { signal: client.signal }, { headerTimeoutMs: 1_000 })
+    client.abort(new DOMException('client disconnected', 'AbortError'))
+
+    await expect(pending).rejects.toMatchObject({ name: 'AbortError' })
   })
 
   it('maps a backend timeout to 503 with a request id without retrying', async () => {

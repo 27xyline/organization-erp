@@ -28,13 +28,12 @@ import { formatDate, formatCurrency, formatDateTime } from '@/lib/utils'
 import { LazyProjectGantt } from '@/features/projects/ui/lazy-gantt'
 import { ProjectPayrollSection } from '@/features/finance/ui/project-payroll-section'
 import { requirePagePermission } from '@/lib/auth/authorization'
-import { getDocumentService } from '@/features/documents/application/document.service'
 import type { DocumentView } from '@/features/documents/contracts/ui-types'
 import { ProjectWorkspaceSection } from './project-workspace-section'
 import { ProjectDetailTabs, type ProjectDetailTab } from '@/features/projects/ui/project-detail-tabs'
 import { backendUserFetch } from '@/lib/backend/bridge'
 import { BackendRequestError } from '@/lib/backend/client'
-import { readBackendData } from '@/lib/backend/page-data'
+import { readBackendData, readBackendList } from '@/lib/backend/page-data'
 import type { Task } from '@/features/projects/contracts/types'
 
 interface ProjectPageProps {
@@ -173,31 +172,26 @@ export default async function ProjectPage(props: ProjectPageProps) {
   const documentTarget = { documentProjectId: project.id }
   const canReadDocuments = user.access.allows('documents.read', documentTarget)
   const canCreateDocuments = user.access.allows('documents.create', documentTarget)
-  const [documentResult, activityResponse] = await Promise.all([
+  const documentSearch = new URLSearchParams({
+    page: '1',
+    pageSize: '10',
+    projectId: project.id,
+    archived: 'false',
+  })
+  const [documentResponse, activityResponse] = await Promise.all([
     canReadDocuments
-      ? getDocumentService().list({
-          page: 1,
-          pageSize: 10,
-          projectId: project.id,
-          archived: false,
-        }, { id: user.id, access: user.access })
-      : Promise.resolve({ documents: [], total: 0 }),
+      ? backendUserFetch(`/api/documents?${documentSearch.toString()}`, user)
+      : Promise.resolve(null),
     backendUserFetch(`/api/projects/${encodeURIComponent(project.id)}/activity`, user),
   ])
+  const documentResult = documentResponse
+    ? await readBackendList<DocumentView>(documentResponse, 'Не удалось загрузить документы проекта из backend')
+    : { data: [] as DocumentView[], pagination: { page: 1, pageSize: 10, total: 0, totalPages: 1 } }
   const projectActivities = await readBackendData<Array<{
     id: string; action: string; entityType: string; entityId: string; createdAt: string
     user: { id: string; name: string; username: string } | null
   }>>(activityResponse, 'Не удалось загрузить историю проекта из backend')
-  const projectDocuments = documentResult.documents.map((document) => ({
-    ...document,
-    archivedAt: document.archivedAt?.toISOString() || null,
-    createdAt: document.createdAt.toISOString(),
-    updatedAt: document.updatedAt.toISOString(),
-    versions: document.versions.map((version) => ({
-      ...version,
-      createdAt: version.createdAt.toISOString(),
-    })),
-  })) as DocumentView[]
+  const projectDocuments = documentResult.data
 
   // Calculate budget remaining
   const remainingBudget = Number(project.plannedBudget) - Number(project.actualBudget)

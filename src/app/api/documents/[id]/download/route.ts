@@ -1,12 +1,7 @@
-import { Readable } from 'node:stream'
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
-import { getDocumentService } from '@/features/documents/application/document.service'
-import {
-  contentDisposition,
-  documentApiError,
-} from '@/features/documents/application/http'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
+import { proxyDocumentStream } from '@/lib/backend/documents'
 import { apiValidationError } from '@/lib/http/api-response'
 
 interface RouteContext {
@@ -27,25 +22,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const query = querySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams))
   if (!query.success) return apiValidationError(query.error)
 
-  try {
-    const download = await getDocumentService().download(
-      id,
-      query.data.version,
-      { id: auth.user.id, access: auth.access },
-      auth.requestId,
-    )
-    return new Response(Readable.toWeb(download.stream) as ReadableStream, {
-      headers: {
-        'cache-control': 'private, no-store',
-        'content-disposition': contentDisposition(download.filename),
-        'content-length': download.sizeBytes.toString(),
-        'content-type': download.mimeType,
-        etag: `"sha256-${download.sha256}"`,
-        'x-content-type-options': 'nosniff',
-        'x-request-id': auth.requestId,
-      },
-    })
-  } catch (error) {
-    return documentApiError(error)
-  }
+  const search = request.nextUrl.search
+  return proxyDocumentStream(
+    request,
+    `/api/documents/${encodeURIComponent(id)}/download${search}`,
+    auth.user,
+    auth.requestId,
+  )
 }

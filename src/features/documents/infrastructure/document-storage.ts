@@ -1,13 +1,14 @@
-import type { StoragePort } from './storage.port'
-import { LocalFilesystemStorage } from './local-filesystem-storage'
+import type { DocumentStorageReader } from './read-only-document-storage'
+import { ReadOnlyDocumentStorage } from './read-only-document-storage'
 
-let storage: StoragePort | undefined
+let storage: DocumentStorageReader | undefined
 
-export function getDocumentStorage(): StoragePort {
-  storage ??= new LocalFilesystemStorage()
+/** Read-only adapter retained for readiness and explicit data-integrity checks. */
+export function getDocumentStorage(): DocumentStorageReader {
+  storage ??= new ReadOnlyDocumentStorage()
   return storage
 }
 
-export function setDocumentStorageForTests(value: StoragePort | undefined): void {
+export function setDocumentStorageForTests(value: DocumentStorageReader | undefined): void {
   storage = value
 }

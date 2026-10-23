@@ -2,7 +2,14 @@ import 'server-only'
 
 import { createHmac } from 'node:crypto'
 import type { CurrentUser } from '@/lib/auth/authorization'
-import { BackendRequestError, backendFetch, forwardedResponse, forwardRequestHeaders } from './client'
+import {
+  BackendRequestError,
+  backendFetch,
+  backendStreamFetch,
+  forwardedResponse,
+  forwardDocumentRequestHeaders,
+  forwardRequestHeaders,
+} from './client'
 
 const ISSUER = 'erp-next'
 const AUDIENCE = 'erp-python'
@@ -79,6 +86,30 @@ export async function proxyBackendRequest(
   } as RequestInit)
   return forwardedResponse(response)
 }
+
+/** Proxy raw document upload/download bodies without buffering them in Next. */
+export async function proxyDocumentStreamRequest(
+  request: Request,
+  path: string,
+  user: Pick<CurrentUser, 'id' | 'sessionVersion'>,
+  requestId?: string,
+): Promise<Response> {
+  const method = request.method.toUpperCase()
+  const body = ['GET', 'HEAD'].includes(method) ? undefined : request.body
+  const headers = forwardDocumentRequestHeaders(request)
+  headers.set('authorization', `Bearer ${mintBackendBridgeToken(user)}`)
+  if (requestId) headers.set('x-request-id', requestId)
+
+  const response = await backendStreamFetch(path, {
+    method,
+    headers,
+    body,
+    signal: request.signal,
+    ...(body ? { duplex: 'half' as const } : {}),
+  } as RequestInit)
+  return forwardedResponse(response)
+}
+
 
 export function backendUserFetch(
   path: string,

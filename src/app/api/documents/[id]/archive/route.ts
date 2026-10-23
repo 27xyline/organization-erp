@@ -1,12 +1,8 @@
 import type { NextRequest } from 'next/server'
 import { archiveDocumentSchema } from '@/features/documents/contracts/document'
-import { getDocumentService } from '@/features/documents/application/document.service'
-import {
-  documentApiError,
-  parseJsonRequest,
-} from '@/features/documents/application/http'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { apiData, apiValidationError } from '@/lib/http/api-response'
+import { proxyDocumentRequest } from '@/lib/backend/documents'
+import { apiError, apiValidationError } from '@/lib/http/api-response'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -17,18 +13,18 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (auth.response) return auth.response
   const { id } = await context.params
 
+  let payload: unknown
   try {
-    const input = archiveDocumentSchema.safeParse(await parseJsonRequest(request))
-    if (!input.success) return apiValidationError(input.error)
-    return apiData(
-      await getDocumentService().archive(
-        id,
-        input.data.lockVersion,
-        { id: auth.user.id, access: auth.access },
-        auth.requestId,
-      ),
-    )
-  } catch (error) {
-    return documentApiError(error)
+    payload = await request.clone().json()
+  } catch {
+    return apiError('INVALID_METADATA', 'Тело запроса должно содержать корректный JSON', 422)
   }
+  const input = archiveDocumentSchema.safeParse(payload)
+  if (!input.success) return apiValidationError(input.error)
+  return proxyDocumentRequest(
+    request,
+    `/api/documents/${encodeURIComponent(id)}/archive`,
+    auth.user,
+    auth.requestId,
+  )
 }

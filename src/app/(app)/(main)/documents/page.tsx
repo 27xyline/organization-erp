@@ -1,8 +1,9 @@
-import { getDocumentService } from '@/features/documents/application/document.service'
-import { documentsQuerySchema } from '@/features/documents/contracts/document'
 import type { DocumentView } from '@/features/documents/contracts/ui-types'
 import { DocumentsPageClient } from '@/features/documents/ui/documents-page-client'
+import { documentsQuerySchema } from '@/features/documents/contracts/document'
 import { requirePagePermission } from '@/lib/auth/authorization'
+import { backendUserFetch } from '@/lib/backend/bridge'
+import { readBackendList } from '@/lib/backend/page-data'
 
 interface DocumentsPageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>
@@ -27,26 +28,27 @@ export default async function DocumentsPage({ searchParams }: DocumentsPageProps
     archived: first(params.archived),
   })
   const query = parsed.success ? parsed.data : documentsQuerySchema.parse({})
-  const result = await getDocumentService().list(query, { id: user.id, access: user.access })
-  const documents = result.documents.map((document) => ({
-    ...document,
-    archivedAt: document.archivedAt?.toISOString() || null,
-    createdAt: document.createdAt.toISOString(),
-    updatedAt: document.updatedAt.toISOString(),
-    versions: document.versions.map((version) => ({
-      ...version,
-      createdAt: version.createdAt.toISOString(),
-    })),
-  })) as DocumentView[]
+  const search = new URLSearchParams({
+    page: String(query.page),
+    pageSize: String(query.pageSize),
+    archived: String(query.archived),
+  })
+  for (const key of ['search', 'status', 'category', 'projectId', 'employeeId', 'assetId'] as const) {
+    const value = query[key]
+    if (value) search.set(key, value)
+  }
+
+  const response = await backendUserFetch(`/api/documents?${search.toString()}`, user)
+  const result = await readBackendList<DocumentView>(response, 'Не удалось загрузить документы из backend')
 
   return (
     <DocumentsPageClient
-      documents={documents}
+      documents={result.data}
       pagination={{
         page: query.page,
         pageSize: query.pageSize,
-        total: result.total,
-        totalPages: Math.max(1, Math.ceil(result.total / query.pageSize)),
+        total: result.pagination.total,
+        totalPages: result.pagination.totalPages,
       }}
       filters={{
         search: query.search,

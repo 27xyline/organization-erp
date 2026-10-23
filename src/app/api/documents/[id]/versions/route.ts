@@ -1,13 +1,6 @@
 import type { NextRequest } from 'next/server'
-import { addDocumentVersionMetadataSchema } from '@/features/documents/contracts/document'
-import { getDocumentService } from '@/features/documents/application/document.service'
-import {
-  documentApiError,
-  parseUploadMetadata,
-  requestUploadStream,
-} from '@/features/documents/application/http'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { apiData } from '@/lib/http/api-response'
+import { proxyDocumentStream } from '@/lib/backend/documents'
 
 interface RouteContext {
   params: Promise<{ id: string }>
@@ -19,21 +12,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const auth = await authorizeApiRequest(request, 'documents.update')
   if (auth.response) return auth.response
   const { id } = await context.params
-
-  try {
-    const metadata = parseUploadMetadata(request, addDocumentVersionMetadataSchema)
-    const upload = requestUploadStream(request)
-    return apiData(
-      await getDocumentService().addVersion(
-        id,
-        metadata,
-        { ...upload, filename: metadata.filename },
-        { id: auth.user.id, access: auth.access },
-        auth.requestId,
-      ),
-      { status: 201 },
-    )
-  } catch (error) {
-    return documentApiError(error)
-  }
+  return proxyDocumentStream(
+    request,
+    `/api/documents/${encodeURIComponent(id)}/versions`,
+    auth.user,
+    auth.requestId,
+  )
 }

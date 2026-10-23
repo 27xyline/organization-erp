@@ -1,6 +1,6 @@
 # Прогресс переноса
 
-План создан 28 сентября 2026. Этап 00 выполнен 7 октября 2026: инвентаризация и изолированные baseline-копии готовы. Пользовательские команды закрыли учебные паузы этапов 00–05 по мере продолжения работ; Stage 05 завершён и проверен 15 октября 2026. Stage 06 реализован и проверен 15 октября 2026; пользователь закрыл его паузу 16 октября, самостоятельное упражнение остаётся учебной задачей. Stage 07 реализован и прошёл локальные проверки 16 октября 2026; ожидает разбора пользователя. Stage 08 не начат.
+План создан 28 сентября 2026. Этап 00 выполнен 7 октября 2026: инвентаризация и изолированные baseline-копии готовы. Пользовательские команды закрыли учебные паузы этапов 00–05 по мере продолжения работ; Stage 05 завершён и проверен 15 октября 2026. Stage 06 реализован и проверен 15 октября 2026; пользователь закрыл его паузу 16 октября, самостоятельное упражнение остаётся учебной задачей. Stage 07 реализован и прошёл локальные проверки 16 октября 2026; пользовательской командой перейти к Stage 08 его учебная пауза закрыта. Stage 08 реализован и прошёл code/spec review; app Docker runtime интеграция заблокирована сетевой ошибкой сборки. Stage 09 не начат.
 
 | Этап | Статус | Проверки | Учебная пауза |
 |---|---|---|---|
@@ -11,14 +11,20 @@
 | 04 Подразделения/справочники | Реализован и проверен | Python 95; Vitest 309 passed/5 skipped; Playwright 7/7; typecheck/ESLint; Webpack build; Docker app/backend readiness 200; legacy parity 9 audit events | Закрыта командой пользователя 13 октября 2026 |
 | 05 Кадровые процессы | Реализован и проверен | Python 154; Vitest 294 passed/5 skipped; Playwright 8/8; typecheck/ESLint; Webpack build 48 pages; Docker app/backend build и readiness 200 на `erp_stage05_e2e`; 8 audit events, outbox 0 | Закрыта пользовательской командой продолжить работу 15 октября 2026 |
 | 06 Проекты/задачи | Реализован и проверен | Python 173; Vitest 284 passed/5 skipped; Playwright 9/9; typecheck; changed-file ESLint 0 errors; Webpack и Docker app/backend build; app/backend readiness 200; 8 parity audit payloads; Stage06 outbox 0 | Закрыта 16 октября командой продолжить; deadline exercise не реализовано |
-| 07 Имущество | Реализован и проверен; ожидает разбора пользователя | Python 215; golden replay 5 + affected replay 1; Vitest 273/5 skipped; Playwright 10/10; typecheck/changed-file ESLint; Docker builds и live/ready 200; parity | Ожидает разбора; exercise на две передачи не реализовано |
-| 08 Документы | Не начат | Не запускались | Впереди |
+| 07 Имущество | Реализован и проверен | Python 215; golden replay 5 + affected replay 1; Vitest 273/5 skipped; Playwright 10/10; typecheck/changed-file ESLint; Docker builds и live/ready 200; parity | Закрыта командой пользователя перейти к Stage 08; exercise на две передачи не реализовано |
+| 08 Документы | Реализован; code/spec review clean; app Docker runtime интеграция заблокирована сетью | Python 279; Vitest 273 passed/5 skipped; focused fix 9/9; Playwright 11/11 + docs-only 1/1; typecheck/ESLint; host Webpack build; backend image UID/font/health/volume smoke | Реализация готова; Docker app integration gate остаётся непроверенным |
 | 09 Согласования/уведомления | Не начат | Не запускались | Впереди |
 | 10 Табель/финансы | Не начат | Не запускались | Впереди |
 | 11 Закупки | Не начат | Не запускались | Впереди |
 | 12 Отчёты/поиск/экспорт | Не начат | Не запускались | Впереди |
 | 13 Worker/observability | Не начат | Не запускались | Впереди |
 | 14 Alembic/auth/полное переключение | Не начат | Не запускались | Впереди |
+
+## Запись Stage 08 — 23 октября 2026
+
+- Документы BFF, SSR и project workspace переведены на FastAPI; TypeScript runtime document writer/service удалены. Ownership и обязательные исключения перечислены в [Stage 08 ownership](../../../backend-migration/stage08-ownership.md); verification и runtime ограничения — в [Stage 08 validation](../../../backend-migration/stage08-validation.md).
+- Проверки: backend Python `279 passed`; Vitest `273 passed, 5 skipped`; Stage08 review fixes `9 passed`; Playwright `11 passed` плюс documents-only rerun `1 passed`; typecheck, changed-file ESLint и локальная Next Webpack production build прошли. Коммиты: backend `332ee33`, BFF/docs `6aca5d6`.
+- Docker app runner build остаётся заблокированным `npm ci` network abort. Backend image собран с временным build-time-only uv timeout/concurrency override и прошёл UID/GID 1001, font, health `200` и изолированный shared-volume smoke между двумя контейнерами этого же image. Это не app↔backend интеграция; app Docker runtime и cross-image volume gate остаются непроверенными. Stage 09 не начат.
 
 ## Запись Stage 06 — 15 октября 2026
 
