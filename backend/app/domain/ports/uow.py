@@ -13,6 +13,7 @@ from app.domain.ports.documents import DocumentRepository
 from app.domain.ports.employees import EmployeeRepository, WorkforceRepository
 from app.domain.ports.notifications import NotificationIntentPort
 from app.domain.ports.projects import ProjectRepository
+from app.domain.ports.smtp import SmtpSettingsPort
 from app.domain.ports.users import UserRepository
 
 
@@ -36,6 +37,9 @@ class UnitOfWork(Protocol):
 
     @property
     def notifications(self) -> NotificationIntentPort: ...
+
+    @property
+    def smtp_settings(self) -> SmtpSettingsPort: ...
 
     @property
     def departments(self) -> DepartmentRepository: ...

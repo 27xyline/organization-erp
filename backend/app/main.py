@@ -19,6 +19,7 @@ from app.db.session import create_engine, create_session_factory
 from app.db.uow import create_unit_of_work_factory
 from app.integrations.document_rendering import DocumentRenderer
 from app.integrations.document_storage import LocalDocumentStorage
+from app.integrations.smtp import verify_smtp
 
 logger = logging.getLogger(__name__)
 
@@ -46,12 +47,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             engine=engine,
             session_factory=session_factory,
             unit_of_work_factory=unit_of_work_factory,
+            smtp_verifier=verify_smtp,
             tracer_provider=tracer_provider,
             tracer=tracer,
         )
         app.state.engine = resources.engine
         app.state.session_factory = resources.session_factory
         app.state.unit_of_work_factory = resources.unit_of_work_factory
+        app.state.smtp_verifier = resources.smtp_verifier
         app.state.tracer_provider = resources.tracer_provider
         app.state.tracer = resources.tracer
         try:

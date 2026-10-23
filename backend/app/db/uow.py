@@ -17,6 +17,7 @@ from app.domain.ports.departments import DepartmentRepository, GroupRepository, 
 from app.domain.ports.employees import EmployeeRepository, WorkforceRepository
 from app.domain.ports.notifications import NotificationIntentPort
 from app.domain.ports.projects import ProjectRepository
+from app.domain.ports.smtp import SmtpSettingsPort
 from app.domain.ports.users import UserRepository
 from app.repositories.approvals import SqlAlchemyApprovalRepository
 from app.repositories.assets import SqlAlchemyAssetRepository
@@ -30,6 +31,7 @@ from app.repositories.documents import SqlAlchemyDocumentRepository
 from app.repositories.employees import SqlAlchemyEmployeeRepository
 from app.repositories.notifications import SqlAlchemyNotificationRepository
 from app.repositories.projects import SqlAlchemyProjectRepository
+from app.repositories.smtp_settings import SqlAlchemySmtpSettingsRepository
 from app.repositories.users import SqlAlchemyUserRepository
 from app.repositories.workforce import SqlAlchemyWorkforceRepository
 
@@ -60,6 +62,9 @@ class SqlAlchemyUnitOfWork:
         self.users: UserRepository = SqlAlchemyUserRepository(self._active_session)
         self.audit: AuditPort = SqlAlchemyAuditRepository(self._active_session)
         self.notifications: NotificationIntentPort = SqlAlchemyNotificationRepository(
+            self._active_session
+        )
+        self.smtp_settings: SmtpSettingsPort = SqlAlchemySmtpSettingsRepository(
             self._active_session
         )
         self.departments: DepartmentRepository = SqlAlchemyDepartmentRepository(

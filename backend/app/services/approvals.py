@@ -5,29 +5,16 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from sqlalchemy.exc import IntegrityError
-
 from app.core.context import RequestContext
 from app.domain.approvals.rules import fail, utc_naive, validate_deadline
-from app.domain.errors import DomainError
+from app.domain.enums import ApprovalRequestStatus, ApprovalStepStatus, DocumentStatus
+from app.domain.errors import DomainError, PersistenceConflict
 from app.domain.ports.audit import AuditRecord
 from app.domain.ports.notifications import NotificationIntent
 from app.domain.ports.uow import UnitOfWork, UnitOfWorkFactory
-from app.models.enums import ApprovalRequestStatus, ApprovalStepStatus, DocumentStatus
 from app.services.dto.approvals import ApprovalCommand, ApprovalDecisionCommand
 from app.services.notification_intents import publish
 from app.services.users import authorize
-
-
-def _template_name_conflict(error: IntegrityError) -> bool:
-    original = getattr(error, "orig", None)
-    diagnostic = getattr(original, "diag", None)
-    constraint = getattr(diagnostic, "constraint_name", None) or getattr(
-        original, "constraint_name", None
-    )
-    return constraint == "approval_templates_name_key" or "approval_templates_name_key" in str(
-        original
-    )
 
 
 def can_view_all(context: RequestContext) -> bool:
@@ -190,8 +177,8 @@ class ApprovalService:
                         "createdById": context.actor.actor_id,
                     }
                 )
-            except IntegrityError as error:
-                if _template_name_conflict(error):
+            except PersistenceConflict as error:
+                if error.constraint == "approval_templates_name_key":
                     raise DomainError(
                         "APPROVAL_TEMPLATE_EXISTS",
                         "Шаблон с таким названием уже существует",
@@ -223,8 +210,8 @@ class ApprovalService:
                 fail("INVALID_APPROVER")
             try:
                 result = await uow.approvals.update_template(identifier, values)
-            except IntegrityError as error:
-                if _template_name_conflict(error):
+            except PersistenceConflict as error:
+                if error.constraint == "approval_templates_name_key":
                     raise DomainError(
                         "APPROVAL_TEMPLATE_EXISTS",
                         "Шаблон с таким названием уже существует",

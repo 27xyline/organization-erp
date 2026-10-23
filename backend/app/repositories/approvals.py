@@ -4,8 +4,10 @@ from collections.abc import Callable
 from typing import Any
 
 from sqlalchemy import func, or_, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.errors import PersistenceConflict
 from app.models.approvals import ApprovalRequest, ApprovalStep, ApprovalTemplate
 from app.models.documents import Document
 from app.models.enums import ApprovalRequestStatus, ApprovalStepStatus, DocumentStatus
@@ -13,6 +15,29 @@ from app.models.procurement import ProcurementRequest
 from app.models.projects import Project
 from app.models.timekeeping import TimeEntry, Timesheet
 from app.models.users import User
+
+
+def _constraint_name(error: IntegrityError) -> str:
+    original: Any = error.orig
+    visited: set[int] = set()
+    while original is not None and id(original) not in visited:
+        visited.add(id(original))
+        name = getattr(original, "constraint_name", None)
+        if name:
+            return str(name)
+        diagnostic = getattr(original, "diag", None)
+        name = getattr(diagnostic, "constraint_name", None)
+        if name:
+            return str(name)
+        original = getattr(original, "orig", None) or getattr(original, "__cause__", None)
+    return ""
+
+
+async def _flush(session: AsyncSession) -> None:
+    try:
+        await session.flush()
+    except IntegrityError as error:
+        raise PersistenceConflict(_constraint_name(error)) from error
 
 
 class SqlAlchemyApprovalRepository:
@@ -223,7 +248,7 @@ class SqlAlchemyApprovalRepository:
     async def create_template(self, values: dict[str, Any]) -> dict[str, Any]:
         row = ApprovalTemplate(**values)
         self._session().add(row)
-        await self._session().flush()
+        await _flush(self._session())
         return {"id": row.id, "name": row.name, "steps": row.steps, "isActive": row.isActive}
 
     async def update_template(
@@ -234,7 +259,7 @@ class SqlAlchemyApprovalRepository:
             return None
         for key, value in values.items():
             setattr(row, key, value)
-        await self._session().flush()
+        await _flush(self._session())
         return {"id": row.id, "name": row.name, "steps": row.steps, "isActive": row.isActive}
 
     async def entity_exists(self, entity_type: str, entity_id: str) -> bool:

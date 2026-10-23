@@ -94,7 +94,7 @@ async def test_duplicate_preference_upserts_and_notification_intents_dedupe(noti
 
 @pytest.mark.anyio
 async def test_smtp_secret_is_redacted_and_empty_password_reuses_legacy_text_value(
-    db_session_factory, monkeypatch
+    db_session_factory,
 ):
     async with db_session_factory() as session:
         original = await session.get(SmtpSettings, "singleton")
@@ -111,7 +111,6 @@ async def test_smtp_secret_is_redacted_and_empty_password_reuses_legacy_text_val
             else None
         )
 
-    service = SmtpSettingsService(db_session_factory)
     settings = {
         "host": "smtp.stage09.invalid",
         "port": 2525,
@@ -120,19 +119,19 @@ async def test_smtp_secret_is_redacted_and_empty_password_reuses_legacy_text_val
         "secure": False,
         "fromEmail": "stage09@example.invalid",
     }
+    seen = []
+
+    def verify(credentials):
+        seen.append(credentials.password)
+        return True
+
+    service = SmtpSettingsService(create_unit_of_work_factory(db_session_factory), verify)
     try:
         public = await service.save(settings)
         assert public["password"] == ""
         retained = await service.save({**settings, "password": ""})
         assert retained["password"] == ""
 
-        seen = []
-
-        def verify(credentials):
-            seen.append(credentials.password)
-            return True
-
-        monkeypatch.setattr("app.services.smtp_settings.verify_smtp", verify)
         assert await service.test({**settings, "password": ""}) is True
         assert seen == ["legacy-text-secret"]
     finally:

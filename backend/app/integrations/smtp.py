@@ -4,18 +4,9 @@ from __future__ import annotations
 
 import smtplib
 import ssl
-from dataclasses import dataclass
 from email.message import EmailMessage
 
-
-@dataclass(frozen=True, slots=True)
-class SmtpCredentials:
-    host: str
-    port: int
-    username: str
-    password: str
-    secure: bool
-    from_email: str
+from app.domain.ports.smtp import SmtpCredentials
 
 
 def verify_smtp(settings: SmtpCredentials) -> bool:

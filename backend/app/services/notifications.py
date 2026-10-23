@@ -5,10 +5,10 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.context import RequestContext
+from app.domain.enums import NotificationChannel, NotificationEventType
 from app.domain.errors import DomainError
 from app.domain.ports.audit import AuditRecord
 from app.domain.ports.uow import UnitOfWork, UnitOfWorkFactory
-from app.models.enums import NotificationChannel, NotificationEventType
 from app.services.dto.notifications import NotificationQuery
 from app.services.users import json_value
 

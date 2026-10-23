@@ -2,6 +2,14 @@
 
 from enum import StrEnum
 
+from app.domain import enums as domain_enums
+
+ApprovalRequestStatus = domain_enums.ApprovalRequestStatus
+ApprovalStepStatus = domain_enums.ApprovalStepStatus
+DocumentStatus = domain_enums.DocumentStatus
+NotificationChannel = domain_enums.NotificationChannel
+NotificationEventType = domain_enums.NotificationEventType
+
 
 class AssetStatus(StrEnum):
     IN_STOCK = "IN_STOCK"
@@ -62,43 +70,11 @@ class ScopeMode(StrEnum):
     SELF = "SELF"
 
 
-class NotificationEventType(StrEnum):
-    SYSTEM = "SYSTEM"
-    CONTRACT_EXPIRING = "CONTRACT_EXPIRING"
-    TASK_OVERDUE = "TASK_OVERDUE"
-    ASSET_DISPOSAL_DUE = "ASSET_DISPOSAL_DUE"
-    BUDGET_OVERRUN = "BUDGET_OVERRUN"
-    APPROVAL_REQUESTED = "APPROVAL_REQUESTED"
-    APPROVAL_DECIDED = "APPROVAL_DECIDED"
-    ASSET_MAINTENANCE_DUE = "ASSET_MAINTENANCE_DUE"
-
-
-class NotificationChannel(StrEnum):
-    IN_APP = "IN_APP"
-    EMAIL = "EMAIL"
-
-
 class NotificationOutboxStatus(StrEnum):
     PENDING = "PENDING"
     PROCESSING = "PROCESSING"
     SENT = "SENT"
     FAILED = "FAILED"
-    SKIPPED = "SKIPPED"
-
-
-class ApprovalRequestStatus(StrEnum):
-    DRAFT = "DRAFT"
-    PENDING = "PENDING"
-    APPROVED = "APPROVED"
-    REJECTED = "REJECTED"
-    CANCELLED = "CANCELLED"
-
-
-class ApprovalStepStatus(StrEnum):
-    WAITING = "WAITING"
-    PENDING = "PENDING"
-    APPROVED = "APPROVED"
-    REJECTED = "REJECTED"
     SKIPPED = "SKIPPED"
 
 
@@ -199,14 +175,6 @@ class VacationType(StrEnum):
     SICK_LEAVE = "SICK_LEAVE"
     BUSINESS_TRIP = "BUSINESS_TRIP"
     UNPAID_LEAVE = "UNPAID_LEAVE"
-
-
-class DocumentStatus(StrEnum):
-    DRAFT = "DRAFT"
-    IN_REVIEW = "IN_REVIEW"
-    APPROVED = "APPROVED"
-    SIGNED = "SIGNED"
-    ARCHIVED = "ARCHIVED"
 
 
 class DocumentCategory(StrEnum):

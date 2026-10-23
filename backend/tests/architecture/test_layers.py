@@ -101,6 +101,21 @@ def test_domain_and_core_context_do_not_depend_on_framework_or_infrastructure() 
     assert violations == []
 
 
+def test_stage09_services_do_not_import_infrastructure() -> None:
+    stage09_services = {
+        "services.approvals",
+        "services.notifications",
+        "services.smtp_settings",
+    }
+    violations = find_forbidden_imports(APP)
+
+    assert not [
+        violation
+        for violation in violations
+        if violation.split(":", maxsplit=1)[0] in stage09_services
+    ]
+
+
 def test_import_checker_rejects_transitive_forbidden_import(tmp_path: Path) -> None:
     app = tmp_path / "app"
     (app / "core").mkdir(parents=True)

@@ -17,7 +17,9 @@ Context = Annotated[RequestContext, Depends(get_authenticated_context)]
 
 
 def service(request: Request) -> SmtpSettingsService:
-    return SmtpSettingsService(request.app.state.session_factory)
+    return SmtpSettingsService(
+        request.app.state.unit_of_work_factory, request.app.state.smtp_verifier
+    )
 
 
 Service = Annotated[SmtpSettingsService, Depends(service)]

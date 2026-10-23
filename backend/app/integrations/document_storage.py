@@ -77,7 +77,7 @@ class LocalDocumentStorage:
             )
         self._root_fd: int | None = None
         self._root_guard = Lock()
-        self._root_finalizer: weakref.finalize | None = None
+        self._root_finalizer: weakref.finalize[Any, Any] | None = None
         self._closed = False
 
     def _root(self) -> int:

@@ -6,6 +6,7 @@ from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from app.domain.ports.smtp import SmtpVerifier
 from app.domain.ports.uow import UnitOfWork, UnitOfWorkFactory
 
 
@@ -14,5 +15,6 @@ class AppResources:
     engine: AsyncEngine
     session_factory: async_sessionmaker[AsyncSession]
     unit_of_work_factory: UnitOfWorkFactory[UnitOfWork]
+    smtp_verifier: SmtpVerifier
     tracer_provider: TracerProvider | None
     tracer: trace.Tracer
