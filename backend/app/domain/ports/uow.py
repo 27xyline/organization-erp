@@ -5,6 +5,7 @@ from __future__ import annotations
 from types import TracebackType
 from typing import Protocol, Self, TypeVar
 
+from app.domain.ports.approvals import ApprovalRepository
 from app.domain.ports.assets import AssetRepository
 from app.domain.ports.audit import AuditPort
 from app.domain.ports.departments import DepartmentRepository, GroupRepository, MolRepository
@@ -16,6 +17,8 @@ from app.domain.ports.users import UserRepository
 
 
 class UnitOfWork(Protocol):
+    @property
+    def approvals(self) -> ApprovalRepository: ...
     @property
     def documents(self) -> DocumentRepository: ...
 

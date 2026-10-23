@@ -1,33 +1,42 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
-const list = vi.fn()
+const mocks = vi.hoisted(() => ({ authorizeApiRequest: vi.fn(), proxy: vi.fn() }))
 
-vi.mock('@/lib/auth/authorization', () => ({
-  authorizeApiRequest: vi.fn(async () => ({
-    user: { id: 'current-user' },
-    requestId: 'request-1',
-  })),
-}))
-
-vi.mock('@/features/notifications/application/notification.service', () => ({
-  getNotificationService: () => ({ list }),
-}))
+vi.mock('@/lib/auth/authorization', () => ({ authorizeApiRequest: mocks.authorizeApiRequest }))
+vi.mock('@/lib/backend/stage09', () => ({ proxyStage09: mocks.proxy }))
 
 describe('notifications route', () => {
-  beforeEach(() => vi.clearAllMocks())
-
-  it('loads only the authenticated user inbox', async () => {
-    list.mockResolvedValue({ notifications: [], total: 0 })
-    const { GET } = await import('./route')
-    const response = await GET(new NextRequest(
-      'http://localhost/api/notifications?page=2&pageSize=10&unreadOnly=true&userId=other',
-    ))
-    expect(response.status).toBe(200)
-    expect(list).toHaveBeenCalledWith('current-user', {
-      page: 2,
-      pageSize: 10,
-      unreadOnly: true,
+  beforeEach(() => {
+    vi.resetAllMocks()
+    mocks.authorizeApiRequest.mockResolvedValue({
+      user: { id: 'current-user', sessionVersion: 9 },
+      requestId: 'request-1',
+      response: null,
     })
+    mocks.proxy.mockResolvedValue(Response.json({ data: [], pagination: { page: 2 } }))
+  })
+
+  it('validates the query then proxies the caller path without changing its query string', async () => {
+    const request = new NextRequest(
+      'http://localhost/api/notifications?page=2&pageSize=10&unreadOnly=true&userId=other',
+    )
+    const { GET } = await import('./route')
+    const response = await GET(request)
+    expect(response.status).toBe(200)
+    expect(mocks.proxy).toHaveBeenCalledWith(
+      request,
+      '/api/notifications?page=2&pageSize=10&unreadOnly=true&userId=other',
+      expect.objectContaining({ id: 'current-user', sessionVersion: 9 }),
+      'request-1',
+    )
+  })
+
+  it('rejects invalid query values before forwarding', async () => {
+    const request = new NextRequest('http://localhost/api/notifications?unreadOnly=no')
+    const { GET } = await import('./route')
+    const response = await GET(request)
+    expect(response.status).toBe(422)
+    expect(mocks.proxy).not.toHaveBeenCalled()
   })
 })

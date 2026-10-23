@@ -1,23 +1,40 @@
-import { getNotificationService } from '@/features/notifications/application/notification.service'
+import { NotificationChannel, NotificationEventType } from '@prisma/client'
 import { NotificationsPageClient } from '@/features/notifications/ui/notifications-page-client'
 import { requirePageUser } from '@/lib/auth/authorization'
+import { backendUserFetch } from '@/lib/backend/bridge'
+import { readBackendData } from '@/lib/backend/page-data'
+
+interface NotificationItem {
+  id: string
+  eventType: NotificationEventType
+  title: string
+  body: string
+  targetUrl: string | null
+  readAt: string | null
+  createdAt: string
+}
+
+interface NotificationPreference {
+  eventType: NotificationEventType
+  channel: NotificationChannel
+  enabled: boolean
+}
 
 export const dynamic = 'force-dynamic'
 
 export default async function NotificationsPage() {
   const user = await requirePageUser()
-  const service = getNotificationService()
-  const [result, preferences] = await Promise.all([
-    service.list(user.id, { page: 1, pageSize: 50, unreadOnly: false }),
-    service.getPreferences(user.id),
+  const [notificationsResponse, preferencesResponse] = await Promise.all([
+    backendUserFetch('/api/notifications?page=1&pageSize=50&unreadOnly=false', user),
+    backendUserFetch('/api/notifications/preferences', user),
+  ])
+  const [notifications, preferences] = await Promise.all([
+    readBackendData<NotificationItem[]>(notificationsResponse, 'Не удалось загрузить уведомления из backend'),
+    readBackendData<NotificationPreference[]>(preferencesResponse, 'Не удалось загрузить настройки уведомлений из backend'),
   ])
   return (
     <NotificationsPageClient
-      initialNotifications={result.notifications.map((notification) => ({
-        ...notification,
-        readAt: notification.readAt?.toISOString() || null,
-        createdAt: notification.createdAt.toISOString(),
-      }))}
+      initialNotifications={notifications}
       initialPreferences={preferences}
       canGenerateAlerts={user.permissions.includes('access.users.update')}
     />

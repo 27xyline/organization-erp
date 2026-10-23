@@ -1,16 +1,12 @@
 import type { NextRequest } from 'next/server'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { apiData } from '@/lib/http/api-response'
-import { getApprovalService } from '@/features/approvals/application/approval.service'
+import { proxyStage09 } from '@/lib/backend/stage09'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   const auth = await authorizeApiRequest(request, 'approvals.read')
   if (auth.response) return auth.response
-  const canViewAll = auth.user.roles.some((role) => role === 'ADMIN' || role === 'AUDITOR')
   const { id } = await context.params
-  const approval = await getApprovalService().getVisibleById(id, auth.user.id, canViewAll)
-  if (!approval) return Response.json({ error: { message: 'Согласование не найдено' } }, { status: 404 })
-  return apiData(approval)
+  return proxyStage09(request, `/api/approvals/${encodeURIComponent(id)}`, auth.user, auth.requestId)
 }

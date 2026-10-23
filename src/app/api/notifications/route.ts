@@ -1,8 +1,8 @@
 import type { NextRequest } from 'next/server'
-import { getNotificationService } from '@/features/notifications/application/notification.service'
 import { notificationsQuerySchema } from '@/features/notifications/contracts/notification'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { apiList, apiValidationError } from '@/lib/http/api-response'
+import { apiValidationError } from '@/lib/http/api-response'
+import { proxyStage09 } from '@/lib/backend/stage09'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,10 +15,5 @@ export async function GET(request: NextRequest) {
   )
   if (!query.success) return apiValidationError(query.error)
 
-  const result = await getNotificationService().list(auth.user.id, query.data)
-  return apiList(result.notifications, {
-    page: query.data.page,
-    pageSize: query.data.pageSize,
-    total: result.total,
-  })
+  return proxyStage09(request, `/api/notifications${request.nextUrl.search}`, auth.user, auth.requestId)
 }

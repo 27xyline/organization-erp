@@ -1,7 +1,9 @@
 from collections.abc import Callable
+from typing import Any, cast
 
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.base import new_cuid
@@ -51,6 +53,134 @@ class SqlAlchemyNotificationRepository:
                 for channel in ("IN_APP", "EMAIL")
                 if enabled.get((user_id, channel), channel == "IN_APP")
             ),
+        )
+
+    async def list_for_user(
+        self, user_id: str, page: int, page_size: int, unread_only: bool
+    ) -> tuple[list[dict[str, object]], int]:
+        session = self._session()
+        where = [
+            Notification.userId == user_id,
+            Notification.channel == NotificationChannel.IN_APP,
+            Notification.deletedAt.is_(None),
+        ]
+        if unread_only:
+            where.append(Notification.readAt.is_(None))
+        total = int(
+            await session.scalar(select(func.count()).select_from(Notification).where(*where)) or 0
+        )
+        rows = (
+            await session.scalars(
+                select(Notification)
+                .where(*where)
+                .order_by(Notification.createdAt.desc(), Notification.id.desc())
+                .offset((page - 1) * page_size)
+                .limit(page_size)
+            )
+        ).all()
+        return (
+            [
+                {
+                    "id": row.id,
+                    "eventType": row.eventType.value,
+                    "title": row.title,
+                    "body": row.body,
+                    "targetUrl": row.targetUrl,
+                    "entityType": row.entityType,
+                    "entityId": row.entityId,
+                    "readAt": row.readAt,
+                    "createdAt": row.createdAt,
+                }
+                for row in rows
+            ],
+            total,
+        )
+
+    async def unread_count(self, user_id: str) -> int:
+        return int(
+            await self._session().scalar(
+                select(func.count())
+                .select_from(Notification)
+                .where(
+                    Notification.userId == user_id,
+                    Notification.channel == NotificationChannel.IN_APP,
+                    Notification.deletedAt.is_(None),
+                    Notification.readAt.is_(None),
+                )
+            )
+            or 0
+        )
+
+    async def set_read(self, user_id: str, notification_id: str, read: bool) -> bool:
+        result = await self._session().execute(
+            update(Notification)
+            .where(
+                Notification.id == notification_id,
+                Notification.userId == user_id,
+                Notification.channel == NotificationChannel.IN_APP,
+                Notification.deletedAt.is_(None),
+            )
+            .values(readAt=func.current_timestamp() if read else None)
+        )
+        return bool(cast(CursorResult[Any], result).rowcount)
+
+    async def mark_all_read(self, user_id: str) -> int:
+        result = await self._session().execute(
+            update(Notification)
+            .where(
+                Notification.userId == user_id,
+                Notification.channel == NotificationChannel.IN_APP,
+                Notification.deletedAt.is_(None),
+                Notification.readAt.is_(None),
+            )
+            .values(readAt=func.current_timestamp())
+        )
+        return int(cast(CursorResult[Any], result).rowcount or 0)
+
+    async def delete_for_user(self, user_id: str, notification_id: str) -> bool:
+        result = await self._session().execute(
+            update(Notification)
+            .where(
+                Notification.id == notification_id,
+                Notification.userId == user_id,
+                Notification.channel == NotificationChannel.IN_APP,
+                Notification.deletedAt.is_(None),
+            )
+            .values(deletedAt=func.current_timestamp())
+        )
+        return bool(cast(CursorResult[Any], result).rowcount)
+
+    async def preferences(self, user_id: str) -> list[dict[str, object]]:
+        rows = (
+            await self._session().scalars(
+                select(NotificationPreference).where(NotificationPreference.userId == user_id)
+            )
+        ).all()
+        return [
+            {"eventType": row.eventType.value, "channel": row.channel.value, "enabled": row.enabled}
+            for row in rows
+        ]
+
+    async def set_preference(
+        self, user_id: str, event_type: str, channel: str, enabled: bool
+    ) -> None:
+        await self._session().execute(
+            insert(NotificationPreference)
+            .values(
+                id=new_cuid(),
+                userId=user_id,
+                eventType=NotificationEventType(event_type),
+                channel=NotificationChannel(channel),
+                enabled=enabled,
+            )
+            .on_conflict_do_update(
+                index_elements=[
+                    "userId",
+                    "eventType",
+                    "channel",
+                ],
+                set_={"enabled": enabled, "updatedAt": func.current_timestamp()},
+            )
         )
 
     async def enqueue(self, intent: NotificationIntent) -> NotificationProduceResult:

@@ -9,7 +9,8 @@ const backendBaseUrl = process.env.PLAYWRIGHT_BACKEND_URL || 'http://127.0.0.1:8
 const backendUrl = new URL(backendBaseUrl)
 const backendPort = backendUrl.port || (backendUrl.protocol === 'https:' ? '443' : '80')
 const documentStorageRoot = resolveStage08E2EDocumentStorageRoot(process.env.DOCUMENT_STORAGE_ROOT)
-const isolatedE2eDatabaseUrl = process.env.STAGE08_E2E_DATABASE_URL ??
+const isolatedE2eDatabaseUrl = process.env.STAGE09_E2E_DATABASE_URL ??
+  process.env.STAGE08_E2E_DATABASE_URL ??
   process.env.STAGE07_E2E_DATABASE_URL ??
   process.env.STAGE06_E2E_DATABASE_URL ??
   process.env.STAGE05_E2E_DATABASE_URL ??
@@ -18,8 +19,8 @@ if (!isolatedE2eDatabaseUrl) {
   throw new Error('STAGE07_E2E_DATABASE_URL (or a prior-stage compatibility variable) must point to an isolated shared Node/Python E2E database')
 }
 const e2eDatabaseName = new URL(isolatedE2eDatabaseUrl).pathname.replace(/^\//, '')
-if (!/^erp_stage0[345678]_e2e$/.test(e2eDatabaseName)) {
-  throw new Error('Playwright requires an isolated erp_stage03_e2e through erp_stage08_e2e database')
+if (!/^erp_stage0[3-9]_e2e$/.test(e2eDatabaseName)) {
+  throw new Error('Playwright requires an isolated stage-specific E2E database')
 }
 if (!process.env.DATABASE_URL || process.env.DATABASE_URL !== isolatedE2eDatabaseUrl) {
   throw new Error('DATABASE_URL and the isolated E2E database URL must be the same isolated database')
@@ -71,6 +72,7 @@ export default defineConfig({
         STAGE07_TEST_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
         STAGE07_E2E_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
         STAGE08_E2E_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
+        STAGE09_E2E_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
         STAGE08_TEST_DATABASE_URL: process.env.STAGE08_TEST_DATABASE_URL || '',
         DOCUMENT_STORAGE_ROOT: documentStorageRoot,
         STAGE06_TEST_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),

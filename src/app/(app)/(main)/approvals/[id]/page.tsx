@@ -4,9 +4,31 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ApprovalDecisionPanel } from '@/features/approvals/ui/approval-decision-panel'
-import { getApprovalService } from '@/features/approvals/application/approval.service'
 import { requirePagePermission } from '@/lib/auth/authorization'
 import { formatDateTime } from '@/lib/utils'
+import { backendUserFetch } from '@/lib/backend/bridge'
+import { readBackendData } from '@/lib/backend/page-data'
+
+interface ApprovalDetail {
+  id: string
+  title: string
+  description: string | null
+  status: string
+  currentStep: number
+  dueAt: string | null
+  requestedBy: { name: string }
+  document: { title: string } | null
+  project: { code: string; name: string } | null
+  steps: Array<{
+    id: string
+    sequence: number
+    name: string
+    status: string
+    comment: string | null
+    approverId: string
+    approver: { name: string }
+  }>
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -20,9 +42,14 @@ export default async function ApprovalDetailPage({ params }: { params: Promise<{
     requirePagePermission('approvals.read'),
     params,
   ])
-  const canViewAll = user.roles.some((role) => role === 'ADMIN' || role === 'AUDITOR')
-  const request = await getApprovalService().getVisibleById(id, user.id, canViewAll)
-  if (!request) notFound()
+  let response: Response
+  try {
+    response = await backendUserFetch(`/api/approvals/${encodeURIComponent(id)}`, user)
+  } catch (cause) {
+    throw new Error('Не удалось загрузить согласование из backend', { cause })
+  }
+  if (response.status === 404) notFound()
+  const request = await readBackendData<ApprovalDetail>(response, 'Не удалось загрузить согласование из backend')
   const currentStep = request.steps.find((step) => step.sequence === request.currentStep && step.status === 'PENDING')
   const canDecide = user.access.has('approvals.decide') && currentStep?.approverId === user.id
 

@@ -1,8 +1,6 @@
 import type { NextRequest } from 'next/server'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { apiData } from '@/lib/http/api-response'
-import { getApprovalService } from '@/features/approvals/application/approval.service'
-import { approvalApiError } from '@/features/approvals/application/http'
+import { proxyStage09 } from '@/lib/backend/stage09'
 
 export async function POST(
   request: NextRequest,
@@ -10,10 +8,6 @@ export async function POST(
 ) {
   const auth = await authorizeApiRequest(request, 'approvals.cancel')
   if (auth.response) return auth.response
-  try {
-    const { id } = await context.params
-    return apiData(await getApprovalService().cancel(id, auth.user.id, auth.requestId))
-  } catch (error) {
-    return approvalApiError(error)
-  }
+  const { id } = await context.params
+  return proxyStage09(request, `/api/approvals/${encodeURIComponent(id)}/cancel`, auth.user, auth.requestId)
 }

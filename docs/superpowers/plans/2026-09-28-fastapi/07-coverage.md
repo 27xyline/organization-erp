@@ -1,6 +1,6 @@
 # Исходная матрица покрытия backend
 
-Снимок исходников 28 сентября 2026. Ни один маршрут/модель ещё не перенесены. Этап 00 уточняет body/response/errors/scopes и добавляет все writers/callers; эта матрица — начальный реестр, не подтверждение завершения миграции.
+Исходный снимок source coverage от 28 сентября 2026; URLs/methods остаются базовым каталогом, а колонка владельца обновляется по мере завершения этапов. Этап 00 уточнил body/response/errors/scopes и добавил writers/callers. Владелец DDL остаётся у Prisma до этапа 14.
 
 ## HTTP-маршруты
 
@@ -9,13 +9,13 @@
 | URL | Методы в исходнике | Этап | Владелец сейчас |
 |---|---|---|---|
 | `/api/account/password` | POST | 03 | TS |
-| `/api/approvals/[id]/cancel` | POST | 09 | TS |
-| `/api/approvals/[id]/decision` | POST | 09 | TS |
-| `/api/approvals/[id]` | GET | 09 | TS |
-| `/api/approvals/options` | GET | 09 | TS |
-| `/api/approvals` | GET, POST | 09 | TS |
-| `/api/approvals/templates/[id]` | PATCH | 09 | TS |
-| `/api/approvals/templates` | GET, POST | 09 | TS |
+| `/api/approvals/[id]/cancel` | POST | 09 | Python (Next BFF) |
+| `/api/approvals/[id]/decision` | POST | 09 | Python (Next BFF) |
+| `/api/approvals/[id]` | GET | 09 | Python (Next BFF) |
+| `/api/approvals/options` | GET | 09 | Python (Next BFF) |
+| `/api/approvals` | GET, POST | 09 | Python (Next BFF) |
+| `/api/approvals/templates/[id]` | PATCH | 09 | Python (Next BFF) |
+| `/api/approvals/templates` | GET, POST | 09 | Python (Next BFF) |
 | `/api/assets/[id]/archive` | POST | 07 | TS |
 | `/api/assets/[id]/disposals` | POST | 07 | TS |
 | `/api/assets/[id]/maintenance/[maintenanceId]` | PUT | 07 | TS |
@@ -58,15 +58,15 @@
 | `/api/health/ready` | GET | 01 | TS |
 | `/api/mols/[id]` | GET, PUT, DELETE | 04 | TS |
 | `/api/mols` | GET, POST | 04 | TS |
-| `/api/notifications/[id]` | PATCH, DELETE | 09 | TS |
+| `/api/notifications/[id]` | PATCH, DELETE | 09 | Python (Next BFF) |
 | `/api/notifications/generate-alerts` | POST | 13 | TS |
-| `/api/notifications/preferences` | GET, PUT | 09 | TS |
-| `/api/notifications/read-all` | POST | 09 | TS |
-| `/api/notifications` | GET | 09 | TS |
+| `/api/notifications/preferences` | GET, PUT | 09 | Python (Next BFF) |
+| `/api/notifications/read-all` | POST | 09 | Python (Next BFF) |
+| `/api/notifications` | GET | 09 | Python (Next BFF) |
 | `/api/notifications/smtp/process` | POST | 13 | TS |
-| `/api/notifications/smtp` | GET, POST | 09 | TS |
-| `/api/notifications/smtp/test` | POST | 09 | TS |
-| `/api/notifications/unread-count` | GET | 09 | TS |
+| `/api/notifications/smtp` | GET, POST | 09 | Python (Next BFF) |
+| `/api/notifications/smtp/test` | POST | 09 | Python (Next BFF) |
+| `/api/notifications/unread-count` | GET | 09 | Python (Next BFF) |
 | `/api/operations` | GET | 07 | TS |
 | `/api/payroll/adjustments/[id]` | DELETE | 10 | TS |
 | `/api/payroll/export` | GET | 10 | TS |

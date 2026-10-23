@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import (
 
 
 def _stage02_database_url() -> str:
+    stage09_url = os.environ.get("STAGE09_TEST_DATABASE_URL")
     stage08_url = os.environ.get("STAGE08_TEST_DATABASE_URL")
     stage07_url = os.environ.get("STAGE07_TEST_DATABASE_URL")
     stage06_url = os.environ.get("STAGE06_TEST_DATABASE_URL")
@@ -22,7 +23,8 @@ def _stage02_database_url() -> str:
     stage05_url = os.environ.get("STAGE05_TEST_DATABASE_URL")
     stage04_url = os.environ.get("STAGE04_TEST_DATABASE_URL")
     database_url = (
-        stage08_url
+        stage09_url
+        or stage08_url
         or stage07_url
         or stage06_url
         or stage05_url
@@ -39,6 +41,9 @@ def _stage02_database_url() -> str:
         )
     parsed_url = make_url(database_url)
     expected_database = (
+        "erp_stage09_test"
+        if stage09_url
+        else
         "erp_stage08_test"
         if stage08_url
         else "erp_stage07_test"

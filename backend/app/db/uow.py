@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 import app.db.registry  # noqa: F401  # Register relationship targets before any repository flush.
 from app.domain.errors import RetryableTransactionError
+from app.domain.ports.approvals import ApprovalRepository
 from app.domain.ports.assets import AssetRepository
 from app.domain.ports.audit import AuditPort
 from app.domain.ports.departments import DepartmentRepository, GroupRepository, MolRepository
@@ -17,6 +18,7 @@ from app.domain.ports.employees import EmployeeRepository, WorkforceRepository
 from app.domain.ports.notifications import NotificationIntentPort
 from app.domain.ports.projects import ProjectRepository
 from app.domain.ports.users import UserRepository
+from app.repositories.approvals import SqlAlchemyApprovalRepository
 from app.repositories.assets import SqlAlchemyAssetRepository
 from app.repositories.audit import SqlAlchemyAuditRepository
 from app.repositories.departments import (
@@ -52,6 +54,7 @@ class SqlAlchemyUnitOfWork:
         self._session: AsyncSession | None = None
         self._state = _State.NEW
         self.documents = SqlAlchemyDocumentRepository(self._active_session)
+        self.approvals: ApprovalRepository = SqlAlchemyApprovalRepository(self._active_session)
         self.assets: AssetRepository = SqlAlchemyAssetRepository(self._active_session)
         self.projects: ProjectRepository = SqlAlchemyProjectRepository(self._active_session)
         self.users: UserRepository = SqlAlchemyUserRepository(self._active_session)
