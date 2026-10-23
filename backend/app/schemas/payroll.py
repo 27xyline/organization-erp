@@ -25,6 +25,10 @@ class PayrollMonthQuery(BaseModel):
         return value
 
 
+class PayrollPayslipQuery(PayrollMonthQuery):
+    employeeId: Annotated[str, Field(min_length=1)]
+
+
 class PayrollAdjustmentInput(BaseModel):
     employeeId: Cuid
     projectId: Cuid | None = None
@@ -40,4 +44,9 @@ class PayrollAdjustmentInput(BaseModel):
         return value.strip() if isinstance(value, str) else value
 
 
-__all__ = ["PayrollAdjustmentInput", "PayrollMonthQuery", "PayrollPeriodInput"]
+__all__ = [
+    "PayrollAdjustmentInput",
+    "PayrollMonthQuery",
+    "PayrollPayslipQuery",
+    "PayrollPeriodInput",
+]

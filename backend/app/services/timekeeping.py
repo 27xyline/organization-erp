@@ -33,7 +33,12 @@ def _fail(code: str, message: str, status: int = 409) -> NoReturn:
 
 def _entry_values(row: Any) -> dict[str, Any]:
     def related(value: Any, fields: tuple[str, ...]) -> dict[str, Any] | None:
-        return {field: getattr(value, field) for field in fields} if value is not None else None
+        if value is None:
+            return None
+        return {field: _legacy_number(getattr(value, field)) for field in fields}
+
+    def _legacy_number(value: Any) -> Any:
+        return float(value) if isinstance(value, Decimal) else value
 
     employee = row.employee
     schedule = employee.staffSchedule
@@ -42,9 +47,11 @@ def _entry_values(row: Any) -> dict[str, Any]:
         "employeeId": row.employeeId,
         "projectId": row.projectId,
         "taskId": row.taskId,
-        "workDate": row.workDate,
+        "workDate": datetime.combine(row.workDate, datetime.min.time(), UTC)
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z"),
         "type": str(row.type),
-        "hours": row.hours,
+        "hours": _legacy_number(row.hours),
         "note": row.note,
         "createdAt": row.createdAt,
         "updatedAt": row.updatedAt,
@@ -53,7 +60,7 @@ def _entry_values(row: Any) -> dict[str, Any]:
             "code": employee.code,
             "fullName": employee.fullName,
             "department": employee.department,
-            "employmentRate": employee.employmentRate,
+            "employmentRate": _legacy_number(employee.employmentRate),
             "staffSchedule": related(schedule, ("position", "salary")),
         },
         "project": related(row.project, ("id", "code", "name")),

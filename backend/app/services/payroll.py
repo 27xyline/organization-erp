@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import date
 from decimal import Decimal
 from typing import Any
@@ -9,6 +10,7 @@ from app.domain.errors import DomainError
 from app.domain.finance.payroll_calculator import calculate_payroll
 from app.domain.ports.audit import AuditRecord
 from app.domain.ports.uow import UnitOfWork, UnitOfWorkFactory
+from app.integrations.payroll_export import build_payroll_workbook, build_payslip_workbook
 from app.models.enums import PayrollAdjustmentType
 from app.services.users import authorize
 
@@ -43,8 +45,15 @@ class PayrollService:
     def __init__(self, factory: UnitOfWorkFactory[UnitOfWork]) -> None:
         self._factory = factory
 
-    async def get_month(self, year: int, month: int, context: RequestContext) -> dict[str, Any]:
-        actor = _actor(context, "payroll.read")
+    async def get_month(
+        self,
+        year: int,
+        month: int,
+        context: RequestContext,
+        *,
+        permission: str = "payroll.read",
+    ) -> dict[str, Any]:
+        actor = _actor(context, permission)
         assert actor.access is not None
         async with self._factory() as uow:
             employees = [
@@ -268,6 +277,25 @@ class PayrollService:
                     "projects": [{"id": p.id, "code": p.code, "name": p.name} for p in projects],
                 },
             }
+
+    async def export_month(
+        self, year: int, month: int, context: RequestContext
+    ) -> tuple[bytes, str]:
+        report = await self.get_month(year, month, context, permission="payroll.export")
+        content = await asyncio.to_thread(build_payroll_workbook, year, month, report["rows"])
+        return content, f"payroll-{year}-{month:02d}.xlsx"
+
+    async def export_payslip(
+        self, year: int, month: int, employee_id: str, context: RequestContext
+    ) -> tuple[bytes, str]:
+        report = await self.get_month(year, month, context, permission="payroll.export")
+        row = next((entry for entry in report["rows"] if entry["employeeId"] == employee_id), None)
+        if row is None:
+            raise DomainError(
+                "NOT_FOUND", "Сотрудник не найден в расчетной ведомости за этот месяц", 404
+            )
+        content = await asyncio.to_thread(build_payslip_workbook, year, month, row)
+        return content, f"payslip-{row['code']}-{year}-{month:02d}.xlsx"
 
     async def create_adjustment(
         self, values: dict[str, Any], context: RequestContext

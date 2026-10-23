@@ -41,14 +41,14 @@
 
 **Потребляет:** employees/workforce/project references, approvals port, period helper из 05. **Производит:** финансовые сервисы и все period writes в Python.
 
-- [ ] Golden numeric fixtures на Decimal: ставки, часы, отпуск/больничный, adjustments, project payroll, rounding и границы месяца. Ожидаемые суммы получены из действующих правил и проверены вручную.
-- [ ] Time entry CRUD и timesheet submit/decide: одна atomic workflow с approval/locking, scoped employees, даты/пересечения/повторное решение.
-- [ ] SalaryEntry/FinancePlanEntry/PayrollAdjustment CRUD и пересчёт: precision/date/response aliases; Python Decimal serialization настроить явно, чтобы frontend не получил неожиданные строки вместо чисел.
-- [ ] Close/open payroll period: upsert + `SELECT FOR UPDATE` по `(year,month)`, все связанные writers используют один протокол, включая кадровые операции из 05.
-- [ ] Два concurrent сценария close period vs edit/approve выполняются в отдельных sessions; ни один writer не проходит после закрытия. Ошибка approval не оставляет locked/partially changed timesheet.
-- [ ] Если текущие API Number-преобразования ограничивают точность, сохранить совместимость на границе и описать отдельную будущую версию контракта; внутренние вычисления всё равно Decimal.
-- [ ] Payroll exports/payslip: синхронные Python renderers, контролируемые fonts и permissions; heavy rendering outside event loop/DB lock.
-- [ ] Переключить весь кластер routes и SSR. Общую close/edit workflow нельзя разделить между TS/Python без одинакового tested lock protocol.
+- [x] Golden numeric fixtures на Decimal: ставки, часы, отпуск/больничный, adjustments, project payroll, rounding и границы месяца. Ожидаемые суммы получены из действующих правил и проверены вручную.
+- [x] Time entry CRUD и timesheet submit/decide: одна atomic workflow с approval/locking, scoped employees, даты/пересечения/повторное решение.
+- [x] SalaryEntry/FinancePlanEntry/PayrollAdjustment CRUD и пересчёт: precision/date/response aliases; Python Decimal serialization настроить явно, чтобы frontend не получил неожиданные строки вместо чисел.
+- [ ] Close/open payroll period: upsert + `SELECT FOR UPDATE` по `(year,month)`, все связанные writers используют один протокол, включая кадровые операции из 05. *(Периодные writers используют общий lock; HR master-data writers не блокируются: у них нет effective date, и legacy расчёты используют текущие данные для исторических периодов. Смотрите `stage10-report.md`.)*
+- [x] Два concurrent сценария close period vs edit/approve выполняются в отдельных sessions; ни один writer не проходит после закрытия. Ошибка approval не оставляет locked/partially changed timesheet.
+- [x] Если текущие API Number-преобразования ограничивают точность, сохранить совместимость на границе и описать отдельную будущую версию контракта; внутренние вычисления всё равно Decimal.
+- [x] Payroll exports/payslip: синхронные Python renderers, контролируемые fonts и permissions; heavy rendering outside event loop/DB lock.
+- [x] Переключить весь кластер routes и SSR. Общую close/edit workflow нельзя разделить между TS/Python без одинакового tested lock protocol.
 
 **Проверки:** `uv run pytest tests/unit/timekeeping tests/unit/finance tests/integration/timekeeping tests/integration/finance tests/contracts/finance -q`; golden totals и real concurrency; Playwright табель → согласование → расчёт → закрытие → edit denied → reopen.
 

@@ -146,7 +146,7 @@ async def test_month_read_returns_options_summaries_and_virtual_timesheet(
         assert data["period"] == {"status": "OPEN"}
         assert data["normativeHours"] > 0
         entry = next(row for row in data["entries"] if row["id"] == entry_id)
-        assert entry["hours"] == Decimal("6.50")
+        assert entry["hours"] == 6.5
         assert entry["employee"]["fullName"] == "Stage10 employee"
         assert employee_id in {item["id"] for item in data["employees"]}
         project = next(item for item in data["projects"] if item["id"] == project_id)

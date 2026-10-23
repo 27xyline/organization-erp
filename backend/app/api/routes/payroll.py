@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 
 from app.api.dependencies import (
     get_authenticated_context,
@@ -10,12 +10,18 @@ from app.api.dependencies import (
     get_payroll_service,
 )
 from app.core.context import RequestContext
-from app.schemas.payroll import PayrollAdjustmentInput, PayrollMonthQuery, PayrollPeriodInput
+from app.schemas.payroll import (
+    PayrollAdjustmentInput,
+    PayrollMonthQuery,
+    PayrollPayslipQuery,
+    PayrollPeriodInput,
+)
 from app.services.finance_periods import PayrollPeriodService
 from app.services.payroll import PayrollService
 from app.services.users import json_value
 
 router = APIRouter(prefix="/payroll", tags=["payroll"])
+_XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 Context = Annotated[RequestContext, Depends(get_authenticated_context)]
 Service = Annotated[PayrollPeriodService, Depends(get_payroll_period_service)]
 Payroll = Annotated[PayrollService, Depends(get_payroll_service)]
@@ -30,6 +36,47 @@ async def get_payroll_month(
 ) -> Any:
     query = PayrollMonthQuery(year=year, month=month)
     return {"data": json_value(await service.get_month(query.year, query.month, context))}
+
+
+@router.get("/export")
+async def export_payroll_month(
+    context: Context,
+    service: Payroll,
+    year: str = Query(...),
+    month: str = Query(...),
+) -> Response:
+    query = PayrollMonthQuery(year=year, month=month)
+    content, filename = await service.export_month(query.year, query.month, context)
+    return Response(
+        content,
+        media_type=_XLSX_MEDIA_TYPE,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.get("/export-payslip")
+async def export_payroll_payslip(
+    context: Context,
+    service: Payroll,
+    year: str = Query(...),
+    month: str = Query(...),
+    employee_id: str = Query(..., alias="employeeId"),
+) -> Response:
+    query = PayrollPayslipQuery(year=year, month=month, employeeId=employee_id)
+    content, filename = await service.export_payslip(
+        query.year, query.month, query.employeeId, context
+    )
+    return Response(
+        content,
+        media_type=_XLSX_MEDIA_TYPE,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 @router.post("", status_code=201)
