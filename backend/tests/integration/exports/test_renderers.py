@@ -1,10 +1,13 @@
 from io import BytesIO
+from typing import Any
 
 from docx import Document
 from openpyxl import load_workbook
+from pypdf import PdfReader
 
 from app.integrations.exports import (
     _dashboard_report_rows,
+    render_dashboard_xlsx,
     render_docx,
     render_pdf,
     render_qr,
@@ -18,6 +21,7 @@ def test_renderers_keep_russian_labels_and_numeric_values_readable() -> None:
     rows = [["Иван Иванов", 1250.5]]
 
     xlsx = load_workbook(BytesIO(render_xlsx("Отчёт", columns, rows)), data_only=True)
+    assert xlsx.active is not None
     assert list(xlsx.active.values) == [("Сотрудник", "Начислено"), ("Иван Иванов", 1250.5)]
 
     docx = Document(BytesIO(render_docx("Отчёт", columns, rows)))
@@ -124,6 +128,65 @@ def test_docx_and_pdf_exports_include_scoped_detail_sections() -> None:
 
     pdf = render_pdf("Отчёт", columns, rows)
     assert pdf.startswith(b"%PDF-")
-    # PDF and DOCX are driven by the same fully scoped rows, including detail values.
-    assert any("Проект Север" in str(value) for row in rows for value in row)
-    assert any("INV-7" in str(value) for row in rows for value in row)
+    pdf_text = "\n".join(page.extract_text() or "" for page in PdfReader(BytesIO(pdf)).pages)
+    assert all(
+        value in pdf_text
+        for value in ("Проект Север", "INV-7", "Отдел разработки", "Подготовить релиз", "1000")
+    )
+
+
+def test_all_dashboard_export_formats_hide_finance_without_finance_permission() -> None:
+    private_salary = "987654321.25"
+    data = {
+        "query": {"dateFrom": "2026-01-01", "dateTo": "2026-12-31"},
+        "visibility": {"employees": True, "finance": False, "projects": False, "assets": False},
+        "summary": {
+            "headcount": 1,
+            "active": 1,
+            "occupiedRate": 1,
+            "staffRate": 1,
+            "plannedFot": private_salary,
+            "actualFot": private_salary,
+        },
+        "analytics": {
+            "workforceByDepartment": [
+                {
+                    "department": "Закрытый отдел",
+                    "headcount": 1,
+                    "active": 1,
+                    "occupiedRate": 1,
+                    "staffRate": 1,
+                    "occupancy": 100,
+                    "plannedFot": private_salary,
+                    "actualFot": private_salary,
+                }
+            ],
+            "assetsByStatus": [],
+            "vacations": [],
+        },
+        "activeProjects": [],
+        "overdueTasks": [],
+        "contracts": [],
+        "assetAttention": [],
+    }
+
+    workbook = load_workbook(BytesIO(render_dashboard_xlsx(data)), data_only=True)
+    workbook_values: list[Any] = []
+    for sheet_name in workbook.sheetnames:
+        sheet = workbook[sheet_name]
+        assert sheet is not None
+        workbook_values.extend(value for row in sheet.values for value in row)
+    workforce = workbook["Сотрудники"]
+    assert "Плановый ФОТ" not in [cell.value for cell in workforce[1]]
+    assert "Фактический ФОТ" not in [cell.value for cell in workforce[1]]
+    assert private_salary not in [str(value) for value in workbook_values]
+
+    columns, rows = _dashboard_report_rows(data)
+    docx = Document(BytesIO(render_docx("Отчёт", columns, rows)))
+    docx_text = "\n".join(cell.text for row in docx.tables[0].rows for cell in row.cells)
+    pdf = render_pdf("Отчёт", columns, rows)
+    pdf_text = "\n".join(page.extract_text() or "" for page in PdfReader(BytesIO(pdf)).pages)
+    for text in (docx_text, pdf_text):
+        assert private_salary not in text
+        assert "Плановый ФОТ" not in text
+        assert "Фактический ФОТ" not in text

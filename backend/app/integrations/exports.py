@@ -82,34 +82,35 @@ def render_dashboard_xlsx(data: dict[str, Any]) -> bytes:
         if scope == "tasks" or data["visibility"].get(scope, False):
             overview.append([title, data["summary"].get(key, 0)])
     _style_worksheet(overview)
+    workforce_headers = [
+        "Подразделение",
+        "Сотрудников",
+        "Активных",
+        "Занято ставок",
+        "Штатных ставок",
+        "Занятость, %",
+    ]
+    if data["visibility"].get("finance"):
+        workforce_headers.extend(["Плановый ФОТ", "Фактический ФОТ"])
+    workforce_rows = []
+    if data["visibility"].get("employees"):
+        for row in data["analytics"]["workforceByDepartment"]:
+            item = [
+                row["department"],
+                row["headcount"],
+                row["active"],
+                row["occupiedRate"],
+                row["staffRate"],
+                row["occupancy"],
+            ]
+            if data["visibility"].get("finance"):
+                item.extend([row["plannedFot"], row["actualFot"]])
+            workforce_rows.append(item)
     _append_sheet(
         workbook,
-        "Сотрудники и ФОТ",
-        [
-            "Подразделение",
-            "Сотрудников",
-            "Активных",
-            "Занято ставок",
-            "Штатных ставок",
-            "Занятость, %",
-            "Плановый ФОТ",
-            "Фактический ФОТ",
-        ],
-        [
-            [
-                r["department"],
-                r["headcount"],
-                r["active"],
-                r["occupiedRate"],
-                r["staffRate"],
-                r["occupancy"],
-                r["plannedFot"],
-                r["actualFot"],
-            ]
-            for r in data["analytics"]["workforceByDepartment"]
-        ]
-        if data["visibility"].get("employees")
-        else [],
+        "Сотрудники и ФОТ" if data["visibility"].get("finance") else "Сотрудники",
+        workforce_headers,
+        workforce_rows,
     )
     _append_sheet(
         workbook,
@@ -232,18 +233,19 @@ def _dashboard_report_rows(data: dict[str, Any]) -> tuple[list[str], list[list[A
             rows.append(["Сводка", "", label, summary.get(key, 0)])
 
     if data["visibility"].get("employees"):
+        workforce_headers = [
+            "Подразделение",
+            "Сотрудников",
+            "Активных",
+            "Занято ставок",
+            "Штатных ставок",
+            "Занятость, %",
+        ]
+        if data["visibility"].get("finance"):
+            workforce_headers.extend(["Плановый ФОТ", "Фактический ФОТ"])
         add_section(
-            "Сотрудники и ФОТ",
-            [
-                "Подразделение",
-                "Сотрудников",
-                "Активных",
-                "Занято ставок",
-                "Штатных ставок",
-                "Занятость, %",
-                "Плановый ФОТ",
-                "Фактический ФОТ",
-            ],
+            "Сотрудники и ФОТ" if data["visibility"].get("finance") else "Сотрудники",
+            workforce_headers,
             [
                 [
                     r["department"],
@@ -252,9 +254,8 @@ def _dashboard_report_rows(data: dict[str, Any]) -> tuple[list[str], list[list[A
                     r["occupiedRate"],
                     r["staffRate"],
                     r["occupancy"],
-                    r["plannedFot"],
-                    r["actualFot"],
                 ]
+                + ([r["plannedFot"], r["actualFot"]] if data["visibility"].get("finance") else [])
                 for r in data["analytics"]["workforceByDepartment"]
             ],
         )

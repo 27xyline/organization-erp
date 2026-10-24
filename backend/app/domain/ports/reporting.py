@@ -8,11 +8,13 @@ from typing import Any, Protocol
 from app.domain.auth.rules import AccessContext
 
 
-class ReportingRepository(Protocol):
+class DashboardRepository(Protocol):
     async def dashboard(
         self, query: dict[str, str | None], access: AccessContext, now: datetime
     ) -> dict[str, Any]: ...
 
+
+class ReportingRepository(DashboardRepository, Protocol):
     async def turnover(
         self,
         date_from: datetime,

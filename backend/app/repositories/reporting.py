@@ -55,6 +55,23 @@ def _employee_permission(access: AccessContext) -> str | None:
     return None
 
 
+def _dashboard_employee_columns(*, can_finance: bool) -> list[Any]:
+    columns = [
+        Employee.id,
+        Employee.code,
+        Employee.fullName,
+        Employee.departmentId,
+        Employee.department,
+        Employee.status,
+        Employee.employmentRate,
+        Employee.contractEndDate,
+        StaffSchedule.position,
+    ]
+    if can_finance:
+        columns.append(StaffSchedule.salary)
+    return columns
+
+
 class SqlAlchemyReportingRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -180,25 +197,15 @@ class SqlAlchemyReportingRepository:
                 employee_filter.append(Employee.departmentId == department_id)
             employee_rows = (
                 await self.session.execute(
-                    select(
-                        Employee.id,
-                        Employee.code,
-                        Employee.fullName,
-                        Employee.departmentId,
-                        Employee.department,
-                        Employee.status,
-                        Employee.employmentRate,
-                        Employee.contractEndDate,
-                        StaffSchedule.position,
-                        StaffSchedule.salary,
-                    )
+                    select(*_dashboard_employee_columns(can_finance=can_finance))
                     .outerjoin(StaffSchedule, StaffSchedule.id == Employee.staffScheduleId)
                     .where(*employee_filter)
                     .order_by(Employee.fullName)
                 )
             ).all()
-            employees = [
-                {
+            employees = []
+            for r in employee_rows:
+                employee: dict[str, Any] = {
                     "id": r.id,
                     "code": r.code,
                     "fullName": r.fullName,
@@ -208,10 +215,10 @@ class SqlAlchemyReportingRepository:
                     "employmentRate": Decimal(r.employmentRate),
                     "contractEndDate": r.contractEndDate,
                     "position": r.position or "—",
-                    "salary": Decimal(r.salary or 0),
                 }
-                for r in employee_rows
-            ]
+                if can_finance:
+                    employee["salary"] = Decimal(r.salary or 0)
+                employees.append(employee)
 
         staff_rows: Any = ()
         if access.has("staffSchedule.read") or access.has("departments.read"):

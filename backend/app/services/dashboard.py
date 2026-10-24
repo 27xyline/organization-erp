@@ -6,7 +6,7 @@ from typing import Any
 
 from app.domain.auth.rules import AccessContext
 from app.domain.errors import DomainError
-from app.domain.ports.reporting import ReportingRepository
+from app.domain.ports.reporting import DashboardRepository
 from app.domain.reporting.aggregators import (
     SalaryInput,
     StaffCapacityInput,
@@ -23,7 +23,7 @@ DAY = timedelta(days=1)
 
 
 class DashboardService:
-    def __init__(self, repository: ReportingRepository) -> None:
+    def __init__(self, repository: DashboardRepository) -> None:
         self.repository = repository
 
     async def get_overview(
@@ -41,6 +41,7 @@ class DashboardService:
         today = raw["today"]
         today_end = raw["todayEnd"]
         horizon = raw["horizon"]
+        finance_visible = access.has("finance.salary.read") or access.has("payroll.read")
         date_from = datetime.combine(query.date_from, time.min)
         date_to = datetime.combine(query.date_to, time.max)
 
@@ -50,7 +51,11 @@ class DashboardService:
                 department=item["department"],
                 active=item["status"] == "ACTIVE",
                 employment_rate=Decimal(item["employmentRate"]),
-                monthly_salary=Decimal(item["salary"]) * Decimal(item["employmentRate"]),
+                monthly_salary=(
+                    Decimal(item.get("salary", 0)) * Decimal(item["employmentRate"])
+                    if finance_visible
+                    else Decimal(0)
+                ),
             )
             for item in raw["employees"]
         ]
@@ -58,29 +63,34 @@ class DashboardService:
             StaffCapacityInput(department_id=department_id, rate=rate)
             for department_id, rate in raw["staff"]
         ]
-        salary_input = [
-            SalaryInput(department_id=department_id, amount=amount)
-            for department_id, amount in raw["salaries"]
-        ]
+        salary_input = (
+            [
+                SalaryInput(department_id=department_id, amount=amount)
+                for department_id, amount in raw["salaries"]
+            ]
+            if finance_visible
+            else []
+        )
         workforce, workforce_totals = aggregate_workforce(
             workforce_input, staff_input, salary_input, months_in_period(date_from, date_to)
         )
-        workforce_rows = [
-            {
+        workforce_rows = []
+        for row in workforce:
+            workforce_item: dict[str, Any] = {
                 "departmentId": row.department_id,
                 "department": row.department,
                 "headcount": row.headcount,
                 "active": row.active,
                 "occupiedRate": float(row.occupied_rate),
                 "staffRate": float(row.staff_rate),
-                "plannedFot": float(row.planned_fot),
-                "actualFot": float(row.actual_fot),
                 "occupancy": round(float(row.occupied_rate / row.staff_rate) * 1000) / 10
                 if row.staff_rate
                 else 0,
             }
-            for row in workforce
-        ]
+            if finance_visible:
+                workforce_item["plannedFot"] = float(row.planned_fot)
+                workforce_item["actualFot"] = float(row.actual_fot)
+            workforce_rows.append(workforce_item)
         project_summary = aggregate_projects(raw["projects"])
         asset_summary = aggregate_assets(raw["assets"])
         vacations = [
@@ -170,33 +180,36 @@ class DashboardService:
         recent_activity.sort(key=lambda item: item["date"], reverse=True)
         recent_activity = recent_activity[:12]
 
+        dashboard_summary: dict[str, Any] = {
+            "headcount": workforce_totals["headcount"],
+            "active": workforce_totals["active"],
+            "occupiedRate": float(workforce_totals["occupied_rate"]),
+            "staffRate": float(workforce_totals["staff_rate"]),
+            "occupancy": round(
+                float(workforce_totals["occupied_rate"])
+                / float(workforce_totals["staff_rate"])
+                * 1000
+            )
+            / 10
+            if workforce_totals["staff_rate"]
+            else 0,
+            **project_summary,
+            "assetCount": asset_summary["count"],
+            "assetValue": asset_summary["value"],
+            "awayNow": len(absences),
+            "overdueTasks": len(overdue_tasks),
+            "assetAttention": len(asset_attention),
+            "contractsExpiring": len(contracts),
+        }
+        if finance_visible:
+            dashboard_summary["plannedFot"] = float(workforce_totals["planned_fot"])
+            dashboard_summary["actualFot"] = float(workforce_totals["actual_fot"])
+
         return {
             "query": query.as_dict(),
             "options": {"departments": raw["departments"], "projects": raw["projectOptions"]},
-            "visibility": raw["visibility"],
-            "summary": {
-                "headcount": workforce_totals["headcount"],
-                "active": workforce_totals["active"],
-                "occupiedRate": float(workforce_totals["occupied_rate"]),
-                "staffRate": float(workforce_totals["staff_rate"]),
-                "plannedFot": float(workforce_totals["planned_fot"]),
-                "actualFot": float(workforce_totals["actual_fot"]),
-                "occupancy": round(
-                    float(workforce_totals["occupied_rate"])
-                    / float(workforce_totals["staff_rate"])
-                    * 1000
-                )
-                / 10
-                if workforce_totals["staff_rate"]
-                else 0,
-                **project_summary,
-                "assetCount": asset_summary["count"],
-                "assetValue": asset_summary["value"],
-                "awayNow": len(absences),
-                "overdueTasks": len(overdue_tasks),
-                "assetAttention": len(asset_attention),
-                "contractsExpiring": len(contracts),
-            },
+            "visibility": {**raw["visibility"], "finance": finance_visible},
+            "summary": dashboard_summary,
             "activeProjects": raw["projects"],
             "currentAbsences": absences,
             "contracts": contracts,
