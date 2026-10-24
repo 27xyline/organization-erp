@@ -18,6 +18,7 @@ from app.api.routes.payroll import router as payroll_router
 from app.api.routes.personnel_actions import router as personnel_actions_router
 from app.api.routes.procurement import router as procurement_router
 from app.api.routes.projects import router as projects_router
+from app.api.routes.search import router as search_router
 from app.api.routes.smtp_settings import router as smtp_settings_router
 from app.api.routes.staff_schedule import router as staff_schedule_router
 from app.api.routes.tasks import router as tasks_router
@@ -58,3 +59,4 @@ api_router.include_router(timekeeping_router)
 api_router.include_router(finance_router)
 api_router.include_router(project_payroll_router)
 api_router.include_router(procurement_router)
+api_router.include_router(search_router)
