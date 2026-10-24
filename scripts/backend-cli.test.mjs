@@ -37,6 +37,7 @@ test('launcher dispatches each public command to the matching Python module', ()
       'run', '--project', '/repo/backend', 'python', '-m', moduleName,
     ])
     assert.equal(dispatched.at(-1).executable, 'uv')
+    assert.equal(dispatched.at(-1).options.cwd, '/repo/backend')
     assert.equal(dispatched.at(-1).options.env.BACKEND_DATABASE_URL, 'postgresql://do-not-print')
   }
 })

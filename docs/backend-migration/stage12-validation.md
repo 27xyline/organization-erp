@@ -24,43 +24,26 @@
 - `tests/unit/scripts/test_cli_ports.py` checks port delegation, SQL-free service imports, conflict-safe insert SQL, the connected seed links, and production/working/remote-target guards.
 - `node --test scripts/backend-cli.test.mjs` checks root npm env-file configuration, environment mapping/precedence, safe command dispatch and all three Python modules without a DB.
 
-## Database test evidence
+## Final isolated acceptance — 2026-10-24
 
-The parent-authorized Stage12 suite ran against `erp_stage11_test`: `10 passed, 1 failed`. The only failure was the all-entity search-scope fixture: its hidden document referenced `s12-hidden-employee` before that employee row had been flushed. The fixture now inserts/flushed both employees before creating the document. Focused rerun:
+The final checks used a disposable `postgres:18.6-alpine` container mapped to `127.0.0.1:5434`, launched with `--rm` and without a named or bind-mounted volume. The image's anonymous PGDATA volume was removed with the container after testing. It contained separate `erp_stage11_test`, `erp_stage12_seed_test` and `erp_stage09_e2e` databases. Prisma applied all 41 migrations to the seed and E2E databases.
 
-```sh
-cd backend
-set -a; source ../.runtime/stage11/test.env; set +a
-UV_CACHE_DIR=/private/tmp/uv-stage12 uv run pytest tests/integration/search/test_search_scopes.py::test_search_hides_scoped_employee_asset_project_task_and_document_fields -q
-```
-
-Result: `1 passed`. The full suite was not repeated at that time.
-
-After the final Stage 12 service-port changes, the planned selection was attempted once more:
+The planned backend selection completed on the isolated `erp_stage11_test` database:
 
 ```sh
-cd backend
-set -a; source ../.runtime/stage11/test.env; set +a
 .venv/bin/pytest tests/unit/reporting tests/integration/reporting tests/contracts/reporting tests/integration/search tests/integration/exports -q
 ```
 
-Result: `17 passed, 2 errors`. Both errors occurred in PostgreSQL fixture setup because `127.0.0.1:55432` refused the connection; no assertion failed, but the dashboard aggregate and search DB integration tests did not run. Read-only Docker inspection confirmed the daemon is not running. No Docker lifecycle action was taken. Wait for the isolated test DB before rerunning these two DB-dependent checks.
+Result: `21 passed`. This includes the 137-employee aggregate fixture, PostgreSQL search-scope coverage for employee/asset/project/task/document, export renderers, the dashboard department-filter regression and route response contracts.
 
-## Remaining gates
+The public CLI launcher suite completed with `4 passed`. A live invocation of `npm run db:seed` created one department, schedule, employee, project, membership, task and assignee plus seven training records. Its second invocation reported zero newly created records. `npm run db:verify` exited 0; all twelve relational and file-integrity counters were zero.
 
-The full authorized Stage12 suite returned `10 passed, 1 failed`; after fixing its single fixture-ordering issue, the exact failed test was rerun and passed. The full suite was not repeated. An earlier read-only run of the then-narrower `verify_data` implementation against `erp_stage11_test`, with the isolated URL passed explicitly into `Settings()`, returned `holdingMismatch=0`, `orphanHoldings=0`, `documentCurrentVersionMismatch=21`, `negativeAssets=0`, `negativeHoldings=0`, `secretAuditRows=0` and exit code 1. A second read-only query found `documents=21`, `document_versions=0`, `mismatches=21`, and `documents_with_any_version=0`; the origin of those rows is unknown and no rows were changed. This is not a passing integrity check. After expanding the Python verifier and routing npm commands through it, no DB-backed rerun has been done. The isolated URL must be passed explicitly into `Settings()` (it does not read `STAGE11_TEST_DATABASE_URL` itself):
+`npm run test:e2e -- e2e/stage12-reporting.spec.ts` completed with `1 passed`. It exercised dashboard SSR, global search, the turnover report request, XLSX download, and PDF status, headers and signature.
 
-```sh
-cd backend
-set -a; source ../.runtime/stage11/test.env; set +a
-BACKEND_DATABASE_URL="$STAGE11_TEST_DATABASE_URL" UV_CACHE_DIR=/private/tmp/uv-stage12 uv run python -m app.scripts.verify_data
-UV_CACHE_DIR=/private/tmp/uv-stage12 uv run python -m app.scripts.reporting_baseline
-```
+These checks exposed and fixed three runtime gaps: the public launcher now runs Python from `backend/`; the dashboard asset/MOL department `EXISTS` query explicitly correlates only `Asset`; and `/api/dashboard` plus `/api/my-actions` now return the `{data: ...}` envelope consumed by SSR. Focused tests cover the launcher path, SQL correlation and both route response contracts. Ruff and formatting checks passed on changed backend files.
 
-The baseline script reads `STAGE11_TEST_DATABASE_URL` directly. Its final version checks `current_database()`, prints the row-count snapshot above, then measures the fixed query set. Do not use `project1` or perform cleanup/DROP/truncate.
+The earlier read-only snapshot from the pre-existing `erp_stage11_test` database reported 21 documents without versions (`documentCurrentVersionMismatch=21`). Those unknown rows were not changed; the final zero-counter result comes from the new clean disposable database. The earlier 10/1, 17/2 and Playwright connection failures were superseded by the passing final runs above.
 
-The Stage 12 browser flow is `e2e/stage12-reporting.spec.ts`; it covers dashboard SSR, global search, a report request, XLSX download and PDF status/headers/signature. It targets `erp_stage09_e2e` from `.runtime/stage09/e2e.env`. Initial attempt found FastAPI route registration rejected the custom-report return union; `response_model=None` fixed startup. On the focused retry the backend started, but global setup could not connect to `127.0.0.1:5434`, so the browser test did not run. Read-only Docker inspection later confirmed the daemon stopped; it was not started or stopped during this task.
+During this Docker window, read-only event history showed the pre-existing `erp-stage10-pg18-test` container on `55432` paused, killed with exit 137, removed, and its anonymous volume destroyed at 15:51 UTC. Redis, Grafana and Prometheus in `real-crm-project` received SIGTERM at the same time; Kafdrop exited with code 1. No command issued for this Stage 12 task targeted those containers or volumes, so the cause is unknown. I did not recreate the Stage 10 database or restart the unrelated project services; a blank replacement would not restore their prior data/state. Docker Desktop itself remained running.
 
-The broader full `npm run lint` attempt from checkpoint reported 656 existing/generated findings, including `.runtime/migration-baseline`; changed-file ESLint passes.
-
-The public launcher, expanded verifier, seed link graph and adapter wiring have focused no-database checks only. No demo seed or verify-data run was performed after the port refactor, so DB-backed insertion order, idempotence across repeated CLI invocations, the full relational counters and current document-file verification remain unverified; the Stage 12 CLI acceptance checkbox stays unchecked. The earlier verify-data result above records the test snapshot's observed document inconsistency, not a pass for the final adapter. The isolated PostgreSQL and Playwright gates remain blocked while the Docker daemon/test DB are unavailable.
+The previously recorded reporting baseline remains the earlier 10-iteration sample against its named isolated database. It is not a measurement from the new empty acceptance database or a latency guarantee. Frontend typecheck and focused ESLint checks passed earlier; no frontend source was changed during final acceptance. The broad `npm run lint` attempt still has the previously documented 656 unrelated/generated findings, including `.runtime/migration-baseline`.

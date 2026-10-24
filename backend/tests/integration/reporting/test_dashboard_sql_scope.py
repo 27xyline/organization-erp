@@ -13,6 +13,27 @@ from app.services.dto.reporting import DashboardQuery
 
 
 @pytest.mark.anyio
+async def test_dashboard_department_filter_keeps_asset_mol_exists_local(
+    stage12_session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with stage12_session_factory() as session:
+        access = AccessContext(
+            "s12-home-admin",
+            None,
+            None,
+            (),
+            (ScopeGrant("s12-home-admin", "ADMIN", "ALL", "ALL"),),
+        )
+        result = await DashboardService(SqlAlchemyReportingRepository(session)).get_overview(
+            DashboardQuery(date(2026, 1, 1), date(2026, 12, 31), department_id="s12-home-dept"),
+            access,
+            now=datetime(2026, 6, 1),
+        )
+
+    assert result["summary"]["headcount"] >= 0
+
+
+@pytest.mark.anyio
 async def test_dashboard_aggregates_full_scoped_employee_result_over_one_hundred_rows(
     stage12_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:

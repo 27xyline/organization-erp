@@ -42,7 +42,7 @@ async def dashboard(
     if context.actor is None or context.actor.access is None:
         raise DomainError("UNAUTHENTICATED", "Требуется вход в систему", 401)
     query = _query(date_from, date_to, department_id, project_id)
-    return await service.get_overview(query, context.actor.access)
+    return {"data": await service.get_overview(query, context.actor.access)}
 
 
 @router.get("/my-actions")
@@ -53,6 +53,4 @@ async def my_actions(
     actor = context.actor
     if actor is None or actor.access is None:
         raise DomainError("UNAUTHENTICATED", "Требуется вход в систему", 401)
-    return await service.get_for_user(
-        actor.actor_id, actor.employee_id, actor.access
-    )
+    return {"data": await service.get_for_user(actor.actor_id, actor.employee_id, actor.access)}

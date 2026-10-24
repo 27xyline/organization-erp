@@ -261,9 +261,9 @@ class SqlAlchemyReportingRepository:
                 asset_filters.append(
                     or_(
                         exists(
-                            select(Mol.id).where(
-                                Mol.id == Asset.molId, Mol.departmentId == department_id
-                            )
+                            select(Mol.id)
+                            .where(Mol.id == Asset.molId, Mol.departmentId == department_id)
+                            .correlate(Asset)
                         ),
                         exists(
                             select(AssetHolding.id)

@@ -30,10 +30,11 @@ export function runBackendCli(command, options = {}) {
 
   const run = options.spawn ?? spawnSync
   const cwd = options.cwd ?? repositoryRoot
+  const backendRoot = path.join(cwd, 'backend')
   const result = run(
     'uv',
-    ['run', '--project', path.join(cwd, 'backend'), 'python', '-m', moduleName],
-    { cwd, env: backendEnvironment(options.env ?? process.env), stdio: 'inherit' },
+    ['run', '--project', backendRoot, 'python', '-m', moduleName],
+    { cwd: backendRoot, env: backendEnvironment(options.env ?? process.env), stdio: 'inherit' },
   )
   if (result.error) {
     throw new Error('Не удалось запустить Python CLI через uv')
