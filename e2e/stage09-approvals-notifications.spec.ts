@@ -1,5 +1,6 @@
 import { expect, test, type Browser, type Page } from '@playwright/test'
 import { E2E_ADMIN, E2E_HR } from './global-setup'
+import { authenticatedPost } from './authenticated-request'
 
 async function signedInPage(browser: Browser, credentials: typeof E2E_ADMIN) {
   const context = await browser.newContext({
@@ -16,7 +17,7 @@ async function signedInPage(browser: Browser, credentials: typeof E2E_ADMIN) {
 }
 
 async function createApproval(page: Page, title: string, approvers: [string, string]) {
-  const response = await page.request.post('/api/approvals', {
+  const response = await authenticatedPost(page, '/api/approvals', {
     data: {
       title,
       description: 'Сценарий Stage09 E2E',

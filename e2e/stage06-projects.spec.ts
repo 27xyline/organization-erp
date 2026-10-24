@@ -1,5 +1,6 @@
 import { expect, test, type Browser, type Page } from '@playwright/test'
 import { E2E_ADMIN, E2E_EMPLOYEE } from './global-setup'
+import { authenticatedPost } from './authenticated-request'
 
 async function openSignedInPage(browser: Browser, credentials = E2E_ADMIN) {
   const context = await browser.newContext({
@@ -16,7 +17,7 @@ async function openSignedInPage(browser: Browser, credentials = E2E_ADMIN) {
 }
 
 async function createProject(page: Page, code: string, name: string) {
-  const response = await page.request.post('/api/projects', {
+  const response = await authenticatedPost(page, '/api/projects', {
     data: {
       code,
       name,
@@ -45,7 +46,7 @@ test('Stage 06 projects, members, tasks, dependencies, comments, scopes and Kanb
   const employee = employees.find((item) => item.code === 'E2E-EMPLOYEE-SCOPE')
   expect(employee, 'E2E employee fixture should exist').toBeTruthy()
 
-  const memberResponse = await admin.request.post(`/api/projects/${project.id}/members`, {
+  const memberResponse = await authenticatedPost(admin, `/api/projects/${project.id}/members`, {
     data: { employeeId: employee!.id },
   })
   const memberBody = await memberResponse.json()
@@ -58,7 +59,7 @@ test('Stage 06 projects, members, tasks, dependencies, comments, scopes and Kanb
     expect.objectContaining({ employeeId: employee!.id }),
   ]))
 
-  const firstTaskResponse = await admin.request.post(`/api/projects/${project.id}/tasks`, {
+  const firstTaskResponse = await authenticatedPost(admin, `/api/projects/${project.id}/tasks`, {
     data: {
       name: `E2E Stage06 predecessor ${suffix}`,
       startDate: '2026-10-02',
@@ -75,7 +76,7 @@ test('Stage 06 projects, members, tasks, dependencies, comments, scopes and Kanb
     expect.objectContaining({ title: 'Проверить результат' }),
   ]))
 
-  const secondTaskResponse = await admin.request.post(`/api/projects/${project.id}/tasks`, {
+  const secondTaskResponse = await authenticatedPost(admin, `/api/projects/${project.id}/tasks`, {
     data: {
       name: `E2E Stage06 Kanban ${suffix}`,
       startDate: '2026-10-06',
@@ -91,7 +92,7 @@ test('Stage 06 projects, members, tasks, dependencies, comments, scopes and Kanb
   const task = secondTaskBody.data as { id: string; name: string }
   expect(task.name).toContain('E2E Stage06 Kanban')
 
-  const commentResponse = await admin.request.post(`/api/tasks/${task.id}/comments`, {
+  const commentResponse = await authenticatedPost(admin, `/api/tasks/${task.id}/comments`, {
     data: { body: 'Stage06 E2E comment' },
   })
   const commentBody = await commentResponse.json()

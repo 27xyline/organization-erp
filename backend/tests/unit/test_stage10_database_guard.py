@@ -6,6 +6,9 @@ def test_stage10_test_url_is_explicitly_restricted_to_stage10_database(monkeypat
         "STAGE10_TEST_DATABASE_URL", "postgresql://tester:secret@localhost/erp_stage10_test"
     )
     for name in (
+        "STAGE14B_TEST_DATABASE_URL",
+        "STAGE13_TEST_DATABASE_URL",
+        "STAGE11_TEST_DATABASE_URL",
         "STAGE09_TEST_DATABASE_URL",
         "STAGE08_TEST_DATABASE_URL",
         "STAGE07_TEST_DATABASE_URL",
@@ -25,6 +28,9 @@ def test_stage10_url_cannot_target_another_database(monkeypatch) -> None:
         "STAGE10_TEST_DATABASE_URL", "postgresql://tester:secret@localhost/erp_stage09_test"
     )
     for name in (
+        "STAGE14B_TEST_DATABASE_URL",
+        "STAGE13_TEST_DATABASE_URL",
+        "STAGE11_TEST_DATABASE_URL",
         "STAGE09_TEST_DATABASE_URL",
         "STAGE08_TEST_DATABASE_URL",
         "STAGE07_TEST_DATABASE_URL",

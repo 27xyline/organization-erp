@@ -101,6 +101,7 @@ export default defineConfig([
   },
   globalIgnores([
     'dist/**',
+    '.runtime/**',
     '.next/**',
     '.next-dev/**',
     '.next-dev-turbo/**',

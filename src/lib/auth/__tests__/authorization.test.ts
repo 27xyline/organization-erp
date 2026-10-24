@@ -68,6 +68,7 @@ describe('authorization', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.stubEnv('BACKEND_BASE_URL', 'http://backend:8000')
+    vi.stubEnv('BACKEND_PUBLIC_ORIGIN', '')
     fetchMock.mockImplementation(async () => mockBackendResponse.clone())
     vi.stubGlobal('fetch', fetchMock)
     vi.mocked(cookies).mockResolvedValue({ toString: () => 'erp_session=session-token' } as never)
@@ -126,6 +127,21 @@ describe('authorization', () => {
     const result = await authorizeApiRequest(request, 'assets.create')
     expect(result.response?.status).toBe(403)
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('accepts the configured public origin when Next runs behind an internal host', async () => {
+    vi.stubEnv('BACKEND_PUBLIC_ORIGIN', 'https://erp.example')
+    mockBackendResponse = actorResponse()
+
+    const result = await authorizeApiRequest(
+      new NextRequest('http://app:3001/api/assets', {
+        method: 'POST',
+        headers: { origin: 'https://erp.example' },
+      }),
+    )
+
+    expect(result.response).toBeUndefined()
+    expect(result.user?.id).toBe(baseUser.id)
   })
 
   it('expands assigned departments to descendants but not siblings', () => {

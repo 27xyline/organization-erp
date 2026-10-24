@@ -101,6 +101,23 @@ export default async function globalSetup() {
         contractSignedDate: new Date('2026-01-01T00:00:00.000Z'), contractNumber: 'E2E-EMPLOYEE-SCOPE',
       },
     })
+    const reviewerEmployee = await db.employee.upsert({
+      where: { code: 'E2E-HR-REVIEWER' },
+      update: {
+        department: qaDepartment.name,
+        departmentId: qaDepartment.id,
+        staffScheduleId: employeePosition.id,
+        status: 'ACTIVE',
+      },
+      create: {
+        code: 'E2E-HR-REVIEWER',
+        fullName: 'E2E HR Reviewer',
+        department: qaDepartment.name,
+        departmentId: qaDepartment.id,
+        staffScheduleId: employeePosition.id,
+        employmentRate: 1,
+      },
+    })
     const employeeUser = await db.user.findUniqueOrThrow({ where: { username: E2E_EMPLOYEE.username } })
     await db.user.update({ where: { id: employeeUser.id }, data: { employeeId: employee.id } })
     await db.userRoleAssignment.upsert({
@@ -109,6 +126,12 @@ export default async function globalSetup() {
       create: {
         userId: employeeUser.id, role: 'EMPLOYEE', departmentScopeMode: 'SELF', projectScopeMode: 'SELF',
       },
+    })
+    const hrReviewer = await db.user.findUniqueOrThrow({ where: { username: E2E_HR.username } })
+    await db.user.update({ where: { id: hrReviewer.id }, data: { employeeId: reviewerEmployee.id } })
+    await db.department.update({
+      where: { id: qaDepartment.id },
+      data: { headEmployeeId: reviewerEmployee.id },
     })
     await Promise.all([
       db.mol.upsert({

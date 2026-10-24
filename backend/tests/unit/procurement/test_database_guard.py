@@ -7,6 +7,8 @@ def test_stage11_test_database_is_allowed(monkeypatch) -> None:
         "postgresql://tester:secret@localhost/erp_stage11_test",
     )
     for name in (
+        "STAGE14B_TEST_DATABASE_URL",
+        "STAGE13_TEST_DATABASE_URL",
         "STAGE10_TEST_DATABASE_URL",
         "STAGE09_TEST_DATABASE_URL",
         "STAGE08_TEST_DATABASE_URL",

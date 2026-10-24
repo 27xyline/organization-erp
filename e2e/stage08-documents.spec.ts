@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { expect, test, type Browser } from '@playwright/test'
 import { E2E_ADMIN, E2E_VIEWER } from './global-setup'
+import { authenticatedPost } from './authenticated-request'
 
 async function signedInPage(browser: Browser, credentials = E2E_ADMIN) {
   const context = await browser.newContext({
@@ -89,7 +90,7 @@ test('Stage 08 UI uploads, versions, streams, archives and denies document acces
   await expect(admin.getByText('Документ в архиве')).toBeVisible({ timeout: 15_000 })
 
   const { context: viewerContext, page: viewer } = await signedInPage(browser, E2E_VIEWER)
-  const denied = await viewer.request.post('/api/documents', {
+  const denied = await authenticatedPost(viewer, '/api/documents', {
     headers: { 'content-type': 'application/pdf' },
     data: Buffer.from('synthetic denied upload'),
   })

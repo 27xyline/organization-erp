@@ -1,17 +1,22 @@
-import { expect, test, type Browser } from '@playwright/test'
+import { expect, test, type Browser, type Locator, type Page } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
 import { PrismaClient } from '@prisma/client'
-import { E2E_ADMIN, E2E_EMPLOYEE } from './global-setup'
+import { E2E_ADMIN, E2E_EMPLOYEE, E2E_HR } from './global-setup'
+import { authenticatedPost, authenticatedPut } from './authenticated-request'
+import { seedApprovedZeroHoursForOtherEmployees } from './payroll-fixtures'
 
-async function signedInAdmin(browser: Browser) {
+async function signedInUser(
+  browser: Browser,
+  credentials: { username: string; password: string } = E2E_ADMIN,
+) {
   const context = await browser.newContext({
     baseURL: process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3001',
   })
   const page = await context.newPage()
   await page.goto('/login')
   await page.waitForLoadState('networkidle')
-  await page.getByLabel('Пользователь').fill(E2E_ADMIN.username)
-  await page.getByLabel('Пароль').fill(E2E_ADMIN.password)
+  await page.getByLabel('Пользователь').fill(credentials.username)
+  await page.getByLabel('Пароль').fill(credentials.password)
   await page.getByRole('button', { name: 'Войти' }).click()
   await expect(page).toHaveURL(/\/$/, { timeout: 15_000 })
   return { context, page }
@@ -38,13 +43,15 @@ async function unusedPayrollPeriod() {
       where: { code: 'E2E-EMPLOYEE-SCOPE' },
       select: { id: true },
     })
-    const [timesheets, entries] = await Promise.all([
-      prisma.timesheet.findMany({ where: { employeeId: employee.id }, select: { year: true, month: true } }),
-      prisma.timeEntry.findMany({ where: { employeeId: employee.id }, select: { workDate: true } }),
+    const [timesheets, entries, periods] = await Promise.all([
+      prisma.timesheet.findMany({ select: { year: true, month: true } }),
+      prisma.timeEntry.findMany({ select: { workDate: true } }),
+      prisma.payrollPeriod.findMany({ select: { year: true, month: true } }),
     ])
     const used = new Set([
       ...timesheets.map(({ year, month }) => `${year}-${month}`),
       ...entries.map(({ workDate }) => `${workDate.getUTCFullYear()}-${workDate.getUTCMonth() + 1}`),
+      ...periods.map(({ year, month }) => `${year}-${month}`),
     ])
     const available: Array<{ year: number; month: number }> = []
     for (let year = 2000; year <= 2100; year += 1) {
@@ -53,19 +60,22 @@ async function unusedPayrollPeriod() {
       }
     }
     if (!available.length) throw new Error('No unused payroll period remains for the Stage 10 E2E employee')
-    return available[Math.floor(Math.random() * available.length)]!
+    const selected = available[Math.floor(Math.random() * available.length)]!
+    await seedApprovedZeroHoursForOtherEmployees(prisma, selected.year, selected.month, employee.id)
+    return selected
   } finally {
     await prisma.$disconnect()
   }
 }
 
 async function expectXlsxDownload(
-  page: import('@playwright/test').Page,
+  page: Page,
   linkName: string,
   expectedFilename: string,
+  scope?: Locator,
 ) {
   const downloadReady = page.waitForEvent('download')
-  await page.getByRole('link', { name: linkName }).click()
+  await (scope ?? page).getByRole('link', { name: linkName }).click()
   const download = await downloadReady
   expect(download.suggestedFilename()).toBe(expectedFilename)
   const path = await download.path()
@@ -77,7 +87,7 @@ async function expectXlsxDownload(
 
 test('Stage 10 timekeeping approval, payroll close, denied edit, and reopen', async ({ browser }) => {
   test.setTimeout(45_000)
-  const admin = await signedInAdmin(browser)
+  const admin = await signedInUser(browser)
   const { year, month } = await unusedPayrollPeriod()
   const monthValue = `${year}-${String(month).padStart(2, '0')}`
   const workDate = `${monthValue}-05`
@@ -155,11 +165,13 @@ test('Stage 10 timekeeping approval, payroll close, denied edit, and reopen', as
   const reviewerEmployeeCard = admin.page.locator('div.rounded-md.border.p-3').filter({ hasText: employee!.fullName })
   await expect(reviewerEmployeeCard.getByText('На согласовании')).toBeVisible()
 
-  const approved = await admin.page.request.post(
+  const reviewer = await signedInUser(browser, E2E_HR)
+  const approved = await authenticatedPost(reviewer.page,
     `/api/timekeeping/timesheets/${submittedTimesheet.id}/decision`,
-    { data: { decision: 'APPROVE', reason: 'Stage 10 E2E fallback approval' } },
+    { data: { decision: 'APPROVE', reason: 'Stage 10 E2E assigned reviewer approval' } },
   )
   expect(approved.ok(), await approved.text()).toBeTruthy()
+  await reviewer.context.close()
   await admin.page.reload()
   const approvedMonthLoad = admin.page.waitForResponse((response) => {
     const url = new URL(response.url())
@@ -188,10 +200,13 @@ test('Stage 10 timekeeping approval, payroll close, denied edit, and reopen', as
   await expect(admin.page.getByText(employee!.fullName, { exact: true })).toBeVisible()
 
   await expectXlsxDownload(admin.page, 'Excel', `payroll-${year}-${String(month).padStart(2, '0')}.xlsx`)
+  const employeeRow = admin.page.locator('tr').filter({ hasText: employee!.fullName })
+  await expect(employeeRow).toHaveCount(1)
   await expectXlsxDownload(
     admin.page,
     'Скачать расчетный лист',
     `payslip-${employee!.code}-${year}-${String(month).padStart(2, '0')}.xlsx`,
+    employeeRow,
   )
 
   const closed = admin.page.waitForResponse((response) =>
@@ -200,7 +215,7 @@ test('Stage 10 timekeeping approval, payroll close, denied edit, and reopen', as
   await admin.page.getByRole('button', { name: 'Закрыть месяц' }).click()
   const closedResponse = await closed
   expect(closedResponse.ok()).toBeTruthy()
-  const apiResponse = await admin.page.request.put('/api/payroll/period', {
+  const apiResponse = await authenticatedPut(admin.page, '/api/payroll/period', {
     data: { year, month, status: 'CLOSED' },
     timeout: 5_000,
   })
@@ -209,7 +224,7 @@ test('Stage 10 timekeeping approval, payroll close, denied edit, and reopen', as
   expect(apiBody.data).toMatchObject({ year, month, status: 'CLOSED' })
   await expect(admin.page.getByText('Месяц закрыт')).toBeVisible()
 
-  const deniedEdit = await admin.page.request.put(`/api/time-entries/${entry.id}`, { data: { hours: 9 } })
+  const deniedEdit = await authenticatedPut(admin.page, `/api/time-entries/${entry.id}`, { data: { hours: 9 } })
   expect(deniedEdit.status()).toBe(409)
   expect((await deniedEdit.json()).error.code).toBe('PERIOD_CLOSED')
   const unchanged = await admin.page.request.get(`/api/time-entries?year=${year}&month=${month}`)

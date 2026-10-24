@@ -57,15 +57,15 @@
 
 **Создать:** `docs/backend-migration/cutover-runbook.md`, `rollback-runbook.md`, `acceptance-report.md`; full flow Playwright scenarios.
 
-- [ ] На отдельном окружении восстановить копию БД и document volume; зафиксировать counts/relations/hash до переключения.
-- [ ] Обновить manifest: все пользовательские routes/SSR/scripts Python, исключений со скрытой TS логикой нет. Одновременно проверить service permissions и транспортный routing.
-- [ ] В rehearsal maintenance mode прекратить unsafe writes, дождаться запросов/worker claims, переключить migration/backend/session routing. Старые NextAuth sessions требуют нового входа.
-- [ ] Пройти полный сценарий: сотрудник → проект → задача → закупка → approval → доставка → asset → документ; табель → approval → payroll → close; exports и уведомления; ADMIN и scoped роли.
-- [ ] Проверить DB aggregates/audit/outbox/document SHA и ownership после перезапуска, а не только HTTP 200.
-- [ ] Проверить recovery/rollback: routing rollback только на схеме, которую TS умеет читать. После новых migrations готовится совместимый down/forward fix либо restore в maintenance с явно описанной потерей данных после backup. Не обещать универсальный откат одним env flag.
-- [ ] Результат содержит команды, фактические результаты, известные ограничения, schema compatibility и обновлённый перечень владельцев. Рабочее окружение переключается отдельной порученной операцией после готовой репетиции.
+- [x] На отдельном окружении восстановить копию БД и document volume; зафиксировать counts/relations/hash до переключения.
+- [x] Обновить manifest владельцев routes/SSR/scripts; явно записать оставшиеся TS health endpoints и legacy NextAuth adapter; проверить service permissions и транспортный routing.
+- [x] В rehearsal включить maintenance fence и проверить unsafe writes, дождаться отсутствия запросов/worker claims, выполнить migration/backend/session smoke. Зафиксировать требование нового входа после возврата с Python session на NextAuth.
+- [x] Пройти полный сценарий: сотрудник → проект → задача → закупка → approval → доставка → asset → документ; табель → approval → payroll → close; exports и уведомления; ADMIN и scoped роли.
+- [x] Проверить DB counts/audit/outbox/document SHA и ownership после перезапуска, а не только HTTP 200.
+- [ ] Завершить routing rollback на схеме, которую TS умеет читать. DB и document volume восстановлены в отдельную копию, Prisma read smoke прошёл; сам BFF/runtime обратно на TS не переключали. После новых migrations понадобится совместимый down/forward fix либо restore в maintenance с явно описанной потерей данных после backup. Не обещать универсальный откат одним env flag.
+- [x] Результат содержит команды, фактические результаты, известные ограничения, schema compatibility и обновлённый перечень владельцев. Рабочее окружение переключается отдельной порученной операцией после готовой репетиции.
 
-**Проверки:** full pytest + frontend lint/typecheck/build + Playwright + compose/metrics validation; реальные restore и rollback в rehearsal.
+**Проверки:** frontend lint/typecheck/build, полный cross-module Playwright, Compose/metrics и DB/data integrity прошли. Полный backend pytest: `477 passed, 1 failed` (17 архитектурных зависимостей в существующем `services.*`). DB/document restore и Prisma read smoke прошли; полноценный routing rollback остаётся gate.
 
 **Пауза:** пользователь проходит сценарий сам и изучает runbook. Удаление legacy кода — только после успешной репетиции.
 

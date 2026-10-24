@@ -1,14 +1,18 @@
 # Исходная матрица покрытия backend
 
-Исходный снимок source coverage от 28 сентября 2026; URLs/methods остаются базовым каталогом, а колонка владельца обновляется по мере завершения этапов. Этап 00 уточнил body/response/errors/scopes и добавил writers/callers. Владелец DDL остаётся у Prisma до этапа 14.
+Исходный снимок source coverage от 28 сентября 2026; URLs/methods остаются базовым каталогом, а колонка владельца обновляется по мере завершения этапов. Этап 00 уточнил body/response/errors/scopes и добавил writers/callers. Live route owners и DDL сверены по source/Compose и проверены cross-module runtime rehearsal; Prisma migration history сохранена, DDL owner — Alembic. Stage14C acceptance остаётся pending из-за одного полного pytest architecture guard failure и непроведённого routing rollback; см. `docs/backend-migration/acceptance-report.md`.
 
 ## HTTP-маршруты
 
-Переключение включает все методы route и связанные SSR-callers. Параметры `[id]` означают URL parameter. Новый Python health не отключает старый health до cutover. NextAuth будет заменён на session endpoints этапа 14, а не побайтно воспроизведён.
+Переключение включает все методы route и связанные SSR-callers. Параметры `[id]` означают URL parameter. Новые Python session endpoints заменили NextAuth в пользовательском пути Stage 14B; старый NextAuth route остаётся доступным legacy/rollback adapter до 14D и не является активным owner пользовательских sessions.
 
 | URL | Методы в исходнике | Этап | Владелец сейчас |
 |---|---|---|---|
 | `/api/account/password` | POST | 03 | Python (Next BFF) |
+| `/api/account/me` | GET | 14B | Python (Next BFF) |
+| `/api/auth/csrf` | GET | 14B | Python (Next BFF) |
+| `/api/auth/login` | POST | 14B | Python (Next BFF) |
+| `/api/auth/logout` | POST | 14B | Python (Next BFF) |
 | `/api/approvals/[id]/cancel` | POST | 09 | Python (Next BFF) |
 | `/api/approvals/[id]/decision` | POST | 09 | Python (Next BFF) |
 | `/api/approvals/[id]` | GET | 09 | Python (Next BFF) |
@@ -36,7 +40,7 @@
 | `/api/assets` | GET, POST | 07 | Python (Next BFF) |
 | `/api/assets/saved-views/[id]` | DELETE | 07 | Python (Next BFF) |
 | `/api/assets/saved-views` | GET, POST | 07 | Python (Next BFF) |
-| `/api/auth/[...nextauth]` | GET, POST | 14 | TS |
+| `/api/auth/[...nextauth]` | GET, POST | 14 | TS (legacy rollback adapter; not active session owner) |
 | `/api/departments/[id]` | PATCH, DELETE | 04 | Python (Next BFF) |
 | `/api/departments` | GET, POST | 04 | Python (Next BFF) |
 | `/api/documents/[id]/archive` | POST | 08 | Python (Next BFF) |
@@ -49,7 +53,7 @@
 | `/api/employees/[id]/profile` | PUT | 05 | Python (Next BFF) |
 | `/api/employees/[id]` | PUT, DELETE | 05 | Python (Next BFF) |
 | `/api/employees` | GET, POST | 05 | Python (Next BFF) |
-| `/api/export` | GET | 12 | TS |
+| `/api/export` | GET | 12 | Python (Next BFF) |
 | `/api/finance/plans` | GET, POST, DELETE | 10 | Python (Next BFF) |
 | `/api/finance/salary` | GET | 10 | Python (Next BFF) |
 | `/api/groups/[id]` | GET, PUT, DELETE | 04 | Python (Next BFF) |
@@ -59,11 +63,11 @@
 | `/api/mols/[id]` | GET, PUT, DELETE | 04 | Python (Next BFF) |
 | `/api/mols` | GET, POST | 04 | Python (Next BFF) |
 | `/api/notifications/[id]` | PATCH, DELETE | 09 | Python (Next BFF) |
-| `/api/notifications/generate-alerts` | POST | 13 | TS |
+| `/api/notifications/generate-alerts` | POST | 13 | Python (Next BFF) |
 | `/api/notifications/preferences` | GET, PUT | 09 | Python (Next BFF) |
 | `/api/notifications/read-all` | POST | 09 | Python (Next BFF) |
 | `/api/notifications` | GET | 09 | Python (Next BFF) |
-| `/api/notifications/smtp/process` | POST | 13 | TS |
+| `/api/notifications/smtp/process` | POST | 13 | Python (Next BFF) |
 | `/api/notifications/smtp` | GET, POST | 09 | Python (Next BFF) |
 | `/api/notifications/smtp/test` | POST | 09 | Python (Next BFF) |
 | `/api/notifications/unread-count` | GET | 09 | Python (Next BFF) |
@@ -76,28 +80,28 @@
 | `/api/personnel-actions/[id]` | DELETE | 05 | Python (Next BFF) |
 | `/api/personnel-actions` | GET, POST | 05 | Python (Next BFF) |
 | `/api/personnel-actions/sync` | POST | 05 | Python (Next BFF) |
-| `/api/procurement/[id]/contract` | POST | 11 | TS |
-| `/api/procurement/[id]/deliveries` | POST | 11 | TS |
-| `/api/procurement/[id]` | GET, PUT | 11 | TS |
-| `/api/procurement/[id]/submit` | POST | 11 | TS |
-| `/api/procurement/delivery-items/[id]/capitalize` | POST | 11 | TS |
-| `/api/procurement/options` | GET | 11 | TS |
-| `/api/procurement` | GET, POST | 11 | TS |
-| `/api/procurement/suppliers` | POST | 11 | TS |
+| `/api/procurement/[id]/contract` | POST | 11 | Python (Next BFF) |
+| `/api/procurement/[id]/deliveries` | POST | 11 | Python (Next BFF) |
+| `/api/procurement/[id]` | GET, PUT | 11 | Python (Next BFF) |
+| `/api/procurement/[id]/submit` | POST | 11 | Python (Next BFF) |
+| `/api/procurement/delivery-items/[id]/capitalize` | POST | 11 | Python (Next BFF) |
+| `/api/procurement/options` | GET | 11 | Python (Next BFF) |
+| `/api/procurement` | GET, POST | 11 | Python (Next BFF) |
+| `/api/procurement/suppliers` | POST | 11 | Python (Next BFF) |
 | `/api/projects/[id]/members/[memberId]` | PATCH | 06 | Python (Next BFF) |
 | `/api/projects/[id]/members` | GET, POST | 06 | Python (Next BFF) |
 | `/api/projects/[id]/payroll` | GET, PUT, DELETE | 10 | Python (Next BFF) |
 | `/api/projects/[id]` | GET, PUT, DELETE | 06 | Python (Next BFF) |
 | `/api/projects/[id]/tasks` | GET, POST | 06 | Python (Next BFF) |
 | `/api/projects` | GET, POST | 06 | Python (Next BFF) |
-| `/api/reports/custom` | POST | 12 | TS |
-| `/api/reports/depreciation` | GET | 12 | TS |
-| `/api/reports/export` | GET | 12 | TS |
-| `/api/reports/presets` | GET, POST, DELETE | 12 | TS |
-| `/api/reports/profitability` | GET | 12 | TS |
-| `/api/reports/turnover` | GET | 12 | TS |
-| `/api/reports/vacations` | GET | 12 | TS |
-| `/api/search` | GET | 12 | TS |
+| `/api/reports/custom` | POST | 12 | Python (Next BFF) |
+| `/api/reports/depreciation` | GET | 12 | Python (Next BFF) |
+| `/api/reports/export` | GET | 12 | Python (Next BFF) |
+| `/api/reports/presets` | GET, POST, DELETE | 12 | Python (Next BFF) |
+| `/api/reports/profitability` | GET | 12 | Python (Next BFF) |
+| `/api/reports/turnover` | GET | 12 | Python (Next BFF) |
+| `/api/reports/vacations` | GET | 12 | Python (Next BFF) |
+| `/api/search` | GET | 12 | Python (Next BFF) |
 | `/api/staff-schedule/[id]` | PUT, DELETE | 05 | Python (Next BFF) |
 | `/api/staff-schedule` | GET, POST | 05 | Python (Next BFF) |
 | `/api/tasks/[id]/comments` | POST | 06 | Python (Next BFF) |
@@ -171,7 +175,21 @@
 | `AssetSavedView` | `asset_saved_views` | 07 |
 | `SmtpSettings` | `smtp_settings` | 09 |
 
-Итого: 51 исходных моделей. Новая обязательная таблица `backend_sessions` появляется только на этапе 14 после Alembic handoff.
+Итого: 51 исходная модель; добавлена `user_sessions` на Stage 14B. Prisma migration history сохраняется, активные DDL migrations выполняет Alembic.
+
+## Текущие владельцы transport, SSR и scripts (Stage 14C)
+
+| Путь | Текущий владелец / назначение |
+|---|---|
+| Browser `/api/*` business routes | Next.js route handlers proxy → FastAPI; Python проверяет session, permissions/scopes, CSRF и бизнес-правила. `07-coverage.json` / source inventory остаётся route/method каталогом. |
+| `/api/auth/{csrf,login,logout}`, `/api/account/me` | Python session через Next BFF; NextAuth catchall остаётся неактивным rollback adapter до Stage14D. |
+| `src/app/**/page.tsx` и SSR callers | UI/rendering остаются в Next; доменные данные загружаются Python через BFF/server transport. SSR получает actor через `/api/account/me`, с request cookies и `no-store`. |
+| `backend/app/scripts/*`, `npm run db:seed`, `db:verify`, `user:create-admin` | Python CLI и Alembic migration owner; не выполнять Prisma DDL. |
+| `prisma/demo-seed.ts` и NextAuth catchall | Остаточный TS runtime для operator/demo compatibility и rollback; не часть активного пользовательского write path. Удаление зарезервировано Stage14D. |
+| Notification API/processors | User-facing routes через Python BFF; worker ownership проверяется во время Compose rehearsal. Не включать одновременно TS и Python scheduled processors. |
+| `/api/health/live`, `/api/health/ready` | Next app transport health. Отдельно проверять Python `/api/health/ready` для backend readiness. |
+
+Исходный URL/method inventory содержит 102 HTTP entries; Stage14B добавил четыре session/account endpoints (итого 106). Owner колонка live-матрицы обновлена на Stage14C; исторические Stage00/Stage14B snapshots и write-owner snapshot не перезаписаны.
 
 ## Общие readers/writers и инфраструктура
 

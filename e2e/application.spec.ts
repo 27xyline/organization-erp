@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { E2E_ADMIN, E2E_CUSTODIAN, E2E_EMPLOYEE, E2E_FORCED, E2E_HR, E2E_VIEWER } from './global-setup'
+import { authenticatedDelete, authenticatedPost, authenticatedPut } from './authenticated-request'
 
 async function login(page: Page, credentials = E2E_ADMIN) {
   await page.goto('/login')
@@ -19,7 +20,7 @@ test('unauthenticated API is rejected and viewer cannot mutate', async ({ reques
   await login(page, E2E_VIEWER)
   await expect(page.getByRole('heading', { name: 'Имущество' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Добавить' })).toHaveCount(0)
-  const forbidden = await page.request.post('/api/assets', {
+  const forbidden = await authenticatedPost(page, '/api/assets', {
     data: {},
   })
   expect(forbidden.status()).toBe(403)
@@ -78,7 +79,7 @@ test('admin creates, partially transfers and archives an asset', async ({ page }
   const group = groups.find((item) => item.code === 'E2E')!
   const inventoryNumber = `E2E-${Date.now()}`
 
-  const createdResponse = await page.request.post('/api/assets', {
+  const createdResponse = await authenticatedPost(page, '/api/assets', {
     data: {
       name: 'E2E тестовый объект', inventoryNumber, unitPrice: '10.25', unitOfMeasure: 'шт',
       quantity: '10', molId: fromMol.id, groupId: group.id, recordingDate: '2026-07-16',
@@ -90,7 +91,7 @@ test('admin creates, partially transfers and archives an asset', async ({ page }
   expect(createdResponse.status(), JSON.stringify(createdBody)).toBe(201)
   const created = createdBody.data as { id: string }
 
-  const transferResponse = await page.request.post(`/api/assets/${created.id}/transfers`, {
+  const transferResponse = await authenticatedPost(page, `/api/assets/${created.id}/transfers`, {
     data: {
       fromMolId: fromMol.id, toMolId: toMol.id, quantity: '4', date: new Date().toISOString(),
       reason: 'E2E частичная передача', documentType: 'Акт', documentDetails: 'E2E-2', documentFiles: [],
@@ -103,7 +104,7 @@ test('admin creates, partially transfers and archives an asset', async ({ page }
     expect.objectContaining({ molId: toMol.id, quantity: '4' }),
   ]))
 
-  const archiveResponse = await page.request.post(`/api/assets/${created.id}/archive`, {
+  const archiveResponse = await authenticatedPost(page, `/api/assets/${created.id}/archive`, {
     data: { reason: 'E2E завершение сценария' },
   })
   expect(archiveResponse.ok()).toBeTruthy()
@@ -140,7 +141,7 @@ test('Stage 04 departments and catalogs use Python for admin CRUD and scoped MOL
   expect((await departmentUpdate).status()).toBe(200)
   await expect(page.getByRole('row').filter({ hasText: department.code })).toContainText(`E2E переименовано ${suffix}`)
 
-  const duplicateDepartment = await page.request.post('/api/departments', {
+  const duplicateDepartment = await authenticatedPost(page, '/api/departments', {
     data: { code: department.code, name: 'E2E duplicate' },
   })
   expect(duplicateDepartment.status()).toBe(409)
@@ -159,7 +160,7 @@ test('Stage 04 departments and catalogs use Python for admin CRUD and scoped MOL
   await page.getByLabel('Наименование *').fill(`E2E группа изменена ${suffix}`)
   await page.getByRole('button', { name: 'Сохранить' }).click()
   await expect(page.getByRole('row').filter({ hasText: groupCode })).toContainText(`E2E группа изменена ${suffix}`)
-  const duplicateGroup = await page.request.post('/api/groups', {
+  const duplicateGroup = await authenticatedPost(page, '/api/groups', {
     data: { code: groupCode, name: 'E2E duplicate' },
   })
   expect(duplicateGroup.status()).toBe(409)
@@ -194,7 +195,7 @@ test('Stage 04 departments and catalogs use Python for admin CRUD and scoped MOL
   await page.getByRole('button', { name: 'Сохранить' }).click()
   expect((await molUpdate).status()).toBe(200)
   await expect(page.getByRole('row').filter({ hasText: mol.code })).toContainText(`E2E переехал ${suffix}`)
-  const duplicateMol = await page.request.post('/api/mols', {
+  const duplicateMol = await authenticatedPost(page, '/api/mols', {
     data: {
       code: mol.code, fullName: 'E2E duplicate', storageLocation: 'E2E',
       departmentId: department.id, department: department.name,
@@ -224,7 +225,7 @@ test('Stage 04 departments and catalogs use Python for admin CRUD and scoped MOL
   expect(forbiddenRead.status()).toBe(403)
   expect(await forbiddenRead.json()).toMatchObject({ error: { code: 'FORBIDDEN' } })
 
-  const scopedCreate = await scopedPage.request.post('/api/mols', {
+  const scopedCreate = await authenticatedPost(scopedPage, '/api/mols', {
     data: {
       code: `E2E-SCOPED-${suffix}`, fullName: `E2E scoped ${suffix}`,
       storageLocation: 'QA', departmentId: qaMol.departmentId, department: qaMol.department,
@@ -232,7 +233,7 @@ test('Stage 04 departments and catalogs use Python for admin CRUD and scoped MOL
   })
   expect(scopedCreate.status()).toBe(201)
   const scopedMol = (await scopedCreate.json()).data as { id: string }
-  const scopedUpdate = await scopedPage.request.put(`/api/mols/${scopedMol.id}`, {
+  const scopedUpdate = await authenticatedPut(scopedPage, `/api/mols/${scopedMol.id}`, {
     data: {
       code: `E2E-SCOPED-${suffix}`, fullName: `E2E scoped updated ${suffix}`,
       storageLocation: 'QA updated', departmentId: qaMol.departmentId, department: qaMol.department,
@@ -240,7 +241,7 @@ test('Stage 04 departments and catalogs use Python for admin CRUD and scoped MOL
   })
   expect(scopedUpdate.status()).toBe(200)
   expect(await scopedUpdate.json()).toMatchObject({ data: { fullName: `E2E scoped updated ${suffix}` } })
-  const forbiddenCreate = await scopedPage.request.post('/api/mols', {
+  const forbiddenCreate = await authenticatedPost(scopedPage, '/api/mols', {
     data: {
       code: `E2E-FOREIGN-${suffix}`, fullName: 'E2E foreign', storageLocation: 'Outside',
       departmentId: outsideMol.departmentId, department: outsideMol.department,
@@ -267,13 +268,13 @@ test('Stage 05 HR workflow is department scoped and employee reads stay self sco
   const departments = (await departmentsResponse.json()).data as Array<{ id: string; code: string; name: string }>
   const outsideDepartment = departments.find((department) => department.code === 'DEP-E2E-OUT')!
 
-  const outsidePositionResponse = await page.request.post('/api/staff-schedule', {
+  const outsidePositionResponse = await authenticatedPost(page, '/api/staff-schedule', {
     data: { position: 'E2E foreign expired', departmentId: outsideDepartment.id, rate: 1, salary: 50000 },
   })
   expect(outsidePositionResponse.status()).toBe(201)
   const outsidePosition = (await outsidePositionResponse.json()).data as { id: string }
   const foreignCode = `E2E-FOREIGN-EXPIRED-${Date.now()}`
-  const foreignEmployeeResponse = await page.request.post('/api/employees', {
+  const foreignEmployeeResponse = await authenticatedPost(page, '/api/employees', {
     data: {
       code: foreignCode, fullName: 'E2E Foreign Expired Employee', department: outsideDepartment.name,
       departmentId: outsideDepartment.id, staffScheduleId: outsidePosition.id, employmentRate: 1,
@@ -300,18 +301,18 @@ test('Stage 05 HR workflow is department scoped and employee reads stay self sco
 
   const qaDepartment = departments.find((department) => department.code === 'DEP-QA')!
   const suffix = Date.now().toString(36).toUpperCase()
-  const positionResponse = await hrPage.request.post('/api/staff-schedule', {
+  const positionResponse = await authenticatedPost(hrPage, '/api/staff-schedule', {
     data: { position: `E2E HR position ${suffix}`, departmentId: qaDepartment.id, rate: 1, salary: 80000 },
   })
   expect(positionResponse.status()).toBe(201)
   const position = (await positionResponse.json()).data as { id: string }
-  const transferPositionResponse = await hrPage.request.post('/api/staff-schedule', {
+  const transferPositionResponse = await authenticatedPost(hrPage, '/api/staff-schedule', {
     data: { position: `E2E HR transfer position ${suffix}`, departmentId: qaDepartment.id, rate: 1, salary: 85000 },
   })
   expect(transferPositionResponse.status()).toBe(201)
   const transferPosition = (await transferPositionResponse.json()).data as { id: string; position: string }
   const employeeCode = `E2E-HR-${suffix}`
-  const hired = await hrPage.request.post('/api/employees', {
+  const hired = await authenticatedPost(hrPage, '/api/employees', {
     data: {
       code: employeeCode, fullName: `E2E HR сотрудник ${suffix}`, department: qaDepartment.name,
       departmentId: qaDepartment.id, staffScheduleId: position.id, employmentRate: 1,
@@ -322,7 +323,7 @@ test('Stage 05 HR workflow is department scoped and employee reads stay self sco
   expect(hired.status()).toBe(201)
   const hiredEmployee = (await hired.json()).data as { id: string }
 
-  const extended = await hrPage.request.post('/api/personnel-actions', {
+  const extended = await authenticatedPost(hrPage, '/api/personnel-actions', {
     data: {
       type: 'EXTEND', employeeId: hiredEmployee.id, date: new Date().toISOString(),
       newContractEndDate: '2027-12-31', description: 'E2E продление договора',
@@ -330,7 +331,7 @@ test('Stage 05 HR workflow is department scoped and employee reads stay self sco
   })
   expect(extended.status(), JSON.stringify(await extended.json())).toBe(201)
 
-  const transferred = await hrPage.request.post('/api/personnel-actions', {
+  const transferred = await authenticatedPost(hrPage, '/api/personnel-actions', {
     data: {
       type: 'TRANSFER', employeeId: hiredEmployee.id, date: new Date().toISOString(),
       newDepartment: qaDepartment.name, newPosition: transferPosition.position,
@@ -340,14 +341,14 @@ test('Stage 05 HR workflow is department scoped and employee reads stay self sco
   expect(transferred.status(), JSON.stringify(await transferred.json())).toBe(201)
   expect(await transferred.json()).toMatchObject({ data: { newPosition: transferPosition.position } })
 
-  const vacation = await hrPage.request.post('/api/vacations', {
+  const vacation = await authenticatedPost(hrPage, '/api/vacations', {
     data: {
       employeeId: hiredEmployee.id, startDate: '2026-11-01', endDate: '2026-11-10', type: 'VACATION',
     },
   })
   expect(vacation.status(), JSON.stringify(await vacation.json())).toBe(201)
 
-  const sync = await hrPage.request.post('/api/personnel-actions/sync')
+  const sync = await authenticatedPost(hrPage, '/api/personnel-actions/sync')
   expect(sync.status()).toBe(200)
   expect(await sync.json()).toMatchObject({ data: { success: true, createdCount: 0 } })
   const foreignActions = await page.request.get('/api/personnel-actions')
@@ -360,7 +361,7 @@ test('Stage 05 HR workflow is department scoped and employee reads stay self sco
   }>
   expect(expiredEmployees.find((employee) => employee.id === foreignEmployee.id)?.contractEndDate, JSON.stringify(expiredBody)).toContain('2020-12-31')
 
-  const dismissed = await hrPage.request.delete(`/api/employees/${hiredEmployee.id}`)
+  const dismissed = await authenticatedDelete(hrPage, `/api/employees/${hiredEmployee.id}`)
   expect(dismissed.status(), JSON.stringify(await dismissed.json())).toBe(200)
   expect(await dismissed.json()).toMatchObject({ data: { success: true, archived: true, status: 'DISMISSED' } })
   const archive = await hrPage.request.get('/api/employees?scope=archive')

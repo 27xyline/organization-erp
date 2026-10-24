@@ -10,7 +10,7 @@ import pytest
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.scripts.verify_schema import compare_catalogs, verify_schema
+from app.scripts.verify_schema import catalog_snapshot, compare_catalogs, verify_schema
 
 _BASELINE = import_module("migrations.versions.20261024_legacy_schema")
 
@@ -21,7 +21,12 @@ async def stage14a_engine():
     if not url:
         pytest.fail("STAGE14A_TEST_DATABASE_URL must target a disposable Stage 14A database")
     database = urlparse(url).path.lstrip("/")
-    if database not in {"stage14a_empty", "stage14a_existing", "erp_stage02_test"}:
+    if database not in {
+        "stage14a_empty",
+        "stage14a_existing",
+        "erp_stage02_test",
+        "erp_stage14c_e2e",
+    }:
         pytest.fail("Stage 14A tests require a named disposable rehearsal or CI database")
     engine = create_async_engine(url)
     try:
@@ -87,6 +92,34 @@ def test_frozen_baseline_sql_splitter_keeps_procedural_bodies_intact() -> None:
 @pytest.mark.anyio
 async def test_catalog_verifier_accepts_the_live_stage14b_schema(stage14a_engine) -> None:
     assert await verify_schema(stage14a_engine) == []
+
+
+@pytest.mark.anyio
+async def test_catalog_snapshot_does_not_duplicate_postgres_18_not_null_columns(
+    stage14a_engine,
+) -> None:
+    from sqlalchemy import text
+
+    table_name = "stage14c_not_null_probe"
+    async with stage14a_engine.begin() as connection:
+        version = int(await connection.scalar(text("SHOW server_version_num")))
+        await connection.execute(
+            text(
+                f"CREATE TABLE {table_name} ("
+                "id text NOT NULL, "
+                "named_value text CONSTRAINT stage14c_probe_named_required NOT NULL)"
+            )
+        )
+    try:
+        snapshot = await catalog_snapshot(stage14a_engine)
+        table = snapshot["tables"][table_name]
+        assert table["columns"]["id"]["nullable"] is False
+        assert f"{table_name}_id_not_null" not in table["constraints"]
+        if version >= 180000:
+            assert "stage14c_probe_named_required" in table["constraints"]
+    finally:
+        async with stage14a_engine.begin() as connection:
+            await connection.execute(text(f"DROP TABLE IF EXISTS {table_name}"))
 
 
 @pytest.mark.parametrize("operation", ["UPDATE", "DELETE"])

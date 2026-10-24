@@ -8,7 +8,7 @@ import pytest
 from app.core.context import Actor, RequestContext
 from app.db.uow import SqlAlchemyUnitOfWorkFactory
 from app.domain.auth.rules import AccessContext, ScopeGrant
-from app.models.documents import Document
+from app.models.documents import Document, DocumentVersion
 from app.models.projects import Project
 from app.models.users import User
 from app.services.procurement import ProcurementService
@@ -34,16 +34,30 @@ async def test_options_documents_follow_document_read_scope(stage11_session_fact
             ]
         )
         await session.flush()
+        documents = [
+            Document(id=f"doc-a-{suffix}", title="Доступный", projectId=project_a,
+                     createdById=user_id),
+            Document(id=f"doc-b-{suffix}", title="Чужой", projectId=project_b,
+                     createdById=user_id),
+            Document(id=f"doc-archived-{suffix}", title="Архивный", projectId=project_a,
+                     createdById=user_id, status="ARCHIVED",
+                     archivedAt=datetime.now(UTC).replace(tzinfo=None)),
+        ]
+        session.add_all(documents)
         session.add_all(
-            [
-                Document(id=f"doc-a-{suffix}", title="Доступный", projectId=project_a,
-                         createdById=user_id),
-                Document(id=f"doc-b-{suffix}", title="Чужой", projectId=project_b,
-                         createdById=user_id),
-                Document(id=f"doc-archived-{suffix}", title="Архивный", projectId=project_a,
-                         createdById=user_id, status="ARCHIVED",
-                         archivedAt=datetime.now(UTC).replace(tzinfo=None)),
-            ]
+            DocumentVersion(
+                id=f"version-{document.id}",
+                documentId=document.id,
+                versionNumber=1,
+                storageKey=f"aa/bb/{uuid4()}",
+                originalFilename=f"{document.id}.pdf",
+                mimeType="application/pdf",
+                extension="pdf",
+                sizeBytes=1,
+                sha256="0" * 64,
+                uploadedById=user_id,
+            )
+            for document in documents
         )
         await session.commit()
 

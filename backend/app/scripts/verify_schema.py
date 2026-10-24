@@ -47,10 +47,22 @@ _CATALOG_QUERIES = {
     """,
     "constraints": """
         SELECT c.relname AS table_name, con.conname AS name,
-               pg_get_constraintdef(con.oid, true) AS definition
+               pg_get_constraintdef(con.oid, true) AS definition,
+               con.contype AS constraint_type,
+               con.convalidated AS validated,
+               con.condeferrable AS deferrable,
+               con.condeferred AS deferred,
+               con.conislocal AS is_local,
+               con.coninhcount AS inheritance_count,
+               con.connoinherit AS no_inherit,
+               a.attname AS column_name,
+               a.attnotnull AS column_not_null,
+               (c.relname || '_' || a.attname || '_not_null')::name AS generated_name
         FROM pg_constraint con
         JOIN pg_class c ON c.oid = con.conrelid
         JOIN pg_namespace n ON n.oid = c.relnamespace
+        LEFT JOIN pg_attribute a ON a.attrelid = c.oid
+          AND array_length(con.conkey, 1) = 1 AND a.attnum = con.conkey[1]
         WHERE n.nspname = 'public'
         ORDER BY c.relname, con.conname
     """,
@@ -99,6 +111,8 @@ async def catalog_snapshot(engine: AsyncEngine) -> dict[str, Any]:
                 table = row["table_name"]
                 if table not in snapshot["tables"]:
                     continue
+                if key == "constraints" and _is_column_not_null_duplicate(row):
+                    continue
                 target = snapshot["tables"][table][key]
                 if key == "columns":
                     target[row["name"]] = {
@@ -111,6 +125,21 @@ async def catalog_snapshot(engine: AsyncEngine) -> dict[str, Any]:
         result = await connection.execute(text(_CATALOG_QUERIES["functions"]))
         snapshot["functions"] = {row["name"]: row["definition"] for row in result.mappings()}
     return snapshot
+
+
+def _is_column_not_null_duplicate(row: Any) -> bool:
+    """Ignore PG18's generated NOT NULL catalog row, already represented by attnotnull."""
+    return (
+        row["constraint_type"] in ("n", b"n")
+        and row["column_not_null"] is True
+        and row["name"] == row["generated_name"]
+        and row["validated"] is True
+        and row["deferrable"] is False
+        and row["deferred"] is False
+        and row["is_local"] is True
+        and row["inheritance_count"] == 0
+        and row["no_inherit"] is False
+    )
 
 
 def compare_catalogs(expected: dict[str, Any], actual: dict[str, Any]) -> list[str]:

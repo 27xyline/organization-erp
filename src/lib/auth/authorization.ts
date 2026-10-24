@@ -260,7 +260,10 @@ function sameOriginIsValid(request: NextRequest): boolean {
   const origin = request.headers.get('origin')
   if (!origin) return true
   try {
-    const targetOrigin = request.nextUrl.origin
+    const configuredOrigin = process.env.BACKEND_PUBLIC_ORIGIN
+    const targetOrigin = configuredOrigin
+      ? new URL(configuredOrigin).origin
+      : request.nextUrl.origin
     return new URL(origin).origin === targetOrigin
   } catch {
     return false

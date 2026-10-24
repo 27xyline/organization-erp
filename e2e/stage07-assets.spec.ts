@@ -1,5 +1,6 @@
 import { expect, test, type Browser } from '@playwright/test'
 import { E2E_ADMIN, E2E_CUSTODIAN } from './global-setup'
+import { authenticatedPost } from './authenticated-request'
 
 async function openSignedInPage(browser: Browser, credentials = E2E_ADMIN) {
   const context = await browser.newContext({
@@ -42,7 +43,7 @@ test('Stage 07 UI transfers stock, inventories it, archives/restores it, and enf
   const group = groups.find((item) => item.code === 'E2E')
   expect(sourceMol && destinationMol && outsideMol && group, 'Stage 07 catalog fixtures should exist').toBeTruthy()
 
-  const createdResponse = await admin.request.post('/api/assets', {
+  const createdResponse = await authenticatedPost(admin, '/api/assets', {
     data: {
       name: `Stage07 UI ${suffix}`, inventoryNumber, unitPrice: '10.25', unitOfMeasure: 'шт',
       quantity: '10', molId: sourceMol!.id, groupId: group!.id, recordingDate: '2026-07-16',
@@ -145,7 +146,7 @@ test('Stage 07 UI transfers stock, inventories it, archives/restores it, and enf
   const restored = (await (await admin.request.get(`/api/assets/${assetId}`)).json()).data as AssetResponse
   expect(restored).toMatchObject({ isArchived: false, quantity: '10' })
 
-  const outsideAssetResponse = await admin.request.post('/api/assets', {
+  const outsideAssetResponse = await authenticatedPost(admin, '/api/assets', {
     data: {
       name: `Stage07 scoped ${suffix}`, inventoryNumber: `${inventoryNumber}-OUT`, unitPrice: '1',
       unitOfMeasure: 'шт', quantity: '1', molId: outsideMol!.id, groupId: group!.id,

@@ -14,12 +14,15 @@ from app.db.registry import Base
 
 ROOT = Path(__file__).parents[3]
 INVENTORY = json.loads((ROOT / "docs/backend-migration/schema-inventory.json").read_text())
+LEGACY_TABLES = {model["sql_name"] for model in INVENTORY["models"]}
+POST_BASELINE_TABLES = {"user_sessions"}
 
 
 def test_metadata_matches_all_inventoried_tables_and_columns() -> None:
     metadata = Base.metadata
     models = INVENTORY["models"]
-    assert set(metadata.tables) == {model["sql_name"] for model in models}
+    assert set(metadata.tables) - POST_BASELINE_TABLES == LEGACY_TABLES
+    assert set(metadata.tables) - LEGACY_TABLES == POST_BASELINE_TABLES
 
     for model in models:
         table = metadata.tables[model["sql_name"]]
@@ -129,9 +132,10 @@ def test_metadata_matches_all_inventoried_tables_and_columns() -> None:
 
 def test_schema_defaults_and_enum_metadata_are_complete() -> None:
     metadata = Base.metadata
+    legacy_tables = [metadata.tables[name] for name in LEGACY_TABLES]
     enum_columns = {
         column.type.name: column.type
-        for table in metadata.tables.values()
+        for table in legacy_tables
         for column in table.columns
         if isinstance(column.type, Enum)
     }
@@ -142,21 +146,21 @@ def test_schema_defaults_and_enum_metadata_are_complete() -> None:
     assert (
         sum(
             column.default is not None and column.name == "id"
-            for table in metadata.tables.values()
+            for table in legacy_tables
             for column in table.columns
         )
         == 49
     )
     assert (
-        sum(len(table.columns) for table in metadata.tables.values())
+        sum(len(table.columns) for table in legacy_tables)
         == INVENTORY["counts"]["columns"]
     )
     assert (
-        sum(len(table.indexes) for table in metadata.tables.values())
+        sum(len(table.indexes) for table in legacy_tables)
         == INVENTORY["counts"]["indexes"]
     )
     assert (
-        sum(len(table.foreign_key_constraints) for table in metadata.tables.values())
+        sum(len(table.foreign_key_constraints) for table in legacy_tables)
         == INVENTORY["counts"]["foreign_keys"]
     )
     assert (
@@ -165,7 +169,7 @@ def test_schema_defaults_and_enum_metadata_are_complete() -> None:
                 constraint.__class__.__name__ == "CheckConstraint"
                 for constraint in table.constraints
             )
-            for table in metadata.tables.values()
+            for table in legacy_tables
         )
         == INVENTORY["counts"]["checks"]
     )
@@ -291,10 +295,11 @@ async def test_read_only_postgres_catalog_matches_metadata(db_engine) -> None:
             f"extra={catalog['tables'] - expected_tables}"
         )
     counts = INVENTORY["counts"]
-    column_count = sum(len(columns) for columns in catalog["columns"].values())
-    foreign_key_count = sum(len(fks) for fks in catalog["foreign_keys"].values())
-    index_count = sum(len(indexes) for indexes in catalog["indexes"].values())
-    check_count = sum(len(checks) for checks in catalog["checks"].values())
+    legacy_tables = {model["sql_name"] for model in INVENTORY["models"]}
+    column_count = sum(len(catalog["columns"][table]) for table in legacy_tables)
+    foreign_key_count = sum(len(catalog["foreign_keys"][table]) for table in legacy_tables)
+    index_count = sum(len(catalog["indexes"][table]) for table in legacy_tables)
+    check_count = sum(len(catalog["checks"][table]) for table in legacy_tables)
     for label, actual, expected in (
         ("columns", column_count, counts["columns"]),
         ("foreign keys", foreign_key_count, counts["foreign_keys"]),
@@ -449,6 +454,7 @@ def _read_catalog(connection):
     inspector = inspect(connection)
     tables = set(inspector.get_table_names(schema="public")) - {
         "_prisma_migrations",
+        "alembic_version",
     }
     columns = {}
     indexes = {}

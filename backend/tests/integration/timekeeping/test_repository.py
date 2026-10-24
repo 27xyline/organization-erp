@@ -30,6 +30,7 @@ from app.schemas.timekeeping import (
     TimesheetDecisionInput,
 )
 from app.services.timekeeping import TimekeepingService
+from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
 
 
 @pytest.mark.anyio
@@ -720,6 +721,7 @@ async def test_submit_creates_timesheet_approval_and_audit_in_same_uow(
             assert saved_sheet is not None and str(saved_sheet.status) == "APPROVED"
     finally:
         async with stage10_session_factory() as cleanup:
+            await clear_audit_logs_for_test_cleanup(cleanup)
             approvals = list(
                 (
                     await cleanup.scalars(
@@ -871,6 +873,7 @@ async def test_time_entry_update_waits_for_period_lock_then_rejects_closed_perio
             assert entry is not None and entry.hours == Decimal("2.00")
     finally:
         async with stage10_session_factory() as cleanup:
+            await clear_audit_logs_for_test_cleanup(cleanup)
             period = await cleanup.scalar(
                 select(PayrollPeriod).where(
                     PayrollPeriod.year == year,
@@ -1026,6 +1029,7 @@ async def test_corrected_entry_update_and_delete_reset_approved_timesheet(
             assert sheet.submittedById is None and sheet.decidedById is None
     finally:
         async with stage10_session_factory() as cleanup:
+            await clear_audit_logs_for_test_cleanup(cleanup)
             period = await cleanup.scalar(
                 select(PayrollPeriod).where(
                     PayrollPeriod.year == year,
