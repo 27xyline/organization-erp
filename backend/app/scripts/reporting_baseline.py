@@ -27,6 +27,8 @@ from app.db.registry import (
     Vacation,
 )
 from app.domain.auth.rules import AccessContext, ScopeGrant
+from app.integrations.reporting import SqlAlchemyReportingGateway
+from app.repositories.reporting import SqlAlchemyReportingRepository
 from app.services.dashboard import DashboardService
 from app.services.dto.reporting import DashboardQuery
 from app.services.reporting import ReportingService
@@ -85,12 +87,14 @@ async def main() -> None:
 
         event.listen(engine.sync_engine, "before_cursor_execute", count_query)
         listener_registered = True
-        reports = ReportingService(factory)
+        reports = ReportingService(SqlAlchemyReportingGateway(factory))
         for _ in range(ITERATIONS):
             before_count = query_count
             started = time.perf_counter()
             async with factory() as session:
-                await DashboardService(session).get_overview(FILTERS, access)
+                await DashboardService(SqlAlchemyReportingRepository(session)).get_overview(
+                    FILTERS, access
+                )
             measurements.append((time.perf_counter() - started) * 1000)
             dashboard_iteration_queries = query_count - before_count
             dashboard_query_count += dashboard_iteration_queries

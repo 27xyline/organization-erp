@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import re
 from io import BytesIO
 from pathlib import Path
@@ -185,6 +186,145 @@ def render_dashboard_xlsx(data: dict[str, Any]) -> bytes:
     output = BytesIO()
     workbook.save(output)
     return output.getvalue()
+
+
+class DashboardExportRenderer:
+    """Async port adapter; all CPU-bound document work runs off the event loop."""
+
+    async def render(self, output_format: str, data: dict[str, Any]) -> bytes:
+        if output_format == "xlsx":
+            return await asyncio.to_thread(render_dashboard_xlsx, data)
+        columns, rows = _dashboard_report_rows(data)
+        renderer = render_docx if output_format == "docx" else render_pdf
+        return await asyncio.to_thread(renderer, "Отчёт по dashboard", columns, rows)
+
+
+def _dashboard_report_rows(data: dict[str, Any]) -> tuple[list[str], list[list[Any]]]:
+    """Return detailed, scoped tables in a flat layout shared by DOCX and PDF."""
+    rows: list[list[Any]] = []
+
+    def add_section(title: str, headers: list[str], items: list[list[Any]]) -> None:
+        rows.append([title, "", "", ""])
+        for item in items:
+            rows.extend(
+                [title, str(item[0]), header, value]
+                for header, value in zip(headers[1:], item[1:], strict=True)
+            )
+
+    summary = data["summary"]
+    rows.append(["Сводка", "", "", ""])
+    rows.append(
+        ["Сводка", "Период", "", f"{data['query']['dateFrom']} — {data['query']['dateTo']}"]
+    )
+    for scope, label, key in (
+        ("employees", "Сотрудников", "headcount"),
+        ("employees", "Активных сотрудников", "active"),
+        ("employees", "Занято ставок", "occupiedRate"),
+        ("employees", "Штатных ставок", "staffRate"),
+        ("finance", "Плановый ФОТ", "plannedFot"),
+        ("finance", "Фактический ФОТ", "actualFot"),
+        ("projects", "Активных проектов", "count"),
+        ("projects", "Плановый бюджет", "plannedBudget"),
+        ("projects", "Фактический бюджет", "actualBudget"),
+        ("assets", "Стоимость имущества", "assetValue"),
+    ):
+        if data["visibility"].get(scope, False):
+            rows.append(["Сводка", "", label, summary.get(key, 0)])
+
+    if data["visibility"].get("employees"):
+        add_section(
+            "Сотрудники и ФОТ",
+            [
+                "Подразделение",
+                "Сотрудников",
+                "Активных",
+                "Занято ставок",
+                "Штатных ставок",
+                "Занятость, %",
+                "Плановый ФОТ",
+                "Фактический ФОТ",
+            ],
+            [
+                [
+                    r["department"],
+                    r["headcount"],
+                    r["active"],
+                    r["occupiedRate"],
+                    r["staffRate"],
+                    r["occupancy"],
+                    r["plannedFot"],
+                    r["actualFot"],
+                ]
+                for r in data["analytics"]["workforceByDepartment"]
+            ],
+        )
+    if data["visibility"].get("projects"):
+        add_section(
+            "Проекты",
+            [
+                "Код",
+                "Наименование",
+                "Окончание",
+                "Прогресс, %",
+                "Задач",
+                "Выполнено",
+                "Плановый бюджет",
+                "Фактический бюджет",
+                "Отклонение",
+            ],
+            [
+                [
+                    r["code"],
+                    r["name"],
+                    r["endDate"],
+                    r["progress"],
+                    r["tasksTotal"],
+                    r["tasksCompleted"],
+                    r["plannedBudget"],
+                    r["actualBudget"],
+                    r["actualBudget"] - r["plannedBudget"],
+                ]
+                for r in data["activeProjects"]
+            ],
+        )
+    if data["visibility"].get("assets"):
+        add_section(
+            "Имущество",
+            ["Статус", "Количество", "Стоимость"],
+            [[r["status"], r["count"], r["value"]] for r in data["analytics"]["assetsByStatus"]],
+        )
+    add_section(
+        "Отпуска",
+        ["Сотрудник", "Подразделение", "Тип", "Начало", "Окончание"],
+        [
+            [r["employee"], r["department"], r["type"], r["startDate"], r["endDate"]]
+            for r in data["analytics"]["vacations"]
+        ],
+    )
+    add_section(
+        "Контроль сроков",
+        ["Категория", "Объект", "Контекст", "Срок / статус"],
+        [
+            *[
+                [
+                    "Просроченная задача",
+                    r["name"],
+                    f"{r['project']['code']} · {r['responsible']}",
+                    f"{r['overdueDays']} дн.",
+                ]
+                for r in data["overdueTasks"]
+            ],
+            *[
+                ["Трудовой договор", r["employee"], r["department"], r["contractEndDate"]]
+                for r in data["contracts"]
+            ],
+            *[
+                ["Имущество", r["name"], r["inventoryNumber"], r["status"]]
+                for r in data["assetAttention"]
+            ],
+        ],
+    )
+    return ["Раздел", "Объект", "Показатель", "Значение"], rows
 
 
 def _style_worksheet(sheet: Any) -> None:

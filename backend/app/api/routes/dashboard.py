@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, Request
 
-from app.api.dependencies import get_authenticated_context
+from app.api.dependencies import get_authenticated_context, get_dashboard_service
 from app.core.context import RequestContext
 from app.domain.errors import DomainError
 from app.services.dashboard import DashboardService
@@ -28,8 +28,8 @@ def _query(
 
 @router.get("/dashboard")
 async def dashboard(
-    request: Request,
     context: Context,
+    service: Annotated[DashboardService, Depends(get_dashboard_service)],
     date_from: Annotated[date | None, Query(alias="dateFrom")] = None,
     date_to: Annotated[date | None, Query(alias="dateTo")] = None,
     department_id: Annotated[str | None, Query(alias="departmentId", min_length=1)] = None,
@@ -38,9 +38,7 @@ async def dashboard(
     if context.actor is None or context.actor.access is None:
         raise DomainError("UNAUTHENTICATED", "Требуется вход в систему", 401)
     query = _query(date_from, date_to, department_id, project_id)
-    async with request.app.state.session_factory() as session:
-        data = await DashboardService(session).get_overview(query, context.actor.access)
-    return data
+    return await service.get_overview(query, context.actor.access)
 
 
 @router.get("/my-actions")

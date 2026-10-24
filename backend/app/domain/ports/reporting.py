@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Protocol
 
@@ -11,8 +10,8 @@ from app.domain.auth.rules import AccessContext
 
 class ReportingRepository(Protocol):
     async def dashboard(
-        self, query: Mapping[str, str], access: AccessContext, now: datetime
-    ) -> Mapping[str, Any]: ...
+        self, query: dict[str, str | None], access: AccessContext, now: datetime
+    ) -> dict[str, Any]: ...
 
     async def turnover(
         self,
@@ -20,7 +19,7 @@ class ReportingRepository(Protocol):
         date_to: datetime,
         department_id: str | None,
         access: AccessContext,
-    ) -> Mapping[str, Any]: ...
+    ) -> dict[str, Any]: ...
 
     async def profitability(
         self,
@@ -28,7 +27,7 @@ class ReportingRepository(Protocol):
         date_to: datetime,
         project_id: str | None,
         access: AccessContext,
-    ) -> Sequence[Mapping[str, Any]]: ...
+    ) -> list[dict[str, Any]]: ...
 
     async def depreciation(
         self,
@@ -36,7 +35,7 @@ class ReportingRepository(Protocol):
         date_to: datetime,
         department_id: str | None,
         access: AccessContext,
-    ) -> Mapping[str, Any]: ...
+    ) -> dict[str, Any]: ...
 
     async def vacation_calendar(
         self,
@@ -44,15 +43,21 @@ class ReportingRepository(Protocol):
         date_to: datetime,
         department_id: str | None,
         access: AccessContext,
-    ) -> Sequence[Mapping[str, Any]]: ...
+    ) -> list[dict[str, Any]]: ...
 
     async def custom_report(
         self,
         group_by: str,
-        metrics: Sequence[str],
+        metrics: list[str],
         date_from: datetime,
         date_to: datetime,
         department_id: str | None,
         project_id: str | None,
         access: AccessContext,
-    ) -> Sequence[Mapping[str, Any]]: ...
+    ) -> list[dict[str, Any]]: ...
+
+    async def list_presets(self, user_id: str) -> list[dict[str, Any]]: ...
+
+    async def save_preset(self, user_id: str, body: dict[str, Any]) -> dict[str, Any]: ...
+
+    async def delete_preset(self, user_id: str, preset_id: str) -> bool: ...

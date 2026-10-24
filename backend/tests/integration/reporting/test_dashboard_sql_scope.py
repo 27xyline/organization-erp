@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.domain.auth.rules import AccessContext, ScopeGrant
 from app.models.departments import Department
 from app.models.employees import Employee
+from app.repositories.reporting import SqlAlchemyReportingRepository
 from app.services.dashboard import DashboardService
 from app.services.dto.reporting import DashboardQuery
 
@@ -37,7 +38,7 @@ async def test_dashboard_aggregates_full_scoped_employee_result_over_one_hundred
             access = AccessContext(
                 "s12-report-user", None, None, (), (ScopeGrant("s12-admin", "ADMIN", "ALL", "ALL"),)
             )
-            result = await DashboardService(session).get_overview(
+            result = await DashboardService(SqlAlchemyReportingRepository(session)).get_overview(
                 DashboardQuery(date(2026, 1, 1), date(2026, 12, 31)),
                 access,
                 now=datetime(2026, 6, 1),

@@ -116,6 +116,32 @@ def test_stage09_services_do_not_import_infrastructure() -> None:
     ]
 
 
+def test_stage12_reporting_services_depend_on_ports_not_adapters_or_http_types() -> None:
+    import ast
+
+    modules = ("dashboard.py", "reporting.py", "exports.py")
+    forbidden = ("sqlalchemy", "pydantic", "fastapi", "app.repositories", "app.integrations")
+    violations: list[str] = []
+    for filename in modules:
+        source = APP / "services" / filename
+        tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imports = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                imports = [node.module or ""]
+            else:
+                continue
+            violations.extend(
+                f"{filename}: {module}"
+                for module in imports
+                if module == forbidden[0]
+                or any(module == prefix or module.startswith(prefix + ".") for prefix in forbidden)
+            )
+
+    assert violations == []
+
+
 def test_import_checker_rejects_transitive_forbidden_import(tmp_path: Path) -> None:
     app = tmp_path / "app"
     (app / "core").mkdir(parents=True)

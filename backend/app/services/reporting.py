@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, cast
-
-from sqlalchemy.ext.asyncio import async_sessionmaker
+from typing import Any
 
 from app.domain.auth.rules import AccessContext, require_permission
 from app.domain.errors import DomainError
-from app.repositories.reporting import SqlAlchemyReportingRepository
-from app.schemas.reporting import ReportPresetInput
+from app.domain.ports.reporting import ReportingRepository
+from app.services.dto.reporting import ReportPresetInput
 
 _GROUP_METRICS = {
     "department": {"headcount", "occupiedRate", "plannedFot", "assetValue"},
@@ -17,13 +15,8 @@ _GROUP_METRICS = {
 
 
 class ReportingService:
-    def __init__(self, session_factory: async_sessionmaker[Any]) -> None:
-        self._session_factory = session_factory
-
-    async def _call(self, name: str, *args: Any) -> Any:
-        async with self._session_factory() as session:
-            repository = SqlAlchemyReportingRepository(session)
-            return await getattr(repository, name)(*args)
+    def __init__(self, repository: ReportingRepository) -> None:
+        self.repository = repository
 
     async def turnover(
         self,
@@ -35,10 +28,7 @@ class ReportingService:
         require_permission(access, "reports.read")
         require_permission(access, "employees.read")
         require_permission(access, "personnelActions.read")
-        return cast(
-            dict[str, Any],
-            await self._call("turnover", date_from, date_to, department_id, access),
-        )
+        return await self.repository.turnover(date_from, date_to, department_id, access)
 
     async def profitability(
         self,
@@ -54,10 +44,7 @@ class ReportingService:
             "finance.salary.read",
         ):
             require_permission(access, permission)
-        return cast(
-            list[dict[str, Any]],
-            await self._call("profitability", date_from, date_to, project_id, access),
-        )
+        return await self.repository.profitability(date_from, date_to, project_id, access)
 
     async def depreciation(
         self,
@@ -68,10 +55,7 @@ class ReportingService:
     ) -> dict[str, Any]:
         require_permission(access, "reports.read")
         require_permission(access, "assets.read")
-        return cast(
-            dict[str, Any],
-            await self._call("depreciation", date_from, date_to, department_id, access),
-        )
+        return await self.repository.depreciation(date_from, date_to, department_id, access)
 
     async def vacation_calendar(
         self,
@@ -82,28 +66,21 @@ class ReportingService:
     ) -> list[dict[str, Any]]:
         require_permission(access, "reports.read")
         require_permission(access, "vacations.read")
-        return cast(
-            list[dict[str, Any]],
-            await self._call("vacation_calendar", date_from, date_to, department_id, access),
-        )
+        return await self.repository.vacation_calendar(date_from, date_to, department_id, access)
 
     async def presets(self, user_id: str, access: AccessContext) -> list[dict[str, Any]]:
         require_permission(access, "reports.read")
-        return cast(list[dict[str, Any]], await self._call("list_presets", user_id))
+        return await self.repository.list_presets(user_id)
 
     async def save_preset(
         self, user_id: str, body: ReportPresetInput, access: AccessContext
     ) -> dict[str, Any]:
         require_permission(access, "reports.read")
-        async with self._session_factory.begin() as session:
-            repository = SqlAlchemyReportingRepository(session)
-            return await repository.save_preset(user_id, body.model_dump())
+        return await self.repository.save_preset(user_id, body.as_mapping())
 
     async def delete_preset(self, user_id: str, preset_id: str, access: AccessContext) -> None:
         require_permission(access, "reports.read")
-        async with self._session_factory.begin() as session:
-            repository = SqlAlchemyReportingRepository(session)
-            deleted = await repository.delete_preset(user_id, preset_id)
+        deleted = await self.repository.delete_preset(user_id, preset_id)
         if not deleted:
             raise DomainError("REPORT_PRESET_NOT_FOUND", "Сохранённый отчёт не найден", 404)
 
@@ -117,9 +94,10 @@ class ReportingService:
         access: AccessContext,
     ) -> list[dict[str, Any]]:
         require_permission(access, "reports.read")
-        if preset.groupBy not in _GROUP_METRICS:
+        group_by = preset.group_by
+        if group_by not in _GROUP_METRICS:
             raise DomainError("INVALID_GROUP", "Выберите группировку отчёта", 400)
-        if any(metric not in _GROUP_METRICS[preset.groupBy] for metric in preset.metrics):
+        if any(metric not in _GROUP_METRICS[group_by] for metric in preset.metrics):
             raise DomainError(
                 "INVALID_METRIC", "Показатель недоступен для выбранной группировки", 400
             )
@@ -133,19 +111,15 @@ class ReportingService:
             "assetValue": "assets.read",
             "projectBudget": "projects.read",
         }
-        permissions = {required[preset.groupBy], *(required[metric] for metric in preset.metrics)}
+        permissions = {required[group_by], *(required[metric] for metric in preset.metrics)}
         for permission in permissions:
             require_permission(access, permission)
-        return cast(
-            list[dict[str, Any]],
-            await self._call(
-                "custom_report",
-                preset.groupBy,
-                preset.metrics,
-                date_from,
-                date_to,
-                department_id,
-                project_id,
-                access,
-            ),
+        return await self.repository.custom_report(
+            group_by,
+            list(preset.metrics),
+            date_from,
+            date_to,
+            department_id,
+            project_id,
+            access,
         )

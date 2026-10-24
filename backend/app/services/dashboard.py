@@ -4,10 +4,9 @@ from datetime import UTC, datetime, time, timedelta
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.domain.auth.rules import AccessContext
 from app.domain.errors import DomainError
+from app.domain.ports.reporting import ReportingRepository
 from app.domain.reporting.aggregators import (
     SalaryInput,
     StaffCapacityInput,
@@ -18,15 +17,14 @@ from app.domain.reporting.aggregators import (
     aggregate_workforce,
     months_in_period,
 )
-from app.repositories.reporting import SqlAlchemyReportingRepository
 from app.services.dto.reporting import DashboardQuery
 
 DAY = timedelta(days=1)
 
 
 class DashboardService:
-    def __init__(self, session: AsyncSession) -> None:
-        self.repository = SqlAlchemyReportingRepository(session)
+    def __init__(self, repository: ReportingRepository) -> None:
+        self.repository = repository
 
     async def get_overview(
         self, query: DashboardQuery, access: AccessContext, now: datetime | None = None

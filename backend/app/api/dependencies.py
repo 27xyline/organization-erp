@@ -11,17 +11,23 @@ from app.core.context import Actor, RequestContext
 from app.domain.errors import DomainError
 from app.integrations.asset_import import OpenpyxlAssetWorkbook
 from app.integrations.asset_qr import render_asset_qr
+from app.integrations.audit import SqlAlchemyAuditGateway
 from app.integrations.auth_bridge import verify_bridge
+from app.integrations.exports import DashboardExportRenderer
 from app.integrations.password_hash import Argon2PasswordHasher
+from app.integrations.reporting import SqlAlchemyReportingGateway
 from app.services.asset_export import AssetExportService
 from app.services.asset_import import AssetImportService
 from app.services.auth import AuthService
 from app.services.catalogs import CatalogService
+from app.services.dashboard import DashboardService
 from app.services.departments import DepartmentService
 from app.services.employees import EmployeeService
+from app.services.exports import ExportService
 from app.services.finance_periods import PayrollPeriodService
 from app.services.payroll import PayrollService
 from app.services.personnel_actions import PersonnelActionService
+from app.services.reporting import ReportingService
 from app.services.users import UserService
 from app.services.workforce import WorkforceService
 
@@ -95,6 +101,20 @@ def get_asset_import_service(request: Request) -> AssetImportService:
 
 def get_asset_export_service(request: Request) -> AssetExportService:
     return AssetExportService(request.app.state.unit_of_work_factory, OpenpyxlAssetWorkbook())
+
+
+def get_dashboard_service(request: Request) -> DashboardService:
+    return DashboardService(SqlAlchemyReportingGateway(request.app.state.session_factory))
+
+
+def get_reporting_service(request: Request) -> ReportingService:
+    return ReportingService(SqlAlchemyReportingGateway(request.app.state.session_factory))
+
+
+def get_export_service(request: Request) -> ExportService:
+    return ExportService(
+        DashboardExportRenderer(), SqlAlchemyAuditGateway(request.app.state.session_factory)
+    )
 
 
 def get_asset_qr_renderer() -> Callable[[str], bytes]:

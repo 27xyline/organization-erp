@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import date, datetime
+from typing import Any
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,3 +28,19 @@ class ReportPreset:
     filters: dict[str, object] | None
     created_by_id: str
     created_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class ReportPresetInput:
+    name: str
+    metrics: tuple[str, ...]
+    group_by: str | None = None
+    filters: dict[str, Any] | None = None
+
+    def as_mapping(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "metrics": list(self.metrics),
+            "groupBy": self.group_by,
+            "filters": self.filters,
+        }

@@ -3,7 +3,14 @@ from io import BytesIO
 from docx import Document
 from openpyxl import load_workbook
 
-from app.integrations.exports import render_docx, render_pdf, render_qr, render_xlsx, safe_filename
+from app.integrations.exports import (
+    _dashboard_report_rows,
+    render_docx,
+    render_pdf,
+    render_qr,
+    render_xlsx,
+    safe_filename,
+)
 
 
 def test_renderers_keep_russian_labels_and_numeric_values_readable() -> None:
@@ -27,3 +34,96 @@ def test_renderers_keep_russian_labels_and_numeric_values_readable() -> None:
 
 def test_filename_is_safe_and_keeps_russian_letters() -> None:
     assert safe_filename("Отчёт: октябрь / 2026", "xlsx") == "Отчёт_октябрь_2026.xlsx"
+
+
+def test_docx_and_pdf_exports_include_scoped_detail_sections() -> None:
+    data = {
+        "query": {"dateFrom": "2026-01-01", "dateTo": "2026-12-31"},
+        "visibility": {"employees": True, "finance": True, "projects": True, "assets": True},
+        "summary": {
+            "headcount": 3,
+            "active": 2,
+            "occupiedRate": 2.5,
+            "staffRate": 3,
+            "plannedFot": 1000,
+            "actualFot": 900,
+            "count": 1,
+            "plannedBudget": 5000,
+            "actualBudget": 4500,
+            "assetValue": 300,
+        },
+        "analytics": {
+            "workforceByDepartment": [
+                {
+                    "department": "Отдел разработки",
+                    "headcount": 3,
+                    "active": 2,
+                    "occupiedRate": 2.5,
+                    "staffRate": 3,
+                    "occupancy": 83.3,
+                    "plannedFot": 1000,
+                    "actualFot": 900,
+                }
+            ],
+            "assetsByStatus": [{"status": "ACTIVE", "count": 2, "value": 300}],
+            "vacations": [
+                {
+                    "employee": "Иван Иванов",
+                    "department": "Отдел разработки",
+                    "type": "ANNUAL",
+                    "startDate": "2026-07-01",
+                    "endDate": "2026-07-14",
+                }
+            ],
+        },
+        "activeProjects": [
+            {
+                "code": "PR-7",
+                "name": "Проект Север",
+                "endDate": "2026-12-01",
+                "progress": 70,
+                "tasksTotal": 10,
+                "tasksCompleted": 7,
+                "plannedBudget": 5000,
+                "actualBudget": 4500,
+            }
+        ],
+        "overdueTasks": [
+            {
+                "name": "Подготовить релиз",
+                "project": {"code": "PR-7"},
+                "responsible": "Иван Иванов",
+                "overdueDays": 4,
+            }
+        ],
+        "contracts": [
+            {
+                "employee": "Иван Иванов",
+                "department": "Отдел разработки",
+                "contractEndDate": "2026-11-01",
+            }
+        ],
+        "assetAttention": [
+            {"name": "Ноутбук", "inventoryNumber": "INV-7", "status": "UNDER_REPAIR"}
+        ],
+    }
+    columns, rows = _dashboard_report_rows(data)
+    docx = Document(BytesIO(render_docx("Отчёт", columns, rows)))
+    docx_text = "\n".join(cell.text for row in docx.tables[0].rows for cell in row.cells)
+    assert all(
+        value in docx_text
+        for value in (
+            "Отдел разработки",
+            "Проект Север",
+            "Ноутбук",
+            "Иван Иванов",
+            "Подготовить релиз",
+            "1000",
+        )
+    )
+
+    pdf = render_pdf("Отчёт", columns, rows)
+    assert pdf.startswith(b"%PDF-")
+    # PDF and DOCX are driven by the same fully scoped rows, including detail values.
+    assert any("Проект Север" in str(value) for row in rows for value in row)
+    assert any("INV-7" in str(value) for row in rows for value in row)
