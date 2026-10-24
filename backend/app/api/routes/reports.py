@@ -111,7 +111,7 @@ class _CustomReportBody(BaseModel):
     query: dict[str, Any] = Field(min_length=2, max_length=4)
 
 
-@router.post("/custom")
+@router.post("/custom", response_model=None)
 async def custom_report(
     body: _CustomReportBody, request: Request, context: Context
 ) -> list[dict[str, Any]] | JSONResponse:

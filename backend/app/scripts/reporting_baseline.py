@@ -3,15 +3,29 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import statistics
 import time
 from datetime import date, datetime
+from typing import Any
 from urllib.parse import urlsplit
 
-from sqlalchemy import event
+from sqlalchemy import event, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.db.registry import (
+    Asset,
+    Department,
+    Employee,
+    FinancePlanEntry,
+    PersonnelAction,
+    Project,
+    SalaryEntry,
+    StaffSchedule,
+    Task,
+    Vacation,
+)
 from app.domain.auth.rules import AccessContext, ScopeGrant
 from app.services.dashboard import DashboardService
 from app.services.dto.reporting import DashboardQuery
@@ -19,6 +33,18 @@ from app.services.reporting import ReportingService
 
 ITERATIONS = 10
 FILTERS = DashboardQuery(date(2026, 1, 1), date(2026, 12, 31))
+DATASET_MODELS: tuple[tuple[str, Any], ...] = (
+    ("departments", Department),
+    ("employees", Employee),
+    ("staff_schedule", StaffSchedule),
+    ("salary_entries", SalaryEntry),
+    ("finance_plan_entries", FinancePlanEntry),
+    ("projects", Project),
+    ("tasks", Task),
+    ("assets", Asset),
+    ("vacations", Vacation),
+    ("personnel_actions", PersonnelAction),
+)
 
 
 async def main() -> None:
@@ -38,7 +64,7 @@ async def main() -> None:
         nonlocal query_count
         query_count += 1
 
-    event.listen(engine.sync_engine, "before_cursor_execute", count_query)
+    listener_registered = False
     access = AccessContext(
         "stage12-baseline", None, None, (), (ScopeGrant("baseline-admin", "ADMIN", "ALL", "ALL"),)
     )
@@ -46,6 +72,19 @@ async def main() -> None:
         factory: async_sessionmaker[AsyncSession] = async_sessionmaker(
             engine, expire_on_commit=False
         )
+        async with factory() as session:
+            database_name = await session.scalar(text("SELECT current_database()"))
+            if database_name != "erp_stage11_test":
+                raise RuntimeError("Baseline connected to a non-test database")
+            dataset_counts = {
+                table: int(await session.scalar(select(func.count()).select_from(model)) or 0)
+                for table, model in DATASET_MODELS
+            }
+        print(f"dataset_database={database_name}")
+        print(f"dataset_row_counts={json.dumps(dataset_counts, sort_keys=True)}")
+
+        event.listen(engine.sync_engine, "before_cursor_execute", count_query)
+        listener_registered = True
         reports = ReportingService(factory)
         for _ in range(ITERATIONS):
             before_count = query_count
@@ -82,7 +121,8 @@ async def main() -> None:
             f"latency_max_ms={max(report_measurements):.2f}"
         )
     finally:
-        event.remove(engine.sync_engine, "before_cursor_execute", count_query)
+        if listener_registered:
+            event.remove(engine.sync_engine, "before_cursor_execute", count_query)
         await engine.dispose()
 
 
