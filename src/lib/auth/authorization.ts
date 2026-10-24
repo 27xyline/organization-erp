@@ -1,10 +1,9 @@
-import { getServerSession } from 'next-auth'
+import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import type { UserRole } from '@prisma/client'
-import { authOptions } from '@/lib/auth'
-import { getDb } from '@/lib/prisma'
+import { backendFetch, BackendRequestError } from '@/lib/backend/client'
 import { AccessContext, type PermissionTarget, type ScopeGrant } from './access-context'
 import {
   DEFAULT_ROLE_SCOPES,
@@ -121,72 +120,86 @@ export function buildAccessContext(
   )
 }
 
-async function loadCurrentUser(id: string, sessionVersion: number): Promise<CurrentUser | null> {
-  const db = getDb()
-  const user = await db.user.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      username: true,
-      name: true,
-      role: true,
-      isActive: true,
-      mustChangePassword: true,
-      sessionVersion: true,
-      employeeId: true,
-      employee: {
-        select: {
-          departmentId: true,
-          projectMembers: {
-            where: { isArchived: false },
-            select: { projectId: true },
-          },
-        },
-      },
-      roleAssignments: {
-        include: {
-          departmentScopes: { select: { departmentId: true } },
-          projectScopes: { select: { projectId: true } },
-        },
-      },
-    },
-  }) as AuthorizationUserRecord | null
+export async function requireUser(): Promise<CurrentUser> {
+  const cookieHeader = (await cookies()).toString()
+  let response: Response
+  try {
+    response = await backendFetch('/api/account/me', {
+      headers: { cookie: cookieHeader, accept: 'application/json' },
+      cache: 'no-store',
+    }, { forwardCookies: true })
+  } catch (error) {
+    if (error instanceof BackendRequestError && error.status < 500) {
+      throw new AuthorizationError('UNAUTHENTICATED', 401)
+    }
+    throw error
+  }
+  if (response.status === 401) throw new AuthorizationError('UNAUTHENTICATED', 401)
+  if (response.status === 403) throw new AuthorizationError('FORBIDDEN', 403)
+  if (!response.ok) throw new BackendRequestError('Unable to load current account', response.status)
 
-  if (!user?.isActive || user.sessionVersion !== sessionVersion) return null
-
-  const hasAssignedDepartments = user.roleAssignments.some(
-    (assignment) => assignment.departmentScopeMode === 'ASSIGNED',
-  )
-  const departments = hasAssignedDepartments
-    ? await db.department.findMany({ select: { id: true, parentId: true } })
-    : []
-  const access = buildAccessContext(user, departments)
-  return {
-    id: user.id,
-    username: user.username,
-    name: user.name,
-    role: user.role,
-    roles: access.roles,
-    permissions: access.permissions,
-    employeeId: user.employeeId,
-    mustChangePassword: user.mustChangePassword,
-    sessionVersion: user.sessionVersion,
-    access,
+  try {
+    const envelope = await response.json() as { data?: BackendActor }
+    const actor = envelope.data
+    if (!actor || !actor.id || !actor.username || !Number.isSafeInteger(actor.sessionVersion)) {
+      throw new Error('Invalid Python actor response')
+    }
+    const grants: ScopeGrant[] = actor.access.grants.map((grant) => ({
+      assignmentId: grant.assignmentId,
+      role: grant.role as AppRole,
+      departmentScopeMode: grant.departmentScopeMode as ScopeMode,
+      projectScopeMode: grant.projectScopeMode as ScopeMode,
+      departmentIds: grant.departmentIds,
+      projectIds: grant.projectIds,
+    }))
+    return {
+      id: actor.id,
+      username: actor.username,
+      name: actor.name,
+      role: actor.role as UserRole,
+      roles: actor.roles as AppRole[],
+      permissions: actor.permissions as Permission[],
+      employeeId: actor.employeeId,
+      mustChangePassword: actor.mustChangePassword,
+      sessionVersion: actor.sessionVersion,
+      access: new AccessContext({
+        userId: actor.access.identity.userId,
+        employeeId: actor.access.identity.employeeId,
+        employeeDepartmentId: actor.access.identity.employeeDepartmentId,
+        memberProjectIds: actor.access.identity.memberProjectIds,
+      }, grants),
+    }
+  } catch (cause) {
+    throw new BackendRequestError('Python returned invalid account data', 502, cause)
   }
 }
 
-export async function requireUser(): Promise<CurrentUser> {
-  const session = await getServerSession(authOptions)
-  if (
-    !session?.user?.id ||
-    !Number.isSafeInteger(session.user.sessionVersion) ||
-    session.user.sessionVersion < 1
-  ) {
-    throw new AuthorizationError('UNAUTHENTICATED', 401)
+type BackendActor = {
+  id: string
+  username: string
+  name: string
+  role: string
+  roles: string[]
+  permissions: string[]
+  employeeId: string | null
+  mustChangePassword: boolean
+  sessionVersion: number
+  access: {
+    identity: {
+      userId: string
+      employeeId: string | null
+      employeeDepartmentId: string | null
+      memberProjectIds: string[]
+    }
+    grants: Array<{
+      assignmentId: string
+      role: string
+      departmentScopeMode: string
+      projectScopeMode: string
+      departmentIds: string[]
+      projectIds: string[]
+    }>
   }
-  const user = await loadCurrentUser(session.user.id, session.user.sessionVersion)
-  if (!user) throw new AuthorizationError('UNAUTHENTICATED', 401)
-  return user
 }
 
 function requiredPermissions(requirement: PermissionRequirement): {

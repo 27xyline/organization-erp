@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { signOut } from 'next-auth/react'
+import { signOutSession } from '@/lib/auth/session-client'
 import { Archive, Briefcase, CalendarClock, ClipboardCheck, DollarSign, FileChartColumn, Files, KeyRound, LayoutDashboard, LogOut, Menu, Network, Package, QrCode, ShieldCheck, ShoppingCart, UserCog, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -67,7 +67,7 @@ export function MobileNavigation({ currentUser }: {
                 <ShieldCheck className="h-4 w-4" />Пользователи
               </Link>
             )}
-            <button onClick={() => signOut({ callbackUrl: '/login' })} className="flex items-center gap-3 px-3 py-2 text-sm text-destructive">
+            <button onClick={() => void signOutSession('/login')} className="flex items-center gap-3 px-3 py-2 text-sm text-destructive">
               <LogOut className="h-4 w-4" />Выйти
             </button>
           </nav>

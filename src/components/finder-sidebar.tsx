@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { usePathname } from "next/navigation"
-import { signOut } from "next-auth/react"
+import { signOutSession } from "@/lib/auth/session-client"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { 
@@ -396,7 +396,7 @@ export function FinderSidebar({ currentUser }: {
           )}
         </div>
         <button
-          onClick={() => signOut({ callbackUrl: '/login' })}
+          onClick={() => void signOutSession('/login')}
           className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-md transition-colors"
         >
           <LogOut className="h-4 w-4" />

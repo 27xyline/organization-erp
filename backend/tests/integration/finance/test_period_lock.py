@@ -11,6 +11,7 @@ from app.domain.errors import DomainError
 from app.models.finance import PayrollPeriod
 from app.models.users import User
 from app.repositories.payroll_periods import SqlAlchemyPayrollPeriodRepository
+from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
 
 
 @pytest.mark.anyio
@@ -57,6 +58,7 @@ async def test_close_blocks_writer_in_an_independent_postgres_session(
         assert raised.value.code == "PERIOD_CLOSED"
     finally:
         async with stage10_session_factory() as cleanup:
+            await clear_audit_logs_for_test_cleanup(cleanup)
             await cleanup.execute(
                 delete(PayrollPeriod).where(
                     PayrollPeriod.year == year, PayrollPeriod.month == month
@@ -105,6 +107,7 @@ async def test_period_can_be_closed_and_reopened_only_with_a_reason(
             await session.commit()
     finally:
         async with stage10_session_factory() as cleanup:
+            await clear_audit_logs_for_test_cleanup(cleanup)
             await cleanup.execute(
                 delete(PayrollPeriod).where(
                     PayrollPeriod.year == year, PayrollPeriod.month == month

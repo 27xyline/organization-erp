@@ -61,10 +61,14 @@ function backendUrl(path: string): URL {
 }
 
 /** Server-only fixed-origin API client. Callers supply a relative path, never a URL. */
-export async function backendFetch(path: string, init: RequestInit = {}): Promise<Response> {
+export async function backendFetch(
+  path: string,
+  init: RequestInit = {},
+  options: { forwardCookies?: boolean } = {},
+): Promise<Response> {
   const url = backendUrl(path)
   const headers = new Headers(init.headers)
-  headers.delete('cookie')
+  if (!options.forwardCookies) headers.delete('cookie')
   headers.delete('host')
   headers.delete('connection')
 
@@ -91,11 +95,11 @@ export async function backendFetch(path: string, init: RequestInit = {}): Promis
 export async function backendStreamFetch(
   path: string,
   init: RequestInit = {},
-  options: { headerTimeoutMs?: number } = {},
+  options: { headerTimeoutMs?: number; forwardCookies?: boolean } = {},
 ): Promise<Response> {
   const url = backendUrl(path)
   const headers = new Headers(init.headers)
-  headers.delete('cookie')
+  if (!options.forwardCookies) headers.delete('cookie')
   headers.delete('host')
   headers.delete('connection')
 
@@ -160,7 +164,10 @@ export async function backendStreamFetch(
   }
 }
 
-export function forwardedResponse(response: Response): Response {
+export function forwardedResponse(
+  response: Response,
+  options: { forwardSetCookie?: boolean } = {},
+): Response {
   const headers = new Headers()
   response.headers.forEach((value, name) => {
     const key = name.toLowerCase()
@@ -168,6 +175,10 @@ export function forwardedResponse(response: Response): Response {
       headers.set(name, value)
     }
   })
+  if (options.forwardSetCookie) {
+    const cookieHeaders = response.headers.getSetCookie?.() ?? []
+    for (const cookie of cookieHeaders) headers.append('set-cookie', cookie)
+  }
   headers.set('cache-control', 'private, no-store')
   return new Response(response.body, { status: response.status, headers })
 }

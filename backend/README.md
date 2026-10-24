@@ -1,6 +1,6 @@
 # Python backend foundation
 
-The Python service is an internal API on port `8000`. In Compose, only the dev overlay publishes it, bound to `127.0.0.1`; the existing Next.js app stays on port `3001` and remains the production API owner during this stage.
+The Python service is an internal API on port `8000`. In Compose, only the dev overlay publishes it, bound to `127.0.0.1`. Next.js serves the frontend and same-origin BFF; Python owns browser sessions and actor resolution.
 
 ## Configuration
 
@@ -12,6 +12,8 @@ The backend reads these environment variables:
 | `BACKEND_TEST_DATABASE_URL` | Separate PostgreSQL database for integration tests, such as `erp_stage01_test`. |
 | `BACKEND_BRIDGE_SECRET` | Private HS256 key used only for short-lived Next.js-to-Python actor tokens; at least 32 bytes. |
 | `BACKEND_INTERNAL_AUTH_SECRET` | Separate private bearer secret used only by Next.js for the internal credential-auth endpoint; at least 32 bytes. |
+| `BACKEND_CSRF_SECRET` | Separate private HMAC key for signed double-submit CSRF tokens; at least 32 bytes and distinct from the other backend secrets. |
+| `BACKEND_PUBLIC_ORIGIN` | Public browser origin used to validate unsafe session-cookie requests. It must match the browser-facing origin, not the internal Compose backend URL. |
 | `BACKEND_BASE_URL` | Next.js server-side address for the backend, usually `http://backend:8000` in Compose and `http://127.0.0.1:8000` for host tests. |
 | `BACKEND_ENVIRONMENT` | Runtime environment; use `production` to disable the interactive API documentation pages. |
 | `BACKEND_OTEL_ENABLED` | Enables OpenTelemetry traces and metrics; Compose defaults to `true`. |
@@ -19,14 +21,14 @@ The backend reads these environment variables:
 
 Keep the backend URLs pointed at the isolated migration/test databases. Do not point them at the original `project1` database. For direct host execution, use `127.0.0.1` and the published PostgreSQL port; inside Compose, use the `postgres` service name.
 
-During the Stage 03 transition, the Next.js session/version check and Python authorization must read the same database copy. `requireUser()` still makes a read-only Prisma lookup to reject inactive users and stale `sessionVersion` values; Python independently reloads the actor for bridged APIs. Configure `DATABASE_URL` and `BACKEND_DATABASE_URL` to the same isolated copy when running auth flows; never use the original `project1` database as a test target. The two backend secrets must be different, at least 32 bytes, and never committed. Missing or invalid backend auth configuration fails closed; there is no Prisma password-writer fallback.
+For Stage 14B, `POST /api/auth/login` creates an opaque eight-hour session whose SHA-256 hash alone is persisted. Python checks expiry, revocation, active-user state, and `sessionVersion` on every request. `GET /api/account/me` is the Next.js server and BFF actor source; it is fetched with the incoming cookie and `no-store`. Password, role/scope, and deactivation changes invalidate sessions through the existing `sessionVersion` field. Unsafe browser requests require a signed CSRF cookie/header pair; when `Origin` is present it must match `BACKEND_PUBLIC_ORIGIN`. `BACKEND_BRIDGE_SECRET`, `BACKEND_INTERNAL_AUTH_SECRET`, and `BACKEND_CSRF_SECRET` must be different, at least 32 bytes, and never committed. Missing or invalid auth configuration fails closed.
 
 For a clean checkout, create schema-only `erp_stage03_test` and `erp_stage03_e2e` databases from the prepared `erp_migration_20261007` schema. The test database is used by Python integration tests. The E2E database is shared by Prisma and Python so session-version checks see the same users. Use a private ignored environment file with mode `0600`; never copy a live source-database URL into it. Required values are:
 
 | File | Required database values | Required secrets |
 | --- | --- | --- |
-| `.runtime/stage03/test.env` | `STAGE03_TEST_DATABASE_URL`, `BACKEND_TEST_DATABASE_URL`, and `BACKEND_DATABASE_URL` point to `erp_stage03_test` | distinct `BACKEND_BRIDGE_SECRET` and `BACKEND_INTERNAL_AUTH_SECRET` |
-| `.runtime/stage03/e2e.env` | `DATABASE_URL` and `STAGE03_TEST_DATABASE_URL` are identical native PostgreSQL URLs for `erp_stage03_e2e`; `BACKEND_DATABASE_URL` targets that same database with the `postgresql+asyncpg` driver | distinct `BACKEND_BRIDGE_SECRET` and `BACKEND_INTERNAL_AUTH_SECRET`, plus `NEXTAUTH_SECRET` |
+| `.runtime/stage03/test.env` | `STAGE03_TEST_DATABASE_URL`, `BACKEND_TEST_DATABASE_URL`, and `BACKEND_DATABASE_URL` point to `erp_stage03_test` | distinct `BACKEND_BRIDGE_SECRET`, `BACKEND_INTERNAL_AUTH_SECRET`, and `BACKEND_CSRF_SECRET`; `BACKEND_PUBLIC_ORIGIN` |
+| `.runtime/stage03/e2e.env` | `DATABASE_URL` and `STAGE03_TEST_DATABASE_URL` are identical native PostgreSQL URLs for `erp_stage03_e2e`; `BACKEND_DATABASE_URL` targets that same database with the `postgresql+asyncpg` driver | distinct `BACKEND_BRIDGE_SECRET`, `BACKEND_INTERNAL_AUTH_SECRET`, and `BACKEND_CSRF_SECRET`; `BACKEND_PUBLIC_ORIGIN` |
 
 Generate each secret privately with `openssl rand -hex 32`. For the E2E file, set `NEXTAUTH_URL` and `PLAYWRIGHT_BASE_URL` to `http://localhost:3001` and `PLAYWRIGHT_BACKEND_URL` to `http://127.0.0.1:8000`. Keeping the browser host on `localhost` matches the origin used by Next.js dev mode.
 

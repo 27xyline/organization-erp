@@ -14,6 +14,7 @@ from app.models.users import AuditLog, User
 from app.services.dto.projects import ProjectCommand
 from app.services.projects import ProjectService
 from app.services.tasks import TaskService
+from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
 
 
 @pytest.fixture
@@ -43,6 +44,7 @@ async def project_env(db_session_factory):
         yield projects, tasks, project, context, db_session_factory
     finally:
         async with db_session_factory() as session:
+            await clear_audit_logs_for_test_cleanup(session)
             await session.execute(delete(Project).where(Project.code.like(prefix + "%")))
             await session.execute(delete(AuditLog).where(AuditLog.userId.like(prefix + "%")))
             await session.execute(delete(User).where(User.id.like(prefix + "%")))

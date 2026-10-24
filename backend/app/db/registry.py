@@ -51,6 +51,7 @@ from app.models.projects import (
     TaskDependency,
 )
 from app.models.reporting import AssetSavedView, ReportPreset
+from app.models.sessions import UserSession
 from app.models.timekeeping import StaffSchedule, TimeEntry, Timesheet, Vacation
 from app.models.users import (
     AuditLog,
@@ -111,6 +112,7 @@ __all__ = [
     "TimeEntry",
     "Timesheet",
     "User",
+    "UserSession",
     "UserDepartmentScope",
     "UserProjectScope",
     "UserRoleAssignment",

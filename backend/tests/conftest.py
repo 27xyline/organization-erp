@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import (
 
 
 def _stage02_database_url() -> str:
+    stage14b_url = os.environ.get("STAGE14B_TEST_DATABASE_URL")
     stage13_url = os.environ.get("STAGE13_TEST_DATABASE_URL")
     stage11_url = os.environ.get("STAGE11_TEST_DATABASE_URL")
     stage10_url = os.environ.get("STAGE10_TEST_DATABASE_URL")
@@ -26,7 +27,8 @@ def _stage02_database_url() -> str:
     stage05_url = os.environ.get("STAGE05_TEST_DATABASE_URL")
     stage04_url = os.environ.get("STAGE04_TEST_DATABASE_URL")
     database_url = (
-        stage13_url
+        stage14b_url
+        or stage13_url
         or stage11_url
         or stage10_url
         or stage09_url
@@ -40,7 +42,8 @@ def _stage02_database_url() -> str:
     )
     if not database_url:
         pytest.fail(
-            "STAGE13_TEST_DATABASE_URL, STAGE11_TEST_DATABASE_URL, STAGE10_TEST_DATABASE_URL, STAGE02_TEST_DATABASE_URL, "
+            "STAGE14B_TEST_DATABASE_URL, STAGE13_TEST_DATABASE_URL, STAGE11_TEST_DATABASE_URL, "
+            "STAGE10_TEST_DATABASE_URL, STAGE02_TEST_DATABASE_URL, "
             "STAGE03_TEST_DATABASE_URL, STAGE04_TEST_DATABASE_URL, "
             "STAGE05_TEST_DATABASE_URL, or STAGE06_TEST_DATABASE_URL "
             "or STAGE07_TEST_DATABASE_URL or STAGE08_TEST_DATABASE_URL must point "
@@ -48,7 +51,9 @@ def _stage02_database_url() -> str:
         )
     parsed_url = make_url(database_url)
     expected_database = (
-        "erp_stage13_test"
+        "erp_stage14b_test"
+        if stage14b_url
+        else "erp_stage13_test"
         if stage13_url
         else "erp_stage11_test"
         if stage11_url

@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     database_url: SecretStr = SecretStr("postgresql+asyncpg://localhost:5432/organization_erp")
     bridge_secret: SecretStr | None = Field(default=None, repr=False)
     internal_auth_secret: SecretStr | None = Field(default=None, repr=False)
+    csrf_secret: SecretStr | None = Field(default=None, repr=False)
+    public_origin: str | None = None
     environment: Literal["development", "test", "production"] = "development"
     db_connect_timeout_seconds: float = 3.0
     db_readiness_timeout_seconds: float = 5.0

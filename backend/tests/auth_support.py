@@ -1,4 +1,4 @@
-"""Fixtures write only to the explicitly guarded stage03 PostgreSQL copy."""
+"""Fixtures write only to explicitly guarded disposable PostgreSQL test copies."""
 
 import os
 import uuid
@@ -18,6 +18,7 @@ from app.models.enums import AppRole, ScopeMode, UserRole
 from app.models.users import AuditLog, User, UserRoleAssignment
 from app.services.auth import AuthService
 from app.services.users import UserService
+from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
 
 PASSWORD = "Stage03-password!"
 BRIDGE_SECRET = "stage03-test-bridge-secret-only-xxxxxxxxxxxxxxxx"
@@ -26,13 +27,15 @@ INTERNAL_SECRET = "stage03-test-internal-secret-only-yyyyyyyyyyyy"
 
 @pytest.fixture
 async def auth_env() -> AsyncIterator[dict]:
+    stage14b_url = os.environ.get("STAGE14B_TEST_DATABASE_URL")
     stage08_url = os.environ.get("STAGE08_TEST_DATABASE_URL")
     stage07_url = os.environ.get("STAGE07_TEST_DATABASE_URL")
     stage06_url = os.environ.get("STAGE06_TEST_DATABASE_URL")
     stage05_url = os.environ.get("STAGE05_TEST_DATABASE_URL")
     stage04_url = os.environ.get("STAGE04_TEST_DATABASE_URL")
     url = (
-        stage08_url
+        stage14b_url
+        or stage08_url
         or stage07_url
         or stage06_url
         or stage05_url
@@ -40,7 +43,9 @@ async def auth_env() -> AsyncIterator[dict]:
         or os.environ.get("STAGE03_TEST_DATABASE_URL", "")
     )
     expected_database = (
-        "erp_stage08_test"
+        "erp_stage14b_test"
+        if stage14b_url
+        else "erp_stage08_test"
         if stage08_url
         else "erp_stage07_test"
         if stage07_url
@@ -58,7 +63,7 @@ async def auth_env() -> AsyncIterator[dict]:
         or make_url(url).get_backend_name() != "postgresql"
     ):
         pytest.fail(
-            "STAGE03_TEST_DATABASE_URL, STAGE04_TEST_DATABASE_URL, "
+            "STAGE14B_TEST_DATABASE_URL, STAGE03_TEST_DATABASE_URL, STAGE04_TEST_DATABASE_URL, "
             "STAGE05_TEST_DATABASE_URL, or STAGE06_TEST_DATABASE_URL "
             "must point exactly "
             "to its dedicated PostgreSQL test database"
@@ -113,6 +118,7 @@ async def auth_env() -> AsyncIterator[dict]:
         }
     finally:
         async with sessions() as session:
+            await clear_audit_logs_for_test_cleanup(session)
             await session.execute(
                 delete(AuditLog).where(
                     or_(

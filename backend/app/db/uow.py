@@ -26,6 +26,7 @@ from app.domain.ports.payroll_input_lock import PayrollInputLock
 from app.domain.ports.payroll_periods import PayrollPeriodRepository
 from app.domain.ports.procurement import ProcurementRepository
 from app.domain.ports.projects import ProjectRepository
+from app.domain.ports.sessions import SessionRepository
 from app.domain.ports.smtp import SmtpSettingsPort
 from app.domain.ports.timekeeping import TimekeepingRepository
 from app.domain.ports.users import UserRepository
@@ -46,6 +47,7 @@ from app.repositories.payroll_input_lock import SqlAlchemyPayrollInputLockReposi
 from app.repositories.payroll_periods import SqlAlchemyPayrollPeriodRepository
 from app.repositories.procurement import SqlAlchemyProcurementRepository
 from app.repositories.projects import SqlAlchemyProjectRepository
+from app.repositories.sessions import SqlAlchemySessionRepository
 from app.repositories.smtp_settings import SqlAlchemySmtpSettingsRepository
 from app.repositories.timekeeping import SqlAlchemyTimekeepingRepository
 from app.repositories.users import SqlAlchemyUserRepository
@@ -85,6 +87,7 @@ class SqlAlchemyUnitOfWork:
         self.assets: AssetRepository = SqlAlchemyAssetRepository(self._active_session)
         self.projects: ProjectRepository = SqlAlchemyProjectRepository(self._active_session)
         self.users: UserRepository = SqlAlchemyUserRepository(self._active_session)
+        self.sessions: SessionRepository = SqlAlchemySessionRepository(self._active_session)
         self.audit: AuditPort = SqlAlchemyAuditRepository(self._active_session)
         self.notifications: NotificationIntentPort = SqlAlchemyNotificationRepository(
             self._active_session

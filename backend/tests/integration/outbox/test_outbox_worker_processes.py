@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.models.enums import NotificationOutboxStatus
 from app.models.notifications import Notification, NotificationOutbox
 from app.models.users import User
+from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
 
 
 def _stage13_database_url() -> str:
@@ -184,6 +185,7 @@ async def test_two_os_workers_send_one_claimed_outbox_row_at_most_once() -> None
                     process.terminate()
                     process.join(timeout=5)
         async with session_factory() as session:
+            await clear_audit_logs_for_test_cleanup(session)
             await session.execute(delete(NotificationOutbox).where(NotificationOutbox.id == prefix))
             await session.execute(delete(Notification).where(Notification.id == prefix))
             await session.execute(delete(User).where(User.id == user_id))
@@ -308,6 +310,7 @@ async def test_crashed_worker_lease_is_retried_after_restart() -> None:
                     process.terminate()
                     process.join(timeout=5)
         async with session_factory() as session:
+            await clear_audit_logs_for_test_cleanup(session)
             await session.execute(delete(NotificationOutbox).where(NotificationOutbox.id == prefix))
             await session.execute(delete(Notification).where(Notification.id == prefix))
             await session.execute(delete(User).where(User.id == user_id))

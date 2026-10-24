@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from app.core.config import Settings
 
 ROOT = Path(__file__).resolve().parents[2]
-EXPECTED_CATALOG = ROOT / "migrations" / "catalog_baseline.json"
+EXPECTED_CATALOG = ROOT / "migrations" / "catalog_stage14b.json"
 SERVICE_TABLES = {"_prisma_migrations", "alembic_version"}
 
 _CATALOG_QUERIES = {
@@ -114,7 +114,7 @@ async def catalog_snapshot(engine: AsyncEngine) -> dict[str, Any]:
 
 
 def compare_catalogs(expected: dict[str, Any], actual: dict[str, Any]) -> list[str]:
-    """Return deterministic catalog-level differences between frozen and live DDL."""
+    """Return deterministic catalog-level differences between expected and live DDL."""
     differences: list[str] = []
     expected = json.loads(json.dumps(expected))
     actual = json.loads(json.dumps(actual))
@@ -162,7 +162,7 @@ async def _main(expected_catalog_path: Path = EXPECTED_CATALOG) -> int:
         for difference in differences:
             print(f"- {difference}")
         return 1
-    print("Schema catalog matches the frozen Stage 14A baseline.")
+    print("Schema catalog matches the configured expected catalog.")
     return 0
 
 

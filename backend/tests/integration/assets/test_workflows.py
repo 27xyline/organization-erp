@@ -21,6 +21,7 @@ from app.services.dto.assets import (
     MovementCommand,
 )
 from app.services.inventory import InventoryService
+from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
 
 
 def movement(mol, quantity, **values):
@@ -113,6 +114,7 @@ async def test_decimal_race_two_independent_sessions_cannot_overdispose(asset_en
             )
     finally:
         async with sessions() as session:
+            await clear_audit_logs_for_test_cleanup(session)
             await session.execute(AuditLog.__table__.delete().where(AuditLog.userId == second_id))
             await session.execute(User.__table__.delete().where(User.id == second_id))
             await session.commit()
@@ -376,6 +378,7 @@ async def test_asset_project_change_and_project_delete_share_project_before_asse
             assert await session.get(Project, new.id) is None
     finally:
         async with sessions() as session:
+            await clear_audit_logs_for_test_cleanup(session)
             await session.execute(Project.__table__.delete().where(Project.code.like(prefix + "%")))
             await session.execute(AuditLog.__table__.delete().where(AuditLog.userId == second_id))
             await session.execute(User.__table__.delete().where(User.id == second_id))

@@ -19,6 +19,7 @@ from app.models.projects import Project
 from app.models.timekeeping import StaffSchedule
 from app.models.users import AuditLog, User, UserRoleAssignment
 from app.services.payroll import PayrollService
+from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
 
 
 def _context(
@@ -320,6 +321,7 @@ async def test_payroll_month_matches_legacy_golden_fields_and_numbers(
         ]
     finally:
         async with stage10_session_factory() as cleanup:
+            await clear_audit_logs_for_test_cleanup(cleanup)
             await cleanup.execute(
                 PayrollAdjustment.__table__.delete().where(
                     PayrollAdjustment.employeeId == employee_id
@@ -436,6 +438,7 @@ async def test_adjustment_create_and_delete_use_open_period_and_write_audit(
             }
     finally:
         async with stage10_session_factory() as cleanup:
+            await clear_audit_logs_for_test_cleanup(cleanup)
             if adjustment_id:
                 await cleanup.execute(
                     AuditLog.__table__.delete().where(AuditLog.entityId == adjustment_id)

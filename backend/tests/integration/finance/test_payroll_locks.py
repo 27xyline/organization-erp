@@ -28,6 +28,7 @@ from app.schemas.timekeeping import (
 )
 from app.services.finance_periods import PayrollPeriodService
 from app.services.timekeeping import TimekeepingService
+from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
 
 
 def _context(
@@ -171,6 +172,7 @@ async def test_real_close_service_serializes_real_time_entry_update(
             *(task for task in (closing, writer) if task is not None), return_exceptions=True
         )
         async with stage10_session_factory() as cleanup:
+            await clear_audit_logs_for_test_cleanup(cleanup)
             await cleanup.execute(
                 AuditLog.__table__.delete().where(AuditLog.requestId == context.request_id)
             )
@@ -380,6 +382,7 @@ async def test_real_close_and_approve_serialize_pending_timesheet_without_partia
     finally:
         release_close.set()
         async with stage10_session_factory() as cleanup:
+            await clear_audit_logs_for_test_cleanup(cleanup)
             await cleanup.execute(
                 AuditLog.__table__.delete().where(
                     AuditLog.requestId.in_(

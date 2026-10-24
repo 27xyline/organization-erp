@@ -14,6 +14,7 @@ from app.models.departments import Department
 from app.models.users import AuditLog, User
 from app.services.assets import AssetService
 from app.services.dto.assets import AssetCommand
+from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
 
 
 @pytest.fixture
@@ -94,6 +95,7 @@ async def asset_env(db_session_factory):
         yield prefix, context, factory, service, command, db_session_factory
     finally:
         async with db_session_factory() as session:
+            await clear_audit_logs_for_test_cleanup(session)
             await session.execute(
                 delete(AssetInventory).where(AssetInventory.createdById == prefix)
             )

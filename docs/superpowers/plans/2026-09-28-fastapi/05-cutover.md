@@ -38,16 +38,16 @@
 
 ## Этап 14B. Авторизация полностью на Python
 
-**Создать:** `app/models/sessions.py`, `app/domain/ports/sessions.py`, `app/repositories/sessions.py`, `app/services/sessions.py`, `app/schemas/sessions.py`, `app/api/routes/auth.py`, `app/integrations/session_security.py`, Alembic session migration; `tests/{unit,integration,contracts}/sessions/`.
+**Создать:** `app/models/sessions.py`, `app/domain/ports/sessions.py`, `app/repositories/sessions.py`, `app/services/sessions.py`, `app/api/routes/auth.py`, `app/integrations/session_security.py`, Alembic session migration; `tests/{unit,integration,contracts}/sessions/`. Для login переиспользуется `CredentialsInput` из `app.schemas.auth`, отдельная session-схема не нужна.
 
 **Контракт:** `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/csrf`, `GET /api/account/me`; password endpoint остаётся совместимым. API отдаёт минимальный actor DTO, без hash/secret/внутренних bearer tokens.
 
-- [ ] Opaque token минимум 256 бит, в БД только hash; session expiry 8 часов, user/sessionVersion/revoked checks на каждом запросе; login counters из 03 переиспользуются.
-- [ ] Session cookie HttpOnly, Path=/, SameSite=Lax, Secure в production, без широкого Domain. При logout cookie очищается и session revoked; пароль/деактивация отзывают все sessions через version/rows.
-- [ ] Защита unsafe methods включая login/logout: проверенный signed double-submit CSRF token, header + cookie, same-origin проверка. Missing Origin не отключает проверку token. GET `/csrf` не раскрывает authentication secret; cross-origin JS не получает credentialed response.
-- [ ] Tests: login/logout, expired/revoked token, смена пароля, user inactive, forced change, поддельная cookie, wrong CSRF/origin, replay, отсутствие session fixation.
-- [ ] BFF прозрачно передаёт cookie/Set-Cookie и CSRF headers; SSR uses `/api/account/me` с request cookie и `no-store`. Proxy не доверяет просто наличию cookie.
-- [ ] Реализовать login/session UI adapter, заменяющий `signIn`, `signOut`, `useSession`, `getServerSession`, `getToken`, session-based UI permissions. Никакие зарплатные поля не выводятся до подтверждения Python actor.
+- [x] Opaque token минимум 256 бит, в БД только hash; session expiry 8 часов, user/sessionVersion/revoked checks на каждом запросе; login counters из 03 переиспользуются.
+- [x] Session cookie HttpOnly, Path=/, SameSite=Lax, Secure в production, без широкого Domain. При logout cookie очищается и session revoked; пароль/деактивация отзывают все sessions через version/rows.
+- [x] Защита unsafe methods включая login/logout: проверенный signed double-submit CSRF token, header + cookie, same-origin проверка. Missing Origin не отключает проверку token. GET `/csrf` не раскрывает authentication secret; cross-origin JS не получает credentialed response.
+- [x] Tests: login/logout, expired/revoked token, смена пароля, user inactive, forced change, поддельная cookie, wrong CSRF/origin, replay старой сессии после revoke, отсутствие session fixation.
+- [x] BFF прозрачно передаёт cookie/Set-Cookie и CSRF headers; SSR uses `/api/account/me` с request cookie и `no-store`. Proxy не доверяет просто наличию cookie.
+- [x] Реализовать login/session UI adapter, заменяющий `signIn`, `signOut`, `useSession`, `getServerSession`, `getToken`, session-based UI permissions. Никакие зарплатные поля не выводятся до подтверждения Python actor.
 
 **Проверки:** `uv run pytest tests/unit/sessions tests/integration/sessions tests/contracts/sessions -q`; Playwright login → reload SSR → logout → old session denied; role change, forced password change, CSRF negative.
 

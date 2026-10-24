@@ -27,6 +27,8 @@ jobs:
       BACKEND_BASE_URL: http://127.0.0.1:8000
       BACKEND_BRIDGE_SECRET: ci-only-bridge-secret-with-at-least-thirty-two-characters
       BACKEND_INTERNAL_AUTH_SECRET: ci-only-internal-secret-with-at-least-thirty-two-characters
+      BACKEND_CSRF_SECRET: ci-only-csrf-secret-with-at-least-thirty-two-characters
+      BACKEND_PUBLIC_ORIGIN: http://localhost:3001
       NEXT_PUBLIC_APP_URL: http://localhost:3001
       PLAYWRIGHT_BASE_URL: http://localhost:3001
     steps:
@@ -95,6 +97,8 @@ jobs:
           BACKEND_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage07_e2e
           BACKEND_BRIDGE_SECRET: ci-only-stage07-bridge-secret-with-at-least-thirty-two-characters
           BACKEND_INTERNAL_AUTH_SECRET: ci-only-stage07-internal-secret-with-at-least-thirty-two-characters
+          BACKEND_CSRF_SECRET: ci-only-stage07-csrf-secret-with-at-least-thirty-two-characters
+          BACKEND_PUBLIC_ORIGIN: http://localhost:3001
         run: npm run test:e2e
       - run: npm audit --omit=dev --omit=optional --audit-level=high
 

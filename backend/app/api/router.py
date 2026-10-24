@@ -4,6 +4,7 @@ from app.api.routes.account import router as account_router
 from app.api.routes.approvals import router as approvals_router
 from app.api.routes.asset_import import router as asset_import_router
 from app.api.routes.assets import router as assets_router
+from app.api.routes.auth import router as session_auth_router
 from app.api.routes.auth_internal import router as auth_router
 from app.api.routes.catalogs import router as catalogs_router
 from app.api.routes.dashboard import router as dashboard_router
@@ -32,6 +33,7 @@ from app.api.routes.vacations import router as vacations_router
 api_router = APIRouter(prefix="/api")
 api_router.include_router(health_router)
 api_router.include_router(auth_router)
+api_router.include_router(session_auth_router)
 api_router.include_router(users_router)
 api_router.include_router(account_router)
 api_router.include_router(departments_router)

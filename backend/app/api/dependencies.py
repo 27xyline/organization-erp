@@ -19,6 +19,7 @@ from app.integrations.my_actions import SqlAlchemyMyActionsGateway
 from app.integrations.password_hash import Argon2PasswordHasher
 from app.integrations.reporting import SqlAlchemyReportingGateway
 from app.integrations.search import SqlAlchemySearchGateway
+from app.integrations.session_security import SESSION_COOKIE_NAME
 from app.services.asset_export import AssetExportService
 from app.services.asset_import import AssetImportService
 from app.services.auth import AuthService
@@ -33,12 +34,19 @@ from app.services.payroll import PayrollService
 from app.services.personnel_actions import PersonnelActionService
 from app.services.reporting import ReportingService
 from app.services.search import SearchService
+from app.services.sessions import SessionsService
 from app.services.users import UserService
 from app.services.workforce import WorkforceService
 
 
 def get_auth_service(request: Request) -> AuthService:
     return AuthService(request.app.state.unit_of_work_factory, Argon2PasswordHasher())
+
+
+def get_sessions_service(
+    request: Request, auth: Annotated[AuthService, Depends(get_auth_service)]
+) -> SessionsService:
+    return SessionsService(request.app.state.unit_of_work_factory, auth)
 
 
 def get_user_service(request: Request) -> UserService:
@@ -54,8 +62,13 @@ def get_catalog_service(request: Request) -> CatalogService:
 
 
 async def get_actor(
-    request: Request, service: Annotated[AuthService, Depends(get_auth_service)]
+    request: Request,
+    service: Annotated[AuthService, Depends(get_auth_service)],
+    sessions: Annotated[SessionsService, Depends(get_sessions_service)],
 ) -> Actor:
+    session_token = request.cookies.get(SESSION_COOKIE_NAME)
+    if session_token:
+        return await sessions.resolve(session_token)
     configured = request.app.state.settings.bridge_secret
     secret = configured.get_secret_value() if configured else ""
     if len(secret.encode()) < 32:

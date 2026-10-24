@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { signIn } from 'next-auth/react'
+import { signInSession } from '@/lib/auth/session-client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -61,21 +61,11 @@ export default function LoginPage() {
 
     try {
       const safeCallbackUrl = getSafeCallbackUrl(callbackUrl)
-      const res = await signIn('credentials', {
-        redirect: false,
-        username,
-        password,
-        callbackUrl: safeCallbackUrl,
-      })
-
-      if (res?.error) {
-        setError('Неверный логин или пароль')
-      } else {
-        router.push(toRouterPath(res?.url || safeCallbackUrl))
-        router.refresh()
-      }
+      await signInSession(username, password)
+      router.push(toRouterPath(safeCallbackUrl))
+      router.refresh()
     } catch {
-      setError('Произошла ошибка при входе')
+      setError('Не удалось выполнить вход. Проверьте данные и повторите попытку.')
     } finally {
       setLoading(false)
     }

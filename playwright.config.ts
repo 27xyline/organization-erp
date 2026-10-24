@@ -92,6 +92,8 @@ export default defineConfig({
         BACKEND_OTEL_ENABLED: 'false',
         BACKEND_BRIDGE_SECRET: process.env.BACKEND_BRIDGE_SECRET || '',
         BACKEND_INTERNAL_AUTH_SECRET: process.env.BACKEND_INTERNAL_AUTH_SECRET || '',
+        BACKEND_CSRF_SECRET: process.env.BACKEND_CSRF_SECRET || '',
+        BACKEND_PUBLIC_ORIGIN: baseURL,
       },
     },
   ],

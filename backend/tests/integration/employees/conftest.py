@@ -21,6 +21,7 @@ from app.models.users import AuditLog, User
 from app.services.employees import EmployeeService
 from app.services.personnel_actions import PersonnelActionService
 from app.services.workforce import WorkforceService
+from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
 
 
 @pytest.fixture
@@ -89,6 +90,7 @@ async def hr_env() -> AsyncIterator[dict]:
         )
     finally:
         async with sessions() as session:
+            await clear_audit_logs_for_test_cleanup(session)
             employee_ids = (
                 await session.scalars(
                     __import__("sqlalchemy")

@@ -85,7 +85,7 @@ def test_frozen_baseline_sql_splitter_keeps_procedural_bodies_intact() -> None:
 
 
 @pytest.mark.anyio
-async def test_catalog_verifier_accepts_the_live_frozen_schema(stage14a_engine) -> None:
+async def test_catalog_verifier_accepts_the_live_stage14b_schema(stage14a_engine) -> None:
     assert await verify_schema(stage14a_engine) == []
 
 

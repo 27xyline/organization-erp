@@ -8,11 +8,17 @@ from opentelemetry import propagate
 from opentelemetry.trace import SpanKind, Status, StatusCode
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
 
 from app.core.context import RequestContext, reset_request_context, set_request_context
 from app.core.metric_attributes import http_span_attributes
 from app.core.metrics import HttpMetricInstruments, record_http_request
+from app.integrations.session_security import (
+    CSRF_COOKIE_NAME,
+    CSRF_HEADER_NAME,
+    SESSION_COOKIE_NAME,
+    validate_csrf_request,
+)
 
 _REQUEST_ID = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
 _TRACEPARENT = re.compile(r"^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$")
@@ -43,7 +49,58 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
             with span_manager as span:
                 span.set_attribute("http.request_id", request_id)
                 try:
-                    response = await call_next(request)
+                    settings = request.app.state.settings
+                    csrf_configured = settings.csrf_secret
+                    csrf_secret = (
+                        csrf_configured.get_secret_value() if csrf_configured else ""
+                    )
+                    unsafe = request.method.upper() not in {"GET", "HEAD", "OPTIONS", "TRACE"}
+                    csrf_required = request.url.path in {
+                        "/api/auth/login",
+                        "/api/auth/logout",
+                    } or (unsafe and SESSION_COOKIE_NAME in request.cookies)
+                    response: Response
+                    csrf_unavailable = csrf_required and (
+                        len(csrf_secret.encode()) < 32
+                        or csrf_secret
+                        in {
+                            settings.bridge_secret.get_secret_value()
+                            if settings.bridge_secret
+                            else "",
+                            settings.internal_auth_secret.get_secret_value()
+                            if settings.internal_auth_secret
+                            else "",
+                        }
+                    )
+                    csrf_valid = not csrf_required or validate_csrf_request(
+                        request.cookies.get(CSRF_COOKIE_NAME, ""),
+                        request.headers.get(CSRF_HEADER_NAME, ""),
+                        csrf_secret,
+                        request.headers.get("origin"),
+                        settings.public_origin,
+                    )
+                    if csrf_unavailable:
+                        response = JSONResponse(
+                            {
+                                "error": {
+                                    "code": "AUTH_UNAVAILABLE",
+                                    "message": "Сервис авторизации недоступен",
+                                }
+                            },
+                            status_code=503,
+                        )
+                    elif csrf_required and not csrf_valid:
+                        response = JSONResponse(
+                            {
+                                "error": {
+                                    "code": "CSRF_INVALID",
+                                    "message": "Запрос не прошёл проверку безопасности",
+                                }
+                            },
+                            status_code=403,
+                        )
+                    else:
+                        response = await call_next(request)
                     status_code = response.status_code
                 except Exception:
                     status_code = 500

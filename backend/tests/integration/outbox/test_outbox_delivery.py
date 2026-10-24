@@ -12,6 +12,7 @@ from app.models.enums import NotificationOutboxStatus
 from app.models.notifications import Notification, NotificationOutbox
 from app.models.users import User
 from app.services.outbox import process_outbox
+from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
 
 
 @pytest.mark.anyio
@@ -75,6 +76,7 @@ async def test_two_processors_claim_distinct_rows_and_complete(db_session_factor
         assert statuses == [NotificationOutboxStatus.SENT] * 2
     finally:
         async with db_session_factory() as session:
+            await clear_audit_logs_for_test_cleanup(session)
             await session.execute(delete(NotificationOutbox).where(NotificationOutbox.id.in_(ids)))
             await session.execute(delete(Notification).where(Notification.id.in_(ids)))
             await session.execute(delete(User).where(User.id == user_id))
@@ -127,6 +129,7 @@ async def test_expired_fifth_attempt_is_made_terminal(db_session_factory) -> Non
             assert row.lastError == "LEASE_EXPIRED_AFTER_MAX_ATTEMPTS"
     finally:
         async with db_session_factory() as session:
+            await clear_audit_logs_for_test_cleanup(session)
             await session.execute(delete(NotificationOutbox).where(NotificationOutbox.id == prefix))
             await session.execute(delete(Notification).where(Notification.id == prefix))
             await session.execute(delete(User).where(User.id == user_id))
@@ -183,6 +186,7 @@ async def test_expired_nonterminal_lease_is_reclaimed(db_session_factory) -> Non
             assert row.claimToken is None
     finally:
         async with db_session_factory() as session:
+            await clear_audit_logs_for_test_cleanup(session)
             await session.execute(delete(NotificationOutbox).where(NotificationOutbox.id == prefix))
             await session.execute(delete(Notification).where(Notification.id == prefix))
             await session.execute(delete(User).where(User.id == user_id))
@@ -244,6 +248,7 @@ async def test_send_failure_uses_exponential_retry_time_and_redacts_error(
             assert row.lastError == "RuntimeError"
     finally:
         async with db_session_factory() as session:
+            await clear_audit_logs_for_test_cleanup(session)
             await session.execute(delete(NotificationOutbox).where(NotificationOutbox.id == prefix))
             await session.execute(delete(Notification).where(Notification.id == prefix))
             await session.execute(delete(User).where(User.id == user_id))
@@ -305,6 +310,7 @@ async def test_stale_worker_cannot_complete_reclaimed_claim(db_session_factory) 
             assert row.claimToken == "replacement-claim"
     finally:
         async with db_session_factory() as session:
+            await clear_audit_logs_for_test_cleanup(session)
             await session.execute(delete(NotificationOutbox).where(NotificationOutbox.id == prefix))
             await session.execute(delete(Notification).where(Notification.id == prefix))
             await session.execute(delete(User).where(User.id == user_id))

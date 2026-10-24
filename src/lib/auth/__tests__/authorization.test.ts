@@ -1,7 +1,6 @@
 import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { getServerSession } from 'next-auth'
-import { getDb } from '@/lib/prisma'
+import { cookies } from 'next/headers'
 import {
   authorizeApiRequest,
   buildAccessContext,
@@ -9,13 +8,12 @@ import {
   requireUser,
 } from '../authorization'
 
-vi.mock('next-auth', () => ({ getServerSession: vi.fn() }))
-vi.mock('@/lib/prisma', () => ({ getDb: vi.fn() }))
+vi.mock('next/headers', () => ({ cookies: vi.fn() }))
 
-const findUnique = vi.fn()
-const findDepartments = vi.fn()
+const fetchMock = vi.fn<typeof fetch>()
+let mockBackendResponse = Response.json({ error: { code: 'UNAUTHENTICATED' } }, { status: 401 })
 
-const baseUser = {
+const baseUser: Parameters<typeof buildAccessContext>[0] = {
   id: 'user-1',
   username: 'reader',
   name: 'Reader',
@@ -35,37 +33,61 @@ const baseUser = {
   }],
 }
 
-function activeSession(sessionVersion = baseUser.sessionVersion) {
-  return { user: { id: baseUser.id, sessionVersion } } as never
+function actorResponse(user: Parameters<typeof buildAccessContext>[0] = baseUser) {
+  const access = buildAccessContext(user, [])
+  return Response.json({ data: {
+    id: user.id,
+    username: user.username,
+    name: user.name,
+    role: user.role,
+    roles: access.roles,
+    permissions: access.permissions,
+    employeeId: user.employeeId,
+    mustChangePassword: user.mustChangePassword,
+    sessionVersion: user.sessionVersion,
+    access: {
+      identity: {
+        userId: user.id,
+        employeeId: user.employeeId,
+        employeeDepartmentId: user.employee?.departmentId ?? null,
+        memberProjectIds: user.employee?.projectMembers.map((member) => member.projectId) ?? [],
+      },
+      grants: user.roleAssignments.map((assignment) => ({
+        assignmentId: assignment.id,
+        role: assignment.role,
+        departmentScopeMode: assignment.departmentScopeMode,
+        projectScopeMode: assignment.projectScopeMode,
+        departmentIds: assignment.departmentScopes.map((scope) => scope.departmentId),
+        projectIds: assignment.projectScopes.map((scope) => scope.projectId),
+      })),
+    },
+  } })
 }
 
 describe('authorization', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(getDb).mockReturnValue({
-      user: { findUnique },
-      department: { findMany: findDepartments },
-    } as never)
-    findDepartments.mockResolvedValue([])
+    vi.stubEnv('BACKEND_BASE_URL', 'http://backend:8000')
+    fetchMock.mockImplementation(async () => mockBackendResponse.clone())
+    vi.stubGlobal('fetch', fetchMock)
+    vi.mocked(cookies).mockResolvedValue({ toString: () => 'erp_session=session-token' } as never)
+    mockBackendResponse = Response.json({ error: { code: 'UNAUTHENTICATED' } }, { status: 401 })
   })
 
   it('rejects a request without a session', async () => {
-    vi.mocked(getServerSession).mockResolvedValue(null)
     await expect(requireUser()).rejects.toMatchObject({
       code: 'UNAUTHENTICATED',
       status: 401,
     })
   })
 
-  it('revalidates that the database user is active', async () => {
-    vi.mocked(getServerSession).mockResolvedValue(activeSession())
-    findUnique.mockResolvedValue({ ...baseUser, isActive: false })
+  it('rejects a user that Python identifies as inactive', async () => {
+    mockBackendResponse = Response.json({ error: { code: 'UNAUTHENTICATED' } }, { status: 401 })
     await expect(requireUser()).rejects.toMatchObject({ code: 'UNAUTHENTICATED', status: 401 })
   })
 
-  it('invalidates a JWT when its session version is stale', async () => {
-    vi.mocked(getServerSession).mockResolvedValue(activeSession(baseUser.sessionVersion - 1))
-    findUnique.mockResolvedValue(baseUser)
+  it('invalidates a session when Python rejects its stale version', async () => {
+    mockBackendResponse = Response.json({ error: { code: 'UNAUTHENTICATED' } }, { status: 401 })
 
     await expect(requireUser()).rejects.toMatchObject({
       code: 'UNAUTHENTICATED',
@@ -73,19 +95,12 @@ describe('authorization', () => {
     })
   })
 
-  it('rejects legacy JWTs that do not carry a session version', async () => {
-    vi.mocked(getServerSession).mockResolvedValue({ user: { id: baseUser.id } } as never)
-
-    await expect(requireUser()).rejects.toMatchObject({
-      code: 'UNAUTHENTICATED',
-      status: 401,
-    })
-    expect(findUnique).not.toHaveBeenCalled()
+  it('rejects a legacy cookie not accepted by Python', async () => {
+    await expect(requireUser()).rejects.toMatchObject({ code: 'UNAUTHENTICATED', status: 401 })
   })
 
   it('allows only the password endpoint while a password change is required', async () => {
-    vi.mocked(getServerSession).mockResolvedValue(activeSession())
-    findUnique.mockResolvedValue({ ...baseUser, mustChangePassword: true })
+    mockBackendResponse = actorResponse({ ...baseUser, mustChangePassword: true })
 
     const blocked = await authorizeApiRequest(
       new NextRequest('http://localhost/api/assets'),
@@ -110,7 +125,7 @@ describe('authorization', () => {
     })
     const result = await authorizeApiRequest(request, 'assets.create')
     expect(result.response?.status).toBe(403)
-    expect(getServerSession).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('expands assigned departments to descendants but not siblings', () => {
@@ -238,9 +253,8 @@ describe('authorization', () => {
     expect(access.allows('tasks.read', { projectId: 'project-b' })).toBe(false)
   })
 
-  it('enforces permission requirements from current database assignments', async () => {
-    vi.mocked(getServerSession).mockResolvedValue(activeSession())
-    findUnique.mockResolvedValue(baseUser)
+  it('enforces permissions from the actor returned by Python', async () => {
+    mockBackendResponse = actorResponse(baseUser)
     await expect(requirePermission('assets.read')).resolves.toMatchObject({
       roles: ['AUDITOR'],
     })
@@ -251,8 +265,7 @@ describe('authorization', () => {
   })
 
   it('does not derive permissions from the legacy role when assignments are empty', async () => {
-    vi.mocked(getServerSession).mockResolvedValue(activeSession())
-    findUnique.mockResolvedValue({
+    mockBackendResponse = actorResponse({
       ...baseUser,
       role: 'ADMIN',
       roleAssignments: [],

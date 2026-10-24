@@ -23,6 +23,7 @@ from app.models.timekeeping import StaffSchedule
 from app.models.users import AuditLog, User, UserRoleAssignment
 from app.services.catalogs import CatalogService
 from app.services.departments import DepartmentService
+from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
 
 
 def wire(record):
@@ -128,6 +129,7 @@ async def organization_env() -> AsyncIterator[dict]:
         }
     finally:
         async with sessions() as session:
+            await clear_audit_logs_for_test_cleanup(session)
             await session.execute(
                 delete(AuditLog).where(
                     or_(

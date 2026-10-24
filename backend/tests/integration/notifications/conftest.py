@@ -12,6 +12,7 @@ from app.domain.auth.rules import AccessContext, ScopeGrant
 from app.models.notifications import Notification, NotificationOutbox, NotificationPreference
 from app.models.users import AuditLog, User
 from app.services.notifications import NotificationService
+from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
 
 
 @dataclass
@@ -54,6 +55,7 @@ async def notification_env(db_session_factory):
         yield env
     finally:
         async with db_session_factory() as session:
+            await clear_audit_logs_for_test_cleanup(session)
             await session.execute(
                 delete(NotificationOutbox).where(
                     NotificationOutbox.userId.in_([owner_id, other_id])

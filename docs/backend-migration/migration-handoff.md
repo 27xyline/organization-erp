@@ -10,6 +10,7 @@ seed/CLI are unchanged in this stage.
 |---|---|
 | `20261024_legacy_schema` | Frozen legacy baseline: literal copies of all 41 checked-in Prisma `migration.sql` files, in migration order. It does not import SQLAlchemy metadata or read mutable SQL files at runtime. |
 | `20261024_audit_log_append_only` | Adds the database trigger rejecting direct `UPDATE` and `DELETE` on `audit_logs`; inserts remain allowed. |
+| `20261024_user_sessions` | Adds the Python-owned `user_sessions` table for opaque browser session hashes, expiry, version, and revocation state. |
 
 The frozen inputs are `prisma/schema.prisma` and all 41
 `prisma/migrations/**/migration.sql` files. Their SHA-256 values match the
@@ -18,6 +19,15 @@ inputs checked, 0 changes). The Alembic baseline carries the checked-in SQL
 content so future ORM edits cannot change it. `migrations/legacy_catalog.json`
 is the pre-stamp expected catalog; `migrations/catalog_baseline.json` is the
 final expected catalog after the audit trigger revision.
+
+Stage 14B keeps both Stage 14A catalog artifacts unchanged. Runtime verification
+uses `migrations/catalog_stage14b.json`, which adds only the `user_sessions`
+table to the Stage 14A final catalog. `--legacy` continues to verify the
+pre-stamp Prisma catalog.
+
+Session/auth implementation, focused verification commands, cleanup safeguards,
+and the Stage 14B review boundary are recorded in
+[`stage14b-validation.md`](stage14b-validation.md).
 
 The verifier reads PostgreSQL catalogs directly. It compares tables and
 columns, server defaults, every constraint, every index (including partial and

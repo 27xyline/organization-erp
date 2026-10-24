@@ -77,14 +77,15 @@ export async function proxyBackendRequest(
   const method = request.method.toUpperCase()
   const body = ['GET', 'HEAD'].includes(method) ? undefined : request.body
   const headers = backendUserHeaders(request, user)
+  forwardSessionHeaders(request, headers)
   if (requestId) headers.set('x-request-id', requestId)
   const response = await backendFetch(path, {
     method,
     headers,
     body,
     ...(body ? { duplex: 'half' as const } : {}),
-  } as RequestInit)
-  return forwardedResponse(response)
+  } as RequestInit, { forwardCookies: true })
+  return forwardedResponse(response, { forwardSetCookie: true })
 }
 
 /** Proxy raw document upload/download bodies without buffering them in Next. */
@@ -97,6 +98,7 @@ export async function proxyDocumentStreamRequest(
   const method = request.method.toUpperCase()
   const body = ['GET', 'HEAD'].includes(method) ? undefined : request.body
   const headers = forwardDocumentRequestHeaders(request)
+  forwardSessionHeaders(request, headers)
   headers.set('authorization', `Bearer ${mintBackendBridgeToken(user)}`)
   if (requestId) headers.set('x-request-id', requestId)
 
@@ -106,8 +108,15 @@ export async function proxyDocumentStreamRequest(
     body,
     signal: request.signal,
     ...(body ? { duplex: 'half' as const } : {}),
-  } as RequestInit)
-  return forwardedResponse(response)
+  } as RequestInit, { forwardCookies: true })
+  return forwardedResponse(response, { forwardSetCookie: true })
+}
+
+function forwardSessionHeaders(request: Request, headers: Headers): void {
+  for (const name of ['cookie', 'origin', 'x-csrf-token']) {
+    const value = request.headers.get(name)
+    if (value) headers.set(name, value)
+  }
 }
 
 

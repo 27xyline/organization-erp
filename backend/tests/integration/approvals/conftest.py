@@ -15,6 +15,7 @@ from app.models.enums import DocumentStatus
 from app.models.notifications import Notification, NotificationOutbox
 from app.models.users import AuditLog, User
 from app.services.approvals import ApprovalService
+from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
 
 
 @dataclass
@@ -80,6 +81,7 @@ async def approval_env(db_session_factory):
         yield env
     finally:
         async with db_session_factory() as session:
+            await clear_audit_logs_for_test_cleanup(session)
             await session.execute(
                 delete(ApprovalRequest).where(ApprovalRequest.requestedById == ids[0])
             )
