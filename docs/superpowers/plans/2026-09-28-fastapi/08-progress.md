@@ -17,7 +17,7 @@
 | 10 Табель/финансы | Реализован и проверен; acceptance пункты отмечены; HR master data для исторических расчётов остаются текущими по legacy-семантике | PostgreSQL 18.6 Stage10 acceptance 54; browser workflow 1; export, BFF, typecheck/ESLint, Ruff/mypy | Впереди |
 | 11 Закупки | Реализован и проверен; полный browser-level цикл закупки не запускался | PostgreSQL 18.6 procurement suite 13; procurement Vitest 6; typecheck; Ruff/mypy; independent code review scope issue fixed | Впереди |
 | 12 Отчёты/поиск/экспорт | Реализован и принят на изолированной БД | Backend `21 passed`; CLI `4 passed`; idempotent seed + verify; Playwright `1 passed`; Ruff/mypy/typecheck/ESLint | Впереди |
-| 13 Worker/observability | Реализован и проверен изолированно; production cutover и повтор baseline не выполнялись | Python `30 passed`; Ruff/format/mypy; PostgreSQL 18.6 outbox concurrency + crash/restart; local SMTP; Compose build; live metrics в Grafana; Collector outage; Prometheus alerts `2 passed` | Код готов к ревью; TS→Python cutover не выполнялся |
+| 13 Worker/observability | Реализован и проверен изолированно; manual processor BFF направляет в Python; production runtime cutover и сопоставимый baseline не выполнены | Python `30 passed`; focused Vitest `4 passed`; Ruff/format/mypy/ESLint/typecheck; PostgreSQL 18.6 outbox concurrency + crash/restart; isolated Compose PG15 smoke: 41 migrations, backend/worker healthy; local SMTP; live metrics в Grafana; Collector outage; Prometheus alerts `2 passed` | Код готов к ревью; runtime cutover ждёт target DB/SMTP и rollback rehearsal |
 | 14 Alembic/auth/полное переключение | Не начат | Не запускались | Впереди |
 
 ## Запись Stage 08 — 23 октября 2026
@@ -148,6 +148,7 @@ Rollback, который действительно проверен:
 
 - Notification outbox и scheduled alerts перенесены в Python worker: `FOR UPDATE SKIP LOCKED`, claim leases/retry/reclaim, PostgreSQL advisory lock, async SMTP, независимые jobs и graceful shutdown. HTTP/SQL/worker metrics и traces подключены к существующему Collector/Prometheus/Grafana.
 - Финальный целевой набор — `30 passed`; Ruff check/format и mypy по 246 модулям прошли. Backend/worker images собраны; isolated smoke показал live HTTP/SQL/worker metrics в Grafana и доступность API/worker при выключенном Collector. Проверки не отправляли реальные письма.
-- Cutover TS→Python не выполнялся. Compose migration dependency не связывал с текущим `migrate`, потому что он целится в `project1`, а backend/worker используют подготовленную копию `erp_migration_20261007`.
-- Worker Compose service получил `stop_grace_period: 90s`, чтобы покрыть 65-секундный SMTP timeout и завершение in-flight jobs при штатном SIGTERM. Stage12 baseline не повторён; доступность исходной БД/датасета в этой проверке не установлена, а пустая Stage13 DB несопоставима.
+- Next BFF manual processor routes переключены на Python и проверены (4 focused Vitest). Production runtime cutover и остановка TS worker не выполнялись.
+- Worker Compose service получил `stop_grace_period: 90s`, чтобы покрыть 65-секундный SMTP timeout и завершение in-flight jobs при штатном SIGTERM. Migration target mismatch остаётся до Stage14A; worker activation в целевом runtime требует общего schema target.
+- Stage12 baseline не повторён: доступный Oct 7 dump после восстановления в изолированной PG18 дал другие row counts и несопоставим с сохранённым workload.
 - Полные команды, изоляция, результаты и незакрытые gates — [Stage 13 validation](../../../backend-migration/stage13-validation.md). Stage 14 не начат; пользовательский `next-env.d.ts` исключён из коммита.

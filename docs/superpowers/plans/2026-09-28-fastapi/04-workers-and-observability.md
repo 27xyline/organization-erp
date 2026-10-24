@@ -22,8 +22,10 @@
 - [x] Scheduled alerts: сохранены hourly success interval и 5-minute retry gap; гонка закрыта PostgreSQL advisory lock на выделенном connection, который освобождается в `finally`. Конкурентные runners не запускают генерацию дважды.
 - [x] Цикл 30 секунд, независимые jobs, graceful SIGTERM/SIGINT; сбой одного job не останавливает другой. Worker не запускается в FastAPI lifespan.
 - [x] Manual processors `/api/notifications/smtp/process` и `/generate-alerts` используют те же Python services/locks, permission `access.users.update`; actor/request ID передаются сервисам.
-- [ ] Переключение processor implementation и rollback rehearsal не выполнялись; production cutover оставлен на отдельное решение после ревью.
-- [ ] Python worker service добавлен в Compose с command/healthcheck и ждёт backend readiness. Прямую зависимость от `migrate` не выставлял: Compose `migrate` использует `POSTGRES_DB=project1`, а backend/worker по умолчанию используют подготовленную копию `erp_migration_20261007`. Document volume не менялся.
+- [x] Next BFF routes для `/api/notifications/smtp/process` и `/api/notifications/generate-alerts` переключены на соответствующие Python endpoints; permission, user/sessionVersion и request ID передаются дальше. Focused Vitest — 4 passed.
+- [ ] Production worker stop/drain и rollback rehearsal не выполнялись: локальные ERP контейнеры остановлены, удалённый target не проверялся; active leases и внешняя SMTP-конфигурация неизвестны. TypeScript scheduled-alert worker нельзя запускать параллельно с Python worker.
+- [x] Python worker service добавлен в Compose с command, process healthcheck, backend readiness dependency и `stop_grace_period: 90s`.
+- [ ] Перед runtime activation нужно выровнять migration target: Compose `migrate` использует `POSTGRES_DB=project1`, backend/worker по умолчанию — `erp_migration_20261007`. Прямую зависимость от текущего `migrate` не добавлять, пока Stage14A не определит единый target. Document volume не менялся.
 
 **Проверки:** `uv run pytest tests/unit/outbox tests/integration/outbox tests/integration/test_worker_shutdown.py -q`; реальная PostgreSQL и локальный тестовый SMTP, два worker processes, crash/restart, terminal failure. Unit mock SMTP не заменяет transport smoke test.
 
@@ -41,7 +43,7 @@
 - [x] В logs только технический context, exception messages scrubbed. Labels ограничены route template, method/status, SQL operation, job и outcome.
 - [x] При отключённом Collector API и worker продолжают работать; exporter/shutdown ограничены timeout. Readiness не зависит от мониторинга.
 - [x] Grafana dashboard получает live HTTP/SQL/worker metrics. HTTP error burst и heartbeat loss проверены `promtool test rules`; внешний канал уведомлений не заявлен работающим.
-- [ ] Stage12 baseline не повторён; доступность исходной базы/датасета в этой проверке не установлена. Пустую Stage13 test DB не использовал для несопоставимого сравнения.
+- [ ] Повторить тот же Stage12 baseline. Доступный Oct 7 source dump в отдельной PG18 DB дал другие row counts, поэтому сравнимый baseline не запускался; Stage13 smoke DB также несопоставима.
 
 **Проверки:** полный целевой Stage13 набор, `mypy app`, Ruff; `docker compose --profile observability config --quiet`; Collector `validate`, Prometheus config/rules и `promtool test rules`; live метрики прошли Collector → Prometheus → Grafana. Подробности и ограничения — [Stage 13 validation](../../../backend-migration/stage13-validation.md).
 

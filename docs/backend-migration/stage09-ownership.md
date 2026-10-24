@@ -6,6 +6,6 @@ Python owns approval templates, create/list/detail/options, decisions and cancel
 
 SMTP password values remain plain singleton text values compatible with the existing mixed migration phase. Reads and writes return an empty password field. Existing stored passwords remain usable when a save carries an empty password. No SMTP delivery or alert generation moved in this stage.
 
-TypeScript retains `POST /api/notifications/smtp/process` and `POST /api/notifications/generate-alerts` as manual delivery/alert processors through Stage 13. Prisma schema and migrations remain the DDL owner. Other unlisted TypeScript consumers are not write owners for Stage 09 APIs.
+After the Stage 13 code cutover, the existing Next handlers for `POST /api/notifications/smtp/process` and `POST /api/notifications/generate-alerts` retain their URLs and `access.users.update` authorization, then proxy to the matching Python processors. The TypeScript worker implementation remains available for rollback; do not run it together with the Python scheduled-alert worker because they do not share a lock. Prisma schema and migrations remain the DDL owner. Other unlisted TypeScript consumers are not write owners for Stage 09 APIs.
 
 Verification details, exact test commands, isolated database names, changed paths and known limits are in [stage09-report.md](../../.superpowers/sdd/03-workflows-and-reports/stage09-report.md).
