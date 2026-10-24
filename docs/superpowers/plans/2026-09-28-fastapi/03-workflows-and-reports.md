@@ -83,12 +83,14 @@ Validation evidence: [Stage 11 validation](../../../backend-migration/stage11-va
 
 **Потребляет:** все перенесённые модули и auth scopes. **Производит:** последние пользовательские read APIs, export renderers, Python CLI; инфраструктурные processors перенесутся в 13.
 
-- [ ] Все report kinds, preset ownership, KPI/dashboard/my-actions: SQL агрегаты считаются по полному доступному scope, не по загруженной странице. Fixture >100 записей проверяет totals/pagination.
+- [x] Все report kinds, preset ownership, KPI/dashboard/my-actions: SQL агрегаты считаются по полному доступному scope, не по загруженной странице. Pure fixture проверяет pagination на >100 записей; PostgreSQL fixture с 137 сотрудниками прошёл в предыдущем Stage 12 suite (10 passed, единственный сбой был в search fixture).
 - [x] Search: проверять права в запросах и result shaping по каждой entity; user без доступа не видит title/snippet/ID чужого объекта. Пять scoped entity (employee/asset/project/task/document) проверены в `tests/integration/search/test_search_scopes.py`; focused PostgreSQL rerun: 1 passed.
-- [ ] XLSX/DOCX/PDF/QR: сверить поля/таблицы/суммы, открыть generated files, проверить русские шрифты и filenames. Валидный файл не обязан быть побайтно равен старому renderer.
-- [ ] Report exports применяют те же scopes, что list; нельзя получить запрещённые поля через другой format. Binary endpoints сохраняют HTTP status/headers.
-- [ ] Перенести seed/verify/create-admin CLI через services. Seed идемпотентен, имеет guard от рабочей БД; relational totals проверяются, создание admin не логирует пароль. Demo seed обязателен для учебной копии, production auto-seed запрещён.
-- [ ] Убрать оставшиеся SSR imports services/Prisma; nested relation DTO не lazy-load-ится после session close.
+- [x] XLSX/DOCX/PDF/QR: сверить поля/таблицы/суммы, открыть generated files, проверить русские шрифты и filenames. `tests/integration/exports/test_renderers.py` читает созданные XLSX/DOCX/PDF, проверяет QR PNG, Cyrillic font embedding, безопасное русское имя и детали/числа. Валидный файл не обязан быть побайтно равен старому renderer.
+- [x] Report exports используют ту же scoped dashboard projection, что list; renderer tests проверяют запрет ФОТ во всех трёх форматах.
+- [ ] Binary export endpoints сохраняют HTTP status/headers; Playwright не запустился без `erp_stage09_e2e` на `127.0.0.1:5434`.
+- [x] Public `db:seed`, `db:verify`, `user:create-admin` команды маршрутизированы в Python services. Seed создаёт связанный учебный граф, использует production/working/non-local guards и не запускается при старте приложения; create-admin читает пароль через `getpass` и не печатает его. DB-backed идемпотентность и relational verify остаются отдельной незакрытой проверкой ниже.
+- [ ] На изолированной PostgreSQL БД запустить Python seed дважды и verify-data; проверить нулевые relational/file counters. Текущая test DB недоступна, предыдущий snapshot имел 21 document-version mismatch.
+- [x] Убрать оставшиеся SSR imports services/Prisma; nested relation DTO не lazy-load-ится после session close. Root dashboard/reports SSR идут через FastAPI; reporting gateways возвращают материализованные dict/list DTO до закрытия сессии; production import scan и branch review подтвердили это.
 - [x] Измерить baseline: latency и число SQL на dashboard/report, dataset/filters/iterations фиксируются. Итоговый замер и row counts зафиксированы в [Stage 12 validation](../../../backend-migration/stage12-validation.md). Кэш пока отсутствует; это исходная точка для будущего самостоятельного Redis.
 
 **Проверки:** `uv run pytest tests/unit/reporting tests/integration/reporting tests/contracts/reporting tests/integration/search tests/integration/exports -q`; Python verify_data, frontend lint/typecheck, Playwright dashboard/report/search/export; API coverage registry показывает все пользовательские методы в Python.
