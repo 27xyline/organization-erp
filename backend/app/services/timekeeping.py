@@ -84,6 +84,7 @@ class TimekeepingService:
         assert actor is not None and actor.access is not None
         authorize(actor, "timekeeping.read")
         async with self._factory() as uow:
+            await uow.payroll_input_lock.lock_shared()
             rows = await uow.timekeeping.month_entries(year, month)
             can_read_all = any(
                 role in {"ADMIN", "HR", "ACCOUNTANT", "AUDITOR"} for role in actor.access.roles
@@ -397,6 +398,7 @@ class TimekeepingService:
         authorize(actor, "timekeeping.update")
         changes = value.model_dump(exclude_unset=True, exclude={"correctionReason"})
         async with self._factory() as uow:
+            await uow.payroll_input_lock.lock_shared()
             row = await uow.timekeeping.get_entry(identifier, for_update=True)
             if row is None:
                 _fail("NOT_FOUND", "Запись рабочего времени не найдена", 404)
@@ -474,6 +476,7 @@ class TimekeepingService:
         assert actor is not None and actor.access is not None
         authorize(actor, "timekeeping.delete")
         async with self._factory() as uow:
+            await uow.payroll_input_lock.lock_shared()
             row = await uow.timekeeping.get_entry(identifier, for_update=True)
             if row is None:
                 _fail("NOT_FOUND", "Запись рабочего времени не найдена", 404)

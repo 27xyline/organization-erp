@@ -13,6 +13,7 @@ from app.domain.ports.documents import DocumentRepository
 from app.domain.ports.employees import EmployeeRepository, WorkforceRepository
 from app.domain.ports.finance import FinanceRepository
 from app.domain.ports.notifications import NotificationIntentPort
+from app.domain.ports.payroll_input_lock import PayrollInputLock
 from app.domain.ports.payroll_periods import PayrollPeriodRepository
 from app.domain.ports.projects import ProjectRepository
 from app.domain.ports.smtp import SmtpSettingsPort
@@ -61,6 +62,9 @@ class UnitOfWork(Protocol):
 
     @property
     def payroll_periods(self) -> PayrollPeriodRepository: ...
+
+    @property
+    def payroll_input_lock(self) -> PayrollInputLock: ...
 
     @property
     def timekeeping(self) -> TimekeepingRepository: ...

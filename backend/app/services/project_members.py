@@ -66,6 +66,7 @@ class ProjectMemberService:
         assert actor is not None
         authorize(actor, "projectMembers.create", {"projectId": project_id})
         async with self._factory() as uow:
+            await uow.payroll_input_lock.lock_shared()
             await lock_project(uow, project_id, actor)
             employee = await uow.employees.get(employee_id)
             if employee is None:

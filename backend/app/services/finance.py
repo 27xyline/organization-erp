@@ -177,6 +177,7 @@ class FinanceService:
             _fail("INVALID_FINANCE_PLAN_TYPE", "Invalid finance plan type", 400)
         access = actor.access
         async with self._factory() as uow:
+            await uow.payroll_input_lock.lock_shared()
             employees = [
                 employee
                 for employee in await uow.finance.employees()
@@ -244,6 +245,7 @@ class FinanceService:
         authorize(actor, "finance.salary.read")
         access = actor.access
         async with self._factory() as uow:
+            await uow.payroll_input_lock.lock_shared()
             employees = [
                 employee
                 for employee in await uow.finance.employees()
@@ -429,6 +431,7 @@ class FinanceService:
         if not _project_in_scope(actor.access, "projectPayroll.read", project_id):
             _fail("FORBIDDEN", "Недостаточно прав", 403)
         async with self._factory() as uow:
+            await uow.payroll_input_lock.lock_shared()
             project = await uow.finance.project(project_id)
             if project is None:
                 _fail("PROJECT_NOT_FOUND", "Проект не найден", 404)

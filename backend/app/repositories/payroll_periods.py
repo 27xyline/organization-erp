@@ -13,6 +13,7 @@ from app.models.employees import Employee
 from app.models.enums import PayrollPeriodStatus
 from app.models.finance import PayrollPeriod
 from app.models.timekeeping import TimeEntry, Timesheet
+from app.repositories.payroll_input_lock import SqlAlchemyPayrollInputLockRepository
 
 
 class SqlAlchemyPayrollPeriodRepository:
@@ -20,6 +21,7 @@ class SqlAlchemyPayrollPeriodRepository:
 
     def __init__(self, session: Callable[[], AsyncSession]) -> None:
         self._session = session
+        self._payroll_input_lock = SqlAlchemyPayrollInputLockRepository(session)
 
     async def get_status(self, year: int, month: int) -> str | None:
         status = await self._session().scalar(
@@ -31,6 +33,7 @@ class SqlAlchemyPayrollPeriodRepository:
 
     async def lock_period(self, year: int, month: int) -> str:
         session = self._session()
+        await self._payroll_input_lock.lock_shared()
         statement = (
             insert(PayrollPeriod)
             .values(year=year, month=month)

@@ -56,6 +56,7 @@ class PayrollService:
         actor = _actor(context, permission)
         assert actor.access is not None
         async with self._factory() as uow:
+            await uow.payroll_input_lock.lock_shared()
             employees = [
                 employee
                 for employee in await uow.finance.employees()

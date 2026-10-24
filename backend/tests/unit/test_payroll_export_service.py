@@ -75,12 +75,17 @@ async def test_payroll_renderer_runs_only_after_month_payload_and_uow_return(
         def __init__(self, factory):
             self.factory = factory
             self.finance = Finance()
+            self.payroll_input_lock = PayrollInputLock()
 
         async def __aenter__(self):
             return self
 
         async def __aexit__(self, *exc_info):
             self.factory.closed = True
+
+    class PayrollInputLock:
+        async def lock_shared(self):
+            return None
 
     class Factory:
         closed = False

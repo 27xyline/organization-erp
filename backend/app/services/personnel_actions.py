@@ -63,6 +63,7 @@ class PersonnelActionService:
         assert action_date is not None
         async with self._factory() as uow:
             await lock_actor(uow, actor)
+            await uow.payroll_input_lock.lock_exclusive()
             if command.type == "HIRE":
                 if command.employeeData is None:
                     raise hr_error("INVALID_HIRE_PAYLOAD")
@@ -211,6 +212,7 @@ class PersonnelActionService:
         authorize(actor, "personnelActions.delete")
         async with self._factory() as uow:
             await lock_actor(uow, actor)
+            await uow.payroll_input_lock.lock_exclusive()
             action = await uow.workforce.action(identifier)
             if not action:
                 raise hr_error("INVALID_ACTION_DATE")
@@ -233,6 +235,7 @@ class PersonnelActionService:
         authorize(actor, "personnelActions.sync")
         async with self._factory() as uow:
             await lock_actor(uow, actor)
+            await uow.payroll_input_lock.lock_exclusive()
             today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
             employees = await uow.employees.list(
                 "expired", today, actor.access, "personnelActions.sync"

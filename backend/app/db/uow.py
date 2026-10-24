@@ -17,6 +17,7 @@ from app.domain.ports.departments import DepartmentRepository, GroupRepository, 
 from app.domain.ports.employees import EmployeeRepository, WorkforceRepository
 from app.domain.ports.finance import FinanceRepository
 from app.domain.ports.notifications import NotificationIntentPort
+from app.domain.ports.payroll_input_lock import PayrollInputLock
 from app.domain.ports.payroll_periods import PayrollPeriodRepository
 from app.domain.ports.projects import ProjectRepository
 from app.domain.ports.smtp import SmtpSettingsPort
@@ -34,6 +35,7 @@ from app.repositories.documents import SqlAlchemyDocumentRepository
 from app.repositories.employees import SqlAlchemyEmployeeRepository
 from app.repositories.finance import SqlAlchemyFinanceRepository
 from app.repositories.notifications import SqlAlchemyNotificationRepository
+from app.repositories.payroll_input_lock import SqlAlchemyPayrollInputLockRepository
 from app.repositories.payroll_periods import SqlAlchemyPayrollPeriodRepository
 from app.repositories.projects import SqlAlchemyProjectRepository
 from app.repositories.smtp_settings import SqlAlchemySmtpSettingsRepository
@@ -80,6 +82,9 @@ class SqlAlchemyUnitOfWork:
         self.employees: EmployeeRepository = SqlAlchemyEmployeeRepository(self._active_session)
         self.workforce: WorkforceRepository = SqlAlchemyWorkforceRepository(self._active_session)
         self.payroll_periods: PayrollPeriodRepository = SqlAlchemyPayrollPeriodRepository(
+            self._active_session
+        )
+        self.payroll_input_lock: PayrollInputLock = SqlAlchemyPayrollInputLockRepository(
             self._active_session
         )
         self.timekeeping: TimekeepingRepository = SqlAlchemyTimekeepingRepository(

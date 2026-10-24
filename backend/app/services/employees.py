@@ -211,6 +211,7 @@ class EmployeeService:
             include_salary = actor.access.allows(
                 "projectPayroll.read", {"projectId": query.project_id}
             )
+            await uow.payroll_input_lock.lock_shared()
             result = []
             for employee in await uow.employees.available_for_project(query.project_id):
                 position = employee.staffSchedule
@@ -238,6 +239,7 @@ class EmployeeService:
         authorize(actor, "employees.create")
         async with self._factory() as uow:
             await lock_actor(uow, actor)
+            await uow.payroll_input_lock.lock_exclusive()
             employee = await create_in_uow(uow, command, actor, "employees.create")
             await uow.workforce.create_action(
                 dict(
@@ -278,6 +280,7 @@ class EmployeeService:
         authorize(actor, "employees.update")
         async with self._factory() as uow:
             await lock_actor(uow, actor)
+            await uow.payroll_input_lock.lock_exclusive()
             before = await uow.employees.get(identifier)
             if not before:
                 raise hr_error("EMPLOYEE_NOT_FOUND")
@@ -397,6 +400,7 @@ class EmployeeService:
         authorize(actor, "employees.delete")
         async with self._factory() as uow:
             await lock_actor(uow, actor)
+            await uow.payroll_input_lock.lock_exclusive()
             employee = await uow.employees.get(identifier)
             if not employee:
                 raise hr_error("EMPLOYEE_NOT_FOUND")

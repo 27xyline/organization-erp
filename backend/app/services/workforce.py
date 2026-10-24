@@ -44,6 +44,7 @@ class WorkforceService:
         authorize(actor, permission)
         async with self._factory() as uow:
             await lock_actor(uow, actor)
+            await uow.payroll_input_lock.lock_exclusive()
             before = await uow.workforce.position(identifier) if identifier else None
             if identifier and before is None:
                 raise DomainError("NOT_FOUND", "Должность не найдена", 404)
@@ -111,6 +112,7 @@ class WorkforceService:
         authorize(actor, "staffSchedule.delete")
         async with self._factory() as uow:
             await lock_actor(uow, actor)
+            await uow.payroll_input_lock.lock_exclusive()
             position = await uow.workforce.position(identifier)
             if not position:
                 raise DomainError("NOT_FOUND", "Должность не найдена", 404)
