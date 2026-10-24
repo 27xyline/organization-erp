@@ -2,7 +2,7 @@
 
 ## Статус
 
-Stage 10 implementation и stage-wide browser workflow выполнены с одной зафиксированной оговоркой по HR master data. Close/edit/approve Playwright smoke прошёл на отдельной `erp_stage10_e2e`; финальный backend brief прошёл на PostgreSQL 18 `erp_stage10_test`. Общий advisory gate подключён к PayrollPeriod row-lock path, текущим payroll calculation reads и HR master-data writers. Новые независимые PG-session tests для этого follow-up пока не прошли: настроенный endpoint недоступен в текущем окружении. Checkbox плана о lock связанных HR writers остаётся unchecked до PG verification; Stage 10 имеет статус **DONE_WITH_CONCERNS**.
+Stage 10 implementation и stage-wide browser workflow полностью проверены. Close/edit/approve Playwright smoke прошёл на отдельной `erp_stage10_e2e`; backend acceptance набор Stage 10 прошёл на PostgreSQL 18.6 `erp_stage10_test` — **54 passed**, включая два новых independent-session теста payroll-input gate. Все acceptance пункты этапа отмечены; статус **DONE**. Сохранено одно явное бизнес-поведение: расчёты за прошлые месяцы используют текущие HR master data, поэтому кадровое изменение может изменить последующий пересчёт закрытого периода. Это не оставшийся acceptance gap этапа.
 
 ## Готовые изменения
 
@@ -106,12 +106,12 @@ Stage 10 implementation и stage-wide browser workflow выполнены с о�
 - Payroll month/adjustment/period/export/payslip handlers теперь проксируются в Python. В Stage10-owned API cluster direct TS Prisma fallbacks не обнаружены; finance/timekeeping/project SSR остаются на своих permission-gated pages и загружают данные через переключённые BFF URLs.
 - HR master-data salary/rate changes have no effective date. Независимая сверка подтвердила, что legacy TS и Python payroll расчёт используют текущие Employee schedule/rate/status для любого выбранного года/месяца; такое изменение ретроактивно влияет на исторический закрытый payroll. Срез сохраняет это legacy поведение; period lock применяется только к period-indexed writers и не обещает immutable payroll snapshots. Отдельная temporal/snapshot модель остаётся вне этого slice.
 
-## Caveats / оставшаяся работа
+## Зафиксированная бизнес-семантика и evidence
 
-- Stage-wide close/edit/approve Playwright smoke on `erp_stage10_e2e` passed. The HR and payroll lock wiring is implemented, but plan checkbox 47 remains unchecked until the new independent PostgreSQL-session acceptance tests run successfully. Separately, legacy calculations still use current employee values for historical periods, so HR changes can alter later recalculations of closed history.
-- Временный PostgreSQL 18.6 использует пустую изолированную `erp_stage10_test`; mapped schema создана через `Base.metadata.create_all`, source dump/migration baseline не загружались. При cleanup удалялись только тестовые fixture rows с `s10-` идентификаторами.
+- Временная PostgreSQL 18.6 БД `erp_stage10_test` создана пустой; mapped schema создаётся через `Base.metadata.create_all`, source dump/migration baseline не загружались. Тесты чистят только собственные fixtures; глобального `drop_all`, truncate или очистки БД нет.
 - Close-vs-edit and close-vs-approve were verified with independent PostgreSQL sessions. Browser workflow timesheet → approval → payroll calculation → close → edit denied → reopen passed against separate `erp_stage10_e2e`.
-- Временный PostgreSQL test container создан координатором; он остаётся под его управлением и здесь не останавливался.
+- Final Stage 10 backend brief: `tests/unit/timekeeping tests/unit/finance tests/integration/timekeeping tests/integration/finance tests/contracts/finance` → **54 passed**. Dedicated payroll-input gate concurrency tests → **2 passed** within this run.
+- Dedicated container `erp-stage10-pg18-test` runs `postgres:18.6-alpine` with only local port `127.0.0.1:55432` and `erp_stage10_test`; it is left running for review. Existing project/app containers were not changed.
 - `/timekeeping` не имел серверной загрузки таблицы; серверная permission gate сохранена, данные идут через переключённый BFF.
 - `next-env.d.ts` был изменён до начала этого среза пользователем; файл не редактировался и не должен попадать в индекс.
 
@@ -124,12 +124,12 @@ Stage 10 implementation и stage-wide browser workflow выполнены с о�
 - Scoped verification: оба targeted PG18 tests → **2 passed**; `ruff check` → passed; `ruff format --check` → 4 files formatted; scoped mypy → `Success: no issues found in 3 source files`.
 - Эти follow-up fixes отдельны от следующего finance slice и не меняют финансовые writers.
 
-## Review follow-up — payroll input gate (PostgreSQL verification pending)
+## Review follow-up — payroll input gate (verified)
 
 - Source wiring adds one transaction-scoped PostgreSQL advisory gate: Stage 10 payroll and salary calculation reads, employee project references, and `ProjectMemberService.add` snapshots take the shared lock; EmployeeService create/update/dismiss, PersonnelActionService create/delete/sync, and WorkforceService save/delete position take the exclusive lock after `lock_actor` and before HR row access. `PayrollPeriodRepository.lock_period` takes the shared lock before period upsert and `SELECT FOR UPDATE`.
 - Historical payroll behavior is unchanged: calculations still use current Employee/StaffSchedule values for past months. No snapshots or effective dates were added; closed historical calculations can still change after HR master-data edits.
 - Offline RED was observed for the missing `SqlAlchemyPayrollInputLockRepository`; focused unit tests pass after implementation: payroll input lock **3 passed**, project-member snapshot ordering **1 passed**, and payroll export service **2 passed**. They verify shared/exclusive transaction advisory SQL and gate-before-period-row/snapshot-lock ordering. Scoped Ruff, format, mypy and `git diff --check` passed.
-- The independent PostgreSQL-session integration tests are present but remain unverified: the configured `erp_stage10_test` endpoint at `127.0.0.1:55432` refused connection. No Docker lifecycle command was run. The plan checkbox for HR writers remains unchecked until those PG tests pass.
+- The independent PostgreSQL-session integration tests pass on PostgreSQL 18.6: an exclusive HR-input gate waits for a payroll reader UoW, and the period row lock waits behind an exclusive HR writer. Plan checkbox 47 is checked.
 
 ## Изменённые пути
 
@@ -141,4 +141,4 @@ Tests: `tests/conftest.py`, `tests/unit/{approvals,finance,timekeeping}/`, `test
 
 Frontend BFF/tests/config: `src/lib/backend/stage10.ts`, `src/lib/stage10-e2e-storage.ts`, `src/lib/stage10-e2e-storage.test.ts`, `playwright.config.ts`, `src/app/api/time-entries/`, `src/app/api/timekeeping/timesheets/`, `src/app/api/finance/{plans,salary}/`, `src/app/api/projects/[id]/payroll/`, `src/app/api/payroll/{route,period,adjustments,export,export-payslip}/`.
 
-Ownership evidence: `docs/backend-migration/stage10-ownership.md`, `docs/backend-migration/frontend-callers.md`, and Stage 10 rows in `docs/superpowers/plans/2026-09-28-fastapi/07-coverage.md`. Plan checks are updated only for confirmed acceptance; the HR writer lock bullet stays unchecked pending PostgreSQL acceptance. The legacy temporal-semantics caveat is separate from the concurrency lock requirement.
+Ownership evidence: `docs/backend-migration/stage10-ownership.md`, `docs/backend-migration/frontend-callers.md`, and Stage 10 rows in `docs/superpowers/plans/2026-09-28-fastapi/07-coverage.md`. All Stage 10 checks are now confirmed. Legacy temporal-semantics caveat is documented separately from the verified concurrency lock requirement.
