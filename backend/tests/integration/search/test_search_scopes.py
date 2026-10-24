@@ -30,6 +30,25 @@ async def test_search_hides_scoped_employee_asset_project_task_and_document_fiel
             await session.flush()
             session.add_all(
                 [
+                    Employee(
+                        id="s12-visible-employee",
+                        code="S12-V-1",
+                        fullName="Secret Search Person",
+                        department="Visible Unit",
+                        departmentId="s12-visible-dept",
+                    ),
+                    Employee(
+                        id="s12-hidden-employee",
+                        code="S12-H-1",
+                        fullName="Secret Search Person",
+                        department="Hidden Unit",
+                        departmentId="s12-hidden-dept",
+                    ),
+                ]
+            )
+            await session.flush()
+            session.add_all(
+                [
                     AssetGroup(id="s12-hidden-group", code="S12-HG", name="Hidden group"),
                     Mol(
                         id="s12-hidden-mol",
@@ -82,25 +101,6 @@ async def test_search_hides_scoped_employee_asset_project_task_and_document_fiel
                         description="Secret Search Person document description",
                         employeeId="s12-hidden-employee",
                         createdById="s12-document-author",
-                    ),
-                ]
-            )
-            await session.flush()
-            session.add_all(
-                [
-                    Employee(
-                        id="s12-visible-employee",
-                        code="S12-V-1",
-                        fullName="Secret Search Person",
-                        department="Visible Unit",
-                        departmentId="s12-visible-dept",
-                    ),
-                    Employee(
-                        id="s12-hidden-employee",
-                        code="S12-H-1",
-                        fullName="Secret Search Person",
-                        department="Hidden Unit",
-                        departmentId="s12-hidden-dept",
                     ),
                 ]
             )

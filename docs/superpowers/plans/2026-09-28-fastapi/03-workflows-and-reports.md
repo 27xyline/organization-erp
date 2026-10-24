@@ -84,7 +84,7 @@ Validation evidence: [Stage 11 validation](../../../backend-migration/stage11-va
 **Потребляет:** все перенесённые модули и auth scopes. **Производит:** последние пользовательские read APIs, export renderers, Python CLI; инфраструктурные processors перенесутся в 13.
 
 - [ ] Все report kinds, preset ownership, KPI/dashboard/my-actions: SQL агрегаты считаются по полному доступному scope, не по загруженной странице. Fixture >100 записей проверяет totals/pagination.
-- [ ] Search: проверять права в запросах и result shaping по каждой entity; user без доступа не видит title/snippet/ID чужого объекта.
+- [x] Search: проверять права в запросах и result shaping по каждой entity; user без доступа не видит title/snippet/ID чужого объекта. Пять scoped entity (employee/asset/project/task/document) проверены в `tests/integration/search/test_search_scopes.py`; focused PostgreSQL rerun: 1 passed.
 - [ ] XLSX/DOCX/PDF/QR: сверить поля/таблицы/суммы, открыть generated files, проверить русские шрифты и filenames. Валидный файл не обязан быть побайтно равен старому renderer.
 - [ ] Report exports применяют те же scopes, что list; нельзя получить запрещённые поля через другой format. Binary endpoints сохраняют HTTP status/headers.
 - [ ] Перенести seed/verify/create-admin CLI через services. Seed идемпотентен, имеет guard от рабочей БД; relational totals проверяются, создание admin не логирует пароль. Demo seed обязателен для учебной копии, production auto-seed запрещён.

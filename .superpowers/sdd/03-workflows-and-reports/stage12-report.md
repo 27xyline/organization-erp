@@ -23,7 +23,7 @@ Stage 12 implementation is in place, but DB-backed acceptance remains pending th
 - Focused ESLint on changed SSR/BFF files: zero errors; an unused catch binding warning was then removed.
 - `npm run typecheck`: passed.
 - Playwright was attempted with `npm run test:e2e -- --list`; config stops before test discovery because `STAGE07_E2E_DATABASE_URL` (or compatibility variable) is not configured. No browser flow ran.
-- The full requested pytest command and Python `verify_data` were not run because DB access is explicitly deferred to the parent-authorized call. The fixture itself checks PostgreSQL and exact database name before schema creation. The previous checkpoint's connection attempt failed before SQL with `PermissionError` on `127.0.0.1:55432`.
+- The parent-authorized full pytest command ran against `erp_stage11_test`: `10 passed, 1 failed`. The sole failure was a fixture FK ordering bug: a document was inserted before its hidden employee. Employees are now inserted and flushed first; the exact focused integration test then passed (`1 passed`). The full suite was not repeated. Python `verify_data` remains unrun; its documented command now maps `STAGE11_TEST_DATABASE_URL` to `BACKEND_DATABASE_URL` so `Settings()` cannot fall back to `organization_erp`.
 - `reporting_baseline.py` defines a fixed target (`erp_stage11_test`), ADMIN scope, calendar year 2026 and ten iterations for dashboard and turnover; actual SQL-count/latency numbers are pending that isolated DB run. No values are fabricated.
 - The earlier full repository lint attempt at checkpoint found 656 pre-existing/generated findings, including `.runtime/migration-baseline`; focused changed-file lint is clean.
 
@@ -33,4 +33,4 @@ The second Stage 12 commit contains explicit Stage 12 Python API/services/reposi
 
 ## Remaining acceptance gate
 
-Run the exact requested Stage 12 pytest selection against only `erp_stage11_test` with parent-approved elevated access. Then run `python -m app.scripts.verify_data`, capture the fixed baseline output, and run the dashboard/report/search/export Playwright flow if its isolated E2E DB is separately authorized/configured. Update plan checkboxes only where those results provide evidence. Stop before Stage 13.
+The exact requested Stage 12 pytest selection returned `10 passed, 1 failed`; the only failed integration case was repaired and its focused rerun passed. Do not repeat the full suite unless requested. Run Python `verify_data` only with `BACKEND_DATABASE_URL="$STAGE11_TEST_DATABASE_URL"` after sourcing the isolated test env, capture the fixed baseline output, and run the dashboard/report/search/export Playwright flow only if its isolated E2E DB is separately authorized/configured. Update plan checkboxes only where evidence is available. Stop before Stage 13.

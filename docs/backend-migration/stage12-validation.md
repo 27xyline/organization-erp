@@ -20,6 +20,18 @@
 - Focused ESLint: zero errors after removing an unused catch variable.
 - Frontend `npm run typecheck`: passed.
 
+## Database test evidence
+
+The parent-authorized Stage12 suite ran against `erp_stage11_test`: `10 passed, 1 failed`. The only failure was the all-entity search-scope fixture: its hidden document referenced `s12-hidden-employee` before that employee row had been flushed. The fixture now inserts/flushed both employees before creating the document. Focused rerun:
+
+```sh
+cd backend
+set -a; source ../.runtime/stage11/test.env; set +a
+UV_CACHE_DIR=/private/tmp/uv-stage12 uv run pytest tests/integration/search/test_search_scopes.py::test_search_hides_scoped_employee_asset_project_task_and_document_fields -q
+```
+
+Result: `1 passed`. The full suite was not repeated.
+
 ## Pending database and browser gates
 
 The parent has deferred DB access until an exact elevated invocation is approved. No DB connection was attempted in this follow-up. Once approved, run:
@@ -29,7 +41,16 @@ cd backend
 uv run pytest tests/unit/reporting tests/integration/reporting tests/contracts/reporting tests/integration/search tests/integration/exports -q
 ```
 
-Then run `uv run python -m app.scripts.verify_data` and `uv run python -m app.scripts.reporting_baseline` with `STAGE11_TEST_DATABASE_URL` set only to the isolated `erp_stage11_test`; retain the resulting counts/latencies and add them here. Do not use `project1` or perform cleanup/DROP/truncate.
+Then run verify-data with the isolated URL explicitly passed into `Settings()` (it does not read `STAGE11_TEST_DATABASE_URL` itself):
+
+```sh
+cd backend
+set -a; source ../.runtime/stage11/test.env; set +a
+BACKEND_DATABASE_URL="$STAGE11_TEST_DATABASE_URL" UV_CACHE_DIR=/private/tmp/uv-stage12 uv run python -m app.scripts.verify_data
+UV_CACHE_DIR=/private/tmp/uv-stage12 uv run python -m app.scripts.reporting_baseline
+```
+
+The baseline script reads `STAGE11_TEST_DATABASE_URL` directly. Retain the resulting relational checks and SQL/latency numbers here. Do not use `project1` or perform cleanup/DROP/truncate.
 
 Playwright was attempted as `npm run test:e2e -- --list`. Playwright config stopped before test discovery because `STAGE07_E2E_DATABASE_URL` (or its compatibility variable) is unset. A browser flow was not run. The prior checkpoint's direct search-test connection failed before SQL with `PermissionError: [Errno 1] Operation not permitted` against `127.0.0.1:55432`; no Docker/container lifecycle command was used.
 
