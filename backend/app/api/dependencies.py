@@ -14,8 +14,10 @@ from app.integrations.asset_qr import render_asset_qr
 from app.integrations.audit import SqlAlchemyAuditGateway
 from app.integrations.auth_bridge import verify_bridge
 from app.integrations.exports import DashboardExportRenderer
+from app.integrations.my_actions import SqlAlchemyMyActionsGateway
 from app.integrations.password_hash import Argon2PasswordHasher
 from app.integrations.reporting import SqlAlchemyReportingGateway
+from app.integrations.search import SqlAlchemySearchGateway
 from app.services.asset_export import AssetExportService
 from app.services.asset_import import AssetImportService
 from app.services.auth import AuthService
@@ -25,9 +27,11 @@ from app.services.departments import DepartmentService
 from app.services.employees import EmployeeService
 from app.services.exports import ExportService
 from app.services.finance_periods import PayrollPeriodService
+from app.services.my_actions import MyActionsService
 from app.services.payroll import PayrollService
 from app.services.personnel_actions import PersonnelActionService
 from app.services.reporting import ReportingService
+from app.services.search import SearchService
 from app.services.users import UserService
 from app.services.workforce import WorkforceService
 
@@ -109,6 +113,14 @@ def get_dashboard_service(request: Request) -> DashboardService:
 
 def get_reporting_service(request: Request) -> ReportingService:
     return ReportingService(SqlAlchemyReportingGateway(request.app.state.session_factory))
+
+
+def get_search_service(request: Request) -> SearchService:
+    return SearchService(SqlAlchemySearchGateway(request.app.state.session_factory))
+
+
+def get_my_actions_service(request: Request) -> MyActionsService:
+    return MyActionsService(SqlAlchemyMyActionsGateway(request.app.state.session_factory))
 
 
 def get_export_service(request: Request) -> ExportService:

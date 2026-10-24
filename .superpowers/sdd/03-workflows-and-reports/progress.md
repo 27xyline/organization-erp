@@ -57,3 +57,7 @@ Review follow-up — 24 October 2026: `DemoSeedService` now delegates to a repos
 Task 12: fix round 1/5 (1 addressed, 1 open — DOCX/PDF salary scope; commits 62492a3..041eeed)
 Task 12: fix round 2/5 (1 addressed, 0 open — finance scope/PDF assertions; commits 041eeed..60d99d6)
 Task 12: fix round 3/5 (1 addressed, 0 open — CLI services behind ports and connected demo seed; commits 60d99d6..9bb3862)
+
+Task 12: Ruling: move SearchService and MyActionsService persistence behind domain ports and compose adapters outside the services — the architecture plan requires ORM/repositories below services, and both are Stage 12 services, so the final-review finding is valid — if wrong, the extra ports and adapter wiring add a small maintenance cost without changing their API behavior.
+
+Task 12: fix round 4/5 (1 addressed, 0 open — SearchService/MyActionsService persistence moved behind domain ports; details and checks are in `stage12-report.md`.)

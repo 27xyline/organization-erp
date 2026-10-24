@@ -7,7 +7,9 @@ from app.domain.auth.rules import AccessContext, ScopeGrant
 from app.domain.ports.audit import AuditRecord
 from app.services.dto.reporting import DashboardQuery, ReportPresetInput
 from app.services.exports import ExportService
+from app.services.my_actions import MyActionsService
 from app.services.reporting import ReportingService
+from app.services.search import SearchService
 
 
 class _Repository:
@@ -42,6 +44,47 @@ def _admin() -> AccessContext:
 
 
 @pytest.mark.anyio
+async def test_search_service_normalizes_and_delegates_to_port() -> None:
+    class SearchPort:
+        async def search(self, query: str, access: AccessContext) -> list[dict[str, str]]:
+            assert query == "needle"
+            assert access is _admin_context
+            return [{"id": "1", "type": "project", "title": "Needle"}]
+
+    _admin_context = _admin()
+    assert await SearchService(SearchPort()).search("  needle  ", _admin_context) == [
+        {"id": "1", "type": "project", "title": "Needle"}
+    ]
+
+
+@pytest.mark.anyio
+async def test_my_actions_service_delegates_to_port() -> None:
+    expected = {"tasks": [{"id": "task-1"}]}
+
+    class MyActionsPort:
+        async def my_actions(
+            self,
+            actor_id: str,
+            employee_id: str | None,
+            access: AccessContext,
+            now: Any,
+        ) -> dict[str, Any]:
+            assert actor_id == "actor-1"
+            assert employee_id == "employee-1"
+            assert access is _admin_context
+            assert now == fixed_now
+            return expected
+
+    from datetime import datetime
+
+    _admin_context = _admin()
+    fixed_now = datetime(2026, 10, 24)
+    assert await MyActionsService(MyActionsPort()).get_for_user(
+        "actor-1", "employee-1", _admin_context, fixed_now
+    ) == expected
+
+
+@pytest.mark.anyio
 async def test_reporting_service_uses_dataclass_preset_input_and_repository_port() -> None:
     repository = _Repository()
     service = ReportingService(repository)  # type: ignore[arg-type]
@@ -64,7 +107,7 @@ async def test_reporting_service_uses_dataclass_preset_input_and_repository_port
 @pytest.mark.anyio
 async def test_export_service_uses_renderer_and_audit_ports() -> None:
     renderer, audit = _Renderer(), _Audit()
-    service = ExportService(renderer, audit)  # type: ignore[arg-type]
+    service = ExportService(renderer, audit)
     report = {"summary": {"headcount": 4}}
 
     artifact = await service.dashboard(

@@ -54,7 +54,7 @@ def find_forbidden_imports(app: Path) -> list[str]:
         modules[module] = (source, imports)
 
     violations: set[str] = set()
-    visited: set[str] = set()
+    visited: set[tuple[str, str]] = set()
 
     def visit(module: str, origin: str) -> None:
         key = (module, origin)
@@ -120,6 +120,32 @@ def test_stage12_reporting_services_depend_on_ports_not_adapters_or_http_types()
     import ast
 
     modules = ("dashboard.py", "reporting.py", "exports.py")
+    forbidden = ("sqlalchemy", "pydantic", "fastapi", "app.repositories", "app.integrations")
+    violations: list[str] = []
+    for filename in modules:
+        source = APP / "services" / filename
+        tree = ast.parse(source.read_text(encoding="utf-8"), filename=str(source))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imports = [alias.name for alias in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                imports = [node.module or ""]
+            else:
+                continue
+            violations.extend(
+                f"{filename}: {module}"
+                for module in imports
+                if module == forbidden[0]
+                or any(module == prefix or module.startswith(prefix + ".") for prefix in forbidden)
+            )
+
+    assert violations == []
+
+
+def test_stage12_search_and_my_actions_services_depend_on_ports() -> None:
+    import ast
+
+    modules = ("search.py", "my_actions.py")
     forbidden = ("sqlalchemy", "pydantic", "fastapi", "app.repositories", "app.integrations")
     violations: list[str] = []
     for filename in modules:

@@ -1,9 +1,13 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query
 
-from app.api.dependencies import get_authenticated_context, get_dashboard_service
+from app.api.dependencies import (
+    get_authenticated_context,
+    get_dashboard_service,
+    get_my_actions_service,
+)
 from app.core.context import RequestContext
 from app.domain.errors import DomainError
 from app.services.dashboard import DashboardService
@@ -42,10 +46,13 @@ async def dashboard(
 
 
 @router.get("/my-actions")
-async def my_actions(request: Request, context: Context) -> dict[str, object]:
+async def my_actions(
+    context: Context,
+    service: Annotated[MyActionsService, Depends(get_my_actions_service)],
+) -> dict[str, object]:
     actor = context.actor
     if actor is None or actor.access is None:
         raise DomainError("UNAUTHENTICATED", "Требуется вход в систему", 401)
-    return await MyActionsService(request.app.state.session_factory).get_for_user(
+    return await service.get_for_user(
         actor.actor_id, actor.employee_id, actor.access
     )

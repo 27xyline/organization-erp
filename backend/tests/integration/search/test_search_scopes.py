@@ -11,6 +11,7 @@ from app.models.documents import Document
 from app.models.employees import Employee
 from app.models.projects import Project, Task
 from app.models.users import User
+from app.repositories.search import SqlAlchemySearchRepository
 from app.services.search import SearchService
 
 
@@ -135,7 +136,9 @@ async def test_search_hides_scoped_employee_asset_project_task_and_document_fiel
                 ),
             )
 
-            items = await SearchService(session).search("Secret Search Person", access)
+            items = await SearchService(SqlAlchemySearchRepository(session)).search(
+                "Secret Search Person", access
+            )
 
             assert [item["id"] for item in items] == ["s12-visible-employee"]
             forbidden = (
