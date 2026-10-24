@@ -10,7 +10,7 @@ from sqlalchemy.orm import DeclarativeBase
 
 
 class Base(DeclarativeBase):
-    """Base for ORM mappings of the Prisma-owned PostgreSQL schema."""
+    """Base for ORM mappings of the Alembic-owned PostgreSQL schema."""
 
 
 _CUID_ALPHABET = string.ascii_lowercase + string.digits

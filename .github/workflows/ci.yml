@@ -21,6 +21,7 @@ jobs:
           --health-interval 5s --health-timeout 5s --health-retries 12
     env:
       DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/project1_test
+      BACKEND_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/project1_test
       NEXTAUTH_URL: http://localhost:3001
       NEXTAUTH_SECRET: ci-only-secret-with-at-least-thirty-two-characters
       BACKEND_BASE_URL: http://127.0.0.1:8000
@@ -36,7 +37,22 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx prisma generate
-      - run: npx prisma migrate deploy
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install backend migration dependencies
+        working-directory: backend
+        run: uv sync --frozen
+      - name: Apply Alembic migrations
+        working-directory: backend
+        run: uv run alembic upgrade head
+      - name: Verify migrated PostgreSQL catalog
+        working-directory: backend
+        run: uv run python -m app.scripts.verify_schema
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
@@ -104,6 +120,7 @@ jobs:
       STAGE05_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage05_test
       STAGE06_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage06_test
       STAGE07_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage07_test
+      STAGE14A_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage02_test
       BACKEND_ENVIRONMENT: test
       BACKEND_OTEL_ENABLED: "false"
     steps:
@@ -113,10 +130,22 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Prepare dedicated Python test schema from Prisma migrations
-        env:
-          DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage02_test
-        run: npx prisma migrate deploy
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install Python backend dependencies
+        working-directory: backend
+        run: uv sync --frozen
+      - name: Prepare dedicated Python test schema with Alembic
+        working-directory: backend
+        run: uv run alembic upgrade head
+      - name: Verify migrated PostgreSQL catalog
+        working-directory: backend
+        run: uv run python -m app.scripts.verify_schema
       - name: Create isolated Stage 03 test copy
         run: createdb --template=erp_stage02_test erp_stage03_test
       - name: Create isolated Stage 05 test copy
@@ -151,16 +180,6 @@ jobs:
           END
           $$;
           SQL
-      - uses: actions/setup-python@v7
-        with:
-          python-version: "3.13"
-      - uses: astral-sh/setup-uv@v10
-        with:
-          enable-cache: true
-          cache-dependency-glob: backend/uv.lock
-      - name: Install Python backend dependencies
-        working-directory: backend
-        run: uv sync --frozen
       - name: Check Python formatting and types
         working-directory: backend
         run: |

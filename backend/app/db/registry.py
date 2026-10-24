@@ -1,7 +1,7 @@
-"""Import the complete ORM registry for mapper setup and future migration review.
+"""Import the complete ORM registry for mapper setup and Alembic comparisons.
 
-Prisma remains the DDL owner during the staged migration. Importing this module
-registers model metadata only; it never creates, alters, or drops database objects.
+Alembic owns schema DDL. Importing this module registers model metadata only; it
+never creates, alters, or drops database objects.
 """
 
 from sqlalchemy.orm import configure_mappers

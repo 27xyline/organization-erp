@@ -1,38 +1,37 @@
-# Alembic metadata review only
+# Alembic migration ownership
 
-Prisma remains the sole DDL owner through migration stage 13. This directory
-only loads SQLAlchemy metadata so the team can compare the mapping with the
-current schema. Do not create revisions, stamp a database, or run `upgrade` or
-`downgrade` in stages 02–13. In particular, never point schema-changing
-commands at `project1` or `erp_migration_20261007`.
+Stage 14A transfers schema DDL ownership to Alembic. Prisma migration history
+in `_prisma_migrations` is retained, but Prisma migrations are no longer run by
+CI or Compose. Prisma client generation and the legacy Node seed/CLI remain
+available until Stage 14D.
 
-The Alembic environment imports the complete registry, excludes Prisma's
-`_prisma_migrations` bookkeeping table, and never calls `create_all`. The
-standard `alembic check` command can create Alembic's own version table when
-there are no revisions, so use the dedicated read-only comparator below.
-It requires the exact disposable `erp_stage02_test` database, sets the
-PostgreSQL transaction to read-only, and never invokes migration execution.
-A comparison may report expected differences for objects that SQLAlchemy
-does not map yet; it does not apply those differences. The Alembic environment
-guard rejects `check`, `ensure_version`, `upgrade`, `downgrade`, and `stamp`
-when those commands load `env.py`. It also rejects `revision --autogenerate`
-because autogenerate loads that environment. A plain `alembic revision`
-without `--autogenerate` does not load `env.py`, so the guard cannot intercept
-it; the stage policy still forbids creating revisions before stage 14. Do not
-run it.
+The frozen revisions are:
+
+- `20261024_legacy_schema`: static baseline containing the checked-in SQL from
+  all 41 legacy Prisma migrations. It does not read current ORM metadata or
+  mutable SQL files at runtime.
+- `20261024_audit_log_append_only`: database trigger rejecting direct updates
+  and deletes from `audit_logs`; application inserts remain allowed.
+
+For a new empty database, run `uv run alembic upgrade head`. For an existing
+database, first run `uv run python -m app.scripts.verify_schema --legacy` and
+continue only when it reports an exact match. Then stamp the legacy revision
+and apply the audit revision:
 
 ```sh
-cd backend
-BACKEND_DATABASE_URL='postgresql+asyncpg://…/erp_stage02_test' uv run python -m app.db.schema_review
+uv run alembic stamp 20261024_legacy_schema
+uv run alembic upgrade head
+uv run python -m app.scripts.verify_schema
+uv run alembic check
 ```
 
-A non-zero result means that the current metadata and PostgreSQL catalog
-differ; inspect the candidate differences rather than turning them into a
-migration. Do not run Alembic revision, upgrade, downgrade, or stamp commands
-in stages 02–13. This is a workflow rule; the environment guard cannot block
-commands that do not load `env.py`.
+`stamp` records a revision; it does not compare or repair a schema. The
+independent verifier compares raw PostgreSQL tables, columns, defaults,
+constraints, indexes, enum labels, functions, and triggers against frozen
+catalog snapshots. It excludes `_prisma_migrations` and `alembic_version`.
+Run these commands only against the intended target after the appropriate
+catalog verification. Do not point them at `project1` or
+`erp_migration_20261007` as part of a rehearsal.
 
-Alembic may warn that it cannot sort the departments/employees/staff_schedule
-foreign-key cycle and skip those constraints during its comparison. The
-integration catalog test separately checks every PostgreSQL foreign key,
-including those cyclic relationships.
+See [the Stage 14A handoff report](../../docs/backend-migration/migration-handoff.md)
+for the two disposable rehearsals, exact targets, and recorded results.

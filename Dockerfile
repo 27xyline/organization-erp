@@ -11,9 +11,6 @@ COPY prisma ./prisma
 RUN npm ci
 RUN npx prisma generate
 
-FROM dependencies AS migration
-CMD ["npx", "prisma", "migrate", "deploy"]
-
 FROM base AS builder
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .

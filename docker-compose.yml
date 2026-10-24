@@ -16,10 +16,16 @@ services:
 
   migrate:
     build:
-      context: .
-      target: migration
+      context: ./backend
+      dockerfile: Dockerfile
+    command:
+      [
+        "sh",
+        "-c",
+        "alembic upgrade head && python -m app.scripts.verify_schema",
+      ]
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-project1}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-project1}
+      BACKEND_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-project1}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-project1}
     depends_on:
       postgres:
         condition: service_healthy
@@ -65,7 +71,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      BACKEND_DATABASE_URL: ${BACKEND_DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-project1}:${POSTGRES_PASSWORD}@postgres:5432/erp_migration_20261007}
+      BACKEND_DATABASE_URL: ${BACKEND_DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-project1}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-project1}}
       BACKEND_ENVIRONMENT: ${BACKEND_ENVIRONMENT:-development}
       BACKEND_BRIDGE_SECRET: ${BACKEND_BRIDGE_SECRET:-}
       BACKEND_INTERNAL_AUTH_SECRET: ${BACKEND_INTERNAL_AUTH_SECRET:-}
@@ -78,8 +84,8 @@ services:
       - default
       - observability_ingest
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     volumes:
       - project1_document_data:/var/lib/project1/documents
     healthcheck:
@@ -96,7 +102,7 @@ services:
     restart: unless-stopped
     stop_grace_period: 90s
     environment:
-      BACKEND_DATABASE_URL: ${BACKEND_DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-project1}:${POSTGRES_PASSWORD}@postgres:5432/erp_migration_20261007}
+      BACKEND_DATABASE_URL: ${BACKEND_DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-project1}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-project1}}
       BACKEND_ENVIRONMENT: ${BACKEND_ENVIRONMENT:-development}
       BACKEND_OTEL_ENABLED: ${BACKEND_OTEL_ENABLED:-true}
       BACKEND_OTEL_EXPORTER_OTLP_ENDPOINT: ${BACKEND_OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}

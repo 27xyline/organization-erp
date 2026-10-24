@@ -14,25 +14,6 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-command = getattr(getattr(config, "cmd_opts", None), "cmd", None)
-if isinstance(command, tuple) and command:
-    command = command[0]
-command_name = getattr(command, "__name__", "")
-# This guard runs only for commands that import env.py. Plain `alembic revision`
-# without --autogenerate can bypass it; the stage policy still forbids revisions.
-if command_name in {
-    "check",
-    "ensure_version",
-    "revision",
-    "upgrade",
-    "downgrade",
-    "stamp",
-}:
-    raise RuntimeError(
-        "Alembic commands that load env.py are disabled by the migration-stage policy; "
-        "use `python -m app.db.schema_review` for read-only metadata comparison."
-    )
-
 target_metadata = Base.metadata
 
 

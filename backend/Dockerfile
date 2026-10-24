@@ -23,6 +23,8 @@ RUN groupadd --gid 1001 app \
     && install -d -o app -g app -m 0700 /var/lib/project1/documents
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 COPY --chown=app:app app ./app
+COPY --chown=app:app migrations ./migrations
+COPY --chown=app:app alembic.ini ./alembic.ini
 
 USER app
 EXPOSE 8000

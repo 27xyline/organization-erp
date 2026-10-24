@@ -22,13 +22,15 @@
 
 **Изменить:** migration env/registry и CI/Compose, когда обе rehearsal проверки пройдут. Prisma history сохраняется.
 
-- [ ] Заморозить DDL обоих backend на время schema inventory сверки. Если схема поменялась после 00, обновить inventory/mapping до handoff.
-- [ ] Подготовить полную baseline всех таблиц, enum, constraints/indexes/defaults из Prisma SQL, включая невыраженные ORM metadata объекты. Не просто оставить результат autogenerate без review.
-- [ ] Путь 1: пустая disposable PostgreSQL → `uv run alembic upgrade head` → verify_schema → demo seed → relational verify. Результат эквивалентен legacy schema.
-- [ ] Путь 2: восстановленная existing copy → независимый verify_schema → `uv run alembic stamp <baseline_revision>` → `uv run alembic check`. Stamp только после успешной сверки, не заменяет её.
-- [ ] `alembic check` дополняется catalog-level compare raw constraints/partial indexes/enum/defaults, которые autogenerate не гарантирует проверить. `_prisma_migrations` остаётся исключённой служебной таблицей.
-- [ ] Добавить append-only audit protection: constraint/trigger или DB permissions с проверенной ролью; не нарушить application inserts. Тест update/delete запрещён напрямую DB, а не только repository.
-- [ ] CI и Compose migration job используют только Alembic; Prisma DDL/job отключён. Node seed/CLI ещё не удалять до 14D.
+- [x] Заморозить DDL обоих backend на время schema inventory сверки. Все 42 хешированных source inputs совпали с inventory Stage 00.
+- [x] Подготовить frozen baseline всех объектов из 41 Prisma SQL migration. Revision хранит буквальную копию исходного DDL и не зависит от ORM metadata.
+- [x] Путь 1: пустая disposable PostgreSQL → `uv run alembic upgrade head` → verify_schema → demo seed → relational verify. Каталог совпал с legacy-схемой плюс Stage 14A audit trigger.
+- [x] Путь 2: восстановленная existing copy → legacy catalog verification → `uv run alembic stamp 20261024_legacy_schema` → upgrade audit revision → final verification → `uv run alembic check`. Stamp выполнялся только после нулевого расхождения.
+- [x] `alembic check` дополнен независимым catalog-level compare constraints, indexes/partial indexes, enum/defaults, functions/triggers. `_prisma_migrations` исключена из обоих сравнений и сохранена в copy.
+- [x] Добавлен append-only audit trigger в отдельной revision `20261024_audit_log_append_only`; direct SQL UPDATE/DELETE запрещены, INSERT подтверждён обоими rehearsal tests.
+- [x] CI и Compose migration job используют только Alembic; активный Prisma DDL job отключён. Node seed/CLI сохранены до 14D.
+
+Отчёт, catalog artifacts и точные disposable targets: [migration-handoff.md](../../backend-migration/migration-handoff.md). Audit protection отдельной revision добавлена после baseline, чтобы existing-copy rehearsal могла сначала проверить точный legacy catalog, затем безопасно stamp и применить защиту.
 
 **Проверки:** `uv run pytest tests/integration/test_migrations.py -q`; оба пути, schema verifier, audit immutability direct SQL. Записать baseline revision и точные targets/commands.
 
