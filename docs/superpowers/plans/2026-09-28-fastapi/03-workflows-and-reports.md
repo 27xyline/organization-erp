@@ -89,7 +89,7 @@ Validation evidence: [Stage 11 validation](../../../backend-migration/stage11-va
 - [ ] Report exports применяют те же scopes, что list; нельзя получить запрещённые поля через другой format. Binary endpoints сохраняют HTTP status/headers.
 - [ ] Перенести seed/verify/create-admin CLI через services. Seed идемпотентен, имеет guard от рабочей БД; relational totals проверяются, создание admin не логирует пароль. Demo seed обязателен для учебной копии, production auto-seed запрещён.
 - [ ] Убрать оставшиеся SSR imports services/Prisma; nested relation DTO не lazy-load-ится после session close.
-- [ ] Измерить baseline: latency и число SQL на dashboard/report, dataset/filters/iterations фиксируются. Кэш пока отсутствует; это исходная точка для будущего самостоятельного Redis.
+- [x] Измерить baseline: latency и число SQL на dashboard/report, dataset/filters/iterations фиксируются. Итоговый замер и row counts зафиксированы в [Stage 12 validation](../../../backend-migration/stage12-validation.md). Кэш пока отсутствует; это исходная точка для будущего самостоятельного Redis.
 
 **Проверки:** `uv run pytest tests/unit/reporting tests/integration/reporting tests/contracts/reporting tests/integration/search tests/integration/exports -q`; Python verify_data, frontend lint/typecheck, Playwright dashboard/report/search/export; API coverage registry показывает все пользовательские методы в Python.
 

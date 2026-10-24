@@ -10,7 +10,7 @@
 - Python CLI entry points exist for explicit demo seeding, relational checks and initial admin creation. CLI services depend on ports; the SQLAlchemy adapters own seed writes and verify queries. The Python demo seed is a small connected department → schedule → employee → project member → task assignee dataset, guarded against production/working/remote DBs and inserts with `ON CONFLICT DO NOTHING`. Startup does not seed. `create-admin` still uses `getpass` and service-owned user/audit writes.
 - The complete training fixture remains in `prisma/demo-seed.ts`: Python does not yet reproduce all ten departments, 40 employees, 24 projects, 20 assets, demo role users, procurement cases, or document fixtures.
 - Root dashboard and reports SSR use authenticated backend fetches. Report Next handlers retain their URLs and validation and proxy to Python. Binary export uses a FastAPI response and BFF `forwardedResponse` path.
-- `backend/app/scripts/reporting_baseline.py` fixes target DB (`erp_stage11_test`), ADMIN scope, 2026 calendar year, null department/project filters and 10 iterations for dashboard and turnover. The measured baseline was 13 SQL statements per dashboard query (130 total), median 9.44 ms (min 8.13, max 148.80); turnover used 2 SQL statements per query (20 total), median 2.01 ms (min 1.88, max 7.10). These are a baseline sample, not a latency guarantee. The script checks `current_database()` and prints row counts for ten relevant tables before timing. The final row-count snapshot is pending the parent-approved read-only rerun.
+- `backend/app/scripts/reporting_baseline.py` fixes target DB (`erp_stage11_test`), ADMIN scope, 2026 calendar year, null department/project filters and 10 iterations for dashboard and turnover. The latest parent-authorized read-only run measured 13 SQL statements per dashboard query, median 10.04 ms (min 8.99, max 60.71); turnover used 2 SQL statements per query, median 2.35 ms (min 2.05, max 4.98). The observed row counts were: departments 17, employees 0, staff_schedule 0, salary_entries 0, finance_plan_entries 0, projects 14, tasks 0, assets 16, vacations 0, personnel_actions 0. These are a baseline sample, not a latency guarantee. The script checked `current_database()` and printed the table counts before timing.
 
 ## Completed non-database checks
 
@@ -37,7 +37,7 @@ Result: `1 passed`. The full suite was not repeated.
 
 ## Remaining gates
 
-The full authorized Stage12 suite returned `10 passed, 1 failed`; after fixing its single fixture-ordering issue, the exact failed test was rerun and passed. The full suite was not repeated. The CLI mapper regression is a local no-database test. Verify-data itself has not yet been rerun; its isolated URL must be passed explicitly into `Settings()` (it does not read `STAGE11_TEST_DATABASE_URL` itself):
+The full authorized Stage12 suite returned `10 passed, 1 failed`; after fixing its single fixture-ordering issue, the exact failed test was rerun and passed. The full suite was not repeated. An earlier parent-authorized read-only `verify_data` run against `erp_stage11_test`, with the isolated URL passed explicitly into `Settings()`, returned `holdingMismatch=0`, `orphanHoldings=0`, `documentCurrentVersionMismatch=21`, `negativeAssets=0`, `negativeHoldings=0`, `secretAuditRows=0` and exit code 1. A second read-only query found `documents=21`, `document_versions=0`, `mismatches=21`, and `documents_with_any_version=0`; the origin of those rows is unknown and no rows were changed. This is not a passing integrity check. The CLI was subsequently refactored behind ports, so its final adapter still needs a DB-backed run. The isolated URL must be passed explicitly into `Settings()` (it does not read `STAGE11_TEST_DATABASE_URL` itself):
 
 ```sh
 cd backend
@@ -46,10 +46,10 @@ BACKEND_DATABASE_URL="$STAGE11_TEST_DATABASE_URL" UV_CACHE_DIR=/private/tmp/uv-s
 UV_CACHE_DIR=/private/tmp/uv-stage12 uv run python -m app.scripts.reporting_baseline
 ```
 
-The baseline script reads `STAGE11_TEST_DATABASE_URL` directly. Its final version first checks `current_database()`, prints a row-count snapshot for ten reporting/dashboard tables, then measures the fixed query set. Parent will capture those counts and final run output after this commit. Do not use `project1` or perform cleanup/DROP/truncate.
+The baseline script reads `STAGE11_TEST_DATABASE_URL` directly. Its final version checks `current_database()`, prints the row-count snapshot above, then measures the fixed query set. Do not use `project1` or perform cleanup/DROP/truncate.
 
 The Stage 12 browser flow is `e2e/stage12-reporting.spec.ts`; it covers dashboard SSR, global search, a report request, XLSX download and PDF status/headers/signature. It targets `erp_stage09_e2e` from `.runtime/stage09/e2e.env`. Initial attempt found FastAPI route registration rejected the custom-report return union; `response_model=None` fixed startup. On the focused retry the backend started, but global setup could not connect to `127.0.0.1:5434`, so the browser test did not run. No Docker/container lifecycle command was used.
 
 The broader full `npm run lint` attempt from checkpoint reported 656 existing/generated findings, including `.runtime/migration-baseline`; changed-file ESLint passes.
 
-The CLI service/adapter separation and seed link graph have focused no-database checks only. No demo seed or verify-data run was performed in this follow-up, so DB-backed insertion order, idempotence across repeated CLI invocations, and relational verification remain unverified; the Stage 12 CLI acceptance checkbox stays unchecked.
+The final CLI service/adapter separation and seed link graph have focused no-database checks only. No demo seed or verify-data run was performed after the port refactor, so DB-backed insertion order, idempotence across repeated CLI invocations, and current-adapter relational verification remain unverified; the Stage 12 CLI acceptance checkbox stays unchecked. The earlier verify-data result above records the test snapshot's observed document inconsistency, not a pass for the final adapter.

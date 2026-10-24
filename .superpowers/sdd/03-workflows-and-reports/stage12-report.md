@@ -2,7 +2,7 @@
 
 ## Status
 
-Stage 12 implementation is in place, but DB-backed acceptance remains pending the parent-approved run against isolated `erp_stage11_test`. No Stage 13 work, Docker lifecycle commands, production database access, or `project1` access occurred. The pre-existing user-owned `next-env.d.ts` edit remains unchanged and excluded.
+Stage 12 implementation is in place; some DB-backed acceptance remains open. An earlier read-only `erp_stage11_test` run recorded a document-version integrity mismatch, and seed/verify has not been rerun after the CLI port refactor. No Stage 13 work, Docker lifecycle commands, production database access, or `project1` access occurred. The pre-existing user-owned `next-env.d.ts` edit remains unchanged and excluded.
 
 ## Implementation
 
@@ -24,8 +24,8 @@ Stage 12 implementation is in place, but DB-backed acceptance remains pending th
 - `npm run typecheck`: passed.
 - Added `tests/unit/scripts/test_verify_data_registry.py`; its no-DB mapper regression passed (`1 passed`). `verify_data.py` imports `app.db.registry`, which configures the complete mapping set before the verification service touches Asset and related mappers.
 - The Stage 12 Playwright flow is `e2e/stage12-reporting.spec.ts`; it covers dashboard SSR, global search, a report request, XLSX download and PDF status/headers/signature. The authorized target was isolated `erp_stage09_e2e` from `.runtime/stage09/e2e.env`. The first launch found and fixed a FastAPI response-model annotation error; on retry FastAPI started but E2E global setup could not connect to `127.0.0.1:5434`, so no browser assertions ran. No Docker lifecycle actions were performed.
-- The parent-authorized full pytest command ran against `erp_stage11_test`: `10 passed, 1 failed`. The sole failure was a fixture FK ordering bug: a document was inserted before its hidden employee. Employees are now inserted and flushed first; the exact focused integration test then passed (`1 passed`). The full suite was not repeated. Python `verify_data` remains unrun; its documented command now maps `STAGE11_TEST_DATABASE_URL` to `BACKEND_DATABASE_URL` so `Settings()` cannot fall back to `organization_erp`.
-- `reporting_baseline.py` defines a fixed target (`erp_stage11_test`), ADMIN scope, 2026 calendar year, null department/project filters and ten iterations. Measured baseline: dashboard 13 SQL/query, median 9.44 ms (8.13–148.80); turnover 2 SQL/query, median 2.01 ms (1.88–7.10). The script now emits row counts for all relevant dashboard/report input tables; the final row-count snapshot will be appended after the parent's read-only rerun.
+- The parent-authorized full pytest command ran against `erp_stage11_test`: `10 passed, 1 failed`. The sole failure was a fixture FK ordering bug: a document was inserted before its hidden employee. Employees are now inserted and flushed first; the exact focused integration test then passed (`1 passed`). The full suite was not repeated. An earlier parent-authorized read-only `verify_data` run mapped `STAGE11_TEST_DATABASE_URL` to `BACKEND_DATABASE_URL` and returned `holdingMismatch=0`, `orphanHoldings=0`, `documentCurrentVersionMismatch=21`, `negativeAssets=0`, `negativeHoldings=0`, `secretAuditRows=0` (exit 1). A read-only query found 21 documents and zero versions; origin is unknown and no rows were changed. The later CLI port refactor has not been run against the DB, so current-adapter verification remains unverified.
+- `reporting_baseline.py` fixes target (`erp_stage11_test`), ADMIN scope, 2026 calendar year, null department/project filters and ten iterations. Latest parent-authorized run: dashboard 13 SQL/query, median 10.04 ms (8.99–60.71); turnover 2 SQL/query, median 2.35 ms (2.05–4.98). Row counts: departments 17, employees 0, staff_schedule 0, salary_entries 0, finance_plan_entries 0, projects 14, tasks 0, assets 16, vacations 0, personnel_actions 0. This is a baseline sample, not a latency guarantee.
 - The earlier full repository lint attempt at checkpoint found 656 pre-existing/generated findings, including `.runtime/migration-baseline`; focused changed-file lint is clean.
 
 ## Files
@@ -34,7 +34,7 @@ The second Stage 12 commit contains explicit Stage 12 Python API/services/reposi
 
 ## Remaining acceptance gate
 
-The exact requested Stage 12 pytest selection returned `10 passed, 1 failed`; the only failed integration case was repaired and its focused rerun passed. Do not repeat the full suite. `verify_data` must receive `BACKEND_DATABASE_URL="$STAGE11_TEST_DATABASE_URL"` after sourcing the isolated test env. The Stage 12 Playwright flow uses only the isolated `erp_stage09_e2e` target from `.runtime/stage09/e2e.env`. Update plan checkboxes only where evidence is available. Stop before Stage 13.
+The exact requested Stage 12 pytest selection returned `10 passed, 1 failed`; the only failed integration case was repaired and its focused rerun passed. Do not repeat the full suite. An earlier `verify_data` run against the isolated target returned 21 document-version mismatches and was not a passing integrity check; after the later port refactor the final CLI adapter still needs DB-backed execution. The Stage 12 Playwright flow uses only the isolated `erp_stage09_e2e` target from `.runtime/stage09/e2e.env`. Stop before Stage 13.
 
 ## Review fix round 1
 
