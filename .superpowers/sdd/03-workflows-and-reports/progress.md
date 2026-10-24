@@ -61,3 +61,5 @@ Task 12: fix round 3/5 (1 addressed, 0 open — CLI services behind ports and co
 Task 12: Ruling: move SearchService and MyActionsService persistence behind domain ports and compose adapters outside the services — the architecture plan requires ORM/repositories below services, and both are Stage 12 services, so the final-review finding is valid — if wrong, the extra ports and adapter wiring add a small maintenance cost without changing their API behavior.
 
 Task 12: fix round 4/5 (1 addressed, 0 open — SearchService/MyActionsService persistence moved behind domain ports; details and checks are in `stage12-report.md`.)
+
+Task 12: minor (deferred): the wider architecture-file run still flags `services.finance` importing `models.enums`; that code was outside the final-review fix diff and no Stage 12 finance change was needed. Revisit at the relevant finance stage.
