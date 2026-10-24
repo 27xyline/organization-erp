@@ -1,32 +1,36 @@
-# Stage 12 implementation report — checkpoint
+# Stage 12 implementation report
 
 ## Status
 
-Partial implementation only; Stage 12 acceptance is not met. Work remained within Stage 12. No Docker or container lifecycle operations were run, no production database was contacted, and `next-env.d.ts` was preserved.
+Stage 12 implementation is in place, but DB-backed acceptance remains pending the parent-approved run against isolated `erp_stage11_test`. No Stage 13 work, Docker lifecycle commands, production database access, or `project1` access occurred. The pre-existing user-owned `next-env.d.ts` edit remains unchanged and excluded.
 
-## Implemented
+## Implementation
 
-- Added pure reporting helpers for inclusive month counts, percent calculations, Decimal workforce aggregation, and pagination that retains full-scope totals. The fixture uses 137 rows.
-- Added scoped Python global search for employees, assets, projects, tasks, and documents. Authorization predicates are part of each SQL query; result DTOs select only public fields.
-- Added the authenticated FastAPI `/api/search` route with `private, no-store` and `nosniff` response headers, plus the Next.js BFF proxy cutover for `/api/search`.
-- Added generic XLSX, DOCX, PDF, and QR renderers with Cyrillic-capable PDF font embedding and safe filename generation. Renderer functions are synchronous and must be run outside the event loop after database access finishes.
-- Added a search scope integration test and renderer/aggregator unit tests.
+- Added reporting port/DTOs, SQLAlchemy repository, reporting/dashboard/my-actions services, report routes and schemas for turnover, profitability, depreciation, vacation calendar, custom reports and user-owned presets. KPI/report calculations use full scoped results before result shaping; custom/profitability report finance queries include project scope.
+- Added dashboard and my-actions SQL projections. Added a PostgreSQL integration fixture with 137 employees to verify dashboard totals. Existing pure aggregation fixture checks 137 records and paging semantics.
+- Search remains Python-owned for employee, asset, project, task and document entities, with scope predicates in SQL and narrow result projections. Its DB integration fixture now inserts hidden examples of each entity and checks that IDs/titles do not leak through result serialization.
+- Connected report exports to the scoped dashboard projection; XLSX/DOCX/PDF render after the read session closes and run via `asyncio.to_thread`. Export audit records include format and filters. The binary response sets 200, attachment filename, `Cache-Control: no-store`, and `X-Content-Type-Options: nosniff`.
+- Cut over root dashboard and reports SSR and reports BFF paths to FastAPI. `rg` found no remaining production imports of report/dashboard/my-actions TypeScript services or Prisma in these SSR/BFF paths.
+- Added explicit Python `seed`, `verify_data`, `create_admin`, and `reporting_baseline` commands. Seed is idempotent for demo departments, refuses production, known working DB names and non-local hosts; app startup never seeds. Admin bootstrap calls `UserService`, hashes with Argon2, writes an audit record in the same UoW and reads the password with `getpass`.
+- Added `stage12-ownership.md` as the API ownership registry and updated validation evidence. Stage plan boxes remain unchecked because the DB-backed and full Playwright gates have not completed.
 
-## Files changed
+## Validation
 
-- Python: `backend/app/api/router.py`, `backend/app/api/routes/search.py`, `backend/app/domain/reporting/aggregators.py`, `backend/app/integrations/exports.py`, `backend/app/repositories/search.py`, `backend/app/schemas/search.py`, `backend/app/services/search.py`.
-- Tests: `backend/tests/unit/reporting/`, `backend/tests/integration/search/`.
-- Frontend: `src/app/api/search/route.ts`, `src/lib/backend/stage12.ts`.
-- Documentation/ledger: `docs/backend-migration/stage12-ownership.md`, `docs/backend-migration/stage12-validation.md`, `.superpowers/sdd/03-workflows-and-reports/progress.md`.
+- Ruff check and format check: passed for changed Stage 12 Python modules/tests.
+- Focused mypy: passed, 20 source files.
+- Non-DB Python tests: `9 passed` (reporting unit, preset contract, export renderers, and pure aggregation-window fixture).
+- Search/report BFF Vitest: `4 passed`.
+- Focused ESLint on changed SSR/BFF files: zero errors; an unused catch binding warning was then removed.
+- `npm run typecheck`: passed.
+- Playwright was attempted with `npm run test:e2e -- --list`; config stops before test discovery because `STAGE07_E2E_DATABASE_URL` (or compatibility variable) is not configured. No browser flow ran.
+- The full requested pytest command and Python `verify_data` were not run because DB access is explicitly deferred to the parent-authorized call. The fixture itself checks PostgreSQL and exact database name before schema creation. The previous checkpoint's connection attempt failed before SQL with `PermissionError` on `127.0.0.1:55432`.
+- `reporting_baseline.py` defines a fixed target (`erp_stage11_test`), ADMIN scope, calendar year 2026 and ten iterations for dashboard and turnover; actual SQL-count/latency numbers are pending that isolated DB run. No values are fabricated.
+- The earlier full repository lint attempt at checkpoint found 656 pre-existing/generated findings, including `.runtime/migration-baseline`; focused changed-file lint is clean.
 
-## Checks
+## Files
 
-- `ruff format` and `ruff check` on the changed Stage 12 Python modules/tests: passed.
-- Focused mypy on the changed Python modules: passed (6 source files); non-DB reporting unit/integration, preset contract, and export integration tests: `9 passed`; focused search BFF Vitest: `2 passed`; changed-file ESLint and frontend `npm run typecheck`: passed.
-- Full `npm run lint` was attempted and failed on repository/generated-file lint findings (656 errors; many under `.runtime/migration-baseline/...`).
-- The full Stage 12 pytest command remains pending because its PostgreSQL-backed search integration test cannot connect in the sandbox. The target is the isolated `erp_stage11_test` database from `.runtime/stage11/test.env`; the connection failed before SQL with `PermissionError: [Errno 1] Operation not permitted` on `127.0.0.1:55432`.
-- The requested complete Stage 12 suites, verify-data, frontend lint/typecheck, Playwright, and measured SQL/latency baseline were not completed.
+The second Stage 12 commit contains explicit Stage 12 Python API/services/repository/CLI/test files, affected reports BFF and SSR files, `stage12-ownership.md`, `stage12-validation.md`, this report, and the SDD progress ledger. It excludes `next-env.d.ts`.
 
-## Remaining work
+## Remaining acceptance gate
 
-See [Stage 12 validation](../../../docs/backend-migration/stage12-validation.md). The report/dashboard/my-actions APIs, report presets and export endpoint integration, Python CLI migration, SSR cutover, full API ownership switch, and SQL/latency baseline remain. Plan checkboxes were left unchanged because their acceptance evidence is absent.
+Run the exact requested Stage 12 pytest selection against only `erp_stage11_test` with parent-approved elevated access. Then run `python -m app.scripts.verify_data`, capture the fixed baseline output, and run the dashboard/report/search/export Playwright flow if its isolated E2E DB is separately authorized/configured. Update plan checkboxes only where those results provide evidence. Stop before Stage 13.

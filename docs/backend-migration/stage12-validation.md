@@ -1,35 +1,36 @@
-# Stage 12 validation — checkpoint
+# Stage 12 validation
 
-Stage 12 is incomplete. Do not treat this document as stage acceptance.
+## Implemented coverage
 
-## Evidence collected
+- Pure reporting aggregation uses Decimal and aggregates a complete authorized result before page slicing. The 137-row fixture checks headcount, active count, occupied rate, planned payroll, and full total.
+- Reporting kinds, custom metrics, user-owned presets, dashboard, KPI summaries, and my-actions are implemented behind authenticated Python services/routes. Report SQL uses permission-scoped selection; project finance queries also apply the finance grant's project scope.
+- A PostgreSQL integration fixture inserts 137 scoped employees and asserts dashboard headcount/occupied-rate/full aggregate output. It requires `STAGE11_TEST_DATABASE_URL` and checks both the parsed URL and live DB name equal `erp_stage11_test` before metadata setup.
+- Search applies predicates in SQL for employees, assets, projects, tasks, and documents and selects only public fields for authorized results. Its PostgreSQL integration fixture now inserts hidden examples for all five entities and asserts that forbidden IDs/titles do not occur in the result serialization; this DB test remains unexecuted pending the parent-approved connection.
+- XLSX, DOCX, PDF and QR renderer tests cover formats, Cyrillic labels/font handling, safe filenames and numeric cells. Report export uses the dashboard's scoped projection, writes audit details, and renders outside the event loop after the read session closes.
+- Python CLI entry points exist for explicit demo seeding, relational checks and initial admin creation. Seed target guards, idempotence, no startup seeding, `getpass` and service-owned user/audit writes are implemented.
+- Root dashboard and reports SSR use authenticated backend fetches. Report Next handlers retain their URLs and validation and proxy to Python. Binary export uses a FastAPI response and BFF `forwardedResponse` path.
+- `backend/app/scripts/reporting_baseline.py` fixes target DB, role, date period, filters and 10 iterations for dashboard and turnover. The script emits each iteration's SQL count and summary latency; actual measurements are pending permitted DB access.
 
-- Pure reporting aggregation uses `Decimal` for payroll totals; its fixture contains 137 employees and checks full-scope totals plus page count.
-- `GET /api/search` is Python-owned. The SQL repository puts visibility predicates in the employee, asset, project, task, and document queries; result shaping contains only authorized projections.
-- XLSX, DOCX, PDF, and QR renderer unit tests check generated formats, Russian labels, embedded TrueType font, safe filename, and numeric cells.
-- The search scope integration test is implemented but did not reach SQL execution.
-- Focused Ruff formatting/check passed for the changed Python code.
-- Focused mypy passed for the changed Python modules (6 files); `tests/unit/reporting` passed (4 tests).
-- The search BFF Vitest suite passed (2 tests); focused ESLint for the changed Next.js files passed, and `npm run typecheck` passed.
-- Full `npm run lint` was attempted but failed on 656 errors in generated and existing repository files under `.runtime/migration-baseline/...` and other existing sources; the focused changed-file lint remained clean.
-- The Stage 12 unit, reporting integration, reporting contract, and export integration suites pass (`9 passed`). The full requested command still includes the PostgreSQL-backed search integration test; that test remains blocked at connection setup as described below.
+## Completed non-database checks
 
-## Database blocker
+- Focused Ruff check/format: passed.
+- Focused mypy: 20 files, passed.
+- Non-DB Python Stage12 tests: 9 passed.
+- Search/report BFF Vitest: 4 passed.
+- Focused ESLint: zero errors after removing an unused catch variable.
+- Frontend `npm run typecheck`: passed.
 
-The test URL is configured in `.runtime/stage11/test.env` and names the isolated database `erp_stage11_test`. No Docker or container lifecycle commands were run. The focused command was:
+## Pending database and browser gates
+
+The parent has deferred DB access until an exact elevated invocation is approved. No DB connection was attempted in this follow-up. Once approved, run:
 
 ```sh
-set -a; source ../.runtime/stage11/test.env; set +a
-UV_CACHE_DIR=/private/tmp/uv-stage12 uv run pytest tests/unit/reporting tests/integration/search -q
+cd backend
+uv run pytest tests/unit/reporting tests/integration/reporting tests/contracts/reporting tests/integration/search tests/integration/exports -q
 ```
 
-The first combined invocation collected 4 non-database tests but the database fixture failed before schema or row changes with `PermissionError: [Errno 1] Operation not permitted` while connecting to `127.0.0.1:55432`. After that, the reporting contract and in-memory integration suites were added and independently passed. The complete command, including search integration, remains unverified pending the permitted connection. Python verify-data and the dashboard/report/search/export Playwright flow also remain unverified.
+Then run `uv run python -m app.scripts.verify_data` and `uv run python -m app.scripts.reporting_baseline` with `STAGE11_TEST_DATABASE_URL` set only to the isolated `erp_stage11_test`; retain the resulting counts/latencies and add them here. Do not use `project1` or perform cleanup/DROP/truncate.
 
-## Outstanding acceptance
+Playwright was attempted as `npm run test:e2e -- --list`. Playwright config stopped before test discovery because `STAGE07_E2E_DATABASE_URL` (or its compatibility variable) is unset. A browser flow was not run. The prior checkpoint's direct search-test connection failed before SQL with `PermissionError: [Errno 1] Operation not permitted` against `127.0.0.1:55432`; no Docker/container lifecycle command was used.
 
-- Migrate report kinds, presets, SQL dashboard aggregates, and my-actions; verify full-scope totals and pagination on >100 database rows.
-- Complete per-entity search integration coverage and run it against the isolated test database.
-- Wire export renderers to scoped report/export endpoints and verify binary status/headers and forbidden fields across formats.
-- Move seed/verify/create-admin CLIs and callers through Python services, with a production seed guard and idempotence.
-- Cut over dashboard/reports SSR and remove the remaining reporting/search TypeScript service and Prisma imports.
-- Measure and record dashboard/report latency and SQL counts over a fixed dataset, filters, and iterations.
+The broader full `npm run lint` attempt from checkpoint reported 656 existing/generated findings, including `.runtime/migration-baseline`; changed-file ESLint passes.

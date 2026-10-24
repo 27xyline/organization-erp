@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ReportService } from '@/features/reporting/application/report.service'
 import { reportPresetSchema } from '@/features/reporting/contracts/report-presets'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiValidationError } from '@/lib/http/api-response'
 import { z } from 'zod'
 import type { Permission } from '@/lib/auth/permissions'
+import { proxyStage12Request } from '@/lib/backend/stage12'
 
 const querySchema = z.object({
   dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   if (auth.response) return auth.response
 
   try {
-    const body = await request.json()
+    const body = await request.clone().json()
     const presetParsed = reportPresetSchema.safeParse(body.preset)
     if (!presetParsed.success) return apiValidationError(presetParsed.error)
 
@@ -54,19 +54,7 @@ export async function POST(request: NextRequest) {
       }, { status: 403 })
     }
 
-    const dateFrom = new Date(`${queryParsed.data.dateFrom}T00:00:00.000Z`)
-    const dateTo = new Date(`${queryParsed.data.dateTo}T23:59:59.999Z`)
-
-    const data = await ReportService.getCustomReport(
-      presetParsed.data,
-      dateFrom,
-      dateTo,
-      queryParsed.data.departmentId,
-      queryParsed.data.projectId,
-      auth.access,
-    )
-
-    return NextResponse.json(data)
+    return proxyStage12Request(request, `${request.nextUrl.pathname}${request.nextUrl.search}`, auth.user, auth.requestId)
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }

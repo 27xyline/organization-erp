@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
+from typing import Any
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,13 +29,53 @@ def page_from_full_scope[T](rows: Sequence[T], page: int, page_size: int) -> Pag
     return Page(tuple(rows[start : start + page_size]), page, page_size, len(rows))
 
 
-def percent(value: int | Decimal, total: int | Decimal) -> float:
-    return round(float(value / total) * 1000) / 10 if total > 0 else 0.0
+def percent(value: int | float | Decimal, total: int | float | Decimal) -> float:
+    return round(float(value) / float(total) * 1000) / 10 if total > 0 else 0.0
 
 
 def months_in_period(date_from: date, date_to: date) -> int:
     """Count inclusive calendar months."""
     return max(1, (date_to.year - date_from.year) * 12 + date_to.month - date_from.month + 1)
+
+
+def aggregate_projects(projects: Sequence[Mapping[str, Any]]) -> dict[str, float | int]:
+    planned = sum(float(project["plannedBudget"]) for project in projects)
+    actual = sum(float(project["actualBudget"]) for project in projects)
+    progress = sum(int(str(project["progress"])) for project in projects)
+    return {
+        "count": len(projects),
+        "plannedBudget": planned,
+        "actualBudget": actual,
+        "variance": actual - planned,
+        "budgetUsage": percent(actual, planned),
+        "averageProgress": round(progress / len(projects)) if projects else 0,
+    }
+
+
+def aggregate_assets(assets: Sequence[Mapping[str, Any]]) -> dict[str, object]:
+    grouped: dict[str, dict[str, object]] = {}
+    value = 0.0
+    for asset in assets:
+        status, cost = str(asset["status"]), float(str(asset["totalCost"]))
+        value += cost
+        row = grouped.setdefault(status, {"status": status, "count": 0, "value": 0.0})
+        row["count"] = int(str(row["count"])) + 1
+        row["value"] = float(str(row["value"])) + cost
+    return {
+        "count": len(assets),
+        "value": value,
+        "byStatus": sorted(grouped.values(), key=lambda row: -float(str(row["value"]))),
+    }
+
+
+def aggregate_vacations(types: Sequence[str]) -> list[dict[str, object]]:
+    grouped: dict[str, int] = {}
+    for kind in types:
+        grouped[kind] = grouped.get(kind, 0) + 1
+    return [
+        {"type": kind, "count": count}
+        for kind, count in sorted(grouped.items(), key=lambda item: -item[1])
+    ]
 
 
 @dataclass(frozen=True, slots=True)

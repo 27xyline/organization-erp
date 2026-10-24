@@ -53,6 +53,163 @@ def render_xlsx(title: str, columns: list[str], rows: list[list[Any]]) -> bytes:
     return output.getvalue()
 
 
+def render_dashboard_xlsx(data: dict[str, Any]) -> bytes:
+    """Create the dashboard workbook from an already authorized detached DTO."""
+    workbook = Workbook()
+    workbook.properties.creator = "Consilium"
+    overview = workbook.active
+    assert overview is not None
+    overview.title = "Сводка"
+    overview.append(["Показатель", "Значение"])
+    overview.append(["Период", f"{data['query']['dateFrom']} — {data['query']['dateTo']}"])
+    labels = (
+        ("employees", "Сотрудников", "headcount"),
+        ("employees", "Активных сотрудников", "active"),
+        ("employees", "Занято ставок", "occupiedRate"),
+        ("employees", "Штатных ставок", "staffRate"),
+        ("finance", "Плановый ФОТ", "plannedFot"),
+        ("finance", "Фактический ФОТ", "actualFot"),
+        ("employees", "Занятость штата, %", "occupancy"),
+        ("projects", "Активных проектов", "count"),
+        ("projects", "Плановый бюджет", "plannedBudget"),
+        ("projects", "Фактический бюджет", "actualBudget"),
+        ("projects", "Средний прогресс, %", "averageProgress"),
+        ("assets", "Стоимость имущества", "assetValue"),
+        ("tasks", "Просроченных задач", "overdueTasks"),
+    )
+    for scope, title, key in labels:
+        if scope == "tasks" or data["visibility"].get(scope, False):
+            overview.append([title, data["summary"].get(key, 0)])
+    _style_worksheet(overview)
+    _append_sheet(
+        workbook,
+        "Сотрудники и ФОТ",
+        [
+            "Подразделение",
+            "Сотрудников",
+            "Активных",
+            "Занято ставок",
+            "Штатных ставок",
+            "Занятость, %",
+            "Плановый ФОТ",
+            "Фактический ФОТ",
+        ],
+        [
+            [
+                r["department"],
+                r["headcount"],
+                r["active"],
+                r["occupiedRate"],
+                r["staffRate"],
+                r["occupancy"],
+                r["plannedFot"],
+                r["actualFot"],
+            ]
+            for r in data["analytics"]["workforceByDepartment"]
+        ]
+        if data["visibility"].get("employees")
+        else [],
+    )
+    _append_sheet(
+        workbook,
+        "Проекты",
+        [
+            "Код",
+            "Наименование",
+            "Окончание",
+            "Прогресс, %",
+            "Задач",
+            "Выполнено",
+            "Плановый бюджет",
+            "Фактический бюджет",
+            "Отклонение",
+        ],
+        [
+            [
+                r["code"],
+                r["name"],
+                r["endDate"],
+                r["progress"],
+                r["tasksTotal"],
+                r["tasksCompleted"],
+                r["plannedBudget"],
+                r["actualBudget"],
+                r["actualBudget"] - r["plannedBudget"],
+            ]
+            for r in data["activeProjects"]
+        ]
+        if data["visibility"].get("projects")
+        else [],
+    )
+    _append_sheet(
+        workbook,
+        "Имущество",
+        ["Статус", "Количество", "Стоимость"],
+        [[r["status"], r["count"], r["value"]] for r in data["analytics"]["assetsByStatus"]]
+        if data["visibility"].get("assets")
+        else [],
+    )
+    _append_sheet(
+        workbook,
+        "Отпуска",
+        ["Сотрудник", "Подразделение", "Тип", "Начало", "Окончание"],
+        [
+            [r["employee"], r["department"], r["type"], r["startDate"], r["endDate"]]
+            for r in data["analytics"]["vacations"]
+        ],
+    )
+    _append_sheet(
+        workbook,
+        "Контроль сроков",
+        ["Категория", "Объект", "Контекст", "Срок / статус"],
+        [
+            *[
+                [
+                    "Просроченная задача",
+                    r["name"],
+                    f"{r['project']['code']} · {r['responsible']}",
+                    f"{r['overdueDays']} дн.",
+                ]
+                for r in data["overdueTasks"]
+            ],
+            *[
+                ["Трудовой договор", r["employee"], r["department"], r["contractEndDate"]]
+                for r in data["contracts"]
+            ],
+            *[
+                ["Имущество", r["name"], r["inventoryNumber"], r["status"]]
+                for r in data["assetAttention"]
+            ],
+        ],
+    )
+    output = BytesIO()
+    workbook.save(output)
+    return output.getvalue()
+
+
+def _style_worksheet(sheet: Any) -> None:
+    sheet.freeze_panes = "A2"
+    sheet.auto_filter.ref = sheet.dimensions
+    for cell in sheet[1]:
+        cell.font = Font(name="Arial", bold=True, color="FF0F172A")
+        cell.fill = PatternFill(fill_type="solid", fgColor="FFE2E8F0")
+    for column in range(1, sheet.max_column + 1):
+        width = max(
+            len(str(sheet.cell(row, column).value or "")) for row in range(1, sheet.max_row + 1)
+        )
+        sheet.column_dimensions[get_column_letter(column)].width = min(40, max(14, width + 2))
+
+
+def _append_sheet(
+    workbook: Workbook, title: str, headers: list[str], rows: list[list[Any]]
+) -> None:
+    sheet = workbook.create_sheet(title=title)
+    sheet.append(headers)
+    for row in rows:
+        sheet.append(row)
+    _style_worksheet(sheet)
+
+
 def render_docx(title: str, columns: list[str], rows: list[list[Any]]) -> bytes:
     document = WordDocument()
     document.add_heading(title, level=1)

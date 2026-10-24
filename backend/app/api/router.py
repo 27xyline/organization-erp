@@ -6,9 +6,11 @@ from app.api.routes.asset_import import router as asset_import_router
 from app.api.routes.assets import router as assets_router
 from app.api.routes.auth_internal import router as auth_router
 from app.api.routes.catalogs import router as catalogs_router
+from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.departments import router as departments_router
 from app.api.routes.documents import router as documents_router
 from app.api.routes.employees import router as employees_router
+from app.api.routes.exports import router as exports_router
 from app.api.routes.finance import finance_router, project_payroll_router
 from app.api.routes.health import router as health_router
 from app.api.routes.inventory import router as inventory_router
@@ -18,6 +20,7 @@ from app.api.routes.payroll import router as payroll_router
 from app.api.routes.personnel_actions import router as personnel_actions_router
 from app.api.routes.procurement import router as procurement_router
 from app.api.routes.projects import router as projects_router
+from app.api.routes.reports import router as reports_router
 from app.api.routes.search import router as search_router
 from app.api.routes.smtp_settings import router as smtp_settings_router
 from app.api.routes.staff_schedule import router as staff_schedule_router
@@ -60,3 +63,6 @@ api_router.include_router(finance_router)
 api_router.include_router(project_payroll_router)
 api_router.include_router(procurement_router)
 api_router.include_router(search_router)
+api_router.include_router(dashboard_router)
+api_router.include_router(reports_router)
+api_router.include_router(exports_router)

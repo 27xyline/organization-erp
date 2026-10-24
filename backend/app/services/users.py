@@ -93,6 +93,55 @@ class UserService:
         self._uow_factory = uow_factory
         self._passwords = passwords
 
+    async def create_initial_admin(self, username: str, name: str, password: str) -> str:
+        """Bootstrap the first administrator through the normal user/audit ports."""
+        username, name = username.strip().lower(), name.strip()
+        if not 3 <= len(username) <= 100 or not all(
+            character.isascii() and (character.isalnum() or character in "._-")
+            for character in username
+        ):
+            raise DomainError("INVALID_USERNAME", "Проверьте логин администратора", 422)
+        if not 2 <= len(name) <= 200:
+            raise DomainError("INVALID_NAME", "Имя должно содержать от 2 до 200 символов", 422)
+        if not 12 <= len(password) <= 512:
+            raise DomainError("WEAK_PASSWORD", "Пароль должен содержать от 12 до 512 символов", 422)
+        password_hash = await self._passwords.hash(password)
+        async with self._uow_factory() as uow:
+            await uow.users.lock_admin_changes()
+            if await uow.users.active_admin_count():
+                raise DomainError("INITIAL_ADMIN_EXISTS", "Администратор уже создан", 409)
+            assignments = [
+                {
+                    "role": "ADMIN",
+                    "departmentScopeMode": "ALL",
+                    "projectScopeMode": "ALL",
+                    "departmentIds": [],
+                    "projectIds": [],
+                }
+            ]
+            user = await uow.users.create(
+                {
+                    "username": username,
+                    "name": name,
+                    "role": "ADMIN",
+                    "passwordHash": password_hash,
+                    "mustChangePassword": True,
+                },
+                assignments,
+            )
+            await uow.audit.append(
+                AuditRecord(
+                    "INITIAL_ADMIN_CREATE",
+                    "User",
+                    user.id,
+                    user.id,
+                    {"bootstrap": True},
+                    None,
+                )
+            )
+            await uow.commit()
+            return user.id
+
     async def list_users(
         self, page: int, page_size: int, actor: Actor
     ) -> tuple[list[dict[str, Any]], int]:

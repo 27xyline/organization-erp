@@ -11,6 +11,8 @@
 | [frontend-callers.md](frontend-callers.md) | Server pages/layouts, browser fetch/hooks и прямые backend/Prisma зависимости |
 | [write-owners.md](write-owners.md) | API, services, CLI/seed/worker writers, транзакции, locks, audit/outbox и внешние эффекты |
 | [baseline-validation.md](baseline-validation.md) | Фактические проверки, копии БД/документов, backup/restore и известные красные DB-тесты |
+| [stage12-ownership.md](stage12-ownership.md) | Runtime API owner для отчётов, dashboard, my-actions, поиска, exports и CLI |
+| [stage12-validation.md](stage12-validation.md) | Stage 12 проверки, DB gates и baseline измерений |
 
 У первых четырёх документов есть одноимённый JSON для автоматической сверки. На дату исходного среза это были текущие TypeScript contracts/ownership, а новый Python backend ещё не был создан. Дополнительные новые технологии остаются самостоятельными упражнениями по [основному плану](../superpowers/plans/2026-09-28-fastapi/00-roadmap.md).
 
