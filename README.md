@@ -83,7 +83,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres
 npm ci
 npm run db:generate
 npm run db:migrate:deploy
-npm run db:seed                # расширенный демо-набор (только локальная dev/test БД!)
+npm run db:seed                # небольшой связанный учебный набор (только локальная dev/test БД!)
 npm run user:create-admin      # интерактивно: логин, имя, пароль ≥ 12 символов
 
 # 4. Запуск
@@ -341,22 +341,18 @@ Dev-overlay публикует PostgreSQL на хосте. Не подключа
 ### Seed и администратор
 
 ```bash
-npm run db:seed              # расширенный демо-набор (upsert, безопасно перезапускать локально)
+npm run db:seed              # связанный учебный набор Python CLI (идемпотентно)
 npm run user:create-admin    # интерактивное создание (TTY, пароль скрыт)
 npm run db:verify            # проверка целостности данных
 ```
 
-Seed наполняет основные разделы приложения связанными данными: 40 сотрудников в 10 подразделениях, 24 проекта с 192 задачами, 120 объектов имущества, 36 заявок на закупку, 60 документов с файлами и версиями, 40 согласований, зарплатные и финансовые записи за последние шесть месяцев, табель, отпуска, обслуживание имущества, уведомления и сохранённые представления.
+Эти npm-команды запускают соответствующие Python entrypoints через `uv` (установите `uv` для Python backend). Launcher загружает корневой `.env`, передаёт `DATABASE_URL` в `BACKEND_DATABASE_URL` и `NODE_ENV` в `BACKEND_ENVIRONMENT`, не печатая значения переменных. Уже заданные `BACKEND_*` переменные имеют приоритет.
 
-Для входа в демо-пользователей используйте логины `demo.admin`, `demo.hr`, `demo.project`, `demo.finance`, `demo.assets` или `demo.audit` и временный пароль `DemoLocal2026!`. При первом входе приложение попросит заменить пароль. Записи создаются через `upsert`, поэтому повторный запуск не размножает демо-данные и не сбрасывает заполненные вручную поля большинства записей.
+Python seed создаёт небольшой связанный граф: учебное подразделение, штатную позицию, сотрудника, проект, участие сотрудника в проекте и назначенную задачу. Он безопасен для повторного запуска. Полный набор, создаваемый старым `prisma/demo-seed.ts`, через публичную команду больше не запускается.
 
-Seed проверяет адрес `DATABASE_URL`: по умолчанию разрешены только `localhost`, `127.0.0.1`, `::1` и Docker-хост `postgres`. В production seed останавливается. Для отдельной удалённой тестовой БД запускайте команду только после явной проверки адреса и задайте `ALLOW_DEMO_SEED=1`.
+Seed запрещён в production и для баз `organization_erp` и `project1`; разрешены только локальные хосты и Docker-хост `postgres`. Удалённая БД запрещена.
 
-`db:verify` проверяет:
-- равенство суммы `AssetHolding.quantity` общему `Asset.quantity`
-- отсутствие отрицательных количеств и стоимостей
-- отсутствие orphan relations
-- отсутствие секретов в audit JSON
+`db:verify` проверяет балансы имущества и остатков, отрицательные значения, orphan-ссылки на активы и МОЛ, секретные шаблоны в audit JSON, циклы/дубли подразделений и несоответствие названий подразделения в связанных снимках, текущие версии документов, безопасный формат метаданных и наличие/контрольную сумму файлов документов.
 
 ---
 
@@ -492,8 +488,8 @@ npm run check
 | `npm run db:migrate` | создать/применить dev-миграцию |
 | `npm run db:migrate:deploy` | применить готовые миграции |
 | `npm run db:studio` | Prisma Studio |
-| `npm run db:seed` | демо-данные |
-| `npm run db:verify` | проверка целостности |
+| `npm run db:seed` | идемпотентный связанный учебный набор через Python CLI |
+| `npm run db:verify` | проверка реляционной целостности и файлов документов через Python CLI |
 | **Администрирование** | |
 | `npm run user:create-admin` | создать ADMIN-пользователя |
 
@@ -559,9 +555,7 @@ curl --fail http://127.0.0.1:3001/api/health/ready
 
 ```bash
 docker compose run --rm -it \
-  -v "$PWD/src:/app/src:ro" \
-  -v "$PWD/scripts:/app/scripts:ro" \
-  migrate npm run user:create-admin
+  backend python -m app.scripts.create_admin
 ```
 
 **Не запускайте `db:seed` в production.**
@@ -605,10 +599,7 @@ curl --fail http://127.0.0.1:3001/api/health/ready
 6. Проверка данных:
 
 ```bash
-docker compose run --rm \
-  -v "$PWD/src:/app/src:ro" \
-  -v "$PWD/scripts:/app/scripts:ro" \
-  migrate npm run db:verify
+docker compose run --rm backend python -m app.scripts.verify_data
 ```
 
 7. Smoke-тест → отключить maintenance mode

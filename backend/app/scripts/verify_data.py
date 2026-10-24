@@ -6,7 +6,9 @@ import json
 from app.core.config import Settings
 from app.db.registry import Base
 from app.db.session import create_engine, create_session_factory
-from app.repositories.cli import SqlAlchemyVerifyDataRepository
+from app.integrations.cli import SqlAlchemyVerifyDataGateway
+from app.integrations.cli_storage import LocalDocumentFileVerificationAdapter
+from app.integrations.document_storage import LocalDocumentStorage
 from app.services.cli import VerifyDataService
 
 MODEL_METADATA = Base.metadata
@@ -15,11 +17,17 @@ MODEL_METADATA = Base.metadata
 async def _run() -> dict[str, int]:
     if "mols" not in MODEL_METADATA.tables:
         raise RuntimeError("Complete SQLAlchemy model registry was not loaded")
-    engine = create_engine(Settings())
+    settings = Settings()
+    engine = create_engine(settings)
+    storage = LocalDocumentStorage(settings.document_storage_root)
     try:
-        async with create_session_factory(engine)() as session:
-            return await VerifyDataService(SqlAlchemyVerifyDataRepository(session)).verify()
+        service = VerifyDataService(
+            SqlAlchemyVerifyDataGateway(create_session_factory(engine)),
+            LocalDocumentFileVerificationAdapter(storage),
+        )
+        return await service.verify()
     finally:
+        storage.close()
         await engine.dispose()
 
 

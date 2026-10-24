@@ -4,6 +4,7 @@ import asyncio
 import getpass
 
 from app.core.config import Settings
+from app.db import registry as _model_registry  # noqa: F401
 from app.db.session import create_engine, create_session_factory
 from app.db.uow import create_unit_of_work_factory
 from app.integrations.password_hash import Argon2PasswordHasher

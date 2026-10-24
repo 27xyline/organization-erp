@@ -6,12 +6,14 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any, cast
 
-from sqlalchemy import String, func, select
+from sqlalchemy import select, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain.ports.cli import DocumentFileReference, VerifyDataSnapshot
 from app.models.departments import Department
+from app.models.documents import DocumentVersion
 from app.models.employees import Employee
 from app.models.projects import Project, ProjectMember, Task, TaskAssignee
 from app.models.timekeeping import StaffSchedule
@@ -188,56 +190,102 @@ class SqlAlchemyVerifyDataRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def verify_data(self) -> dict[str, int]:
-        from app.models.assets import Asset, AssetHolding
-        from app.models.documents import Document, DocumentVersion
-        from app.models.users import AuditLog
-
-        holding_totals = (
-            select(AssetHolding.assetId, func.sum(AssetHolding.quantity).label("qty"))
-            .group_by(AssetHolding.assetId)
-            .subquery()
-        )
-        holding_mismatch = await self._session.scalar(
-            select(func.count())
-            .select_from(Asset)
-            .outerjoin(holding_totals, holding_totals.c.assetId == Asset.id)
-            .where(func.coalesce(holding_totals.c.qty, 0) != Asset.quantity)
-        )
-        orphan_holdings = await self._session.scalar(
-            select(func.count())
-            .select_from(AssetHolding)
-            .outerjoin(Asset, Asset.id == AssetHolding.assetId)
-            .where(Asset.id.is_(None))
-        )
-        doc_mismatch = await self._session.scalar(
-            select(func.count())
-            .select_from(Document)
-            .outerjoin(
-                DocumentVersion,
-                (DocumentVersion.documentId == Document.id)
-                & (DocumentVersion.versionNumber == Document.currentVersion),
-            )
-            .where(DocumentVersion.id.is_(None))
-        )
-        negative_assets = await self._session.scalar(
-            select(func.count())
-            .select_from(Asset)
-            .where((Asset.quantity < 0) | (Asset.unitPrice < 0) | (Asset.totalCost < 0))
-        )
-        negative_holdings = await self._session.scalar(
-            select(func.count()).select_from(AssetHolding).where(AssetHolding.quantity < 0)
-        )
-        secret_audit = await self._session.scalar(
-            select(func.count())
-            .select_from(AuditLog)
-            .where(func.coalesce(AuditLog.details.cast(String), "").ilike("%temporaryPassword%"))
-        )
-        return {
-            "holdingMismatch": int(holding_mismatch or 0),
-            "orphanHoldings": int(orphan_holdings or 0),
-            "documentCurrentVersionMismatch": int(doc_mismatch or 0),
-            "negativeAssets": int(negative_assets or 0),
-            "negativeHoldings": int(negative_holdings or 0),
-            "secretAuditRows": int(secret_audit or 0),
+    async def verify_data(self) -> VerifyDataSnapshot:
+        checks = {
+            "holdingMismatch": '''
+                SELECT COUNT(*) FROM "assets" asset
+                LEFT JOIN (
+                    SELECT "assetId", COALESCE(SUM("quantity"), 0) AS quantity
+                    FROM "asset_holdings" GROUP BY "assetId"
+                ) holding ON holding."assetId" = asset."id"
+                WHERE COALESCE(holding.quantity, 0) <> asset."quantity"
+            ''',
+            "negativeAssets": '''
+                SELECT COUNT(*) FROM "assets"
+                WHERE "quantity" < 0 OR "unitPrice" < 0 OR "totalCost" < 0
+            ''',
+            "negativeHoldings": '''
+                SELECT COUNT(*) FROM "asset_holdings" WHERE "quantity" < 0
+            ''',
+            "orphanHoldings": '''
+                SELECT COUNT(*) FROM "asset_holdings" holding
+                LEFT JOIN "assets" asset ON asset."id" = holding."assetId"
+                LEFT JOIN "mols" mol ON mol."id" = holding."molId"
+                WHERE asset."id" IS NULL OR mol."id" IS NULL
+            ''',
+            "secretAuditRows": '''
+                SELECT COUNT(*) FROM "audit_logs"
+                WHERE COALESCE("details"::text, '')
+                    ~* '(passwordHash|temporaryPassword|NEXTAUTH_SECRET)'
+            ''',
+            "departmentCycles": '''
+                WITH RECURSIVE hierarchy AS (
+                    SELECT "id" AS "originId", "parentId", ARRAY["id"] AS path, false AS cycle
+                    FROM "departments"
+                    UNION ALL
+                    SELECT hierarchy."originId", parent."parentId",
+                           hierarchy.path || parent."id", parent."id" = ANY(hierarchy.path)
+                    FROM hierarchy
+                    JOIN "departments" parent ON parent."id" = hierarchy."parentId"
+                    WHERE NOT hierarchy.cycle
+                )
+                SELECT COUNT(DISTINCT "originId") FROM hierarchy WHERE cycle
+            ''',
+            "duplicateDepartmentCodes": '''
+                SELECT COUNT(*) FROM (
+                    SELECT LOWER("code") FROM "departments"
+                    GROUP BY LOWER("code") HAVING COUNT(*) > 1
+                ) duplicates
+            ''',
+            "duplicateDepartmentNames": '''
+                SELECT COUNT(*) FROM (
+                    SELECT LOWER("name") FROM "departments"
+                    GROUP BY LOWER("name") HAVING COUNT(*) > 1
+                ) duplicates
+            ''',
+            "departmentSnapshotMismatch": '''
+                SELECT COUNT(*) FROM (
+                    SELECT employee."id" FROM "employees" employee
+                    JOIN "departments" department ON department."id" = employee."departmentId"
+                    WHERE employee."department" <> department."name"
+                    UNION ALL
+                    SELECT position."id" FROM "staff_schedule" position
+                    JOIN "departments" department ON department."id" = position."departmentId"
+                    WHERE position."department" <> department."name"
+                    UNION ALL
+                    SELECT mol."id" FROM "mols" mol
+                    JOIN "departments" department ON department."id" = mol."departmentId"
+                    WHERE mol."department" <> department."name"
+                ) mismatches
+            ''',
+            "documentCurrentVersionMismatch": '''
+                SELECT COUNT(*) FROM "documents" document
+                LEFT JOIN "document_versions" version
+                    ON version."documentId" = document."id"
+                   AND version."versionNumber" = document."currentVersion"
+                WHERE version."id" IS NULL
+            ''',
+            "unsafeDocumentMetadata": '''
+                SELECT COUNT(*) FROM "document_versions"
+                WHERE "storageKey" !~ '^[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f-]{36}$'
+                   OR "sha256" !~ '^[0-9a-f]{64}$'
+                   OR "sizeBytes" <= 0
+            ''',
         }
+        counters = {
+            key: int(await self._session.scalar(text(statement)) or 0)
+            for key, statement in checks.items()
+        }
+        rows = (
+            await self._session.execute(
+                select(
+                    DocumentVersion.storageKey,
+                    DocumentVersion.sizeBytes,
+                    DocumentVersion.sha256,
+                )
+            )
+        ).all()
+        files = tuple(
+            DocumentFileReference(row.storageKey, row.sizeBytes, row.sha256) for row in rows
+        )
+        return VerifyDataSnapshot(counters, files)

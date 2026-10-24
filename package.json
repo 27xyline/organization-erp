@@ -28,9 +28,9 @@
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "db:seed": "node --env-file-if-exists=.env --import tsx prisma/seed.ts",
-    "db:verify": "node --env-file-if-exists=.env --import tsx scripts/verify-data.ts",
-    "user:create-admin": "tsx scripts/create-admin.ts"
+    "db:seed": "node --env-file-if-exists=.env scripts/backend-cli.mjs seed",
+    "db:verify": "node --env-file-if-exists=.env scripts/backend-cli.mjs verify",
+    "user:create-admin": "node --env-file-if-exists=.env scripts/backend-cli.mjs create-admin"
   },
   "dependencies": {
     "@node-rs/argon2": "2.0.2",

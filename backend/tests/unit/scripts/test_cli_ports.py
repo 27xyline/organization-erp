@@ -1,14 +1,25 @@
 from __future__ import annotations
 
 import ast
+from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
+from typing import cast
 
 import pytest
 from sqlalchemy.dialects import postgresql
 
 from app.core.config import Settings
+from app.domain.documents.records import StoredObject
+from app.domain.ports.cli import DocumentFileReference, VerifyDataSnapshot
+from app.domain.ports.documents import StoragePort
+from app.integrations.cli_storage import LocalDocumentFileVerificationAdapter
 from app.models.departments import Department
-from app.repositories.cli import demo_training_links, idempotent_insert_statement
+from app.repositories.cli import (
+    SqlAlchemyVerifyDataRepository,
+    demo_training_links,
+    idempotent_insert_statement,
+)
 from app.scripts.cli_support import require_safe_seed_target
 from app.services.cli import DemoSeedService, VerifyDataService
 
@@ -19,17 +30,129 @@ class _SeedPort:
 
 
 class _VerifyPort:
-    async def verify_data(self) -> dict[str, int]:
-        return {"holdingMismatch": 0, "orphanHoldings": 0}
+    async def verify_data(self) -> VerifyDataSnapshot:
+        return VerifyDataSnapshot(
+            {"holdingMismatch": 0, "orphanHoldings": 0},
+            (DocumentFileReference("aa/bb/00000000-0000-0000-0000-000000000001", 10, "a" * 64),),
+        )
+
+
+class _DocumentFilesPort:
+    async def verify(self, reference: DocumentFileReference) -> bool:
+        assert reference.storage_key.startswith("aa/bb/")
+        return False
+
+
+class _StoragePort:
+    def __init__(self, *, missing: bool = False) -> None:
+        self.missing = missing
+        self.stored: StoredObject | None = None
+        self.contents = BytesIO(b"verified document")
+
+    async def get(self, stored: StoredObject) -> BytesIO:
+        self.stored = stored
+        if self.missing:
+            raise FileNotFoundError
+        return self.contents
 
 
 @pytest.mark.anyio
 async def test_cli_services_delegate_to_ports_without_session_arguments() -> None:
     seed = await DemoSeedService(_SeedPort()).seed()
-    verified = await VerifyDataService(_VerifyPort()).verify()
+    verified = await VerifyDataService(_VerifyPort(), _DocumentFilesPort()).verify()
 
     assert seed == {"departmentsCreated": 1, "employeesCreated": 1, "tasksCreated": 1}
-    assert verified == {"holdingMismatch": 0, "orphanHoldings": 0}
+    assert verified == {
+        "holdingMismatch": 0,
+        "orphanHoldings": 0,
+        "missingOrCorruptDocumentFiles": 1,
+    }
+
+
+@pytest.mark.anyio
+async def test_verify_repository_preserves_legacy_counter_set_and_file_metadata() -> None:
+    class _Rows:
+        def all(self) -> list[SimpleNamespace]:
+            return [
+                SimpleNamespace(
+                    storageKey="aa/bb/00000000-0000-0000-0000-000000000001",
+                    sizeBytes=10,
+                    sha256="a" * 64,
+                )
+            ]
+
+    class _Session:
+        def __init__(self) -> None:
+            self.statements: list[str] = []
+
+        async def scalar(self, statement: object) -> int:
+            self.statements.append(str(statement))
+            return 0
+
+        async def execute(self, statement: object) -> _Rows:
+            self.statements.append(str(statement))
+            return _Rows()
+
+    session = _Session()
+    snapshot = await SqlAlchemyVerifyDataRepository(session).verify_data()  # type: ignore[arg-type]
+
+    assert set(snapshot.counters) == {
+        "holdingMismatch",
+        "negativeAssets",
+        "negativeHoldings",
+        "orphanHoldings",
+        "secretAuditRows",
+        "departmentCycles",
+        "duplicateDepartmentCodes",
+        "duplicateDepartmentNames",
+        "departmentSnapshotMismatch",
+        "documentCurrentVersionMismatch",
+        "unsafeDocumentMetadata",
+    }
+    assert len(session.statements) == 12  # eleven counters plus the version metadata query
+    query_text = "\n".join(session.statements)
+    for legacy_sql_marker in (
+        'LEFT JOIN "mols"',
+        "temporaryPassword|NEXTAUTH_SECRET",
+        "WITH RECURSIVE hierarchy",
+        'LOWER("code")',
+        'LOWER("name")',
+        "UNION ALL",
+        '"currentVersion"',
+        '"storageKey" !~',
+        '"sizeBytes" <= 0',
+    ):
+        assert legacy_sql_marker in query_text
+    assert snapshot.document_files == (
+        DocumentFileReference("aa/bb/00000000-0000-0000-0000-000000000001", 10, "a" * 64),
+    )
+
+
+@pytest.mark.anyio
+async def test_document_file_verifier_uses_integrity_metadata_and_closes_stream() -> None:
+    storage = _StoragePort()
+    reference = DocumentFileReference("aa/bb/file-id", 17, "b" * 64)
+
+    result = await LocalDocumentFileVerificationAdapter(cast(StoragePort, storage)).verify(
+        reference
+    )
+
+    assert result is True
+    assert storage.stored == StoredObject(
+        reference.storage_key, reference.size_bytes, reference.sha256
+    )
+    assert storage.contents.closed
+
+
+@pytest.mark.anyio
+async def test_document_file_verifier_counts_unavailable_files_as_invalid() -> None:
+    storage = _StoragePort(missing=True)
+    reference = DocumentFileReference("aa/bb/file-id", 17, "b" * 64)
+
+    assert (
+        await LocalDocumentFileVerificationAdapter(cast(StoragePort, storage)).verify(reference)
+        is False
+    )
 
 
 def test_cli_services_have_no_sqlalchemy_or_model_imports() -> None:
