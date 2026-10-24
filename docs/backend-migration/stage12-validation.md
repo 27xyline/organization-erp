@@ -7,7 +7,8 @@
 - A PostgreSQL integration fixture inserts 137 scoped employees and asserts dashboard headcount/occupied-rate/full aggregate output. It requires `STAGE11_TEST_DATABASE_URL` and checks both the parsed URL and live DB name equal `erp_stage11_test` before metadata setup.
 - Search applies predicates in SQL for employees, assets, projects, tasks, and documents and selects only public fields for authorized results. Its PostgreSQL integration fixture inserts hidden examples for all five entities and asserts that forbidden IDs/titles do not occur in result serialization; focused test passed (`1 passed`) against `erp_stage11_test` after fixing the employee/document FK insertion order.
 - XLSX, DOCX, PDF and QR renderer tests cover formats, Cyrillic labels/font handling, safe filenames and numeric cells. Report export uses the dashboard's scoped projection, writes audit details, and renders outside the event loop after the read session closes.
-- Python CLI entry points exist for explicit demo seeding, relational checks and initial admin creation. Seed target guards, idempotence, no startup seeding, `getpass` and service-owned user/audit writes are implemented.
+- Python CLI entry points exist for explicit demo seeding, relational checks and initial admin creation. CLI services depend on ports; the SQLAlchemy adapters own seed writes and verify queries. The Python demo seed is a small connected department → schedule → employee → project member → task assignee dataset, guarded against production/working/remote DBs and inserts with `ON CONFLICT DO NOTHING`. Startup does not seed. `create-admin` still uses `getpass` and service-owned user/audit writes.
+- The complete training fixture remains in `prisma/demo-seed.ts`: Python does not yet reproduce all ten departments, 40 employees, 24 projects, 20 assets, demo role users, procurement cases, or document fixtures.
 - Root dashboard and reports SSR use authenticated backend fetches. Report Next handlers retain their URLs and validation and proxy to Python. Binary export uses a FastAPI response and BFF `forwardedResponse` path.
 - `backend/app/scripts/reporting_baseline.py` fixes target DB (`erp_stage11_test`), ADMIN scope, 2026 calendar year, null department/project filters and 10 iterations for dashboard and turnover. The measured baseline was 13 SQL statements per dashboard query (130 total), median 9.44 ms (min 8.13, max 148.80); turnover used 2 SQL statements per query (20 total), median 2.01 ms (min 1.88, max 7.10). These are a baseline sample, not a latency guarantee. The script checks `current_database()` and prints row counts for ten relevant tables before timing. The final row-count snapshot is pending the parent-approved read-only rerun.
 
@@ -20,6 +21,7 @@
 - Focused ESLint: zero errors after removing an unused catch variable.
 - Frontend `npm run typecheck`: passed.
 - Mapper regression for the `verify_data` CLI passes without a database; see `tests/unit/scripts/test_verify_data_registry.py`.
+- `tests/unit/scripts/test_cli_ports.py` checks port delegation, SQL-free service imports, conflict-safe insert SQL, the connected seed links, and production/working/remote-target guards.
 
 ## Database test evidence
 
@@ -49,3 +51,5 @@ The baseline script reads `STAGE11_TEST_DATABASE_URL` directly. Its final versio
 The Stage 12 browser flow is `e2e/stage12-reporting.spec.ts`; it covers dashboard SSR, global search, a report request, XLSX download and PDF status/headers/signature. It targets `erp_stage09_e2e` from `.runtime/stage09/e2e.env`. Initial attempt found FastAPI route registration rejected the custom-report return union; `response_model=None` fixed startup. On the focused retry the backend started, but global setup could not connect to `127.0.0.1:5434`, so the browser test did not run. No Docker/container lifecycle command was used.
 
 The broader full `npm run lint` attempt from checkpoint reported 656 existing/generated findings, including `.runtime/migration-baseline`; changed-file ESLint passes.
+
+The CLI service/adapter separation and seed link graph have focused no-database checks only. No demo seed or verify-data run was performed in this follow-up, so DB-backed insertion order, idempotence across repeated CLI invocations, and relational verification remain unverified; the Stage 12 CLI acceptance checkbox stays unchecked.
