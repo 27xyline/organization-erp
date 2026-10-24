@@ -62,14 +62,16 @@
 
 **Потребляет:** `create_approval_in_uow` из 09, `create_asset_in_uow` из 07, Document metadata port из 08. **Производит:** заявку/контракт/поставку/капитализацию целиком в Python.
 
-- [ ] Supplier/INN, request/items/options: сохранить pagination+summary, numbered uniqueness, quantities/prices и access targets.
-- [ ] Submit создаёт approval и меняет request одним UoW; повтор submit не создаёт второе согласование.
-- [ ] Contract/deliveries: документ доступен и подходящего состояния, dates/budget/received quantities проверены, partial deliveries не завышают итог.
-- [ ] Capitalize: concurrent запросы одной delivery item дают ровно один asset и корректный link; unique constraint/row lock и общий UoW. Повтор возвращает текущую контрактную ошибку или результат, не создаёт новое имущество.
-- [ ] Ошибка в asset/audit/approval операции откатывает изменения всех участвующих таблиц. Передача committed id из отдельной транзакции не считается атомарной.
-- [ ] Переключить все procurement routes вместе; UI заявка → согласование → контракт → две частичные поставки → постановка на учёт. Сверить sums/assets/relations в БД.
+- [x] Supplier/INN, request/items/options: сохранить pagination+summary, numbered uniqueness, quantities/prices и access targets.
+- [x] Submit создаёт approval и меняет request одним UoW; повтор submit не создаёт второе согласование.
+- [x] Contract/deliveries: документ доступен и подходящего состояния, dates/budget/received quantities проверены, partial deliveries не завышают итог.
+- [x] Capitalize: concurrent запросы одной delivery item дают ровно один asset и корректный link; unique constraint/row lock и общий UoW. Повтор возвращает текущую контрактную ошибку или результат, не создаёт новое имущество.
+- [x] Ошибка в asset/audit/approval операции откатывает изменения всех участвующих таблиц. Передача committed id из отдельной транзакции не считается атомарной.
+- [x] Переключить все procurement routes вместе; UI заявка → согласование → контракт → две частичные поставки → постановка на учёт. Сверить sums/assets/relations в БД.
 
 **Проверки:** `uv run pytest tests/unit/procurement tests/integration/procurement tests/contracts/procurement -q`; один asset при concurrent capitalize, rollback составного сценария, totals по всем items.
+
+Validation evidence: [Stage 11 validation](../../../backend-migration/stage11-validation.md); ownership: [Stage 11 ownership](../../../backend-migration/stage11-ownership.md).
 
 **Готово:** закупка связана с готовыми Python-модулями. **Пауза:** orchestration нескольких сервисов, idempotency и почему общий UoW важнее количества классов.
 

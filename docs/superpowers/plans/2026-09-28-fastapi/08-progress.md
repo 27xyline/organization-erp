@@ -1,6 +1,6 @@
 # Прогресс переноса
 
-План создан 28 сентября 2026. Этап 00 выполнен 7 октября 2026: инвентаризация и изолированные baseline-копии готовы. Пользовательские команды закрыли учебные паузы этапов 00–05 по мере продолжения работ; Stage 05 завершён и проверен 15 октября 2026. Stage 06 реализован и проверен 15 октября 2026; пользователь закрыл его паузу 16 октября, самостоятельное упражнение остаётся учебной задачей. Stage 07 реализован и прошёл локальные проверки 16 октября 2026; пользовательской командой перейти к Stage 08 его учебная пауза закрыта. Stage 08 реализован, прошёл code/spec review и все отложенные Docker integration gates 23 октября 2026. Stage 09 реализован и проверен 23 октября 2026; реальное SMTP подключение осталось внешней непроверенной интеграцией.
+План создан 28 сентября 2026. Этап 00 выполнен 7 октября 2026: инвентаризация и изолированные baseline-копии готовы. Пользовательские команды закрыли учебные паузы этапов 00–05 по мере продолжения работ; Stage 05 завершён и проверен 15 октября 2026. Stage 06 реализован и проверен 15 октября 2026; пользователь закрыл его паузу 16 октября, самостоятельное упражнение остаётся учебной задачей. Stage 07 реализован и прошёл локальные проверки 16 октября 2026; пользовательской командой перейти к Stage 08 его учебная пауза закрыта. Stage 08 реализован, прошёл code/spec review и все отложенные Docker integration gates 23 октября 2026. Stage 09 реализован и проверен 23 октября 2026; реальное SMTP подключение осталось внешней непроверенной интеграцией. Stage 10 полностью реализован и проверен 24 октября 2026. Stage 11 реализован и прошёл плановый backend-набор 24 октября 2026; review finding по scope МОЛ исправлен и покрыт integration-тестом; полный browser-level цикл закупки не запускался.
 
 | Этап | Статус | Проверки | Учебная пауза |
 |---|---|---|---|
@@ -14,8 +14,8 @@
 | 07 Имущество | Реализован и проверен | Python 215; golden replay 5 + affected replay 1; Vitest 273/5 skipped; Playwright 10/10; typecheck/changed-file ESLint; Docker builds и live/ready 200; parity | Закрыта командой пользователя перейти к Stage 08; exercise на две передачи не реализовано |
 | 08 Документы | Реализован; code/spec review clean; Docker integration gates пройдены | Python 279; Vitest 273 passed/5 skipped; focused fix 9/9; Playwright 11/11 + docs-only 1/1; typecheck/ESLint; host Webpack и app/backend Docker builds; readiness 200; authenticated BFF 200; cross-image volume smoke под uid 1001 | Реализация готова; ждёт разбора пользователя |
 | 09 Согласования/уведомления | Реализован и проверен | Python 13; PostgreSQL integration 9; Playwright 1; typecheck/ESLint; Vitest 6; Ruff/mypy | Учебная пауза впереди |
-| 10 Табель/финансы | В работе: timekeeping, finance plans/salary, project payroll, payroll month/adjustments и period переключены на Python; exports/payslips остаются TS | Scoped PG18 payroll service/race 4; payroll contracts 8; payroll BFF Vitest 4; Ruff/mypy changed backend scope | Впереди |
-| 11 Закупки | Не начат | Не запускались | Впереди |
+| 10 Табель/финансы | Реализован и проверен; acceptance пункты отмечены; HR master data для исторических расчётов остаются текущими по legacy-семантике | PostgreSQL 18.6 Stage10 acceptance 54; browser workflow 1; export, BFF, typecheck/ESLint, Ruff/mypy | Впереди |
+| 11 Закупки | Реализован и проверен; полный browser-level цикл закупки не запускался | PostgreSQL 18.6 procurement suite 13; procurement Vitest 6; typecheck; Ruff/mypy; independent code review scope issue fixed | Впереди |
 | 12 Отчёты/поиск/экспорт | Не начат | Не запускались | Впереди |
 | 13 Worker/observability | Не начат | Не запускались | Впереди |
 | 14 Alembic/auth/полное переключение | Не начат | Не запускались | Впереди |

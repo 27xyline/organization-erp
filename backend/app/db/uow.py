@@ -19,6 +19,7 @@ from app.domain.ports.finance import FinanceRepository
 from app.domain.ports.notifications import NotificationIntentPort
 from app.domain.ports.payroll_input_lock import PayrollInputLock
 from app.domain.ports.payroll_periods import PayrollPeriodRepository
+from app.domain.ports.procurement import ProcurementRepository
 from app.domain.ports.projects import ProjectRepository
 from app.domain.ports.smtp import SmtpSettingsPort
 from app.domain.ports.timekeeping import TimekeepingRepository
@@ -37,6 +38,7 @@ from app.repositories.finance import SqlAlchemyFinanceRepository
 from app.repositories.notifications import SqlAlchemyNotificationRepository
 from app.repositories.payroll_input_lock import SqlAlchemyPayrollInputLockRepository
 from app.repositories.payroll_periods import SqlAlchemyPayrollPeriodRepository
+from app.repositories.procurement import SqlAlchemyProcurementRepository
 from app.repositories.projects import SqlAlchemyProjectRepository
 from app.repositories.smtp_settings import SqlAlchemySmtpSettingsRepository
 from app.repositories.timekeeping import SqlAlchemyTimekeepingRepository
@@ -91,6 +93,9 @@ class SqlAlchemyUnitOfWork:
             self._active_session
         )
         self.finance: FinanceRepository = SqlAlchemyFinanceRepository(self._active_session)
+        self.procurement: ProcurementRepository = SqlAlchemyProcurementRepository(
+            self._active_session
+        )
         self.mols: MolRepository = SqlAlchemyMolRepository(self._active_session)
 
     async def __aenter__(self) -> SqlAlchemyUnitOfWork:

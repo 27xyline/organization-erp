@@ -15,6 +15,7 @@ from app.domain.ports.finance import FinanceRepository
 from app.domain.ports.notifications import NotificationIntentPort
 from app.domain.ports.payroll_input_lock import PayrollInputLock
 from app.domain.ports.payroll_periods import PayrollPeriodRepository
+from app.domain.ports.procurement import ProcurementRepository
 from app.domain.ports.projects import ProjectRepository
 from app.domain.ports.smtp import SmtpSettingsPort
 from app.domain.ports.timekeeping import TimekeepingRepository
@@ -22,6 +23,9 @@ from app.domain.ports.users import UserRepository
 
 
 class UnitOfWork(Protocol):
+    @property
+    def procurement(self) -> ProcurementRepository: ...
+
     @property
     def approvals(self) -> ApprovalRepository: ...
     @property

@@ -51,6 +51,16 @@ class ProcurementRequest(Base):
         "ApprovalRequest", foreign_keys="[ProcurementRequest.approvalRequestId]"
     )
     document: Mapped[Any] = relationship("Document", foreign_keys="[ProcurementRequest.documentId]")
+    items: Mapped[list[Any]] = relationship(
+        "ProcurementItem", back_populates="request", cascade="all, delete-orphan"
+    )
+    contract: Mapped[Any | None] = relationship(
+        "ProcurementContract", back_populates="request", uselist=False,
+        cascade="all, delete-orphan",
+    )
+    deliveries: Mapped[list[Any]] = relationship(
+        "ProcurementDelivery", back_populates="request", cascade="all, delete-orphan"
+    )
 
     id: Mapped[str] = mapped_column(Text(), nullable=False, default=new_cuid)
     number: Mapped[str] = mapped_column(Text(), nullable=False)
@@ -132,9 +142,12 @@ class ProcurementItem(Base):
         Index("procurement_items_groupId_idx", "groupId", unique=False),
     )
     request: Mapped[Any] = relationship(
-        "ProcurementRequest", foreign_keys="[ProcurementItem.requestId]"
+        "ProcurementRequest", foreign_keys="[ProcurementItem.requestId]", back_populates="items"
     )
     group: Mapped[Any] = relationship("AssetGroup", foreign_keys="[ProcurementItem.groupId]")
+    deliveryItems: Mapped[list[Any]] = relationship(
+        "ProcurementDeliveryItem", back_populates="procurementItem"
+    )
 
     id: Mapped[str] = mapped_column(Text(), nullable=False, default=new_cuid)
     requestId: Mapped[str] = mapped_column(
@@ -187,7 +200,9 @@ class ProcurementContract(Base):
         Index("procurement_contracts_documentId_idx", "documentId", unique=False),
     )
     request: Mapped[Any] = relationship(
-        "ProcurementRequest", foreign_keys="[ProcurementContract.requestId]"
+        "ProcurementRequest",
+        foreign_keys="[ProcurementContract.requestId]",
+        back_populates="contract",
     )
     supplier: Mapped[Any] = relationship(
         "Supplier", foreign_keys="[ProcurementContract.supplierId]"
@@ -258,13 +273,18 @@ class ProcurementDelivery(Base):
         Index("procurement_deliveries_documentId_idx", "documentId", unique=False),
     )
     request: Mapped[Any] = relationship(
-        "ProcurementRequest", foreign_keys="[ProcurementDelivery.requestId]"
+        "ProcurementRequest",
+        foreign_keys="[ProcurementDelivery.requestId]",
+        back_populates="deliveries",
     )
     contract: Mapped[Any] = relationship(
         "ProcurementContract", foreign_keys="[ProcurementDelivery.contractId]"
     )
     document: Mapped[Any] = relationship(
         "Document", foreign_keys="[ProcurementDelivery.documentId]"
+    )
+    items: Mapped[list[Any]] = relationship(
+        "ProcurementDeliveryItem", back_populates="delivery", cascade="all, delete-orphan"
     )
 
     id: Mapped[str] = mapped_column(Text(), nullable=False, default=new_cuid)
@@ -331,10 +351,12 @@ class ProcurementDeliveryItem(Base):
         ),
     )
     delivery: Mapped[Any] = relationship(
-        "ProcurementDelivery", foreign_keys="[ProcurementDeliveryItem.deliveryId]"
+        "ProcurementDelivery", foreign_keys="[ProcurementDeliveryItem.deliveryId]",
+        back_populates="items",
     )
     procurementItem: Mapped[Any] = relationship(
-        "ProcurementItem", foreign_keys="[ProcurementDeliveryItem.procurementItemId]"
+        "ProcurementItem", foreign_keys="[ProcurementDeliveryItem.procurementItemId]",
+        back_populates="deliveryItems",
     )
     asset: Mapped[Any] = relationship("Asset", foreign_keys="[ProcurementDeliveryItem.assetId]")
 
