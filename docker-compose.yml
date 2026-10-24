@@ -71,8 +71,9 @@ services:
       BACKEND_INTERNAL_AUTH_SECRET: ${BACKEND_INTERNAL_AUTH_SECRET:-}
       DOCUMENT_STORAGE_ROOT: /var/lib/project1/documents
       DOCUMENT_MAX_FILE_SIZE_BYTES: ${DOCUMENT_MAX_FILE_SIZE_BYTES:-26214400}
-      BACKEND_OTEL_ENABLED: ${BACKEND_OTEL_ENABLED:-false}
+      BACKEND_OTEL_ENABLED: ${BACKEND_OTEL_ENABLED:-true}
       BACKEND_OTEL_EXPORTER_OTLP_ENDPOINT: ${BACKEND_OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      BACKEND_SERVICE_NAME: organization-erp-backend
     networks:
       - default
       - observability_ingest
@@ -81,22 +82,36 @@ services:
         condition: service_healthy
     volumes:
       - project1_document_data:/var/lib/project1/documents
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/api/health/ready', timeout=2).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 
   worker:
     build:
-      context: .
-      target: worker
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["python", "-m", "app.tasks.notifications"]
     restart: unless-stopped
+    stop_grace_period: 90s
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-project1}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-project1}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
-      OTEL_SERVICE_NAME: erp-notification-worker
+      BACKEND_DATABASE_URL: ${BACKEND_DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-project1}:${POSTGRES_PASSWORD}@postgres:5432/erp_migration_20261007}
+      BACKEND_ENVIRONMENT: ${BACKEND_ENVIRONMENT:-development}
+      BACKEND_OTEL_ENABLED: ${BACKEND_OTEL_ENABLED:-true}
+      BACKEND_OTEL_EXPORTER_OTLP_ENDPOINT: ${BACKEND_OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      BACKEND_SERVICE_NAME: organization-erp-notification-worker
     networks:
       - default
       - observability_ingest
     depends_on:
-      migrate:
-        condition: service_completed_successfully
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0 if b'app.tasks.notifications' in open('/proc/1/cmdline', 'rb').read() else 1)"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.123.0

@@ -1,4 +1,19 @@
 groups:
+  - name: erp-http
+    rules:
+      - alert: ErpBackendHighHttpErrorRate
+        expr: |
+          sum(rate(erp_http_requests_total{http_response_status_code=~"5.."}[5m])) > 0.1
+          and
+          sum(rate(erp_http_requests_total{http_response_status_code=~"5.."}[5m]))
+            / clamp_min(sum(rate(erp_http_requests_total[5m])), 0.001) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Повысилась доля HTTP ошибок ERP
+          description: Более пяти процентов запросов завершались ответом 5xx в течение пяти минут.
+
   - name: erp-notifications
     rules:
       - alert: ErpNotificationWorkerUnavailable
@@ -36,6 +51,14 @@ groups:
         annotations:
           summary: Генерация уведомлений пропустила запуск
           description: Последний успешный запуск был более 90 минут назад либо ещё не зарегистрирован.
+
+      - alert: ErpNotificationGenerationFailed
+        expr: increase(erp_notification_generation_failures_total[15m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: Не удалось сгенерировать плановые уведомления
+          description: Worker сообщил об ошибке генерации уведомлений за последние 15 минут.
 
       - alert: ErpNotificationDeliveryFailed
         expr: erp_notification_outbox_terminal_failed > 0

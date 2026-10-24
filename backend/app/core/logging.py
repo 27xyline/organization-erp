@@ -9,14 +9,19 @@ from typing import Any
 
 class JsonFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
+        if record.exc_info and record.exc_info[0] is not None:
+            message = "exception"
+        else:
+            message = record.getMessage()
         entry: dict[str, Any] = {
             "timestamp": datetime.fromtimestamp(record.created, UTC).isoformat(),
             "level": record.levelname.lower(),
             "logger": record.name,
-            "message": record.getMessage(),
+            "message": message,
         }
         if record.exc_info:
-            entry["exception"] = self.formatException(record.exc_info)
+            exception = record.exc_info[1]
+            entry["exception_type"] = type(exception).__name__ if exception else "unknown"
         return json.dumps(entry, ensure_ascii=False, separators=(",", ":"))
 
 

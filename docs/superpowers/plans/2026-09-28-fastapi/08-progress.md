@@ -16,8 +16,8 @@
 | 09 Согласования/уведомления | Реализован и проверен | Python 13; PostgreSQL integration 9; Playwright 1; typecheck/ESLint; Vitest 6; Ruff/mypy | Учебная пауза впереди |
 | 10 Табель/финансы | Реализован и проверен; acceptance пункты отмечены; HR master data для исторических расчётов остаются текущими по legacy-семантике | PostgreSQL 18.6 Stage10 acceptance 54; browser workflow 1; export, BFF, typecheck/ESLint, Ruff/mypy | Впереди |
 | 11 Закупки | Реализован и проверен; полный browser-level цикл закупки не запускался | PostgreSQL 18.6 procurement suite 13; procurement Vitest 6; typecheck; Ruff/mypy; independent code review scope issue fixed | Впереди |
-| 12 Отчёты/поиск/экспорт | Не начат | Не запускались | Впереди |
-| 13 Worker/observability | Не начат | Не запускались | Впереди |
+| 12 Отчёты/поиск/экспорт | Реализован и принят на изолированной БД | Backend `21 passed`; CLI `4 passed`; idempotent seed + verify; Playwright `1 passed`; Ruff/mypy/typecheck/ESLint | Впереди |
+| 13 Worker/observability | Реализован и проверен изолированно; production cutover и повтор baseline не выполнялись | Python `30 passed`; Ruff/format/mypy; PostgreSQL 18.6 outbox concurrency + crash/restart; local SMTP; Compose build; live metrics в Grafana; Collector outage; Prometheus alerts `2 passed` | Код готов к ревью; TS→Python cutover не выполнялся |
 | 14 Alembic/auth/полное переключение | Не начат | Не запускались | Впереди |
 
 ## Запись Stage 08 — 23 октября 2026
@@ -143,3 +143,11 @@ Rollback, который действительно проверен:
 - Проверенные DB targets только `erp_stage09_test` и `erp_stage09_e2e`, копии read-only template `erp_migration_20261007`; после очистки Stage09 test fixtures и E2E workflow rows не осталось. `project1`/Stage08 DB не использовались; migrations и реальные SMTP/email не запускались.
 - Пост-аудитный architecture follow-up: запрещённые infrastructure imports удалены из Stage09 services, SMTP settings подключены через domain port/repository/UoW, сохранение секрета и out-of-transaction probe закреплены. Architecture + SMTP/approval unit tests — `11 passed`; Ruff прошёл; общий mypy backend — `160 source files, no issues`. PostgreSQL integrations после рефакторинга не повторялись: isolated Stage09 DB URL не был задан.
 - Отчёт и полный список путей/команд/ограничений — [stage09-report.md](../../../.superpowers/sdd/03-workflows-and-reports/stage09-report.md). `next-env.d.ts` оставлен user-owned и исключён из commits. Этапы 10 и 13 не начинались.
+
+## Этап 13 — 24 октября 2026
+
+- Notification outbox и scheduled alerts перенесены в Python worker: `FOR UPDATE SKIP LOCKED`, claim leases/retry/reclaim, PostgreSQL advisory lock, async SMTP, независимые jobs и graceful shutdown. HTTP/SQL/worker metrics и traces подключены к существующему Collector/Prometheus/Grafana.
+- Финальный целевой набор — `30 passed`; Ruff check/format и mypy по 246 модулям прошли. Backend/worker images собраны; isolated smoke показал live HTTP/SQL/worker metrics в Grafana и доступность API/worker при выключенном Collector. Проверки не отправляли реальные письма.
+- Cutover TS→Python не выполнялся. Compose migration dependency не связывал с текущим `migrate`, потому что он целится в `project1`, а backend/worker используют подготовленную копию `erp_migration_20261007`.
+- Worker Compose service получил `stop_grace_period: 90s`, чтобы покрыть 65-секундный SMTP timeout и завершение in-flight jobs при штатном SIGTERM. Stage12 baseline не повторён; доступность исходной БД/датасета в этой проверке не установлена, а пустая Stage13 DB несопоставима.
+- Полные команды, изоляция, результаты и незакрытые gates — [Stage 13 validation](../../../backend-migration/stage13-validation.md). Stage 14 не начат; пользовательский `next-env.d.ts` исключён из коммита.

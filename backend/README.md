@@ -14,8 +14,8 @@ The backend reads these environment variables:
 | `BACKEND_INTERNAL_AUTH_SECRET` | Separate private bearer secret used only by Next.js for the internal credential-auth endpoint; at least 32 bytes. |
 | `BACKEND_BASE_URL` | Next.js server-side address for the backend, usually `http://backend:8000` in Compose and `http://127.0.0.1:8000` for host tests. |
 | `BACKEND_ENVIRONMENT` | Runtime environment; use `production` to disable the interactive API documentation pages. |
-| `BACKEND_OTEL_ENABLED` | Enables OpenTelemetry export when set to `true`. |
-| `BACKEND_OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP HTTP endpoint; defaults to the Compose collector address. |
+| `BACKEND_OTEL_ENABLED` | Enables OpenTelemetry traces and metrics; Compose defaults to `true`. |
+| `BACKEND_OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP HTTP base endpoint for traces and metrics; defaults to the Compose collector address. |
 
 Keep the backend URLs pointed at the isolated migration/test databases. Do not point them at the original `project1` database. For direct host execution, use `127.0.0.1` and the published PostgreSQL port; inside Compose, use the `postgres` service name.
 

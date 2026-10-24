@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
 import smtplib
 import ssl
 from email.message import EmailMessage
 
+from aiosmtplib import SMTP
+from opentelemetry.trace import Tracer
+
+from app.core.tracing import trace_async_operation
 from app.domain.ports.smtp import SmtpCredentials
 
 
@@ -26,6 +31,44 @@ def send_smtp(settings: SmtpCredentials, to: str, subject: str, body: str) -> No
         message["Subject"] = subject
         message.set_content(body)
         client.send_message(message)
+
+
+async def send_smtp_async(
+    settings: SmtpCredentials,
+    to: str,
+    subject: str,
+    body: str,
+    tracer: Tracer | None = None,
+) -> None:
+    """Send without blocking the event loop; cancellation closes the active socket."""
+    if tracer is None:
+        await _send_smtp_async(settings, to, subject, body)
+    else:
+        async with trace_async_operation(tracer, "smtp.send"):
+            await _send_smtp_async(settings, to, subject, body)
+
+
+async def _send_smtp_async(settings: SmtpCredentials, to: str, subject: str, body: str) -> None:
+    message = EmailMessage()
+    message["From"] = settings.from_email
+    message["To"] = to
+    message["Subject"] = subject
+    message.set_content(body)
+    client = SMTP(
+        hostname=settings.host,
+        port=settings.port,
+        username=settings.username or None,
+        password=settings.password or None,
+        timeout=60,
+        use_tls=settings.secure,
+    )
+    try:
+        async with asyncio.timeout(30):
+            await client.connect(timeout=30)
+        async with asyncio.timeout(65):
+            await client.send_message(message, timeout=60)
+    finally:
+        client.close()
 
 
 def _client(settings: SmtpCredentials, timeout: int) -> smtplib.SMTP:

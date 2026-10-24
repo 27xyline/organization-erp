@@ -26,6 +26,16 @@ Collector удаляет все события span, включая текст �
 маршрутов вместо полных URL и не должно добавлять персональные данные в
 названия метрик или значение `http.route`.
 
+Python API и worker отправляют traces и метрики OTLP по адресу
+`BACKEND_OTEL_EXPORTER_OTLP_ENDPOINT` (по умолчанию — `http://otel-collector:4318`).
+В Compose экспорт включён по умолчанию, но запуск Collector остаётся необязательным:
+ошибка экспорта ограничена таймаутом и не влияет на readiness и обработку писем.
+HTTP и SQL длительности публикуются в секундах (`erp_http_request_duration_seconds`,
+`erp_db_query_duration_seconds`, `erp_db_pool_wait_seconds`); worker сохраняет
+совместимые имена метрик outbox и heartbeat, используемые dashboard и alert rules.
+SQL spans содержат только PostgreSQL, тип операции и технические HTTP атрибуты —
+SQL-текст и bind-параметры не экспортируются.
+
 Проверка конфигурации:
 
 ```sh

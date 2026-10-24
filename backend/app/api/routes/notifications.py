@@ -9,6 +9,9 @@ from pydantic import ValidationError
 
 from app.api.dependencies import get_authenticated_context
 from app.core.context import RequestContext
+from app.core.tracing import trace_async_operation
+from app.domain.errors import DomainError
+from app.integrations.outbox_email import SmtpOutboxSender
 from app.schemas.notifications import (
     NotificationPreferencesInput,
     NotificationQueryInput,
@@ -16,7 +19,9 @@ from app.schemas.notifications import (
 )
 from app.services.dto.notifications import NotificationQuery
 from app.services.notifications import NotificationService
-from app.services.users import json_value
+from app.services.outbox import process_outbox
+from app.services.scheduled_alerts import ScheduledAlertContext, run_scheduled_alerts
+from app.services.users import authorize, json_value
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 Context = Annotated[RequestContext, Depends(get_authenticated_context)]
@@ -138,3 +143,43 @@ async def set_read(identifier: str, request: Request, context: Context, service:
 async def delete(identifier: str, context: Context, service: Service) -> Any:
     await service.delete(identifier, context)
     return {"data": {"id": identifier, "deleted": True}}
+
+
+@router.post("/smtp/process")
+async def process_smtp(request: Request, context: Context) -> Any:
+    if context.actor is None:
+        raise DomainError("UNAUTHENTICATED", "Требуется вход в систему", 401)
+    authorize(context.actor, "access.users.update")
+    async with trace_async_operation(request.app.state.tracer, "service.outbox.process"):
+        sender = SmtpOutboxSender(
+            request.app.state.session_factory,
+            request.app.state.tracer,
+            request.app.state.database_metric_instruments,
+        )
+        if await sender.settings() is None:
+            return {"data": {"sent": 0, "failed": 0, "skipped": 0}}
+        result = await process_outbox(sender, request.app.state.unit_of_work_factory)
+    return {"data": {"sent": result.sent, "failed": result.failed, "skipped": result.skipped}}
+
+
+@router.post("/generate-alerts")
+async def generate_alerts(request: Request, context: Context) -> Any:
+    if context.actor is None:
+        raise DomainError("UNAUTHENTICATED", "Требуется вход в систему", 401)
+    authorize(context.actor, "access.users.update")
+    generation_context = ScheduledAlertContext(
+        request=context,
+        engine=request.app.state.engine,
+        uow_factory=request.app.state.unit_of_work_factory,
+        session_factory=request.app.state.session_factory,
+    )
+    async with trace_async_operation(request.app.state.tracer, "service.scheduled_alerts.generate"):
+        result = await run_scheduled_alerts(generation_context, force=True)
+    return {
+        "data": {
+            "ran": result.ran,
+            "generated": result.generated,
+            "emailQueued": result.email_queued,
+            "sources": result.sources or {},
+        }
+    }

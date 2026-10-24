@@ -8,6 +8,7 @@ from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.context import Actor, RequestContext
+from app.core.metrics import DatabaseMetricInstruments, acquire_session_connection
 from app.domain.errors import DomainError
 from app.integrations.asset_import import OpenpyxlAssetWorkbook
 from app.integrations.asset_qr import render_asset_qr
@@ -76,6 +77,9 @@ async def get_authenticated_context(
 
 async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
     async with request.app.state.session_factory() as session:
+        instruments = getattr(request.app.state, "database_metric_instruments", None)
+        if isinstance(instruments, DatabaseMetricInstruments):
+            await acquire_session_connection(session, instruments)
         yield session
 
 
