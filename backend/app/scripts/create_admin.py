@@ -10,6 +10,9 @@ from app.db.uow import create_unit_of_work_factory
 from app.integrations.password_hash import Argon2PasswordHasher
 from app.services.users import UserService
 
+ADMIN_USERNAME = "admin"
+ADMIN_NAME = ADMIN_USERNAME
+
 
 async def _run() -> None:
     settings = Settings()
@@ -18,14 +21,10 @@ async def _run() -> None:
         service = UserService(
             create_unit_of_work_factory(create_session_factory(engine)), Argon2PasswordHasher()
         )
-        username = (await asyncio.to_thread(input, "Логин администратора: ")).strip()
-        name = (await asyncio.to_thread(input, "Имя администратора: ")).strip()
-        password = await asyncio.to_thread(
-            getpass.getpass, "Временный пароль (минимум 12 символов): "
-        )
-        identifier = await service.create_initial_admin(username, name, password)
-        print(f"Администратор {username} создан (id={identifier}).")
-        print("Смените временный пароль после входа.")
+        password = await asyncio.to_thread(getpass.getpass, "Пароль администратора: ")
+        identifier = await service.create_initial_admin(ADMIN_USERNAME, ADMIN_NAME, password)
+        print(f"Администратор {ADMIN_USERNAME} создан (id={identifier}).")
+        print("Логин и имя: admin. Пароль постоянный, смена при первом входе не требуется.")
     finally:
         await engine.dispose()
 

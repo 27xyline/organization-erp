@@ -103,8 +103,8 @@ class UserService:
             raise DomainError("INVALID_USERNAME", "Проверьте логин администратора", 422)
         if not 2 <= len(name) <= 200:
             raise DomainError("INVALID_NAME", "Имя должно содержать от 2 до 200 символов", 422)
-        if not 12 <= len(password) <= 512:
-            raise DomainError("WEAK_PASSWORD", "Пароль должен содержать от 12 до 512 символов", 422)
+        if not 1 <= len(password) <= 512:
+            raise DomainError("WEAK_PASSWORD", "Пароль должен содержать от 1 до 512 символов", 422)
         password_hash = await self._passwords.hash(password)
         async with self._uow_factory() as uow:
             await uow.users.lock_admin_changes()
@@ -125,7 +125,7 @@ class UserService:
                     "name": name,
                     "role": "ADMIN",
                     "passwordHash": password_hash,
-                    "mustChangePassword": True,
+                    "mustChangePassword": False,
                 },
                 assignments,
             )
