@@ -12,7 +12,7 @@ export const employeeSchema = z.object({
   photo: z.string().optional().nullable(),
   contractType: contractTypeSchema.optional().default('PRIMARY'),
   contractSignedDate: z.coerce.date({
-    errorMap: () => ({ message: 'Некорректная дата подписания договора' })
+    error: 'Некорректная дата подписания договора'
   }),
   contractEndDate: z.preprocess((val) => (val === '' || val === null ? undefined : val), z.coerce.date().optional()),
   contractNumber: z.string().min(1, 'Номер договора обязателен').max(100),
@@ -26,6 +26,8 @@ export const createEmployeeSchema = employeeSchema.extend({
 })
 
 export const updateEmployeeSchema = employeeSchema.partial().extend({
+  contractType: contractTypeSchema.optional(),
+  status: employeeStatusSchema.optional(),
   // При обновлении некоторые поля могут оставаться обязательными или иметь особые ограничения
   id: z.string().optional(),
 })

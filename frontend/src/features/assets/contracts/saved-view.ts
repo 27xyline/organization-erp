@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 export const assetSavedViewFiltersSchema = z.object({
-  search: z.string().trim().max(200).optional().transform((value) => value || undefined),
+  search: z.string().trim().max(200).transform((value) => value || undefined).optional(),
   molId: z.string().trim().min(1).max(128).optional(),
   groupId: z.string().trim().min(1).max(128).optional(),
   status: z.enum([

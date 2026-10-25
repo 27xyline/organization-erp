@@ -6,7 +6,7 @@ const booleanQuery = z.enum(['true', 'false']).transform((value) => value === 't
 export const notificationsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  unreadOnly: booleanQuery.default('false'),
+  unreadOnly: booleanQuery.prefault('false'),
 })
 
 export const notificationStateSchema = z.object({

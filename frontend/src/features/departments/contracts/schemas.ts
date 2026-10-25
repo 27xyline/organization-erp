@@ -30,7 +30,7 @@ export const updateDepartmentSchema = z.object({
 })
 
 export const departmentsQuerySchema = z.object({
-  activeOnly: z.enum(['true', 'false']).transform((value) => value === 'true').default('false'),
+  activeOnly: z.enum(['true', 'false']).transform((value) => value === 'true').prefault('false'),
 })
 
 export type CreateDepartmentInput = z.infer<typeof createDepartmentSchema>

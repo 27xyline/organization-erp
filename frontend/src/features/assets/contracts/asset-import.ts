@@ -40,7 +40,7 @@ const importAssetSchema = createAssetSchema
       context.addIssue({ code: 'custom', path: ['unitPrice'], message: 'Итоговая стоимость превышает допустимый предел' })
     }
   })
-  .transform((input) => ({
+  .transform((input): z.input<typeof createAssetSchema> => ({
     ...input,
     inventoryNumber: input.inventoryNumber.trim(),
     name: input.name.trim(),

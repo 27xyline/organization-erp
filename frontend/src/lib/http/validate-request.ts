@@ -11,7 +11,7 @@ export function validateRequest<TSchema extends z.ZodTypeAny>(schema: TSchema, d
   if (result.success) {
     return { success: true, data: result.data }
   }
-  const firstError = result.error.errors[0]
+  const firstError = result.error.issues[0]
   return {
     success: false,
     error: firstError?.message || 'Ошибка валидации данных',

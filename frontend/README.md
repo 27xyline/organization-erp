@@ -38,7 +38,13 @@ npm run lint
 npm run typecheck
 npm test
 npm run build
+npm audit --audit-level=high
 ```
+
+CI проверяет зависимости приложения и инструменты разработки. В `package.json` закреплены
+исправленные транзитивные версии `deepmerge-ts` для Prisma и `postcss-selector-parser`
+для Tailwind/PostCSS через `overrides`. После обновления Prisma или Tailwind проверьте,
+нужны ли ещё эти переопределения; совместимость проверяется сборкой и E2E-тестами.
 
 ## Браузерные тесты
 

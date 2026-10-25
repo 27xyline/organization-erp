@@ -52,7 +52,7 @@ export const generateDocumentSchema = z.object({
   projectId: optionalId,
   employeeId: optionalId,
   assetId: optionalId,
-  format: z.enum(['docx', 'pdf']).default('docx').optional(),
+  format: z.enum(['docx', 'pdf']).optional(),
 })
 
 export const documentsQuerySchema = z.object({
@@ -67,7 +67,7 @@ export const documentsQuerySchema = z.object({
   archived: z
     .enum(['true', 'false'])
     .transform((value) => value === 'true')
-    .default('false'),
+    .prefault('false'),
 })
 
 export type CreateDocumentMetadata = z.infer<typeof createDocumentMetadataSchema>

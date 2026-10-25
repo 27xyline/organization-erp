@@ -89,7 +89,7 @@ export const assetsQuerySchema = z.object({
   accountingForm: z.enum(['145', '367']).optional(),
   dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-  archived: z.enum(['true', 'false']).transform((value) => value === 'true').default('false'),
+  archived: z.enum(['true', 'false']).transform((value) => value === 'true').prefault('false'),
 }).refine((value) => !value.dateFrom || !value.dateTo || value.dateFrom <= value.dateTo, {
   path: ['dateTo'],
   message: 'Дата окончания должна быть не раньше даты начала',

@@ -36,6 +36,9 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - working-directory: frontend
         run: npm ci
+      - name: Audit frontend dependencies
+        working-directory: frontend
+        run: npm audit --audit-level=high
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
@@ -69,7 +72,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://organization_erp_ci:organization_erp_ci_password@127.0.0.1:5432/organization_erp_test
         run: |
-          createdb --template=organization_erp_test organization_erp_e2e
+          createdb --maintenance-db="$DATABASE_URL" --template=organization_erp_test organization_erp_e2e
           psql postgresql://organization_erp_ci:organization_erp_ci_password@127.0.0.1:5432/organization_erp_e2e -v ON_ERROR_STOP=1 <<'SQL'
           DO $$
           DECLARE all_tables text;
@@ -91,8 +94,6 @@ jobs:
           BACKEND_CSRF_SECRET: ci-only-e2e-csrf-secret-with-at-least-thirty-two-characters
           BACKEND_PUBLIC_ORIGIN: http://localhost:3001
         run: npm run test:e2e
-      - working-directory: frontend
-        run: npm audit --omit=dev --omit=optional --audit-level=high
 
   backend-verify:
     runs-on: ubuntu-latest

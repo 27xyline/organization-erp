@@ -1,17 +1,17 @@
 import { z } from 'zod'
 
-const optionalDate = z.union([z.string(), z.null(), z.undefined()]).transform((value) => {
+const optionalDate = z.string().nullable().transform((value) => {
   if (!value) return null
 
   const normalized = value.trim()
   return normalized.length > 0 ? normalized : null
 })
 
-const employeeIdsSchema = z.array(z.string().min(1)).optional().default([]).transform((value) => {
+const employeeIdsSchema = z.array(z.string().min(1)).transform((value) => {
   return Array.from(new Set(value))
 })
 
-const predecessorIdsSchema = z.array(z.string().min(1)).max(50).optional().default([])
+const predecessorIdsSchema = z.array(z.string().min(1)).max(50)
   .transform((value) => Array.from(new Set(value)))
 
 const checklistSchema = z.array(z.object({
@@ -27,13 +27,13 @@ export const createTaskSchema = z.object({
   isMilestone: z.boolean().optional().default(false),
   level: z.coerce.number().int().min(1).max(3).optional().default(1),
   parentId: z.string().min(1).optional().nullable(),
-  startDate: optionalDate,
-  endDate: optionalDate,
+  startDate: optionalDate.default(null),
+  endDate: optionalDate.default(null),
   duration: z.coerce.number().int().min(0).optional().nullable(),
   progress: z.coerce.number().int().min(0).max(100).optional().default(0),
   status: z.enum(['NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'DELAYED']).optional().default('NOT_STARTED'),
-  employeeIds: employeeIdsSchema,
-  predecessorIds: predecessorIdsSchema,
+  employeeIds: employeeIdsSchema.prefault([]),
+  predecessorIds: predecessorIdsSchema.prefault([]),
   checklist: checklistSchema.optional().default([]),
 })
 

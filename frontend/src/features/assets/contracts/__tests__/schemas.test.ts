@@ -33,7 +33,7 @@ describe('Zod Validations', () => {
       const result = createMolSchema.safeParse(invalidMol)
       expect(result.success).toBe(false)
       if (!result.success) {
-        expect(result.error.errors[0].message).toBe('Required')
+        expect(result.error.issues[0]).toMatchObject({ code: 'invalid_type', path: ['code'] })
       }
     })
 
@@ -106,7 +106,7 @@ describe('Zod Validations', () => {
       const result = createAssetSchema.safeParse(invalidAsset)
       expect(result.success).toBe(false)
       if (!result.success) {
-        expect(result.error.errors[0].message).toBe('Цена должна быть больше нуля')
+        expect(result.error.issues[0].message).toBe('Цена должна быть больше нуля')
       }
     })
   })

@@ -198,20 +198,51 @@ def test_demo_seed_has_department_employee_project_task_assignment_chain() -> No
     [
         Settings(
             environment="production",
-            database_url="postgresql+asyncpg://localhost:5432/erp_procurement_test",
+            database_url="postgresql+asyncpg://localhost:5432/organization_erp_dev",
         ),
-        Settings(database_url="postgresql+asyncpg://localhost:5432/organization_erp"),
-        Settings(database_url="postgresql+asyncpg://db.example:5432/erp_procurement_test"),
+        Settings(
+            environment="development",
+            database_url="postgresql+asyncpg://localhost:5432/organization_erp",
+        ),
+        Settings(
+            environment="development",
+            database_url="postgresql+asyncpg://db.example:5432/organization_erp_dev",
+        ),
     ],
 )
 def test_seed_target_guard_rejects_production_working_and_remote_targets(
     settings: Settings,
 ) -> None:
     with pytest.raises(RuntimeError):
+        require_safe_seed_target(settings, allow_local_demo_database=True)
+
+
+def test_seed_target_guard_accepts_the_explicit_local_demo_database() -> None:
+    settings = Settings(
+        environment="development",
+        database_url="postgresql+asyncpg://localhost:5432/organization_erp_dev",
+    )
+
+    assert (
+        require_safe_seed_target(settings, allow_local_demo_database=True) == "organization_erp_dev"
+    )
+
+
+def test_seed_target_guard_requires_explicit_local_demo_opt_in() -> None:
+    settings = Settings(
+        environment="development",
+        database_url="postgresql+asyncpg://localhost:5432/organization_erp_dev",
+    )
+
+    with pytest.raises(RuntimeError, match="--allow-local-demo-db"):
         require_safe_seed_target(settings)
 
 
-def test_seed_target_guard_accepts_an_isolated_local_training_database() -> None:
-    settings = Settings(database_url="postgresql+asyncpg://localhost:5432/erp_training_local")
+def test_seed_target_guard_rejects_test_environment_even_with_opt_in() -> None:
+    settings = Settings(
+        environment="test",
+        database_url="postgresql+asyncpg://localhost:5432/organization_erp_dev",
+    )
 
-    assert require_safe_seed_target(settings) == "erp_training_local"
+    with pytest.raises(RuntimeError, match="development"):
+        require_safe_seed_target(settings, allow_local_demo_database=True)
