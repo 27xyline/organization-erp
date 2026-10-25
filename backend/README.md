@@ -1,76 +1,203 @@
-# Бэкенд FastAPI
+# Backend
 
-FastAPI управляет сессиями, авторизацией, бизнес-правилами, доступом к PostgreSQL,
-документами и уведомлениями. Next.js обслуживает интерфейс и BFF с тем же источником.
-Alembic — единственный действующий инструмент управления миграциями схемы.
+Python-сервис ERP на FastAPI. Он владеет API, сессиями, авторизацией, бизнес-правилами и доступом к PostgreSQL. Next.js отвечает за интерфейс и передаёт запросы браузера в API.
 
-## Локальная настройка
+## Стек
 
-Корневой `.env.example` используется и Compose, и командами Python на хосте.
+- Python 3.13 (проект поддерживает Python `>=3.13,<3.15`).
+- FastAPI и Uvicorn.
+- SQLAlchemy 2 с async-драйвером `asyncpg`.
+- Alembic для миграций PostgreSQL.
+- Pydantic 2 и `pydantic-settings` для схем и настроек.
+- PostgreSQL 18.6 в Docker Compose.
+- `uv` и `uv.lock` для управления Python и зависимостями.
+- Асинхронный код на `async`/`await`.
 
-| Переменная | Назначение |
-| --- | --- |
-| `BACKEND_DATABASE_URL` | Команды Python CLI и тесты на хосте; асинхронный URL SQLAlchemy. На macOS используйте `localhost` и опубликованный порт среды разработки. |
-| `BACKEND_TEST_DATABASE_URL` | Отдельная база данных для интеграционных тестов. |
-| `BACKEND_CSRF_SECRET` | Ключ подписи CSRF для схемы двойной отправки токена, используемый только Python; не менее 32 байт. |
-| `BACKEND_PUBLIC_ORIGIN` | Видимый браузеру источник, используемый в проверках CSRF, а не внутренний URL Compose. |
-| `BACKEND_ENVIRONMENT` | Установите `production`, чтобы отключить интерактивную документацию API. |
-| `DOCUMENT_STORAGE_ROOT` | Общий каталог документов для бэкенда и обработчика Python. |
-| `BACKEND_OTEL_ENABLED` | Включает необязательные трассировки и метрики Python. |
+## Структура проекта
 
-Создайте локальный секрет CSRF командой `openssl rand -hex 32`; не добавляйте его в коммиты.
-Сервисы Compose получают URL базы данных из `POSTGRES_*`. Для команд на хосте
-`BACKEND_DATABASE_URL` использует `localhost` и порт, опубликованный в
-`docker-compose.dev.yml`.
+```text
+backend/
+├── app/
+│   ├── api/
+│   │   └── routes/      # маршруты FastAPI
+│   ├── core/            # настройки, логирование, безопасность, метрики
+│   ├── db/              # SQLAlchemy, сессии и Unit of Work
+│   ├── domain/          # доменные правила и порты
+│   ├── integrations/    # почта, документы и внешние адаптеры
+│   ├── models/          # ORM-модели
+│   ├── repositories/    # чтение и запись данных
+│   ├── schemas/         # Pydantic-схемы API
+│   ├── scripts/         # команды администрирования и проверки данных
+│   ├── services/        # прикладные сценарии
+│   └── tasks/           # фоновые задачи
+├── migrations/
+│   ├── env.py
+│   └── versions/        # версии миграций Alembic
+├── tests/
+│   ├── architecture/
+│   ├── contracts/
+│   ├── integration/
+│   └── unit/
+├── .python-version
+├── alembic.ini
+├── Dockerfile
+├── pyproject.toml
+├── uv.lock
+└── README.md
+```
 
-## Локальный запуск
+Настройки для локального запуска находятся в [корневом `.env.example`](../.env.example).
 
-Из корня репозитория:
+## Реализованные модули
+
+- Аутентификация, сессии, пользователи и профиль текущего пользователя.
+- Подразделения, сотрудники, штатное расписание и отпуска.
+- Каталоги, имущество, инвентаризация, импорт и экспорт.
+- Проекты и задачи.
+- Заявки и согласования, закупки и договоры.
+- Финансы, зарплаты и кадровые действия.
+- Документы, отчёты и поиск.
+- Уведомления и настройки SMTP.
+
+## Зависимости
+
+Нужны `uv` и Python 3.13. Команды выполняются из `backend/`:
+
+```sh
+uv python install 3.13
+uv sync --frozen
+```
+
+`uv sync --frozen` создаёт виртуальное окружение и устанавливает зависимости приложения и группы разработки из `uv.lock`, не обновляя lock-файл.
+
+## Локальный запуск в Docker Compose
+
+Из корня репозитория подготовьте настройки и задайте свой CSRF-секрет:
+
+```sh
+cp .env.example .env
+openssl rand -hex 32
+```
+
+Вставьте полученное значение в `BACKEND_CSRF_SECRET` в `.env`. Затем запустите приложение:
 
 ```sh
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
 ```
 
-Задача миграции выполняет `alembic upgrade head` и проверяет схему перед запуском
-сервисов приложения. Внутри Compose Next.js использует `http://backend:8000`.
-Для запуска фронтенда на хосте скопируйте `frontend/.env.example` в
-`frontend/.env.local` и выполните `npm ci` / `npm run dev` из `frontend/`.
+Compose запускает:
 
-API бэкенда предоставляет `/api/health/live`, `/api/health/ready` и `/openapi.json`.
-Вне рабочей среды также доступны `/docs` и `/redoc`.
+- `postgres` — PostgreSQL 18.6;
+- `migrate` — выполняет `alembic upgrade head` и проверяет схему;
+- `backend` — FastAPI;
+- `worker` — обработчик фоновых уведомлений;
+- `app` — интерфейс Next.js.
 
-Для запуска API на хосте, из `backend/`:
+Веб-интерфейс доступен на [http://localhost:3001](http://localhost:3001), API — на [http://localhost:8000](http://localhost:8000). Документация API в режиме разработки: [http://localhost:8000/docs](http://localhost:8000/docs). В рабочем режиме `/docs` и `/redoc` отключены.
+
+Первого администратора создайте вручную: готовых учётных данных и страницы SQLAdmin в проекте нет.
 
 ```sh
-uv sync --frozen
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec backend python -m app.scripts.create_admin
+```
+
+Команда запросит логин, имя и временный пароль. После входа его нужно сменить.
+
+Полезные команды из корня репозитория:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.dev.yml ps
+docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f backend
+docker compose -f docker-compose.yml -f docker-compose.dev.yml down
+```
+
+## Запуск API локально
+
+В этом режиме PostgreSQL работает в Compose, а FastAPI — в локальном Python-окружении. После создания `.env` запустите базу из корня репозитория:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres
+```
+
+Затем из `backend/` примените миграции и запустите сервер:
+
+```sh
+uv run --env-file ../.env alembic upgrade head
 uv run --env-file ../.env uvicorn app.main:create_app --factory --reload --port 8000
 ```
 
-## Alembic и Python CLI
-
-Выполняйте команды из `backend/`, задав в `BACKEND_DATABASE_URL` нужную базу данных:
+Uvicorn перезапускает API при изменении Python-файлов. Администратора в этом режиме создайте отдельной командой из `backend/`:
 
 ```sh
-uv sync --frozen
-uv run --env-file ../.env alembic current
-uv run --env-file ../.env alembic upgrade head
-uv run --env-file ../.env python -m app.scripts.verify_schema
-uv run --env-file ../.env python -m app.scripts.seed
-uv run --env-file ../.env python -m app.scripts.verify_data
 uv run --env-file ../.env python -m app.scripts.create_admin
 ```
 
-Создание схемы и обновления выполняются через Alembic; см. [миграции](migrations/README.md).
+## Миграции
 
-## Проверки
+Alembic настроен в `alembic.ini`; окружение и модели подключаются в `migrations/env.py`, версии хранятся в `migrations/versions/`. При полном запуске Compose миграции выполняет сервис `migrate`.
+
+Ручные команды запускайте из `backend/`:
 
 ```sh
-uv sync --frozen
-uv run ruff check .
-uv run ruff format --check .
-uv run mypy app
+uv run --env-file ../.env alembic current
+uv run --env-file ../.env alembic upgrade head
+uv run --env-file ../.env alembic check
+uv run --env-file ../.env python -m app.scripts.verify_schema
+```
+
+После изменения ORM-моделей создайте миграцию, проверьте её содержимое и примените:
+
+```sh
+uv run --env-file ../.env alembic revision --autogenerate -m "описание изменения"
+uv run --env-file ../.env alembic upgrade head
+```
+
+Подробности про версии и `schema_catalog.json` — в [README миграций](migrations/README.md).
+
+## Тесты и проверки
+
+Unit-тесты можно запускать отдельно:
+
+```sh
+uv run pytest tests/unit
+```
+
+Полный `pytest` требует отдельную PostgreSQL-базу `erp_test`. Запустите Compose PostgreSQL, затем из корня репозитория создайте базу один раз:
+
+```sh
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T postgres sh -c 'createdb -U "$POSTGRES_USER" erp_test'
+```
+
+Из `backend/` укажите URL `erp_test`, примените миграции к этой базе и запустите тесты. Если вы изменили параметры подключения в `.env`, подставьте их в URL:
+
+```sh
+export BACKEND_TEST_DATABASE_URL="postgresql+asyncpg://project1:change-this-local-password@localhost:5434/erp_test"
+export BACKEND_DATABASE_URL="$BACKEND_TEST_DATABASE_URL"
+uv run alembic upgrade head
 uv run pytest
 ```
 
-Для интеграционных тестов требуется изолированная база PostgreSQL. Не направляйте
-тесты, репетиционные команды или бэкенд на хосте в рабочую базу данных.
+Интеграционные тесты очищают данные в `erp_test` перед каждым тестом. Проверка запрещает направлять тесты на другую базу.
+
+Статические проверки из `backend/`:
+
+```sh
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy app
+```
+
+Pre-commit в репозитории не настроен; CI запускает эти проверки напрямую.
+
+## Основные переменные окружения
+
+| Переменная | Назначение |
+| --- | --- |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Учётные данные и имя базы в Docker Compose. |
+| `BACKEND_DATABASE_URL` | Подключение локального Python API и CLI к PostgreSQL; в `.env.example` используется `localhost:5434`. В контейнере Compose формирует URL из `POSTGRES_*`. |
+| `BACKEND_TEST_DATABASE_URL` | Подключение тестов; путь должен оканчиваться на `/erp_test`. Задаётся в окружении при запуске тестов. |
+| `BACKEND_CSRF_SECRET` | Секрет подписи CSRF-токенов; для локальной разработки задайте случайное значение длиной не менее 32 байт. |
+| `BACKEND_PUBLIC_ORIGIN` | Публичный Origin веб-приложения для проверки CSRF. |
+| `BACKEND_ENVIRONMENT` | Окружение приложения: `development`, `test` или `production`. |
+| `DOCUMENT_STORAGE_ROOT` | Каталог файлов документов. |
+| `DOCUMENT_MAX_FILE_SIZE_BYTES` | Максимальный размер загружаемого документа. |
