@@ -1,5 +1,7 @@
 # Stage 14C: rehearsal переключения
 
+После разделения проекта Playwright запускается из `frontend/` (либо через `npm --prefix frontend run test:e2e -- ...`). Новые тестовые документы и `flow-state.json` размещаются в `frontend/.runtime/stage14c/e2e/`; пути в прежних отчётах относятся к старой структуре. Существующие rehearsal-данные автоматически не переносятся.
+
 Статус: **приёмочные gates Stage 14C пройдены в disposable окружении**. Полный Playwright, restart verification, backend pytest, architecture guard, DB/document restore и TypeScript route rollback smoke прошли. Документ не разрешает production cutover.
 
 ## Изоляция и baseline
@@ -38,7 +40,7 @@ npx playwright test --config=playwright.stage14c.config.ts
 4. Включить Next BFF → FastAPI transport и Python backend/session. Проверить `/api/health/ready`, login, SSR `/api/account/me`, CSRF для unsafe methods. Пользователи с NextAuth cookie выполняют новый вход: cookie Python session несовместима.
 5. Снять fingerprint до сценария. Запустить сценарии по одному тестовому пользователю; записать ID искусственных записей.
 6. Проверить полную последовательность: employee → project → task → procurement → approval → contract/delivery → capitalization asset → attached document; затем time entry → employee timesheet submit → approver decision → payroll export → payroll period close. Проверить scoped access, admin access, search/report exports и in-app notifications. Не отправлять внешнюю почту: SMTP должен быть локальным sink/отключённым.
-7. Перезапустить app/backend/worker из того же disposable Compose project, не удаляя volume. При загруженном disposable env запустить только persisted-state check: `STAGE14C_VERIFY_ONLY=1 npx playwright test --config=playwright.stage14c.config.ts --grep "Stage 14C persistence survives"`; проверить IDs, статусы, payroll close и ETag/SHA-256 скачанного документа. Выполнить `docker exec <rehearsal-backend> python -m app.scripts.verify_data`, чтобы проверка использовала DB и `DOCUMENT_STORAGE_ROOT` контейнера; повторно снять fingerprints/aggregates/audit/outbox/document hashes.
+7. Перезапустить app/backend/worker из того же disposable Compose project, не удаляя volume. При загруженном disposable env запустить только persisted-state check: `STAGE14C_VERIFY_ONLY=1 npm --prefix frontend run test:e2e -- --config=playwright.stage14c.config.ts --grep "Stage 14C persistence survives"`; проверить IDs, статусы, payroll close и ETag/SHA-256 скачанного документа. Выполнить `docker exec <rehearsal-backend> python -m app.scripts.verify_data`, чтобы проверка использовала DB и `DOCUMENT_STORAGE_ROOT` контейнера; повторно снять fingerprints/aggregates/audit/outbox/document hashes.
 8. Сравнить до/после структурно: учесть только известные синтетические записи и audit/outbox события. Любая неожиданная разница, потерянная связь или не совпадающий файл блокирует acceptance.
 
 Полный backend pytest после исправления layering: **480 passed**; свежий целевой architecture guard: **11 passed**. Точечные integration/health tests прошли `3 passed`; Ruff и mypy затронутых модулей прошли. Frontend lint/typecheck/build, полный Playwright, Compose/metrics и data verifier прошли отдельно от окна переключения. Три Stage10 finance tests после очистки только disposable `erp_stage10_test` прошли.

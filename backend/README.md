@@ -33,10 +33,18 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
 
 The migration job runs `alembic upgrade head` and verifies the schema before
 starting app services. Next.js uses `http://backend:8000` inside Compose. For a
-host-run frontend, set `BACKEND_BASE_URL=http://localhost:8000`.
+host-run frontend, copy `frontend/.env.example` to `frontend/.env.local` and run
+`npm ci` / `npm run dev` from `frontend/`.
 
 The backend API has `/api/health/live`, `/api/health/ready` and `/openapi.json`.
 In non-production, `/docs` and `/redoc` are available too.
+
+For a host-run API, from `backend/`:
+
+```sh
+uv sync --frozen
+uv run --env-file ../.env uvicorn app.main:create_app --factory --reload --port 8000
+```
 
 ## Alembic and Python CLI
 
@@ -45,12 +53,12 @@ database:
 
 ```sh
 uv sync --frozen
-uv run alembic current
-uv run alembic upgrade head
-uv run python -m app.scripts.verify_schema
-uv run python -m app.scripts.seed
-uv run python -m app.scripts.verify_data
-uv run python -m app.scripts.create_admin
+uv run --env-file ../.env alembic current
+uv run --env-file ../.env alembic upgrade head
+uv run --env-file ../.env python -m app.scripts.verify_schema
+uv run --env-file ../.env python -m app.scripts.seed
+uv run --env-file ../.env python -m app.scripts.verify_data
+uv run --env-file ../.env python -m app.scripts.create_admin
 ```
 
 Before using Alembic on an existing legacy database, follow the

@@ -33,7 +33,7 @@ services:
 
   app:
     build:
-      context: .
+      context: ./frontend
       target: runner
     restart: unless-stopped
     environment:

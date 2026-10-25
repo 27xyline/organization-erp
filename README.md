@@ -5,6 +5,24 @@
 backend и владелец бизнес-правил, доступа к данным и сессий. PostgreSQL хранит
 данные, Alembic управляет схемой, Python worker обрабатывает уведомления.
 
+## Структура проекта
+
+```text
+organization-erp/
+├── backend/           # FastAPI, бизнес-логика, SQLAlchemy, Alembic, Python worker
+├── frontend/          # Next.js, UI, BFF, npm, unit/E2E-тесты
+├── docs/              # Архитектура, записи миграции и инструкции
+├── ops/               # Общая observability-инфраструктура
+├── docker-compose.yml
+├── docker-compose.dev.yml
+└── .env.example       # Общие настройки Compose и Python CLI
+```
+
+Для разработки Next.js на хосте: `cd frontend`, `npm ci`,
+`cp .env.example .env.local`, `npm run dev`. Python запускается из `backend/`:
+`uv run --env-file ../.env uvicorn app.main:create_app --factory --reload --port 8000`.
+`frontend/.env.local` содержит только URL; корневой `.env` остаётся у Compose/Python.
+
 ## Быстрый старт
 
 Нужны Node.js 22+, Python 3.13+, `uv` и Docker Compose.
@@ -13,7 +31,7 @@ backend и владелец бизнес-правил, доступа к дан�
 cp .env.example .env
 # В .env задайте свой POSTGRES_PASSWORD и BACKEND_CSRF_SECRET.
 # Секрет можно сгенерировать командой: openssl rand -hex 32
-npm ci
+npm --prefix frontend ci
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
 ```
 
@@ -38,13 +56,14 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml \
 (`localhost:5434`), затем выполните:
 
 ```sh
-npm run user:create-admin
+cd backend
+uv run --env-file ../.env python -m app.scripts.create_admin
 ```
 
-Команда запускает Python CLI через `uv`, просит логин, имя и скрытый пароль.
+Python CLI просит логин, имя и скрытый пароль.
 Пользователю потребуется сменить временный пароль после входа. Небольшой
-связанный учебный набор можно добавить отдельно командой `npm run db:seed`;
-проверка инвариантов данных запускается через `npm run db:verify`.
+связанный учебный набор можно добавить отдельно командой `uv run --env-file ../.env python -m app.scripts.seed` из `backend/`;
+проверка инвариантов данных — `uv run --env-file ../.env python -m app.scripts.verify_data`.
 
 ## Переменные окружения
 
@@ -70,14 +89,14 @@ host-run CLI и Python-команд.
 
 Пример — загрузка проекта на странице `/projects`:
 
-1. Страница в `src/app/(app)/(main)/projects/page.tsx` проверяет actor и
+1. Страница в `frontend/src/app/(app)/(main)/projects/page.tsx` проверяет actor и
    permission для отображения страницы, затем загружает данные через
    Python-backed SSR client.
 2. Браузерные запросы идут на тот же origin, например `/api/projects`. Файл в
-   `src/app/api/projects/route.ts` — BFF transport adapter: он проверяет
+   `frontend/src/app/api/projects/route.ts` — BFF transport adapter: он проверяет
    сессию/CSRF, сохраняет публичный URL и пересылает запрос в FastAPI.
-3. `src/lib/backend/transport.ts` пересылает Python session cookie и CSRF
-   headers; `src/lib/backend/client.ts` отправляет запрос на фиксированный
+3. `frontend/src/lib/backend/transport.ts` пересылает Python session cookie и CSRF
+   headers; `frontend/src/lib/backend/client.ts` отправляет запрос на фиксированный
    backend URL без кэширования. Недоступность Python возвращает ошибку;
    Prisma fallback нет.
 4. FastAPI связывает URL с обработчиком в `backend/app/api/routes/projects.py`.
@@ -90,8 +109,8 @@ host-run CLI и Python-команд.
 Исходный путь по слоям:
 
 ```text
-src/app (страница или BFF route)
-  → src/lib/backend (session-aware transport)
+frontend/src/app (страница или BFF route)
+  → frontend/src/lib/backend (session-aware transport)
   → backend/app/api/routes + backend/app/schemas
   → backend/app/services
   → backend/app/domain
@@ -101,7 +120,7 @@ src/app (страница или BFF route)
 
 Для нового поведения ищите бизнес-сценарий в Python `services`, правило — в
 `domain`, сохранение — в `repositories` и соответствующий API schema/route.
-В `src/features` находятся UI и frontend contracts, а не отдельные владельцы
+В `frontend/src/features` находятся UI и frontend contracts, а не отдельные владельцы
 бизнес-записей.
 
 ## Архитектурные правила
@@ -113,8 +132,9 @@ src/app (страница или BFF route)
   Unsafe запросы требуют CSRF cookie/header; проверка `Origin` не отключается.
 - `backend/app/api` зависит от schemas и services; services координируют
   domain и repositories; domain не зависит от FastAPI/SQLAlchemy.
-- Alembic — единственный активный DDL owner. Prisma migration history и schema
-  сохранены как архивная справка и не запускаются приложением.
+- Alembic — единственный активный DDL owner. История старых SQL-миграций
+  уже включена в замороженную Alembic baseline. Prisma schema сохранена
+  только в `frontend/e2e/prisma/` для тестовых фикстур.
 - PostgreSQL и каталог документов должны репетироваться на отдельной копии до
   миграции. Не подключайте старый Prisma runtime к схеме под Alembic.
 - Redis/Celery не требуются для базового запуска: notification worker работает
@@ -128,12 +148,12 @@ src/app (страница или BFF route)
 ```sh
 cd backend
 uv sync --frozen
-uv run alembic current
-uv run alembic upgrade head
-uv run python -m app.scripts.verify_schema
-uv run python -m app.scripts.seed
-uv run python -m app.scripts.verify_data
-uv run python -m app.scripts.create_admin
+uv run --env-file ../.env alembic current
+uv run --env-file ../.env alembic upgrade head
+uv run --env-file ../.env python -m app.scripts.verify_schema
+uv run --env-file ../.env python -m app.scripts.seed
+uv run --env-file ../.env python -m app.scripts.verify_data
+uv run --env-file ../.env python -m app.scripts.create_admin
 ```
 
 Перед `upgrade head` на существующей базе выполните проверку и handoff из
@@ -146,7 +166,7 @@ rollback не выполняется этим README; порядок и огра
 
 ## Проверки
 
-Frontend:
+Frontend (из `frontend/`):
 
 ```sh
 npm run lint
@@ -166,12 +186,13 @@ uv run pytest
 ```
 
 Playwright требует отдельную disposable БД и локальный CSRF secret. Prisma
-client используется только тестовыми E2E fixture helpers; команда `npm run
+client из `frontend/e2e/prisma/schema.prisma` используется только тестовыми E2E fixture helpers; команда `npm run
 test:e2e` генерирует его для теста. Frontend build и production image от Prisma
 не зависят.
 
 ## Полезные документы
 
+- [Frontend: запуск и тесты](frontend/README.md)
 - [Backend API и слои](backend/README.md)
 - [Stage 14B: Python sessions](docs/backend-migration/stage14b-validation.md)
 - [Stage 14C: acceptance](docs/backend-migration/acceptance-report.md)

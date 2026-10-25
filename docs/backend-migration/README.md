@@ -6,6 +6,16 @@ in a disposable environment; this is not production cutover authorization.
 See the root [README](../../README.md) for the current request flow and start
 path.
 
+## Repository layout after cleanup
+
+Python remains in `backend/`; Next.js and browser tests are in `frontend/`.
+Run npm/Playwright commands from `frontend/`. Earlier stage reports below are
+historical: their old root-relative Next/Prisma paths and npm CLI wrappers
+describe the checkout at the time of that stage. Duplicate Prisma SQL files
+were removed only after all 41 were compared byte-for-byte with the frozen
+Alembic baseline. The remaining Prisma schema is test-only, at
+`frontend/e2e/prisma/schema.prisma`. The original files remain in Git history.
+
 ## Current stages
 
 | Document | Scope |

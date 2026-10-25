@@ -33,7 +33,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+          cache-dependency-path: frontend/package-lock.json
+      - working-directory: frontend
+        run: npm ci
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
@@ -50,14 +52,19 @@ jobs:
       - name: Verify migrated PostgreSQL catalog
         working-directory: backend
         run: uv run python -m app.scripts.verify_schema
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
+      - working-directory: frontend
+        run: npm run lint
+      - working-directory: frontend
+        run: npm run typecheck
+      - working-directory: frontend
+        run: npm test
       - run: POSTGRES_PASSWORD=project1_ci_password docker compose --profile observability config --quiet
       - run: docker run --rm -v "$PWD/ops/observability/collector.yaml:/etc/otelcol-contrib/config.yaml:ro" --entrypoint /otelcol-contrib otel/opentelemetry-collector-contrib:0.123.0 validate --config=/etc/otelcol-contrib/config.yaml
       - run: docker run --rm -v "$PWD/ops/observability:/etc/prometheus:ro" --entrypoint /bin/promtool prom/prometheus:v3.2.1 check config /etc/prometheus/prometheus.yml
-      - run: npm run build
-      - run: npx playwright install --with-deps chromium
+      - working-directory: frontend
+        run: npm run build
+      - working-directory: frontend
+        run: npx playwright install --with-deps chromium
       - name: Install Python backend for two-process auth E2E
         uses: astral-sh/setup-uv@v10
         with:
@@ -84,6 +91,7 @@ jobs:
         working-directory: backend
         run: uv sync --frozen
       - name: Run browser tests against the shared E2E database
+        working-directory: frontend
         env:
           DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage07_e2e
           STAGE07_E2E_DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage07_e2e
@@ -92,7 +100,8 @@ jobs:
           BACKEND_CSRF_SECRET: ci-only-stage07-csrf-secret-with-at-least-thirty-two-characters
           BACKEND_PUBLIC_ORIGIN: http://localhost:3001
         run: npm run test:e2e
-      - run: npm audit --omit=dev --omit=optional --audit-level=high
+      - working-directory: frontend
+        run: npm audit --omit=dev --omit=optional --audit-level=high
 
   backend-verify:
     runs-on: ubuntu-latest
@@ -121,11 +130,6 @@ jobs:
       BACKEND_OTEL_ENABLED: "false"
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
