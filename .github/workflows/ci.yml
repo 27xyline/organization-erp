@@ -11,16 +11,16 @@ jobs:
       postgres:
         image: postgres:18.6-alpine
         env:
-          POSTGRES_USER: project1
-          POSTGRES_PASSWORD: project1_ci_password
-          POSTGRES_DB: project1_test
+          POSTGRES_USER: organization_erp_ci
+          POSTGRES_PASSWORD: organization_erp_ci_password
+          POSTGRES_DB: organization_erp_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U project1 -d project1_test"
+          --health-cmd "pg_isready -U organization_erp_ci -d organization_erp_test"
           --health-interval 5s --health-timeout 5s --health-retries 12
     env:
-      BACKEND_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/project1_test
+      BACKEND_DATABASE_URL: postgresql+asyncpg://organization_erp_ci:organization_erp_ci_password@127.0.0.1:5432/organization_erp_test
       PRISMA_SKIP_POSTINSTALL_GENERATE: "true"
       BACKEND_BASE_URL: http://127.0.0.1:8000
       BACKEND_CSRF_SECRET: ci-only-csrf-secret-with-at-least-thirty-two-characters
@@ -58,7 +58,7 @@ jobs:
         run: npm run typecheck
       - working-directory: frontend
         run: npm test
-      - run: POSTGRES_PASSWORD=project1_ci_password docker compose --profile observability config --quiet
+      - run: POSTGRES_PASSWORD=organization_erp_ci_password docker compose --profile observability config --quiet
       - run: docker run --rm -v "$PWD/ops/observability/collector.yaml:/etc/otelcol-contrib/config.yaml:ro" --entrypoint /otelcol-contrib otel/opentelemetry-collector-contrib:0.123.0 validate --config=/etc/otelcol-contrib/config.yaml
       - run: docker run --rm -v "$PWD/ops/observability:/etc/prometheus:ro" --entrypoint /bin/promtool prom/prometheus:v3.2.1 check config /etc/prometheus/prometheus.yml
       - working-directory: frontend
@@ -67,10 +67,10 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Prepare isolated shared E2E database
         env:
-          DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/project1_test
+          DATABASE_URL: postgresql://organization_erp_ci:organization_erp_ci_password@127.0.0.1:5432/organization_erp_test
         run: |
-          createdb --template=project1_test erp_e2e
-          psql postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_e2e -v ON_ERROR_STOP=1 <<'SQL'
+          createdb --template=organization_erp_test organization_erp_e2e
+          psql postgresql://organization_erp_ci:organization_erp_ci_password@127.0.0.1:5432/organization_erp_e2e -v ON_ERROR_STOP=1 <<'SQL'
           DO $$
           DECLARE all_tables text;
           BEGIN
@@ -85,9 +85,9 @@ jobs:
       - name: Run browser tests against the shared E2E database
         working-directory: frontend
         env:
-          DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_e2e
-          E2E_DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_e2e
-          BACKEND_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_e2e
+          DATABASE_URL: postgresql://organization_erp_ci:organization_erp_ci_password@127.0.0.1:5432/organization_erp_e2e
+          E2E_DATABASE_URL: postgresql://organization_erp_ci:organization_erp_ci_password@127.0.0.1:5432/organization_erp_e2e
+          BACKEND_DATABASE_URL: postgresql+asyncpg://organization_erp_ci:organization_erp_ci_password@127.0.0.1:5432/organization_erp_e2e
           BACKEND_CSRF_SECRET: ci-only-e2e-csrf-secret-with-at-least-thirty-two-characters
           BACKEND_PUBLIC_ORIGIN: http://localhost:3001
         run: npm run test:e2e
@@ -100,17 +100,17 @@ jobs:
       postgres:
         image: postgres:18.6-alpine
         env:
-          POSTGRES_USER: project1
-          POSTGRES_PASSWORD: project1_ci_password
-          POSTGRES_DB: erp_test
+          POSTGRES_USER: organization_erp_ci
+          POSTGRES_PASSWORD: organization_erp_ci_password
+          POSTGRES_DB: organization_erp_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U project1 -d erp_test"
+          --health-cmd "pg_isready -U organization_erp_ci -d organization_erp_test"
           --health-interval 5s --health-timeout 5s --health-retries 12
     env:
-      BACKEND_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_test
-      BACKEND_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_test
+      BACKEND_DATABASE_URL: postgresql+asyncpg://organization_erp_ci:organization_erp_ci_password@127.0.0.1:5432/organization_erp_test
+      BACKEND_TEST_DATABASE_URL: postgresql+asyncpg://organization_erp_ci:organization_erp_ci_password@127.0.0.1:5432/organization_erp_test
       BACKEND_ENVIRONMENT: test
       BACKEND_OTEL_ENABLED: "false"
     steps:

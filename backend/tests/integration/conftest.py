@@ -1,4 +1,4 @@
-"""Каждый интеграционный тест начинает с пустой выделенной базы erp_test."""
+"""Каждый интеграционный тест начинает с пустой выделенной базы organization_erp_test."""
 
 import pytest
 from sqlalchemy import text

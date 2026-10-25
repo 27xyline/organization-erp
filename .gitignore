@@ -38,4 +38,5 @@ __pycache__/
 coverage.xml
 
 backend/var/
+/var/documents/
 frontend/.test-data/

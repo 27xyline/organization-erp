@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-co
 
 RUN groupadd --gid 1001 app \
     && useradd --uid 1001 --gid app --create-home --shell /usr/sbin/nologin app \
-    && install -d -o app -g app -m 0700 /var/lib/project1/documents
+    && install -d -o app -g app -m 0700 /var/lib/organization-erp/documents
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 COPY --chown=app:app app ./app
 COPY --chown=app:app migrations ./migrations

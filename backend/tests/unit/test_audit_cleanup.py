@@ -15,7 +15,7 @@ async def test_audit_cleanup_refuses_non_disposable_database_before_truncate() -
 
         async def scalar(self, statement):
             self.executed.append(statement)
-            return "project1"
+            return "organization_erp_dev"
 
         async def execute(self, statement):
             self.executed.append(statement)

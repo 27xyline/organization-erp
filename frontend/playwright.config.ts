@@ -9,8 +9,8 @@ const backendBaseUrl = process.env.PLAYWRIGHT_BACKEND_URL || 'http://127.0.0.1:8
 const backendUrl = new URL(backendBaseUrl)
 const backendPort = backendUrl.port || (backendUrl.protocol === 'https:' ? '443' : '80')
 const isolatedE2eDatabaseUrl = process.env.E2E_DATABASE_URL
-if (!isolatedE2eDatabaseUrl || new URL(isolatedE2eDatabaseUrl).pathname !== '/erp_e2e') {
-  throw new Error('E2E_DATABASE_URL must point to the isolated PostgreSQL database erp_e2e')
+if (!isolatedE2eDatabaseUrl || new URL(isolatedE2eDatabaseUrl).pathname !== '/organization_erp_e2e') {
+  throw new Error('E2E_DATABASE_URL must point to the isolated PostgreSQL database organization_erp_e2e')
 }
 if (!['postgresql:', 'postgres:'].includes(new URL(isolatedE2eDatabaseUrl).protocol)) {
   throw new Error('E2E_DATABASE_URL must use PostgreSQL')

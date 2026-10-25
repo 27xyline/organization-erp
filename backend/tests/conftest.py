@@ -29,8 +29,13 @@ async def db_engine(test_database_url: str) -> AsyncIterator[AsyncEngine]:
     engine = create_async_engine(test_database_url, echo=False, hide_parameters=True)
     try:
         async with engine.connect() as connection:
-            if await connection.scalar(text("SELECT current_database()")) != "erp_test":
-                raise ValueError("Integration tests connected to a database other than erp_test")
+            if (
+                await connection.scalar(text("SELECT current_database()"))
+                != "organization_erp_test"
+            ):
+                raise ValueError(
+                    "Integration tests connected to a database other than organization_erp_test"
+                )
         yield engine
     finally:
         await engine.dispose()

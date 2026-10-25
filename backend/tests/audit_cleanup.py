@@ -3,7 +3,7 @@
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-_DISPOSABLE_DATABASES = {"erp_test"}
+_DISPOSABLE_DATABASES = {"organization_erp_test"}
 
 
 async def clear_audit_logs_for_test_cleanup(session: AsyncSession) -> None:

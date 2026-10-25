@@ -103,6 +103,14 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml exec backend pyth
 
 Команда запросит постоянный пароль администратора. Логин и имя будут `admin`, учётная запись получит роль администратора, а менять пароль после первого входа не потребуется. Пароль должен быть непустым и не длиннее 512 символов.
 
+Для ручного просмотра разделов можно добавить демо-данные прямо в основную локальную базу `organization_erp_dev`. Сначала запустите PostgreSQL и приложение, затем выполните из `backend/`:
+
+```sh
+uv run --env-file ../.env python -m app.scripts.seed --allow-local-demo-db
+```
+
+Команда добавляет подразделения, сотрудников, проекты с задачами, имущество с ответственными и три документа с файлами. Она использует существующую активную учётную запись как автора документов; аккаунты не создаются. Если такой учётной записи нет, команда завершится до добавления записей. Повторный запуск не дублирует демо-набор. Команда не удаляет данные. Файлы записываются в `DOCUMENT_STORAGE_ROOT`; если Compose backend запущен, команда проверяет и синхронизирует эти три файла в его хранилище. Без Compose backend файлы остаются по пути из настроек локального backend. Флаг работает только для локальной базы `organization_erp_dev` в окружении `development`; production, тестовые и удалённые базы отклоняются.
+
 Полезные команды из корня репозитория:
 
 ```sh
@@ -162,22 +170,22 @@ Unit-тесты можно запускать отдельно:
 uv run pytest tests/unit
 ```
 
-Полный `pytest` требует отдельную PostgreSQL-базу `erp_test`. Запустите Compose PostgreSQL, затем из корня репозитория создайте базу один раз:
+Полный `pytest` требует отдельную PostgreSQL-базу `organization_erp_test`. Запустите Compose PostgreSQL, затем из корня репозитория создайте базу один раз:
 
 ```sh
-docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T postgres sh -c 'createdb -U "$POSTGRES_USER" erp_test'
+docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T postgres sh -c 'createdb -U "$POSTGRES_USER" organization_erp_test'
 ```
 
-Из `backend/` укажите URL `erp_test`, примените миграции к этой базе и запустите тесты. Если вы изменили параметры подключения в `.env`, подставьте их в URL:
+Из `backend/` укажите URL `organization_erp_test`, примените миграции к этой базе и запустите тесты. Если вы изменили параметры подключения в `.env`, подставьте их в URL:
 
 ```sh
-export BACKEND_TEST_DATABASE_URL="postgresql+asyncpg://project1:change-this-local-password@localhost:5434/erp_test"
+export BACKEND_TEST_DATABASE_URL="postgresql+asyncpg://organization_erp_app:change-this-local-password@localhost:5434/organization_erp_test"
 export BACKEND_DATABASE_URL="$BACKEND_TEST_DATABASE_URL"
 uv run alembic upgrade head
 uv run pytest
 ```
 
-Интеграционные тесты очищают данные в `erp_test` перед каждым тестом. Проверка запрещает направлять тесты на другую базу.
+Интеграционные тесты очищают данные в `organization_erp_test` перед каждым тестом. Проверка запрещает направлять тесты на другую базу.
 
 Статические проверки из `backend/`:
 
@@ -195,7 +203,7 @@ Pre-commit в репозитории не настроен; CI запускае�
 | --- | --- |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Учётные данные и имя базы в Docker Compose. |
 | `BACKEND_DATABASE_URL` | Подключение локального Python API и CLI к PostgreSQL; в `.env.example` используется `localhost:5434`. В контейнере Compose формирует URL из `POSTGRES_*`. |
-| `BACKEND_TEST_DATABASE_URL` | Подключение тестов; путь должен оканчиваться на `/erp_test`. Задаётся в окружении при запуске тестов. |
+| `BACKEND_TEST_DATABASE_URL` | Подключение тестов; путь должен оканчиваться на `/organization_erp_test`. Задаётся в окружении при запуске тестов. |
 | `BACKEND_CSRF_SECRET` | Секрет подписи CSRF-токенов; для локальной разработки задайте случайное значение длиной не менее 32 байт. |
 | `BACKEND_PUBLIC_ORIGIN` | Публичный Origin веб-приложения для проверки CSRF. |
 | `BACKEND_ENVIRONMENT` | Окружение приложения: `development`, `test` или `production`. |

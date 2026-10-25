@@ -44,6 +44,6 @@ npm run build
 
 Тесты Playwright находятся в `e2e/` и запускаются командой `npm run test:e2e`. Она генерирует Prisma Client только для тестовых фикстур; Prisma не используется приложением при запуске, сборке или миграциях.
 
-Для E2E нужна отдельная база PostgreSQL `erp_e2e`: переменные `DATABASE_URL` и `E2E_DATABASE_URL` должны указывать на неё, а `BACKEND_CSRF_SECRET` должен содержать не менее 32 байт. Не запускайте E2E против локальной или рабочей базы приложения. Playwright сам запускает Next.js и FastAPI для тестов.
+Для E2E нужна отдельная база PostgreSQL `organization_erp_e2e`: переменные `DATABASE_URL` и `E2E_DATABASE_URL` должны указывать на неё, а `BACKEND_CSRF_SECRET` должен содержать не менее 32 байт. Не запускайте E2E против локальной или рабочей базы приложения. Playwright сам запускает Next.js и FastAPI для тестов.
 
 Общие инструкции по проекту — в [корневом README](../README.md), по API и миграциям — в [README backend](../backend/README.md).

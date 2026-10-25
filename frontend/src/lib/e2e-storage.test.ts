@@ -51,22 +51,22 @@ describe('Playwright storage isolation', () => {
   })
 
   it('accepts an explicit isolated E2E database and rejects a working database', async () => {
-    const databaseUrl = 'postgresql://test:test@127.0.0.1/erp_e2e'
+    const databaseUrl = 'postgresql://test:test@127.0.0.1/organization_erp_e2e'
     vi.stubEnv('E2E_DATABASE_URL', databaseUrl)
     vi.stubEnv('DATABASE_URL', databaseUrl)
     vi.stubEnv('BACKEND_CSRF_SECRET', 'test-csrf-secret-32-bytes-minimum')
     vi.resetModules()
     await expect(import('../../playwright.config')).resolves.toBeDefined()
-    vi.stubEnv('E2E_DATABASE_URL', 'postgresql://test:test@127.0.0.1/project1')
+    vi.stubEnv('E2E_DATABASE_URL', 'postgresql://test:test@127.0.0.1/organization_erp_dev')
     vi.resetModules()
-    await expect(import('../../playwright.config')).rejects.toThrow(/erp_e2e/)
+    await expect(import('../../playwright.config')).rejects.toThrow(/organization_erp_e2e/)
   })
 
   it('rejects unsafe DOCUMENT_STORAGE_ROOT through the actual Playwright config', async () => {
     const projectRoot = tempProject()
     const outside = mkdtempSync(path.join(tmpdir(), 'e2e-config-outside-'))
     tempRoots.push(outside)
-    const url = 'postgresql://e2e:test@127.0.0.1:5434/erp_e2e'
+    const url = 'postgresql://e2e:test@127.0.0.1:5434/organization_erp_e2e'
     vi.stubEnv('DOCUMENT_STORAGE_ROOT', outside)
     vi.stubEnv('DATABASE_URL', url)
     vi.stubEnv('E2E_DATABASE_URL', url)
