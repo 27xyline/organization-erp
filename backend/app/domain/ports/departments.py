@@ -1,4 +1,4 @@
-"""Typed detached records and persistence contracts for organization catalogs."""
+"Типизированные записи без ORM-моделей и контракты хранения справочников организации."
 
 from dataclasses import dataclass
 from datetime import datetime

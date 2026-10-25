@@ -1,7 +1,7 @@
-"""Import the complete ORM registry for mapper setup and Alembic comparisons.
+"""Импортирует полный реестр ORM для настройки мапперов и сравнений Alembic.
 
-Alembic owns schema DDL. Importing this module registers model metadata only; it
-never creates, alters, or drops database objects.
+Схемой DDL управляет Alembic. Импорт этого модуля только регистрирует метаданные
+моделей и никогда не создаёт, не изменяет и не удаляет объекты базы данных.
 """
 
 from sqlalchemy.orm import configure_mappers

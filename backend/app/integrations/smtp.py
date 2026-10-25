@@ -1,4 +1,5 @@
-"""Synchronous stdlib SMTP adapter; callers run network work outside DB UoWs."""
+"""Синхронный SMTP-адаптер из стандартной библиотеки; вызывающий код выполняет \
+сетевые операции вне UoW базы данных."""
 
 from __future__ import annotations
 
@@ -40,7 +41,7 @@ async def send_smtp_async(
     body: str,
     tracer: Tracer | None = None,
 ) -> None:
-    """Send without blocking the event loop; cancellation closes the active socket."""
+    """Отправляет данные, не блокируя цикл событий; при отмене закрывает активный сокет."""
     if tracer is None:
         await _send_smtp_async(settings, to, subject, body)
     else:

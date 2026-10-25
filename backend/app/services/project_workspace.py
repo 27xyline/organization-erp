@@ -1,4 +1,4 @@
-"""Permission-filtered project activity without document mutation ownership."""
+"Действия в проекте с фильтрацией по разрешениям; сервис не управляет изменением документов."
 
 from app.core.context import Actor
 from app.domain.ports.projects import ActivityRecord

@@ -29,7 +29,7 @@ class DatabaseMetricInstruments:
 
 
 class NotificationWorkerMetrics:
-    """Bounded worker counters and gauges backed by the latest database snapshot."""
+    """Ограниченные счётчики и измерители worker на основе последнего снимка базы данных."""
 
     def __init__(self, meter: Meter) -> None:
         self._lock = RLock()
@@ -178,7 +178,7 @@ def record_http_request(
 async def acquire_session_connection(
     session: AsyncSession, instruments: DatabaseMetricInstruments
 ) -> None:
-    """Measure connection acquisition, including time waiting for the SQLAlchemy pool."""
+    """Измеряет получение соединения, включая время ожидания в пуле SQLAlchemy."""
     started = time.perf_counter()
     outcome = "success"
     try:
@@ -201,7 +201,7 @@ class _QueryObservation:
 def install_sqlalchemy_observability(
     engine: AsyncEngine, tracer: trace.Tracer, instruments: DatabaseMetricInstruments
 ) -> None:
-    """Record bounded query metadata and spans; never retain SQL or bind parameters."""
+    """Записывает ограниченные метаданные и spans; не сохраняет SQL или параметры привязки."""
     active: dict[int, _QueryObservation] = {}
     active_lock = RLock()
 

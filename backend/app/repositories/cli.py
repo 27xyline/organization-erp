@@ -1,4 +1,4 @@
-"""SQLAlchemy adapters for explicit demo-seed and verification CLI ports."""
+"""Адаптеры SQLAlchemy для интерфейсов CLI явного заполнения демоданными и проверки."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ class SqlAlchemyDemoSeedRepository:
         self._session = session
 
     async def seed_training_dataset(self) -> dict[str, int]:
-        # Transaction-scoped lock serializes concurrent explicit CLI invocations.
+        # Блокировка в рамках транзакции упорядочивает параллельные явные вызовы CLI.
         from sqlalchemy import text
 
         await self._session.execute(text("SELECT pg_advisory_xact_lock(904202607)"))
@@ -185,40 +185,40 @@ class SqlAlchemyDemoSeedRepository:
 
 
 class SqlAlchemyVerifyDataRepository:
-    """Read-only SQL checks; the application service knows no ORM or SQL details."""
+    """Проверки SQL только для чтения; прикладной сервис не знает деталей ORM и SQL."""
 
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
     async def verify_data(self) -> VerifyDataSnapshot:
         checks = {
-            "holdingMismatch": '''
+            "holdingMismatch": """
                 SELECT COUNT(*) FROM "assets" asset
                 LEFT JOIN (
                     SELECT "assetId", COALESCE(SUM("quantity"), 0) AS quantity
                     FROM "asset_holdings" GROUP BY "assetId"
                 ) holding ON holding."assetId" = asset."id"
                 WHERE COALESCE(holding.quantity, 0) <> asset."quantity"
-            ''',
-            "negativeAssets": '''
+            """,
+            "negativeAssets": """
                 SELECT COUNT(*) FROM "assets"
                 WHERE "quantity" < 0 OR "unitPrice" < 0 OR "totalCost" < 0
-            ''',
-            "negativeHoldings": '''
+            """,
+            "negativeHoldings": """
                 SELECT COUNT(*) FROM "asset_holdings" WHERE "quantity" < 0
-            ''',
-            "orphanHoldings": '''
+            """,
+            "orphanHoldings": """
                 SELECT COUNT(*) FROM "asset_holdings" holding
                 LEFT JOIN "assets" asset ON asset."id" = holding."assetId"
                 LEFT JOIN "mols" mol ON mol."id" = holding."molId"
                 WHERE asset."id" IS NULL OR mol."id" IS NULL
-            ''',
-            "secretAuditRows": '''
+            """,
+            "secretAuditRows": """
                 SELECT COUNT(*) FROM "audit_logs"
                 WHERE COALESCE("details"::text, '')
                     ~* '(passwordHash|temporaryPassword|NEXTAUTH_SECRET)'
-            ''',
-            "departmentCycles": '''
+            """,
+            "departmentCycles": """
                 WITH RECURSIVE hierarchy AS (
                     SELECT "id" AS "originId", "parentId", ARRAY["id"] AS path, false AS cycle
                     FROM "departments"
@@ -230,20 +230,20 @@ class SqlAlchemyVerifyDataRepository:
                     WHERE NOT hierarchy.cycle
                 )
                 SELECT COUNT(DISTINCT "originId") FROM hierarchy WHERE cycle
-            ''',
-            "duplicateDepartmentCodes": '''
+            """,
+            "duplicateDepartmentCodes": """
                 SELECT COUNT(*) FROM (
                     SELECT LOWER("code") FROM "departments"
                     GROUP BY LOWER("code") HAVING COUNT(*) > 1
                 ) duplicates
-            ''',
-            "duplicateDepartmentNames": '''
+            """,
+            "duplicateDepartmentNames": """
                 SELECT COUNT(*) FROM (
                     SELECT LOWER("name") FROM "departments"
                     GROUP BY LOWER("name") HAVING COUNT(*) > 1
                 ) duplicates
-            ''',
-            "departmentSnapshotMismatch": '''
+            """,
+            "departmentSnapshotMismatch": """
                 SELECT COUNT(*) FROM (
                     SELECT employee."id" FROM "employees" employee
                     JOIN "departments" department ON department."id" = employee."departmentId"
@@ -257,20 +257,20 @@ class SqlAlchemyVerifyDataRepository:
                     JOIN "departments" department ON department."id" = mol."departmentId"
                     WHERE mol."department" <> department."name"
                 ) mismatches
-            ''',
-            "documentCurrentVersionMismatch": '''
+            """,
+            "documentCurrentVersionMismatch": """
                 SELECT COUNT(*) FROM "documents" document
                 LEFT JOIN "document_versions" version
                     ON version."documentId" = document."id"
                    AND version."versionNumber" = document."currentVersion"
                 WHERE version."id" IS NULL
-            ''',
-            "unsafeDocumentMetadata": '''
+            """,
+            "unsafeDocumentMetadata": """
                 SELECT COUNT(*) FROM "document_versions"
                 WHERE "storageKey" !~ '^[0-9a-f]{2}/[0-9a-f]{2}/[0-9a-f-]{36}$'
                    OR "sha256" !~ '^[0-9a-f]{64}$'
                    OR "sizeBytes" <= 0
-            ''',
+            """,
         }
         counters = {
             key: int(await self._session.scalar(text(statement)) or 0)

@@ -1,10 +1,10 @@
-"""Frozen Stage 14A baseline for the legacy PostgreSQL schema.
+"""Зафиксированная исходная схема PostgreSQL проекта.
 
-This revision contains a checked-in copy of all 41 Prisma DDL migrations in
-source order. It deliberately does not read SQLAlchemy metadata or source SQL
-files at runtime. Existing databases must be verified before stamping this
-revision. Downgrade is intentionally unsupported because this baseline owns
-legacy business data after deployment.
+Эта ревизия содержит сохранённую в репозитории копию всех 41 DDL-миграций Prisma
+в исходном порядке. При выполнении она намеренно не читает метаданные SQLAlchemy
+или исходные SQL-файлы. Перед отметкой этой ревизии существующие базы данных
+необходимо проверить. Откат намеренно не поддерживается, поскольку после
+развёртывания эта исходная схема управляет прежними бизнес-данными.
 """
 
 from alembic import op
@@ -2377,7 +2377,7 @@ MIGRATION_SQL = (
 
 
 def _split_sql(script: str) -> list[str]:
-    """Split PostgreSQL script at semicolons outside quoted and dollar bodies."""
+    """Разбить скрипт PostgreSQL по точкам с запятой вне кавычек и долларовых блоков."""
     statements: list[str] = []
     start = 0
     index = 0

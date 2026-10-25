@@ -1,4 +1,4 @@
-"""Real PostgreSQL acceptance: graph state, actor checks and transaction rollback."""
+"""Приёмочные проверки PostgreSQL: граф, права субъекта и откат транзакции."""
 
 import asyncio
 from dataclasses import replace
@@ -244,10 +244,10 @@ async def test_injected_audit_failure_rolls_back_relations_and_business_state(
 
     async def fail_after_append(repository, record):
         await original(repository, record)
-        raise RuntimeError("injected Stage06 failure after audit")
+        raise RuntimeError("injected projects failure after audit")
 
     monkeypatch.setattr(SqlAlchemyAuditRepository, "append", fail_after_append)
-    with pytest.raises(RuntimeError, match="injected Stage06"):
+    with pytest.raises(RuntimeError, match="injected projects"):
         await service.update(
             task.id,
             TaskCommand.from_values(
@@ -403,7 +403,7 @@ async def test_scope_update_and_task_mutation_use_actor_then_project_without_dea
     original_update = SqlAlchemyUserRepository.update
 
     async def observed_get(repository, identifier, *, for_update=False):
-        if asyncio.current_task().get_name() == "stage06-graph" and for_update:
+        if asyncio.current_task().get_name() == "projects-graph" and for_update:
             graph_requests_actor.set()
         return await original_get(repository, identifier, for_update=for_update)
 
@@ -433,12 +433,12 @@ async def test_scope_update_and_task_mutation_use_actor_then_project_without_dea
     ]
     scope_task = asyncio.create_task(
         users.update(context.actor.actor_id, {"assignments": assignments}, context),
-        name="stage06-scope",
+        name="projects-scope",
     )
     await asyncio.wait_for(actor_locked.wait(), timeout=5)
     graph_task = asyncio.create_task(
         tasks.update(task.id, TaskCommand.from_values({"name": "after"}), context),
-        name="stage06-graph",
+        name="projects-graph",
     )
     results = await asyncio.wait_for(
         asyncio.gather(scope_task, graph_task, return_exceptions=True), timeout=10

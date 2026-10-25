@@ -134,7 +134,7 @@ describe('backend client', () => {
     vi.stubEnv('BACKEND_BASE_URL', 'http://127.0.0.1:8000')
     const fetchMock = vi.fn<typeof fetch>(async (_input, init) => {
       const reader = (init?.body as ReadableStream<Uint8Array>).getReader()
-      while (!(await reader.read()).done) { /* consume the incoming upload */ }
+      while (!(await reader.read()).done) { /* читаем входящие данные загрузки */ }
       return new Response('uploaded')
     })
     vi.stubGlobal('fetch', fetchMock)

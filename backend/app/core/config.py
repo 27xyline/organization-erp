@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     )
 
     document_storage_root: Path = Field(
-        default_factory=lambda: Path(__file__).resolve().parents[3] / ".runtime" / "documents",
+        default_factory=lambda: Path(__file__).resolve().parents[3] / "var" / "documents",
         validation_alias=AliasChoices("DOCUMENT_STORAGE_ROOT", "BACKEND_DOCUMENT_STORAGE_ROOT"),
     )
     document_max_file_size_bytes: int = Field(

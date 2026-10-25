@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { transferAssetSchema } from '@/features/assets/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiValidationError } from '@/lib/http/api-response'
-import { proxyStage07Request } from '@/lib/backend/stage07'
+import { proxyAssetRequest } from '@/lib/backend/assets'
 
 export async function POST(
   request: NextRequest,
@@ -13,5 +13,5 @@ export async function POST(
   const input = transferAssetSchema.safeParse(await request.clone().json())
   if (!input.success) return apiValidationError(input.error)
   const { id } = await params
-  return proxyStage07Request(request, `/api/assets/${encodeURIComponent(id)}/transfers`, auth.user, auth.requestId)
+  return proxyAssetRequest(request, `/api/assets/${encodeURIComponent(id)}/transfers`, auth.user, auth.requestId)
 }

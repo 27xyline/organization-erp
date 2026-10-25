@@ -1,4 +1,4 @@
-"""Raw streaming transport for the existing document HTTP matrix."""
+"""Транспорт потоковой передачи без преобразований для существующей матрицы HTTP документов."""
 
 import base64
 import json
@@ -39,7 +39,7 @@ from app.services.dto.documents import (
 
 
 class DocumentStreamingResponse(StreamingResponse):
-    """Close the verified snapshot on success, send failure, or client cancellation."""
+    """Закрывает проверенный снимок при успехе, ошибке отправки или отмене со стороны клиента."""
 
     def __init__(self, download: Download, headers: dict[str, str]) -> None:
         self._download = download
@@ -262,7 +262,7 @@ async def download(
 ) -> StreamingResponse:
     number = None
     if "version" in request.query_params:
-        # Same coerced positive integer policy as the source query schema.
+        # Та же политика приведения к положительному целому числу, что и в исходной схеме запроса.
         try:
             raw = float(request.query_params["version"])
             if not raw.is_integer() or raw <= 0:

@@ -182,7 +182,8 @@ async def test_failure_after_user_audit_and_email_intent_rolls_back_everything(a
 @pytest.mark.anyio
 async def test_two_concurrent_admin_removals_leave_one_active_admin(auth_env):
     env = auth_env
-    # Disable preexisting copied users only in this disposable DB, restore exact values in finally.
+    # Отключаем скопированных пользователей только в этой временной БД; в finally восстанавливаем
+    # точные значения.
     async with env["sessions"]() as session:
         before = (await session.execute(select(User.id, User.isActive, User.updatedAt))).all()
         await session.execute(update(User).values(isActive=False))

@@ -1,4 +1,4 @@
-"""HTTP payloads for the department module."""
+"""Данные HTTP-запросов для модуля подразделений."""
 
 from typing import Annotated, Literal
 

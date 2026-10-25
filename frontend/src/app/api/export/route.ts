@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiError } from '@/lib/http/api-response'
-import { proxyStage07Request } from '@/lib/backend/stage07'
+import { proxyAssetRequest } from '@/lib/backend/assets'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,6 +14,6 @@ export async function GET(request: NextRequest) {
     return apiError('UNSUPPORTED_EXPORT_TYPE', 'Неизвестный тип экспорта', 422)
   }
 
-  // FastAPI owns the export query and streams the XLSX attachment through the BFF.
-  return proxyStage07Request(request, `${request.nextUrl.pathname}${request.nextUrl.search}`, auth.user, auth.requestId)
+  // FastAPI выполняет запрос экспорта и передаёт вложение XLSX потоком через BFF.
+  return proxyAssetRequest(request, `${request.nextUrl.pathname}${request.nextUrl.search}`, auth.user, auth.requestId)
 }

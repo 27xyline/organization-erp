@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { proxyStage07Request } from '@/lib/backend/stage07'
+import { proxyAssetRequest } from '@/lib/backend/assets'
 
 export async function DELETE(
   request: NextRequest,
@@ -10,5 +10,5 @@ export async function DELETE(
   if (auth.response) return auth.response
 
   await context.params
-  return proxyStage07Request(request, `${request.nextUrl.pathname}${request.nextUrl.search}`, auth.user, auth.requestId)
+  return proxyAssetRequest(request, `${request.nextUrl.pathname}${request.nextUrl.search}`, auth.user, auth.requestId)
 }

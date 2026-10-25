@@ -1,4 +1,4 @@
-"""Framework-neutral result for scheduled alert generation."""
+"Результат генерации запланированных уведомлений, не зависящий от фреймворка."
 
 from __future__ import annotations
 

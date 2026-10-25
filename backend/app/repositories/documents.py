@@ -1,4 +1,5 @@
-"""Bounded eager document queries and mutation primitives; never commits."""
+"""Ограниченные запросы документов с предварительной загрузкой и примитивы изменения; \
+фиксация транзакции не выполняется."""
 
 from collections.abc import Callable
 from dataclasses import asdict
@@ -202,7 +203,8 @@ class SqlAlchemyDocumentRepository:
             await self._session().execute(
                 text("SELECT pg_advisory_xact_lock(hashtextextended(:id, 0))"), {"id": document_id}
             )
-            # Row lock also serializes with the transitional TS approval writer.
+            # Блокировка строки также упорядочивает работу с переходной записью
+            # согласований на TS.
             await self._session().execute(
                 select(Document.id).where(Document.id == document_id).with_for_update()
             )
@@ -368,8 +370,8 @@ class SqlAlchemyDocumentRepository:
         )
 
     async def referenced(self, key: str) -> bool:
-        # Separate commands are intentional. READ COMMITTED takes a fresh snapshot
-        # only after the writer's transaction advisory fence has been released.
+        # Раздельные команды нужны намеренно. READ COMMITTED создаёт новый снимок
+        # только после снятия транзакционного барьера блокировки писателя.
         isolation = await self._session().scalar(text("SHOW transaction_isolation"))
         if isolation != "read committed":
             raise RuntimeError("Document reconciliation requires READ COMMITTED")

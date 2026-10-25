@@ -10,10 +10,10 @@ async def test_node_phc_dummy_and_round_trip_hash():
     assert not await passwords.verify(DUMMY_PASSWORD_HASH, "unknown-password")
     assert not passwords.needs_rehash(DUMMY_PASSWORD_HASH)
     node_encoded = (
-        "$argon2id$v=19$m=19456,t=2,p=1$u6a7EgmTwFr6eGDwexbeIg$"
-        "cGEuqCucMSfmZdja40ModnAhO2sdbhkBgnc9/G1bksw"
+        "$argon2id$v=19$m=19456,t=2,p=1$r5KKRvH1dJa4EhlY8dGGRA$"
+        "vxHlrRLgANh4IHpCHVBc4O1VR0QFZaqGjUNZZKgyC24"
     )
-    assert await passwords.verify(node_encoded, "Stage03-node-fixture!")
+    assert await passwords.verify(node_encoded, "auth-node-fixture!")
     encoded = await passwords.hash("password-test")
     assert encoded.startswith("$argon2id$v=19$m=19456,t=2,p=1$")
     assert await passwords.verify(encoded, "password-test")

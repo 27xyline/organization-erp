@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { notificationsQuerySchema } from '@/features/notifications/contracts/notification'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiValidationError } from '@/lib/http/api-response'
-import { proxyStage09 } from '@/lib/backend/stage09'
+import { proxyNotificationRequest } from '@/lib/backend/notifications'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,5 +15,5 @@ export async function GET(request: NextRequest) {
   )
   if (!query.success) return apiValidationError(query.error)
 
-  return proxyStage09(request, `/api/notifications${request.nextUrl.search}`, auth.user, auth.requestId)
+  return proxyNotificationRequest(request, `/api/notifications${request.nextUrl.search}`, auth.user, auth.requestId)
 }

@@ -1,4 +1,4 @@
-"""SQLAlchemy mappings for approvals tables."""
+"""Отображения SQLAlchemy для таблиц согласований."""
 
 from __future__ import annotations
 

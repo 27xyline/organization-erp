@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { recordAssetInventoryCountSchema } from '@/features/assets/contracts/inventory'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiValidationError } from '@/lib/http/api-response'
-import { proxyStage07Request } from '@/lib/backend/stage07'
+import { proxyAssetRequest } from '@/lib/backend/assets'
 
 export async function POST(
   request: NextRequest,
@@ -13,5 +13,5 @@ export async function POST(
   const input = recordAssetInventoryCountSchema.safeParse(await request.clone().json().catch(() => null))
   if (!input.success) return apiValidationError(input.error)
   await context.params
-  return proxyStage07Request(request, `${request.nextUrl.pathname}${request.nextUrl.search}`, auth.user, auth.requestId)
+  return proxyAssetRequest(request, `${request.nextUrl.pathname}${request.nextUrl.search}`, auth.user, auth.requestId)
 }

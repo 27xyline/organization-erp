@@ -1,4 +1,4 @@
-"""Detached persistence records and the asset repository boundary."""
+"Записи хранения без ORM-моделей и граница репозитория активов."
 
 from __future__ import annotations
 

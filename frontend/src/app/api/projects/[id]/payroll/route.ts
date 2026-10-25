@@ -4,7 +4,7 @@ import {
   projectPayrollSaveSchema,
 } from '@/features/finance/contracts/project-payroll'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { proxyStage10Request } from '@/lib/backend/stage10'
+import { proxyFinanceRequest } from '@/lib/backend/finance'
 import { validateRequest } from '@/lib/http/validate-request'
 
 export const dynamic = 'force-dynamic'
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest, props: RouteProps) {
   if (!Number.isInteger(year) || year < 2000 || year > 2100) {
     return Response.json({ error: 'Invalid payroll year' }, { status: 400 })
   }
-  return proxyStage10Request(
+  return proxyFinanceRequest(
     request,
     `${request.nextUrl.pathname}${request.nextUrl.search}`,
     auth.user,
@@ -50,7 +50,7 @@ export async function PUT(request: NextRequest, props: RouteProps) {
     await request.clone().json().catch(() => null),
   )
   if (!validation.success) return Response.json({ error: validation.error }, { status: 400 })
-  return proxyStage10Request(request, `/api/projects/${id}/payroll`, auth.user, auth.requestId)
+  return proxyFinanceRequest(request, `/api/projects/${id}/payroll`, auth.user, auth.requestId)
 }
 
 export async function DELETE(request: NextRequest, props: RouteProps) {
@@ -65,5 +65,5 @@ export async function DELETE(request: NextRequest, props: RouteProps) {
     await request.clone().json().catch(() => null),
   )
   if (!validation.success) return Response.json({ error: validation.error }, { status: 400 })
-  return proxyStage10Request(request, `/api/projects/${id}/payroll`, auth.user, auth.requestId)
+  return proxyFinanceRequest(request, `/api/projects/${id}/payroll`, auth.user, auth.requestId)
 }

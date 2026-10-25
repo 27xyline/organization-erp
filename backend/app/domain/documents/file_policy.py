@@ -1,4 +1,4 @@
-"""Transport-independent filename, MIME and size policy."""
+"Правила имени файла, MIME-типа и размера, не зависящие от транспорта."
 
 import re
 import unicodedata

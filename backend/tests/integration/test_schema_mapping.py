@@ -12,8 +12,7 @@ from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TIMESTAMP
 from app.db.base import new_cuid, utc_now_naive
 from app.db.registry import Base
 
-ROOT = Path(__file__).parents[3]
-INVENTORY = json.loads((ROOT / "docs/backend-migration/schema-inventory.json").read_text())
+INVENTORY = json.loads((Path(__file__).parents[1] / "fixtures/schema_inventory.json").read_text())
 LEGACY_TABLES = {model["sql_name"] for model in INVENTORY["models"]}
 POST_BASELINE_TABLES = {"user_sessions"}
 
@@ -151,14 +150,8 @@ def test_schema_defaults_and_enum_metadata_are_complete() -> None:
         )
         == 49
     )
-    assert (
-        sum(len(table.columns) for table in legacy_tables)
-        == INVENTORY["counts"]["columns"]
-    )
-    assert (
-        sum(len(table.indexes) for table in legacy_tables)
-        == INVENTORY["counts"]["indexes"]
-    )
+    assert sum(len(table.columns) for table in legacy_tables) == INVENTORY["counts"]["columns"]
+    assert sum(len(table.indexes) for table in legacy_tables) == INVENTORY["counts"]["indexes"]
     assert (
         sum(len(table.foreign_key_constraints) for table in legacy_tables)
         == INVENTORY["counts"]["foreign_keys"]
@@ -195,7 +188,7 @@ def test_sql_normalization_preserves_meaningful_case_casts_and_grouping() -> Non
 
 
 def _wrapped_default(value):
-    """SQLAlchemy wraps Python defaults in a context-taking function."""
+    """SQLAlchemy оборачивает значения по умолчанию Python в функцию, принимающую контекст."""
     closure = getattr(value, "__closure__", None)
     if closure and len(closure) == 1 and callable(closure[0].cell_contents):
         return closure[0].cell_contents

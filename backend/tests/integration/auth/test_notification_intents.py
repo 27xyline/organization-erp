@@ -73,7 +73,7 @@ async def test_notifications_preferences_dedupe_and_legacy_worker_payload(auth_e
                 enabled=False,
             )
         )
-        # Replace email preference as well: no deliveries when both channels are disabled.
+        # Заменяем и настройку электронной почты: при отключении обоих каналов доставки нет.
         existing = await session.scalar(
             select(NotificationPreference).where(
                 NotificationPreference.userId == identifier,

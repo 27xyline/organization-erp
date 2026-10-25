@@ -17,18 +17,18 @@ from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
 @pytest.mark.anyio
 @pytest.mark.parametrize("writer", ["edit", "approve"])
 async def test_close_blocks_writer_in_an_independent_postgres_session(
-    stage10_session_factory, writer: str
+    db_session_factory, writer: str
 ) -> None:
     suffix = uuid4().hex
     user_id = f"s10-{suffix}"
     year = 2060 + int(suffix[:2], 16) % 40
     month = 1 + int(suffix[2:4], 16) % 12
-    async with stage10_session_factory() as setup:
-        setup.add(User(id=user_id, username=f"s10-{suffix}", name="Stage10", passwordHash="x"))
+    async with db_session_factory() as setup:
+        setup.add(User(id=user_id, username=f"s10-{suffix}", name="finance", passwordHash="x"))
         await setup.commit()
 
     try:
-        async with stage10_session_factory() as closing_session:
+        async with db_session_factory() as closing_session:
             await closing_session.begin()
             closing_repo = SqlAlchemyPayrollPeriodRepository(lambda: closing_session)
             status = await closing_repo.lock_period(year, month)
@@ -47,9 +47,7 @@ async def test_close_blocks_writer_in_an_independent_postgres_session(
                     closedById=user_id,
                 )
             )
-            waiting_writer = asyncio.create_task(
-                _assert_closed(stage10_session_factory, year, month)
-            )
+            waiting_writer = asyncio.create_task(_assert_closed(db_session_factory, year, month))
             await asyncio.sleep(0.1)
             assert not waiting_writer.done(), f"{writer} writer did not wait for close lock"
             await closing_session.commit()
@@ -57,7 +55,7 @@ async def test_close_blocks_writer_in_an_independent_postgres_session(
             await asyncio.wait_for(waiting_writer, timeout=3)
         assert raised.value.code == "PERIOD_CLOSED"
     finally:
-        async with stage10_session_factory() as cleanup:
+        async with db_session_factory() as cleanup:
             await clear_audit_logs_for_test_cleanup(cleanup)
             await cleanup.execute(
                 delete(PayrollPeriod).where(
@@ -68,37 +66,37 @@ async def test_close_blocks_writer_in_an_independent_postgres_session(
             await cleanup.commit()
 
 
-async def _assert_closed(stage10_session_factory, year: int, month: int) -> None:
-    async with stage10_session_factory() as session:
+async def _assert_closed(db_session_factory, year: int, month: int) -> None:
+    async with db_session_factory() as session:
         repository = SqlAlchemyPayrollPeriodRepository(lambda: session)
         await repository.assert_open(year, month)
 
 
 @pytest.mark.anyio
 async def test_period_can_be_closed_and_reopened_only_with_a_reason(
-    stage10_session_factory,
+    db_session_factory,
 ) -> None:
     suffix = uuid4().hex
     user_id = f"s10-{suffix}"
     year = 2060 + int(suffix[:2], 16) % 40
     month = 1 + int(suffix[2:4], 16) % 12
-    async with stage10_session_factory() as setup:
-        setup.add(User(id=user_id, username=f"s10-{suffix}", name="Stage10", passwordHash="x"))
+    async with db_session_factory() as setup:
+        setup.add(User(id=user_id, username=f"s10-{suffix}", name="finance", passwordHash="x"))
         await setup.commit()
 
     try:
-        async with stage10_session_factory() as session:
+        async with db_session_factory() as session:
             repository = SqlAlchemyPayrollPeriodRepository(lambda: session)
             period = await repository.set_status(year, month, "CLOSED", user_id)
             assert period["status"] == "CLOSED"
             await session.commit()
-        async with stage10_session_factory() as session:
+        async with db_session_factory() as session:
             repository = SqlAlchemyPayrollPeriodRepository(lambda: session)
             with pytest.raises(DomainError) as raised:
                 await repository.set_status(year, month, "OPEN", user_id)
             assert raised.value.code == "REOPEN_REASON_REQUIRED"
             await session.rollback()
-        async with stage10_session_factory() as session:
+        async with db_session_factory() as session:
             repository = SqlAlchemyPayrollPeriodRepository(lambda: session)
             period = await repository.set_status(
                 year, month, "OPEN", user_id, reason="Повторная проверка"
@@ -106,7 +104,7 @@ async def test_period_can_be_closed_and_reopened_only_with_a_reason(
             assert period["status"] == "OPEN"
             await session.commit()
     finally:
-        async with stage10_session_factory() as cleanup:
+        async with db_session_factory() as cleanup:
             await clear_audit_logs_for_test_cleanup(cleanup)
             await cleanup.execute(
                 delete(PayrollPeriod).where(

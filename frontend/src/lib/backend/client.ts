@@ -60,7 +60,7 @@ function backendUrl(path: string): URL {
   return url
 }
 
-/** Server-only fixed-origin API client. Callers supply a relative path, never a URL. */
+/** Серверный API-клиент с фиксированным источником. Вызывающий код передаёт относительный путь, без URL. */
 export async function backendFetch(
   path: string,
   init: RequestInit = {},
@@ -87,10 +87,10 @@ export async function backendFetch(
 }
 
 /**
- * Fetch a streamed document request with an idle timeout while uploading and
- * awaiting response headers. Each upload chunk refreshes that timer. Once
- * headers arrive, the timeout ends; the caller's signal remains active for
- * request and response body cancellation.
+ * Выполняем потоковый запрос документа с тайм-аутом бездействия при загрузке и
+ * ожидании заголовков ответа. Каждый блок загружаемых данных обновляет таймер.
+ * После получения заголовков тайм-аут отключается; сигнал вызывающего кода остаётся
+ * активным для отмены запроса и чтения тела ответа.
  */
 export async function backendStreamFetch(
   path: string,
@@ -201,7 +201,7 @@ export function forwardRequestHeaders(request: Request): Headers {
   return headers
 }
 
-/** Allow only the extra metadata and unchanged declared length for raw file bodies. */
+/** Для необработанного тела файла разрешаем только дополнительные метаданные и неизменённую заявленную длину. */
 export function forwardDocumentRequestHeaders(request: Request): Headers {
   const headers = forwardRequestHeaders(request)
   for (const name of ['x-document-metadata', 'content-length']) {

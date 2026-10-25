@@ -1,4 +1,4 @@
-"""PostgreSQL advisory lock and run-state persistence for scheduled alerts."""
+"""Блокировка PostgreSQL и сохранение состояния запуска для запланированных оповещений."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ class SqlAlchemyScheduledAlertLock:
 
     @asynccontextmanager
     async def hold(self) -> AsyncIterator[object | None]:
-        """Keep a dedicated PG connection only while the generator runs."""
+        """Выделенное подключение PG удерживается только во время работы генератора."""
         async with self._engine.connect() as connection:
             acquired = bool(
                 await connection.scalar(
@@ -79,7 +79,8 @@ class SqlAlchemyScheduledAlertLock:
 
 
 class SqlAlchemyScheduledAlertQueries:
-    """SQLAlchemy adapter for legacy scheduled-alert source and reminder queries."""
+    """Адаптер SQLAlchemy для запросов к старому источнику запланированных \
+    оповещений и напоминаний."""
 
     def __init__(self, session_factory: async_sessionmaker[AsyncSession]) -> None:
         self._session_factory = session_factory

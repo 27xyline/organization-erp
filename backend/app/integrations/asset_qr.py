@@ -1,4 +1,4 @@
-"""Generate private SVG QR labels for the existing inventory scanner URL."""
+"""Создаёт закрытые QR-метки в SVG для существующего URL сканера инвентаризации."""
 
 import io
 from xml.etree import ElementTree
@@ -14,8 +14,9 @@ def render_asset_qr(url: str) -> bytes:
     output = io.BytesIO()
     code.make_image(image_factory=SvgPathImage).save(output)
     root = ElementTree.fromstring(output.getvalue())
-    # Serialize a per-document default namespace without mutating ElementTree's
-    # process-global prefix registry (lxml is present once DOCX support is installed).
+    # Сериализовать пространство имён по умолчанию для документа, не изменяя
+    # глобальный для процесса реестр префиксов ElementTree (lxml доступен при
+    # установленной поддержке DOCX).
     namespace = "{http://www.w3.org/2000/svg}"
     for element in root.iter():
         if isinstance(element.tag, str) and element.tag.startswith(namespace):

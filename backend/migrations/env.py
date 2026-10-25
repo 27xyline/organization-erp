@@ -18,7 +18,7 @@ target_metadata = Base.metadata
 
 
 def include_object(object_, name, type_, reflected, compare_to):
-    """Ignore Prisma's migration ledger during schema comparisons."""
+    """Не учитывать журнал миграций Prisma при сравнении схем."""
     return not (type_ == "table" and name == "_prisma_migrations")
 
 

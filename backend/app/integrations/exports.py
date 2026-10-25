@@ -1,4 +1,5 @@
-"""Synchronous export renderers; callers run these after the DB UoW in a worker thread."""
+"""Синхронные средства формирования экспорта; вызывающий код запускает их \
+в рабочем потоке после UoW базы данных."""
 
 from __future__ import annotations
 
@@ -55,7 +56,7 @@ def render_xlsx(title: str, columns: list[str], rows: list[list[Any]]) -> bytes:
 
 
 def render_dashboard_xlsx(data: dict[str, Any]) -> bytes:
-    """Create the dashboard workbook from an already authorized detached DTO."""
+    """Создаёт книгу панели мониторинга из уже авторизованного отделённого DTO."""
     workbook = Workbook()
     workbook.properties.creator = "Consilium"
     overview = workbook.active
@@ -190,7 +191,8 @@ def render_dashboard_xlsx(data: dict[str, Any]) -> bytes:
 
 
 class DashboardExportRenderer:
-    """Async port adapter; all CPU-bound document work runs off the event loop."""
+    """Асинхронный адаптер интерфейса; вся работа с документами, нагружающая CPU, \
+    выполняется вне цикла событий."""
 
     async def render(self, output_format: str, data: dict[str, Any]) -> bytes:
         if output_format == "xlsx":
@@ -201,7 +203,7 @@ class DashboardExportRenderer:
 
 
 def _dashboard_report_rows(data: dict[str, Any]) -> tuple[list[str], list[list[Any]]]:
-    """Return detailed, scoped tables in a flat layout shared by DOCX and PDF."""
+    """Возвращает подробные таблицы в заданной области в плоском формате для DOCX и PDF."""
     rows: list[list[Any]] = []
 
     def add_section(title: str, headers: list[str], items: list[list[Any]]) -> None:
@@ -377,7 +379,7 @@ def _cyrillic_font(text: str) -> Path:
     for candidate in candidates:
         if not candidate.is_file():
             continue
-        font = TTFont("Stage12FontProbe", str(candidate))
+        font = TTFont("ExportFontProbe", str(candidate))
         if all(ord(character) in font.face.charToGlyph for character in text):
             return candidate
     raise RuntimeError("No installed TrueType font supports every character in this PDF")
@@ -388,8 +390,8 @@ def render_pdf(title: str, columns: list[str], rows: list[list[Any]]) -> bytes:
     font_text += "".join(str(value) for row in rows for value in row if value is not None)
     font_path = _cyrillic_font(font_text)
     with _FONT_REGISTRATION_LOCK:
-        if "ConsiliumStage12" not in pdfmetrics.getRegisteredFontNames():
-            pdfmetrics.registerFont(TTFont("ConsiliumStage12", str(font_path)))
+        if "ConsiliumExport" not in pdfmetrics.getRegisteredFontNames():
+            pdfmetrics.registerFont(TTFont("ConsiliumExport", str(font_path)))
     output = BytesIO()
     document = SimpleDocTemplate(output, pagesize=landscape(letter), title=title)
     data = [columns] + [["" if value is None else str(value) for value in row] for row in rows]
@@ -397,7 +399,7 @@ def render_pdf(title: str, columns: list[str], rows: list[list[Any]]) -> bytes:
     table.setStyle(
         TableStyle(
             [
-                ("FONTNAME", (0, 0), (-1, -1), "ConsiliumStage12"),
+                ("FONTNAME", (0, 0), (-1, -1), "ConsiliumExport"),
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e2e8f0")),
                 ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#94a3b8")),
                 ("VALIGN", (0, 0), (-1, -1), "TOP"),
@@ -405,9 +407,7 @@ def render_pdf(title: str, columns: list[str], rows: list[list[Any]]) -> bytes:
         )
     )
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle(
-        "Stage12Title", parent=styles["Title"], fontName="ConsiliumStage12"
-    )
+    title_style = ParagraphStyle("ExportTitle", parent=styles["Title"], fontName="ConsiliumExport")
     document.build([Paragraph(title, title_style), table])
     return output.getvalue()
 

@@ -1,4 +1,4 @@
-"""Pure rules and stable error translations for approval transitions."""
+"Чистые правила и стабильные переводы ошибок для переходов согласования."
 
 from datetime import UTC, datetime
 from typing import NoReturn

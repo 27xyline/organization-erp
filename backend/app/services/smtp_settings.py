@@ -1,4 +1,4 @@
-"""SMTP settings use cases; connection checks run outside database transactions."""
+"Сценарии настроек SMTP; соединение проверяется вне транзакции базы данных."
 
 from __future__ import annotations
 

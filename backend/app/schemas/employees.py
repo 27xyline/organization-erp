@@ -1,4 +1,4 @@
-"""Legacy HTTP validation; business dates/capacity remain pure domain rules."""
+"""Проверка legacy HTTP; даты и занятость остаются правилами доменной логики."""
 
 import re
 from datetime import date, datetime, timedelta
@@ -43,7 +43,7 @@ class EmployeeUpdateInput(BaseModel):
     @field_validator("contractSignedDate", "contractEndDate", mode="before")
     @classmethod
     def legacy_update_date_coercion(cls, value: Any, info: Any) -> Any:
-        # Create uses string dates; only the legacy PUT schema uses z.coerce.date().
+        # В Create даты передаются строками; только legacy-схема PUT использует z.coerce.date().
         if cls is not EmployeeUpdateInput:
             return value
         if info.field_name == "contractEndDate" and value in (None, ""):

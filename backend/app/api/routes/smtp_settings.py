@@ -1,4 +1,4 @@
-"""Administrative SMTP settings and out-of-transaction connection probe."""
+"""Административные настройки SMTP и проверка соединения вне транзакции."""
 
 from typing import Annotated, Any
 

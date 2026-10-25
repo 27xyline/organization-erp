@@ -1,4 +1,4 @@
-"""XLSX upload/download adapters; parsing and workbook rendering run off-loop."""
+"""Адаптеры загрузки и скачивания XLSX; разбор и создание книги выполняются вне цикла событий."""
 
 from typing import Annotated
 

@@ -1,4 +1,4 @@
-"""Asset XLSX import use cases and legacy-compatible row validation."""
+"Сценарии импорта активов из XLSX и проверка строк, совместимая с прежней реализацией."
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from app.services.dto.assets import AssetCommand
 
 
 class AssetImportError(Exception):
-    """A file cannot be used for the asset import preview."""
+    "Файл нельзя использовать для предварительного просмотра импорта активов."
 
 
 def _authorize(actor: Actor, permission: str) -> None:
@@ -384,7 +384,7 @@ class AssetImportService:
                     details,
                 )
             for command in commands:
-                # The common mutator checked the actor; createMany stays in this UoW.
+                # Пользователь уже проверен; createMany остаётся в этой единице работы.
                 await check_mols(uow, actor, "assets.create", (command.molId,))
                 await create_asset_in_uow(command, context, uow)
             return len(commands)

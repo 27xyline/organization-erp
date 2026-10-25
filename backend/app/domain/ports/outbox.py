@@ -1,4 +1,4 @@
-"""Detached email delivery records and transactional outbox boundary."""
+"""Записи доставки почты без ORM-моделей и граница транзакционной очереди."""
 
 from __future__ import annotations
 

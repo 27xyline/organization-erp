@@ -29,7 +29,7 @@ from app.services.procurement import ProcurementService
 
 @pytest.mark.anyio
 async def test_scoped_asset_custodian_options_and_capitalization(
-    stage11_session_factory,
+    db_session_factory,
 ) -> None:
     suffix = uuid4().hex[:10]
     user_id = f"custodian-{suffix}"
@@ -44,7 +44,7 @@ async def test_scoped_asset_custodian_options_and_capitalization(
     delivery_item_id = f"delivery-item-{suffix}"
     inventory_number = f"SCOPED-{suffix}"
 
-    async with stage11_session_factory() as session:
+    async with db_session_factory() as session:
         session.add_all(
             [
                 User(
@@ -76,17 +76,38 @@ async def test_scoped_asset_custodian_options_and_capitalization(
         await session.flush()
         session.add_all(
             [
-                Mol(id=allowed_mol_id, code=f"MA-{suffix}", department="Разрешённый",
-                    departmentId=allowed_department_id, fullName="МОЛ A", storageLocation="A"),
-                Mol(id=denied_mol_id, code=f"MD-{suffix}", department="Чужой",
-                    departmentId=denied_department_id, fullName="МОЛ D", storageLocation="D"),
+                Mol(
+                    id=allowed_mol_id,
+                    code=f"MA-{suffix}",
+                    department="Разрешённый",
+                    departmentId=allowed_department_id,
+                    fullName="МОЛ A",
+                    storageLocation="A",
+                ),
+                Mol(
+                    id=denied_mol_id,
+                    code=f"MD-{suffix}",
+                    department="Чужой",
+                    departmentId=denied_department_id,
+                    fullName="МОЛ D",
+                    storageLocation="D",
+                ),
                 ProcurementItem(
-                    id=item_id, requestId=request_id, name="Принтер", quantity=Decimal("1"),
-                    unit="шт", unitPrice=Decimal("100"), groupId=group_id,
+                    id=item_id,
+                    requestId=request_id,
+                    name="Принтер",
+                    quantity=Decimal("1"),
+                    unit="шт",
+                    unitPrice=Decimal("100"),
+                    groupId=group_id,
                 ),
                 ProcurementContract(
-                    id=contract_id, requestId=request_id, supplierId=supplier_id,
-                    number=f"C-{suffix}", amount=Decimal("100"), signedAt=date.today(),
+                    id=contract_id,
+                    requestId=request_id,
+                    supplierId=supplier_id,
+                    number=f"C-{suffix}",
+                    amount=Decimal("100"),
+                    signedAt=date.today(),
                     deliveryDueAt=date.today(),
                 ),
             ]
@@ -94,14 +115,19 @@ async def test_scoped_asset_custodian_options_and_capitalization(
         await session.flush()
         session.add(
             ProcurementDelivery(
-                id=delivery_id, requestId=request_id, contractId=contract_id,
-                number="1", receivedAt=date.today(),
+                id=delivery_id,
+                requestId=request_id,
+                contractId=contract_id,
+                number="1",
+                receivedAt=date.today(),
             )
         )
         await session.flush()
         session.add(
             ProcurementDeliveryItem(
-                id=delivery_item_id, deliveryId=delivery_id, procurementItemId=item_id,
+                id=delivery_item_id,
+                deliveryId=delivery_id,
+                procurementItemId=item_id,
                 quantity=Decimal("1"),
             )
         )
@@ -132,7 +158,7 @@ async def test_scoped_asset_custodian_options_and_capitalization(
             access=access,
         ),
     )
-    service = ProcurementService(SqlAlchemyUnitOfWorkFactory(stage11_session_factory))
+    service = ProcurementService(SqlAlchemyUnitOfWorkFactory(db_session_factory))
 
     options = await service.options(context)
     assert [mol["id"] for mol in options["mols"]] == [allowed_mol_id]
@@ -145,18 +171,17 @@ async def test_scoped_asset_custodian_options_and_capitalization(
         )
     assert denied.value.code == "FORBIDDEN"
     assert denied.value.status_code == 403
-    async with stage11_session_factory() as session:
-        assert await session.scalar(
-            select(Asset.id).where(Asset.inventoryNumber == inventory_number)
-        ) is None
+    async with db_session_factory() as session:
+        assert (
+            await session.scalar(select(Asset.id).where(Asset.inventoryNumber == inventory_number))
+            is None
+        )
         line = await session.get(ProcurementDeliveryItem, delivery_item_id)
         assert line is not None and line.assetId is None
 
     created = await service.capitalize(
         delivery_item_id,
-        ProcurementCapitalizeCommand(
-            inventoryNumber=f"ALLOWED-{suffix}", molId=allowed_mol_id
-        ),
+        ProcurementCapitalizeCommand(inventoryNumber=f"ALLOWED-{suffix}", molId=allowed_mol_id),
         context,
     )
     assert created["inventoryNumber"] == f"ALLOWED-{suffix}"

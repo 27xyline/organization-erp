@@ -1,4 +1,4 @@
-"""Ports for rendering payroll and payslip download artifacts."""
+"Порты формирования файлов расчёта зарплаты и расчётных листков."
 
 from __future__ import annotations
 

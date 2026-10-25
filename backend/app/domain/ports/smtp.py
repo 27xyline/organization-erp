@@ -1,4 +1,4 @@
-"""SMTP configuration records and boundaries for settings and delivery checks."""
+"Записи конфигурации SMTP и границы для настроек и проверки доставки."
 
 from __future__ import annotations
 

@@ -1,4 +1,6 @@
-"""Full public core route/method matrix against PostgreSQL state."""
+"""Полная матрица публичных маршрутов и методов основного модуля
+с проверкой состояния PostgreSQL.
+"""
 
 import httpx
 import pytest

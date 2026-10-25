@@ -1,4 +1,4 @@
-"""Personnel changes and idempotent contract archive synchronization."""
+"Кадровые изменения и идемпотентная синхронизация архива договоров."
 
 from __future__ import annotations
 
@@ -203,7 +203,7 @@ class PersonnelActionService:
                     },
                 )
             await uow.commit()
-            # Legacy relation was captured before the employee update; preserve that shape.
+            # Связь получена до обновления сотрудника; сохранить её структуру.
             return action
 
     async def delete(self, identifier: str, context: RequestContext) -> dict[str, bool]:

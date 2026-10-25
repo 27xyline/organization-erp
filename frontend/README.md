@@ -1,4 +1,4 @@
-# Frontend — Next.js
+# Клиентская часть — Next.js
 
 Запускайте команды из `frontend/`. Python API должен работать отдельно.
 
@@ -19,13 +19,13 @@ npm test
 npm run build
 ```
 
-Браузерные тесты находятся в `e2e/`. `npm run test:e2e` сначала генерирует
-Prisma client из `e2e/prisma/schema.prisma` только для тестовых фикстур.
-Prisma не участвует в runtime, сборке приложения и миграциях базы. E2E требует
-отдельную `erp_stage*_e2e` БД, совпадающие `DATABASE_URL` и
-`STAGE07_E2E_DATABASE_URL` (либо соответствующую stage-переменную), а также
-`BACKEND_CSRF_SECRET` длиной от 32 байт. Playwright запускает Next.js из этой
-папки и FastAPI из соседней `../backend/`. Тестовое файловое хранилище
-ограничено `frontend/.runtime/<stage>/e2e/`; пути к реальным данным запрещены.
+Браузерные тесты находятся в `e2e/`. `npm run test:e2e` генерирует Prisma client
+из `e2e/prisma/schema.prisma` только для тестовых фикстур. Prisma не участвует
+в runtime, сборке приложения и миграциях базы.
 
-Общий запуск Docker Compose и Python CLI описаны в [корневом README](../README.md).
+E2E требует отдельную БД `erp_e2e`, совпадающие `DATABASE_URL` и
+`E2E_DATABASE_URL`, а также `BACKEND_CSRF_SECRET` длиной от 32 байт.
+Playwright запускает Next.js из этой папки и FastAPI из `../backend/`.
+Тестовые документы разрешены только внутри `frontend/.test-data/e2e/`.
+
+Общие инструкции: [README](../README.md), [тестирование](../docs/testing.md).

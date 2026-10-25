@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { formatCurrency, formatDecimal } from '@/lib/utils'
 import { employmentContractTypeLabels, type Employee, type StaffSchedule } from '@/features/employees/contracts/types'
 
-// Mocking the normalize function logic since we use it directly or via props
+// Имитируем логику функции нормализации, поскольку используем её напрямую или через свойства
 const normalizeEmploymentRateInput = (value: string) => {
   const normalizedValue = value.replace(',', '.').trim()
   if (!normalizedValue) return 0

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ authorize: vi.fn(), proxy: vi.fn() }))
 vi.mock('@/lib/auth/authorization', () => ({ authorizeApiRequest: mocks.authorize }))
-vi.mock('@/lib/backend/stage07', () => ({ proxyStage07Request: mocks.proxy }))
+vi.mock('@/lib/backend/assets', () => ({ proxyAssetRequest: mocks.proxy }))
 
 import { DELETE } from './route'
 

@@ -1,4 +1,4 @@
-"""Asset group and MOL use cases."""
+"Сценарии использования групп активов и материально ответственных лиц."
 
 from typing import Any
 

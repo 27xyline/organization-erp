@@ -19,7 +19,7 @@ function forwardSessionHeaders(request: Request, headers: Headers): void {
   }
 }
 
-/** Forward the browser's Python session to the API after the BFF has authorized the request. */
+/** Передаём Python-сессию браузера в API после авторизации запроса в BFF. */
 export async function proxyBackendRequest(
   request: Request,
   path: string,
@@ -40,7 +40,7 @@ export async function proxyBackendRequest(
   return forwardedResponse(response, { forwardSetCookie: true })
 }
 
-/** Stream document uploads/downloads through the same authenticated Python session. */
+/** Передаём загрузку и скачивание документов потоком через ту же авторизованную Python-сессию. */
 export async function proxyDocumentStreamRequest(
   request: Request,
   path: string,
@@ -62,7 +62,7 @@ export async function proxyDocumentStreamRequest(
   return forwardedResponse(response, { forwardSetCookie: true })
 }
 
-/** SSR calls use the browser's session cookie and let Python resolve current roles/scopes. */
+/** Вызовы SSR используют cookie сессии браузера; текущие роли и области доступа определяет Python. */
 export async function backendUserFetch(
   path: string,
   _user: Actor,

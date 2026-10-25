@@ -1,4 +1,4 @@
-"""Real PostgreSQL acceptance: graph state, actor checks and transaction rollback."""
+"""Приёмочные проверки PostgreSQL: граф, права субъекта и откат транзакции."""
 
 from decimal import Decimal
 from uuid import uuid4
@@ -29,7 +29,7 @@ async def project_env(db_session_factory):
             User(
                 id=prefix,
                 username=prefix,
-                name="Stage06",
+                name="projects",
                 passwordHash="unused",
                 mustChangePassword=False,
                 role="ADMIN",

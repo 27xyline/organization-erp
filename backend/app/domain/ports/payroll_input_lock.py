@@ -1,4 +1,4 @@
-"""Transaction-scoped coordination for payroll calculations and HR input changes."""
+"Координация в рамках транзакции для расчётов зарплаты и изменений HR-данных."
 
 from __future__ import annotations
 

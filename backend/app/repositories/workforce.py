@@ -1,4 +1,5 @@
-"""Staffing, vacation, and personnel adapters. Organization lock is owned by UoW service."""
+"""Адаптеры для штатного расписания, отпусков и персонала. \
+Блокировкой организации управляет сервис UoW."""
 
 from collections.abc import Callable
 from datetime import datetime

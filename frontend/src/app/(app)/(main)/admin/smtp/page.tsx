@@ -39,7 +39,7 @@ export default function SmtpSettingsPage() {
             setUsername(data.username || '')
             setFromEmail(data.fromEmail || '')
             setSecure(data.secure || false)
-            // Password is redacted on load, leave empty
+            // При загрузке пароль скрыт, оставляем поле пустым
             setPassword('')
           }
         }
@@ -63,7 +63,7 @@ export default function SmtpSettingsPage() {
           host,
           port,
           username,
-          password, // Will overwrite if provided
+          password, // Если значение передано, оно заменит сохранённое
           secure,
           fromEmail,
         }),
@@ -91,7 +91,7 @@ export default function SmtpSettingsPage() {
           host,
           port,
           username,
-          password, // Redacted is handled on server (uses saved password)
+          password, // Скрытый пароль обрабатывается на сервере (используется сохранённое значение)
           secure,
           fromEmail,
         }),

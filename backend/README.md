@@ -1,55 +1,54 @@
-# FastAPI backend
+# Бэкенд FastAPI
 
-FastAPI owns sessions, authorization, business rules, PostgreSQL access,
-documents and notifications. Next.js serves the UI and same-origin BFF only.
-Alembic is the only active schema migration owner.
+FastAPI управляет сессиями, авторизацией, бизнес-правилами, доступом к PostgreSQL,
+документами и уведомлениями. Next.js обслуживает интерфейс и BFF с тем же источником.
+Alembic — единственный действующий инструмент управления миграциями схемы.
 
-## Local configuration
+## Локальная настройка
 
-The root `.env.example` is shared by Compose and host-run Python commands.
+Корневой `.env.example` используется и Compose, и командами Python на хосте.
 
-| Variable | Purpose |
+| Переменная | Назначение |
 | --- | --- |
-| `BACKEND_DATABASE_URL` | Host-run Python CLI and tests; async SQLAlchemy URL. Use `localhost` and the published dev port from macOS. |
-| `BACKEND_TEST_DATABASE_URL` | Dedicated database for integration tests. |
-| `BACKEND_CSRF_SECRET` | Python-only signed double-submit CSRF key; 32 bytes or more. |
-| `BACKEND_PUBLIC_ORIGIN` | Browser-facing origin used by CSRF checks, not the internal Compose URL. |
-| `BACKEND_ENVIRONMENT` | Set `production` to disable interactive API docs. |
-| `DOCUMENT_STORAGE_ROOT` | Shared document directory for the backend and Python worker. |
-| `BACKEND_OTEL_ENABLED` | Enables optional Python traces and metrics. |
+| `BACKEND_DATABASE_URL` | Команды Python CLI и тесты на хосте; асинхронный URL SQLAlchemy. На macOS используйте `localhost` и опубликованный порт среды разработки. |
+| `BACKEND_TEST_DATABASE_URL` | Отдельная база данных для интеграционных тестов. |
+| `BACKEND_CSRF_SECRET` | Ключ подписи CSRF для схемы двойной отправки токена, используемый только Python; не менее 32 байт. |
+| `BACKEND_PUBLIC_ORIGIN` | Видимый браузеру источник, используемый в проверках CSRF, а не внутренний URL Compose. |
+| `BACKEND_ENVIRONMENT` | Установите `production`, чтобы отключить интерактивную документацию API. |
+| `DOCUMENT_STORAGE_ROOT` | Общий каталог документов для бэкенда и обработчика Python. |
+| `BACKEND_OTEL_ENABLED` | Включает необязательные трассировки и метрики Python. |
 
-Generate a local CSRF secret with `openssl rand -hex 32`; do not commit it.
-Compose services derive their database URL from `POSTGRES_*`. For commands
-run on the host, `BACKEND_DATABASE_URL` uses `localhost` and the port published
-by `docker-compose.dev.yml`.
+Создайте локальный секрет CSRF командой `openssl rand -hex 32`; не добавляйте его в коммиты.
+Сервисы Compose получают URL базы данных из `POSTGRES_*`. Для команд на хосте
+`BACKEND_DATABASE_URL` использует `localhost` и порт, опубликованный в
+`docker-compose.dev.yml`.
 
-## Start locally
+## Локальный запуск
 
-From the repository root:
+Из корня репозитория:
 
 ```sh
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
 ```
 
-The migration job runs `alembic upgrade head` and verifies the schema before
-starting app services. Next.js uses `http://backend:8000` inside Compose. For a
-host-run frontend, copy `frontend/.env.example` to `frontend/.env.local` and run
-`npm ci` / `npm run dev` from `frontend/`.
+Задача миграции выполняет `alembic upgrade head` и проверяет схему перед запуском
+сервисов приложения. Внутри Compose Next.js использует `http://backend:8000`.
+Для запуска фронтенда на хосте скопируйте `frontend/.env.example` в
+`frontend/.env.local` и выполните `npm ci` / `npm run dev` из `frontend/`.
 
-The backend API has `/api/health/live`, `/api/health/ready` and `/openapi.json`.
-In non-production, `/docs` and `/redoc` are available too.
+API бэкенда предоставляет `/api/health/live`, `/api/health/ready` и `/openapi.json`.
+Вне рабочей среды также доступны `/docs` и `/redoc`.
 
-For a host-run API, from `backend/`:
+Для запуска API на хосте, из `backend/`:
 
 ```sh
 uv sync --frozen
 uv run --env-file ../.env uvicorn app.main:create_app --factory --reload --port 8000
 ```
 
-## Alembic and Python CLI
+## Alembic и Python CLI
 
-Run commands from `backend/` with `BACKEND_DATABASE_URL` set to the intended
-database:
+Выполняйте команды из `backend/`, задав в `BACKEND_DATABASE_URL` нужную базу данных:
 
 ```sh
 uv sync --frozen
@@ -61,11 +60,9 @@ uv run --env-file ../.env python -m app.scripts.verify_data
 uv run --env-file ../.env python -m app.scripts.create_admin
 ```
 
-Before using Alembic on an existing legacy database, follow the
-[Stage 14A verify-and-stamp handoff](../docs/backend-migration/migration-handoff.md).
-Never run the archived Prisma migrations beside Alembic.
+Создание схемы и обновления выполняются через Alembic; см. [миграции](migrations/README.md).
 
-## Checks
+## Проверки
 
 ```sh
 uv sync --frozen
@@ -75,5 +72,5 @@ uv run mypy app
 uv run pytest
 ```
 
-Integration tests require an isolated PostgreSQL database. Do not point tests,
-rehearsal commands or a host-run backend at a production database.
+Для интеграционных тестов требуется изолированная база PostgreSQL. Не направляйте
+тесты, репетиционные команды или бэкенд на хосте в рабочую базу данных.

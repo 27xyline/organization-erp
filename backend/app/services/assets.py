@@ -1,4 +1,4 @@
-"""Asset lifecycle use cases, authorization and one explicit transaction decision."""
+"Сценарии жизненного цикла активов, авторизация и единое явное решение о транзакции."
 
 from __future__ import annotations
 
@@ -121,7 +121,7 @@ async def check_mols(
 async def create_asset_in_uow(
     command: AssetCommand, context: RequestContext, uow: UnitOfWork
 ) -> AssetRecord:
-    """Compose asset + holding + receipt + audit; caller owns authorization and commit."""
+    "Актив, ответственный, поступление и аудит; авторизация и фиксация у вызывающего кода."
     values = command.values()
     values["totalCost"] = command.unitPrice * command.quantity
     asset = await uow.assets.create(values)
@@ -203,7 +203,7 @@ class AssetService:
             mols = await uow.assets.mol_options(actor.access.allowed_department_ids("mols.read"))
             groups = await uow.groups.list()
             if not actor.access.has("assetGroups.read"):
-                # Match legacy catalogs: groups must have a visible asset.
+                # Повторить поведение прежних справочников: у группы должен быть видимый актив.
                 visible = await uow.assets.visible_group_ids(actor.access)
                 groups = [group for group in groups if group.id in visible]
             return {"mols": mols, "groups": [group.as_dict() for group in groups]}
@@ -240,12 +240,12 @@ class AssetService:
     ) -> AssetRecord:
         async def work(uow: UnitOfWork, actor: Actor) -> AssetRecord:
             before = await check_asset(uow, asset_id, actor, "assets.update")
-            # Match project graph/scope writers: actor -> ordered projects -> asset.
+            # Порядок блокировок: пользователь -> проекты по порядку -> актив.
             for project_id in sorted(
                 {value for value in (before.projectId, command.projectId) if value}
             ):
                 await uow.projects.lock(project_id)
-            # SERIALIZABLE rechecks a changed pre-read on acquisition via 40001/retry.
+            # SERIALIZABLE проверяет изменения при блокировке через 40001 и повтор операции.
             current = await check_asset(uow, asset_id, actor, "assets.update", lock=True)
             if current.quantity != command.quantity:
                 raise asset_error("QUANTITY_OPERATION_REQUIRED")

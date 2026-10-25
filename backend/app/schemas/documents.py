@@ -1,4 +1,4 @@
-"""Document transport validation; application commands remain plain dataclasses."""
+"""Проверка транспортных данных документов; команды приложения остаются обычными dataclass."""
 
 from dataclasses import asdict
 from datetime import UTC, datetime
@@ -94,7 +94,7 @@ class QueryInput(Links):
 
 
 def document_values(record: DocumentRecord) -> dict[str, object]:
-    """Map detached typed records to the original HTTP names and bigint strings."""
+    """Преобразует отделённые типизированные записи в исходные имена HTTP-полей и строки bigint."""
     result = asdict(record)
     result["versions"] = [
         {**asdict(version), "sizeBytes": str(version.sizeBytes)} for version in record.versions

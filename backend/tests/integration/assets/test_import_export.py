@@ -1,4 +1,4 @@
-"""Binary workbook contracts and atomic import against the real database."""
+"""Контракты бинарных книг и атомарный импорт с использованием реальной базы данных."""
 
 from dataclasses import replace
 from io import BytesIO

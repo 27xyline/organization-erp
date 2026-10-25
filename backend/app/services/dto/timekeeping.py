@@ -1,4 +1,4 @@
-"""Framework-neutral commands accepted by timekeeping use cases."""
+"Команды учёта времени, принимаемые сценариями использования и не зависящие от фреймворка."
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Collect the legacy scheduled notification sources and publish their intents."""
+"Собрать источники запланированных уведомлений и опубликовать намерения отправки."
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""SQLAlchemy repositories for departments, MOLs, and asset groups."""
+"""Репозитории SQLAlchemy для отделов, МОЛ и групп основных средств."""
 
 from collections.abc import Callable
 from typing import Any

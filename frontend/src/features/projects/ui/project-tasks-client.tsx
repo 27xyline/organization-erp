@@ -26,7 +26,7 @@ export function ProjectDetailClient({ projectId, initialTasks, view }: ProjectDe
   }, [projectId])
 
   if (view === 'tasks') {
-    // Simple list view for sidebar
+    // Простой список для боковой панели
     return (
       <div className="space-y-1">
         {tasks
@@ -46,7 +46,7 @@ export function ProjectDetailClient({ projectId, initialTasks, view }: ProjectDe
     )
   }
 
-  // Tree view for tasks tab
+  // Дерево задач для вкладки задач
   return (
     <TaskTree 
       tasks={tasks} 

@@ -228,7 +228,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
       }
     })
     
-    // Добавляем оставшиеся задачи (если есть orphaned)
+    // Добавляем оставшиеся задачи (если есть задачи без родителей)
     safeTasks.forEach(task => {
       if (!processed.has(task.id)) {
         addTaskRecursively(task.id, 1)
@@ -318,8 +318,8 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
   const dayWidth = weekWidth / 7
 
   /*
-   * The old chart mixed a 50px weekly header with percentage bars based on a
-   * non-week-aligned range. Keep every timeline element on the same pixel grid.
+   * В старой диаграмме недельный заголовок шириной 50px сочетался с полосами в процентах
+   * на диапазоне без выравнивания по неделям. Размещаем все элементы шкалы на одной пиксельной сетке.
    */
   const getTaskPosition = (task: Task) => {
     if (!task.startDate || !task.endDate) return null
@@ -385,7 +385,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
     }
   }
 
-  // Dynamic height calculations removed in favor of a clean, stable fixed row height (56px)
+  // Динамический расчёт высоты заменён стабильной фиксированной высотой строки (56px)
   
   return (
     <div className="min-w-0 border rounded-lg bg-white shadow-sm h-full" ref={containerRef}>
@@ -596,7 +596,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
             
             {/* Полосы задач */}
             <div className="relative">
-              {/* Vertical week grid lines */}
+              {/* Вертикальные линии недельной сетки */}
               <div className="absolute inset-0 pointer-events-none flex" style={{ height: `${organizedTasks.length * rowHeight}px` }}>
                 {weeks.map((_, idx) => (
                   <div

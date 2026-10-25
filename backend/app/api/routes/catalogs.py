@@ -1,4 +1,4 @@
-"""HTTP endpoints for asset groups and material-responsible persons."""
+"""HTTP-эндпоинты групп имущества и материально ответственных лиц."""
 
 from typing import Annotated, Any
 

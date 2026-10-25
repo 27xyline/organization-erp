@@ -35,26 +35,26 @@ from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
 
 @pytest.mark.anyio
 async def test_saved_time_entry_is_returned_with_serializable_relations(
-    stage10_session_factory: async_sessionmaker[AsyncSession],
+    db_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     suffix = __import__("uuid").uuid4().hex
     department_id = f"s10-dept-{suffix}"
     employee_id = f"s10-employee-{suffix}"
-    async with stage10_session_factory() as session:
+    async with db_session_factory() as session:
         department = Department(id=department_id, code=f"S10{suffix}", name=f"S10 {suffix}")
         session.add(department)
         await session.flush()
         employee = Employee(
             id=employee_id,
             code=f"S10{suffix}",
-            fullName="Stage10 fixture",
-            department="Stage10",
+            fullName="finance fixture",
+            department="finance",
             departmentId=department_id,
         )
         session.add(employee)
         await session.commit()
     try:
-        async with stage10_session_factory() as session:
+        async with db_session_factory() as session:
             repo = SqlAlchemyTimekeepingRepository(lambda: session)
             saved = await repo.save_entry(
                 {
@@ -71,7 +71,7 @@ async def test_saved_time_entry_is_returned_with_serializable_relations(
             assert saved.employee.id == employee_id
             await session.rollback()
     finally:
-        async with stage10_session_factory() as cleanup:
+        async with db_session_factory() as cleanup:
             await cleanup.delete(await cleanup.get(Employee, employee_id))
             await cleanup.delete(await cleanup.get(Department, department_id))
             await cleanup.commit()
@@ -79,7 +79,7 @@ async def test_saved_time_entry_is_returned_with_serializable_relations(
 
 @pytest.mark.anyio
 async def test_month_read_returns_options_summaries_and_virtual_timesheet(
-    stage10_session_factory: async_sessionmaker[AsyncSession],
+    db_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     suffix = __import__("uuid").uuid4().hex
     department_id = f"s10-dept-{suffix}"
@@ -88,7 +88,7 @@ async def test_month_read_returns_options_summaries_and_virtual_timesheet(
     task_id = f"s10-task-{suffix}"
     entry_id = f"s10-entry-{suffix}"
     year, month = 2000 + int(suffix[:2], 16) % 101, 1 + int(suffix[2:4], 16) % 12
-    async with stage10_session_factory() as seed:
+    async with db_session_factory() as seed:
         seed.add(Department(id=department_id, code=f"S10{suffix}", name=f"S10 {suffix}"))
         await seed.flush()
         seed.add_all(
@@ -96,17 +96,17 @@ async def test_month_read_returns_options_summaries_and_virtual_timesheet(
                 Employee(
                     id=employee_id,
                     code=f"S10{suffix}",
-                    fullName="Stage10 employee",
-                    department="Stage10",
+                    fullName="finance employee",
+                    department="finance",
                     departmentId=department_id,
                 ),
-                Project(id=project_id, code=f"S10P{suffix}", name="Stage10 project"),
+                Project(id=project_id, code=f"S10P{suffix}", name="finance project"),
             ]
         )
         await seed.flush()
         seed.add_all(
             [
-                Task(id=task_id, name="Stage10 task", projectId=project_id),
+                Task(id=task_id, name="finance task", projectId=project_id),
                 TimeEntry(
                     id=entry_id,
                     employeeId=employee_id,
@@ -141,24 +141,24 @@ async def test_month_read_returns_options_summaries_and_virtual_timesheet(
         ),
     )
     try:
-        data = await TimekeepingService(SqlAlchemyUnitOfWorkFactory(stage10_session_factory)).month(
+        data = await TimekeepingService(SqlAlchemyUnitOfWorkFactory(db_session_factory)).month(
             year, month, context
         )
         assert data["period"] == {"status": "OPEN"}
         assert data["normativeHours"] > 0
         entry = next(row for row in data["entries"] if row["id"] == entry_id)
         assert entry["hours"] == 6.5
-        assert entry["employee"]["fullName"] == "Stage10 employee"
+        assert entry["employee"]["fullName"] == "finance employee"
         assert employee_id in {item["id"] for item in data["employees"]}
         project = next(item for item in data["projects"] if item["id"] == project_id)
-        assert project["tasksList"] == [{"id": task_id, "name": "Stage10 task"}]
+        assert project["tasksList"] == [{"id": task_id, "name": "finance task"}]
         summary = next(item for item in data["summaries"] if item["employeeId"] == employee_id)
         assert summary["regularHours"] == 6.5
         assert summary["projectHours"] == 6.5
         sheet = next(item for item in data["timesheets"] if item["employeeId"] == employee_id)
         assert sheet["id"] == f"draft:{employee_id}:{year}:{month}"
     finally:
-        async with stage10_session_factory() as cleanup:
+        async with db_session_factory() as cleanup:
             entry = await cleanup.get(TimeEntry, entry_id)
             if entry:
                 await cleanup.delete(entry)
@@ -179,7 +179,7 @@ async def test_month_read_returns_options_summaries_and_virtual_timesheet(
 
 @pytest.mark.anyio
 async def test_month_entries_order_by_employee_name_within_work_date(
-    stage10_session_factory: async_sessionmaker[AsyncSession],
+    db_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     suffix = __import__("uuid").uuid4().hex
     department_id = f"s10-dept-{suffix}"
@@ -189,7 +189,7 @@ async def test_month_entries_order_by_employee_name_within_work_date(
     second_entry_id = f"s10-entry-a{suffix}"
     year, month = 2000 + int(suffix[:2], 16) % 101, 1 + int(suffix[2:4], 16) % 12
     work_date = date(year, month, 2)
-    async with stage10_session_factory() as seed:
+    async with db_session_factory() as seed:
         seed.add(Department(id=department_id, code=f"S10{suffix}", name=f"S10 {suffix}"))
         await seed.flush()
         seed.add_all(
@@ -198,14 +198,14 @@ async def test_month_entries_order_by_employee_name_within_work_date(
                     id=first_employee_id,
                     code=f"S10Z{suffix}",
                     fullName="A Worker",
-                    department="Stage10",
+                    department="finance",
                     departmentId=department_id,
                 ),
                 Employee(
                     id=second_employee_id,
                     code=f"S10A{suffix}",
                     fullName="Z Worker",
-                    department="Stage10",
+                    department="finance",
                     departmentId=department_id,
                 ),
             ]
@@ -252,7 +252,7 @@ async def test_month_entries_order_by_employee_name_within_work_date(
         ),
     )
     try:
-        data = await TimekeepingService(SqlAlchemyUnitOfWorkFactory(stage10_session_factory)).month(
+        data = await TimekeepingService(SqlAlchemyUnitOfWorkFactory(db_session_factory)).month(
             year, month, context
         )
         ordered_fixture_entries = [
@@ -262,7 +262,7 @@ async def test_month_entries_order_by_employee_name_within_work_date(
         ]
         assert ordered_fixture_entries == [first_entry_id, second_entry_id]
     finally:
-        async with stage10_session_factory() as cleanup:
+        async with db_session_factory() as cleanup:
             for entry_id in (first_entry_id, second_entry_id):
                 entry = await cleanup.get(TimeEntry, entry_id)
                 if entry:
@@ -279,10 +279,10 @@ async def test_month_entries_order_by_employee_name_within_work_date(
 
 @pytest.mark.anyio
 async def test_period_status_read_does_not_create_missing_period_row(
-    stage10_session_factory: async_sessionmaker[AsyncSession],
+    db_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     year, month = 2098, 11
-    async with stage10_session_factory() as session:
+    async with db_session_factory() as session:
         found = await SqlAlchemyPayrollPeriodRepository(lambda: session).get_status(year, month)
         assert found is None
         period_id = await session.scalar(
@@ -293,7 +293,7 @@ async def test_period_status_read_does_not_create_missing_period_row(
 
 @pytest.mark.anyio
 async def test_reviewer_resolution_uses_eligible_department_head(
-    stage10_session_factory: async_sessionmaker[AsyncSession],
+    db_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     suffix = __import__("uuid").uuid4().hex
     department_id = f"s10-dept-{suffix}"
@@ -301,7 +301,7 @@ async def test_reviewer_resolution_uses_eligible_department_head(
     worker_id = f"s10-worker-{suffix}"
     head_user_id = f"s10-user-{suffix}"
     assignment_id = f"s10-assignment-{suffix}"
-    async with stage10_session_factory() as session:
+    async with db_session_factory() as session:
         session.add(Department(id=department_id, code=f"S10{suffix}", name=f"S10 {suffix}"))
         await session.flush()
         session.add_all(
@@ -310,14 +310,14 @@ async def test_reviewer_resolution_uses_eligible_department_head(
                     id=head_employee_id,
                     code=f"S10H{suffix}",
                     fullName="Head",
-                    department="Stage10",
+                    department="finance",
                     departmentId=department_id,
                 ),
                 Employee(
                     id=worker_id,
                     code=f"S10W{suffix}",
                     fullName="Worker",
-                    department="Stage10",
+                    department="finance",
                     departmentId=department_id,
                 ),
                 User(
@@ -344,7 +344,7 @@ async def test_reviewer_resolution_uses_eligible_department_head(
         )
         await session.commit()
     try:
-        async with stage10_session_factory() as session:
+        async with db_session_factory() as session:
             reviewer = await SqlAlchemyTimekeepingRepository(lambda: session).reviewer_for(
                 worker_id
             )
@@ -354,7 +354,7 @@ async def test_reviewer_resolution_uses_eligible_department_head(
                 "fallback": False,
             }
     finally:
-        async with stage10_session_factory() as cleanup:
+        async with db_session_factory() as cleanup:
             assignment = await cleanup.get(UserRoleAssignment, assignment_id)
             if assignment:
                 await cleanup.delete(assignment)
@@ -373,7 +373,7 @@ async def test_reviewer_resolution_uses_eligible_department_head(
 
 @pytest.mark.anyio
 async def test_reviewer_resolution_skips_dismissed_department_head(
-    stage10_session_factory: async_sessionmaker[AsyncSession],
+    db_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     suffix = __import__("uuid").uuid4().hex
     department_id = f"s10-dept-{suffix}"
@@ -383,7 +383,7 @@ async def test_reviewer_resolution_skips_dismissed_department_head(
     fallback_user_id = f"s10-fallback-{suffix}"
     head_assignment_id = f"s10-head-role-{suffix}"
     fallback_assignment_id = f"s10-fallback-role-{suffix}"
-    async with stage10_session_factory() as session:
+    async with db_session_factory() as session:
         session.add(Department(id=department_id, code=f"S10{suffix}", name=f"S10 {suffix}"))
         await session.flush()
         session.add_all(
@@ -392,7 +392,7 @@ async def test_reviewer_resolution_skips_dismissed_department_head(
                     id=head_employee_id,
                     code=f"S10H{suffix}",
                     fullName="Dismissed head",
-                    department="Stage10",
+                    department="finance",
                     departmentId=department_id,
                     status=EmployeeStatus.DISMISSED,
                 ),
@@ -400,7 +400,7 @@ async def test_reviewer_resolution_skips_dismissed_department_head(
                     id=worker_id,
                     code=f"S10W{suffix}",
                     fullName="Worker",
-                    department="Stage10",
+                    department="finance",
                     departmentId=department_id,
                 ),
                 User(
@@ -442,7 +442,7 @@ async def test_reviewer_resolution_skips_dismissed_department_head(
         )
         await session.commit()
     try:
-        async with stage10_session_factory() as session:
+        async with db_session_factory() as session:
             reviewer = await SqlAlchemyTimekeepingRepository(lambda: session).reviewer_for(
                 worker_id
             )
@@ -452,7 +452,7 @@ async def test_reviewer_resolution_skips_dismissed_department_head(
                 "fallback": True,
             }
     finally:
-        async with stage10_session_factory() as cleanup:
+        async with db_session_factory() as cleanup:
             for assignment_id in (head_assignment_id, fallback_assignment_id):
                 assignment = await cleanup.get(UserRoleAssignment, assignment_id)
                 if assignment:
@@ -473,7 +473,7 @@ async def test_reviewer_resolution_skips_dismissed_department_head(
 
 @pytest.mark.anyio
 async def test_submit_creates_timesheet_approval_and_audit_in_same_uow(
-    stage10_session_factory: async_sessionmaker[AsyncSession],
+    db_session_factory: async_sessionmaker[AsyncSession],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     suffix = __import__("uuid").uuid4().hex
@@ -484,7 +484,7 @@ async def test_submit_creates_timesheet_approval_and_audit_in_same_uow(
     head_user_id = f"s10-head-user-{suffix}"
     role_id = f"s10-role-{suffix}"
     year, month = 2060 + int(suffix[:2], 16) % 30, 1 + int(suffix[2:4], 16) % 12
-    async with stage10_session_factory() as session:
+    async with db_session_factory() as session:
         session.add(Department(id=department_id, code=f"S10{suffix}", name=f"S10 {suffix}"))
         await session.flush()
         session.add_all(
@@ -493,14 +493,14 @@ async def test_submit_creates_timesheet_approval_and_audit_in_same_uow(
                     id=submitter_employee,
                     code=f"S10W{suffix}",
                     fullName="Worker",
-                    department="Stage10",
+                    department="finance",
                     departmentId=department_id,
                 ),
                 Employee(
                     id=head_employee,
                     code=f"S10H{suffix}",
                     fullName="Head",
-                    department="Stage10",
+                    department="finance",
                     departmentId=department_id,
                 ),
             ]
@@ -559,9 +559,7 @@ async def test_submit_creates_timesheet_approval_and_audit_in_same_uow(
             ),
         )
         context = RequestContext(request_id=f"s10-submit-{suffix}", actor=actor)
-        result = await TimekeepingService(
-            SqlAlchemyUnitOfWorkFactory(stage10_session_factory)
-        ).submit(
+        result = await TimekeepingService(SqlAlchemyUnitOfWorkFactory(db_session_factory)).submit(
             SubmitTimesheetInput.model_construct(
                 employeeId=submitter_employee,
                 year=year,
@@ -600,14 +598,12 @@ async def test_submit_creates_timesheet_approval_and_audit_in_same_uow(
         with monkeypatch.context() as patcher:
             patcher.setattr(SqlAlchemyUnitOfWork, "commit", fail_commit)
             with pytest.raises(RuntimeError, match="injected commit failure"):
-                await TimekeepingService(
-                    SqlAlchemyUnitOfWorkFactory(stage10_session_factory)
-                ).decide(
+                await TimekeepingService(SqlAlchemyUnitOfWorkFactory(db_session_factory)).decide(
                     result["id"],
                     TimesheetDecisionInput(decision="APPROVE"),
                     reviewer_context,
                 )
-        async with stage10_session_factory() as verify_rollback:
+        async with db_session_factory() as verify_rollback:
             approval_before = await verify_rollback.scalar(
                 select(ApprovalRequest).where(
                     ApprovalRequest.entityType == "Timesheet",
@@ -634,7 +630,7 @@ async def test_submit_creates_timesheet_approval_and_audit_in_same_uow(
                 )
                 is None
             )
-        timekeeping = TimekeepingService(SqlAlchemyUnitOfWorkFactory(stage10_session_factory))
+        timekeeping = TimekeepingService(SqlAlchemyUnitOfWorkFactory(db_session_factory))
         returned = await timekeeping.decide(
             result["id"],
             TimesheetDecisionInput(decision="RETURN", reason="Please correct the report"),
@@ -664,7 +660,7 @@ async def test_submit_creates_timesheet_approval_and_audit_in_same_uow(
             context,
         )
         assert resubmitted["id"] == result["id"]
-        async with stage10_session_factory() as after_resubmit:
+        async with db_session_factory() as after_resubmit:
             requests = list(
                 (
                     await after_resubmit.scalars(
@@ -684,7 +680,7 @@ async def test_submit_creates_timesheet_approval_and_audit_in_same_uow(
             reviewer_context,
         )
         assert decided["status"] == "APPROVED"
-        async with stage10_session_factory() as verify:
+        async with db_session_factory() as verify:
             approval = await verify.scalar(
                 select(ApprovalRequest).where(
                     ApprovalRequest.entityType == "Timesheet",
@@ -720,7 +716,7 @@ async def test_submit_creates_timesheet_approval_and_audit_in_same_uow(
             saved_sheet = await verify.get(Timesheet, result["id"])
             assert saved_sheet is not None and str(saved_sheet.status) == "APPROVED"
     finally:
-        async with stage10_session_factory() as cleanup:
+        async with db_session_factory() as cleanup:
             await clear_audit_logs_for_test_cleanup(cleanup)
             approvals = list(
                 (
@@ -780,7 +776,7 @@ async def test_submit_creates_timesheet_approval_and_audit_in_same_uow(
 
 @pytest.mark.anyio
 async def test_time_entry_update_waits_for_period_lock_then_rejects_closed_period(
-    stage10_session_factory: async_sessionmaker[AsyncSession],
+    db_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     suffix = __import__("uuid").uuid4().hex
     department_id = f"s10-dept-{suffix}"
@@ -789,7 +785,7 @@ async def test_time_entry_update_waits_for_period_lock_then_rejects_closed_perio
     entry_id = f"s10-entry-{suffix}"
     year, month = 2000 + int(suffix[:2], 16) % 101, 1 + int(suffix[2:4], 16) % 12
     work_date = date(year, month, 12)
-    async with stage10_session_factory() as seed:
+    async with db_session_factory() as seed:
         seed.add(Department(id=department_id, code=f"S10{suffix}", name=f"S10 {suffix}"))
         await seed.flush()
         seed.add(
@@ -797,7 +793,7 @@ async def test_time_entry_update_waits_for_period_lock_then_rejects_closed_perio
                 id=employee_id,
                 code=f"S10{suffix}",
                 fullName="Worker",
-                department="Stage10",
+                department="finance",
                 departmentId=department_id,
             )
         )
@@ -821,7 +817,7 @@ async def test_time_entry_update_waits_for_period_lock_then_rejects_closed_perio
         )
         await seed.commit()
     try:
-        async with stage10_session_factory() as closer:
+        async with db_session_factory() as closer:
             repo = SqlAlchemyPayrollPeriodRepository(lambda: closer)
             assert await repo.lock_period(year, month) == "OPEN"
             period = await closer.scalar(
@@ -836,9 +832,9 @@ async def test_time_entry_update_waits_for_period_lock_then_rejects_closed_perio
             period.closedById = user_id
             await closer.flush()
             writer = asyncio.create_task(
-                TimekeepingService(SqlAlchemyUnitOfWorkFactory(stage10_session_factory)).update(
+                TimekeepingService(SqlAlchemyUnitOfWorkFactory(db_session_factory)).update(
                     entry_id,
-                        TimeEntryUpdateCommand(values={"hours": Decimal("3.00")}),
+                    TimeEntryUpdateCommand(values={"hours": Decimal("3.00")}),
                     RequestContext(
                         request_id=f"s10-update-{suffix}",
                         actor=Actor(
@@ -868,11 +864,11 @@ async def test_time_entry_update_waits_for_period_lock_then_rejects_closed_perio
             with pytest.raises(DomainError, match="Расчётный период закрыт") as error:
                 await writer
             assert error.value.code == "PERIOD_CLOSED"
-        async with stage10_session_factory() as verify:
+        async with db_session_factory() as verify:
             entry = await verify.get(TimeEntry, entry_id)
             assert entry is not None and entry.hours == Decimal("2.00")
     finally:
-        async with stage10_session_factory() as cleanup:
+        async with db_session_factory() as cleanup:
             await clear_audit_logs_for_test_cleanup(cleanup)
             period = await cleanup.scalar(
                 select(PayrollPeriod).where(
@@ -899,7 +895,7 @@ async def test_time_entry_update_waits_for_period_lock_then_rejects_closed_perio
 
 @pytest.mark.anyio
 async def test_corrected_entry_update_and_delete_reset_approved_timesheet(
-    stage10_session_factory: async_sessionmaker[AsyncSession],
+    db_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     suffix = __import__("uuid").uuid4().hex
     department_id = f"s10-dept-{suffix}"
@@ -908,7 +904,7 @@ async def test_corrected_entry_update_and_delete_reset_approved_timesheet(
     entry_id = f"s10-entry-{suffix}"
     year, month = 2000 + int(suffix[:2], 16) % 101, 1 + int(suffix[2:4], 16) % 12
     work_date = date(year, month, 12)
-    async with stage10_session_factory() as seed:
+    async with db_session_factory() as seed:
         seed.add(Department(id=department_id, code=f"S10{suffix}", name=f"S10 {suffix}"))
         await seed.flush()
         seed.add_all(
@@ -917,7 +913,7 @@ async def test_corrected_entry_update_and_delete_reset_approved_timesheet(
                     id=employee_id,
                     code=f"S10{suffix}",
                     fullName="Worker",
-                    department="Stage10",
+                    department="finance",
                     departmentId=department_id,
                 ),
                 User(
@@ -974,13 +970,13 @@ async def test_corrected_entry_update_and_delete_reset_approved_timesheet(
         ),
     )
     try:
-        service = TimekeepingService(SqlAlchemyUnitOfWorkFactory(stage10_session_factory))
+        service = TimekeepingService(SqlAlchemyUnitOfWorkFactory(db_session_factory))
         await service.update(
             entry_id,
             TimeEntryUpdateCommand(values={"hours": Decimal("3.00")}, correctionReason="Fix hours"),
             context,
         )
-        async with stage10_session_factory() as after_update:
+        async with db_session_factory() as after_update:
             update_audit = await after_update.scalar(
                 select(AuditLog).where(
                     AuditLog.action == "TIME_ENTRY_CORRECTION",
@@ -1001,7 +997,7 @@ async def test_corrected_entry_update_and_delete_reset_approved_timesheet(
             sheet.status = "APPROVED"
             await after_update.commit()
         await service.remove(entry_id, context, correction_reason="Remove wrong entry")
-        async with stage10_session_factory() as after_delete:
+        async with db_session_factory() as after_delete:
             correction_audits = list(
                 (
                     await after_delete.scalars(
@@ -1028,7 +1024,7 @@ async def test_corrected_entry_update_and_delete_reset_approved_timesheet(
             assert sheet is not None and str(sheet.status) == "DRAFT"
             assert sheet.submittedById is None and sheet.decidedById is None
     finally:
-        async with stage10_session_factory() as cleanup:
+        async with db_session_factory() as cleanup:
             await clear_audit_logs_for_test_cleanup(cleanup)
             period = await cleanup.scalar(
                 select(PayrollPeriod).where(

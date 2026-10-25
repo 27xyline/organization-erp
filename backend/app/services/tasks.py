@@ -1,4 +1,4 @@
-"""Task workflows: graph validation and all writes share a locked UoW."""
+"Рабочие процессы задач: проверка графа и записи в одной заблокированной единице работы."
 
 from __future__ import annotations
 
@@ -78,7 +78,7 @@ class TaskService:
             raise task_error()
         authorize(actor, permission, {"projectId": current.project_id})
         await lock_project(uow, current.project_id, actor)
-        # The row may have been deleted while waiting for the project lock.
+        # Строка могла быть удалена, пока код ожидал блокировку проекта.
         current = await uow.projects.task(task_id)
         if current is None:
             raise task_error()

@@ -41,7 +41,7 @@ async def document_env(db_session_factory, tmp_path):
                 User(
                     id=identifier,
                     username=identifier,
-                    name="Stage08",
+                    name="documents",
                     passwordHash="unused",
                     role="ADMIN",
                     mustChangePassword=False,
@@ -294,7 +294,8 @@ async def test_scope_multi_link_same_grant_and_denied_write_has_no_effect(docume
         Upload(chunks(), "text/plain", 13),
         context,
     )
-    # Each grant alone fails one populated link. Unioning departments/projects is forbidden.
+    # Каждому разрешению по отдельности недоступна одна заполненная связь. Объединять отделы и
+    # проекты запрещено.
     scope = AccessContext(
         "scoped",
         None,
@@ -463,7 +464,9 @@ async def test_declared_and_streamed_size_limits_have_no_side_effect(document_en
 
 @pytest.mark.parametrize("outcome", ["commit", "rollback"])
 async def test_recovery_waits_for_other_physical_transaction_outcome(document_env, outcome):
-    """A lost OS lease is not proof that the writer PostgreSQL backend has ended."""
+    """Потеря аренды на уровне ОС не доказывает завершение записывающего серверного процесса
+    PostgreSQL.
+    """
     prefix, actors, factory, service, storage, sessions = document_env
     first = await service.create(
         DocumentCommand("Fence", "a.txt"),

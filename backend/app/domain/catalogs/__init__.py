@@ -1,1 +1,1 @@
-"""Catalog rules and invariants."""
+"Правила и инварианты справочников."

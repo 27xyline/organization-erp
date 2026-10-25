@@ -45,7 +45,7 @@ def _context(suffix: str) -> RequestContext:
 
 @pytest.mark.anyio
 async def test_finance_plan_replace_and_clear_update_project_actual_budget_atomically(
-    stage10_session_factory: async_sessionmaker[AsyncSession],
+    db_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     suffix = uuid4().hex
     department_id = f"s10-dept-{suffix}"
@@ -54,7 +54,7 @@ async def test_finance_plan_replace_and_clear_update_project_actual_budget_atomi
     project_a_id = f"s10-project-a-{suffix}"
     project_b_id = f"s10-project-b-{suffix}"
     year, month = 2026, 10
-    async with stage10_session_factory() as seed:
+    async with db_session_factory() as seed:
         seed.add(Department(id=department_id, code=f"S10{suffix}", name=f"S10 {suffix}"))
         await seed.flush()
         seed.add_all(
@@ -62,7 +62,7 @@ async def test_finance_plan_replace_and_clear_update_project_actual_budget_atomi
                 StaffSchedule(
                     id=schedule_id,
                     position="Engineer",
-                    department="Stage10",
+                    department="finance",
                     departmentId=department_id,
                     rate=Decimal("1.00"),
                     salary=Decimal("1000.00"),
@@ -76,14 +76,14 @@ async def test_finance_plan_replace_and_clear_update_project_actual_budget_atomi
             Employee(
                 id=employee_id,
                 code=f"S10{suffix}",
-                fullName="Stage10 Finance Employee",
-                department="Stage10",
+                fullName="finance Finance Employee",
+                department="finance",
                 departmentId=department_id,
                 staffScheduleId=schedule_id,
             )
         )
         await seed.commit()
-    service = FinanceService(SqlAlchemyUnitOfWorkFactory(stage10_session_factory))
+    service = FinanceService(SqlAlchemyUnitOfWorkFactory(db_session_factory))
     context = _context(suffix)
     try:
         saved = await service.save_plan(
@@ -112,7 +112,7 @@ async def test_finance_plan_replace_and_clear_update_project_actual_budget_atomi
         salary_cell = salary_row["months"][str(month)]
         assert set(salary_cell["projectLabel"].split(", ")) == {f"A{suffix}", f"B{suffix}"}
         assert {item["amount"] for item in salary_cell["details"]} == {"4.20", "5.10"}
-        async with stage10_session_factory() as check:
+        async with db_session_factory() as check:
             actual = dict(
                 (row.id, row.actualBudget)
                 for row in (
@@ -127,7 +127,7 @@ async def test_finance_plan_replace_and_clear_update_project_actual_budget_atomi
             {"year": year, "month": month, "type": "nadbavka", "employeeId": employee_id},
             context,
         )
-        async with stage10_session_factory() as check:
+        async with db_session_factory() as check:
             projects = list(
                 (
                     await check.scalars(
@@ -145,7 +145,7 @@ async def test_finance_plan_replace_and_clear_update_project_actual_budget_atomi
             )
             assert entries == []
     finally:
-        async with stage10_session_factory() as cleanup:
+        async with db_session_factory() as cleanup:
             await cleanup.execute(
                 FinancePlanEntry.__table__.delete().where(
                     FinancePlanEntry.employeeId == employee_id
@@ -169,7 +169,7 @@ async def test_finance_plan_replace_and_clear_update_project_actual_budget_atomi
 
 @pytest.mark.anyio
 async def test_project_payroll_replacement_and_clear_adjust_actual_budget(
-    stage10_session_factory: async_sessionmaker[AsyncSession],
+    db_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     suffix = uuid4().hex
     department_id = f"s10-dept-{suffix}"
@@ -177,7 +177,7 @@ async def test_project_payroll_replacement_and_clear_adjust_actual_budget(
     project_id = f"s10-project-{suffix}"
     member_id = f"s10-member-{suffix}"
     year, month = 2026, 11
-    async with stage10_session_factory() as seed:
+    async with db_session_factory() as seed:
         seed.add(Department(id=department_id, code=f"S10{suffix}", name=f"S10 {suffix}"))
         await seed.flush()
         seed.add_all(
@@ -185,8 +185,8 @@ async def test_project_payroll_replacement_and_clear_adjust_actual_budget(
                 Employee(
                     id=employee_id,
                     code=f"S10{suffix}",
-                    fullName="Stage10 Payroll Employee",
-                    department="Stage10",
+                    fullName="finance Payroll Employee",
+                    department="finance",
                     departmentId=department_id,
                 ),
                 Project(
@@ -200,14 +200,14 @@ async def test_project_payroll_replacement_and_clear_adjust_actual_budget(
                 id=member_id,
                 projectId=project_id,
                 employeeId=employee_id,
-                department="Stage10",
+                department="finance",
                 position="Engineer",
                 rate=Decimal("1.00"),
                 salary=Decimal("1200.00"),
             )
         )
         await seed.commit()
-    service = FinanceService(SqlAlchemyUnitOfWorkFactory(stage10_session_factory))
+    service = FinanceService(SqlAlchemyUnitOfWorkFactory(db_session_factory))
     context = _context(suffix)
     try:
         project_table = await service.get_project_payroll(project_id, year, context)
@@ -246,17 +246,17 @@ async def test_project_payroll_replacement_and_clear_adjust_actual_budget(
             context,
         )
         assert replaced["cell"]["amount"] == "50.00"
-        async with stage10_session_factory() as check:
+        async with db_session_factory() as check:
             project = await check.get(Project, project_id)
             assert project is not None and project.actualBudget == Decimal("50.00")
         await service.clear_project_payroll(
             project_id, {"year": year, "month": month, "employeeId": employee_id}, context
         )
-        async with stage10_session_factory() as check:
+        async with db_session_factory() as check:
             project = await check.get(Project, project_id)
             assert project is not None and project.actualBudget == Decimal("0.00")
     finally:
-        async with stage10_session_factory() as cleanup:
+        async with db_session_factory() as cleanup:
             await cleanup.execute(
                 ProjectMember.__table__.delete().where(ProjectMember.id == member_id)
             )

@@ -112,12 +112,12 @@ async def test_smtp_secret_is_redacted_and_empty_password_reuses_legacy_text_val
         )
 
     settings = {
-        "host": "smtp.stage09.invalid",
+        "host": "smtp.approvals.invalid",
         "port": 2525,
-        "username": "stage09-user",
+        "username": "approvals-user",
         "password": "legacy-text-secret",
         "secure": False,
-        "fromEmail": "stage09@example.invalid",
+        "fromEmail": "notifications@example.invalid",
     }
     seen = []
 

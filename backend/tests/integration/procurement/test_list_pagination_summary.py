@@ -20,11 +20,11 @@ from app.services.procurement import ProcurementService
 
 @pytest.mark.anyio
 async def test_list_summary_counts_full_filtered_result_before_pagination(
-    stage11_session_factory,
+    db_session_factory,
 ) -> None:
     suffix = uuid4().hex[:10]
     user_id = f"list-user-{suffix}"
-    async with stage11_session_factory() as session:
+    async with db_session_factory() as session:
         session.add(
             User(
                 id=user_id,
@@ -53,7 +53,7 @@ async def test_list_summary_counts_full_filtered_result_before_pagination(
             ),
         ),
     )
-    service = ProcurementService(SqlAlchemyUnitOfWorkFactory(stage11_session_factory))
+    service = ProcurementService(SqlAlchemyUnitOfWorkFactory(db_session_factory))
     for index, budget in enumerate((Decimal("120"), Decimal("80")), start=1):
         await service.create(
             ProcurementCommand(

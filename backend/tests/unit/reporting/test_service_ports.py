@@ -79,9 +79,12 @@ async def test_my_actions_service_delegates_to_port() -> None:
 
     _admin_context = _admin()
     fixed_now = datetime(2026, 10, 24)
-    assert await MyActionsService(MyActionsPort()).get_for_user(
-        "actor-1", "employee-1", _admin_context, fixed_now
-    ) == expected
+    assert (
+        await MyActionsService(MyActionsPort()).get_for_user(
+            "actor-1", "employee-1", _admin_context, fixed_now
+        )
+        == expected
+    )
 
 
 @pytest.mark.anyio

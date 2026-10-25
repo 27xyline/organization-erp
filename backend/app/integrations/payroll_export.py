@@ -1,4 +1,4 @@
-"""Openpyxl renderers for the legacy payroll workbook downloads."""
+"""Средства Openpyxl для формирования старых книг выгрузки расчёта зарплаты."""
 
 from __future__ import annotations
 
@@ -130,7 +130,7 @@ def build_payslip_workbook(year: int, month: int, row: dict[str, Any]) -> bytes:
 
 
 class OpenpyxlPayrollWorkbook:
-    """Openpyxl adapter for the application payroll workbook port."""
+    """Адаптер Openpyxl для прикладного интерфейса книг расчёта зарплаты."""
 
     def build_payroll(self, year: int, month: int, rows: list[dict[str, Any]]) -> bytes:
         return build_payroll_workbook(year, month, rows)

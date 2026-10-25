@@ -1,4 +1,4 @@
-"""SQLAlchemy adapter for reporting use cases."""
+"""Адаптер SQLAlchemy для сценариев отчётности."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from app.repositories.reporting import SqlAlchemyReportingRepository
 
 
 class SqlAlchemyReportingGateway:
-    """Owns session lifecycle while keeping SQLAlchemy outside services."""
+    """Управляет жизненным циклом сессии, не допуская SQLAlchemy в сервисы."""
 
     def __init__(self, sessions: async_sessionmaker[AsyncSession]) -> None:
         self._sessions = sessions

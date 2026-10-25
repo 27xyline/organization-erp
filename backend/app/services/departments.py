@@ -1,4 +1,4 @@
-"""Department use cases with serialized organization mutations and audit."""
+"Сценарии подразделений с последовательным изменением структуры организации и записью аудита."
 
 from typing import Any
 

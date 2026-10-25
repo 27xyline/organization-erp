@@ -1,8 +1,9 @@
-"""Lease, send and complete notification email records.
+"""Аренда и отправка писем-уведомлений.
 
-Delivery is at least once: a crash before SMTP leaves a five-minute lease for retry.
-If SMTP accepts a message and the subsequent completion transaction fails, reclaiming
-that lease can send a duplicate; the schema has no provider idempotency key to prevent it.
+Доставка выполняется как минимум один раз.
+При сбое до SMTP аренда действует пять минут, затем идёт повторная попытка.
+Если SMTP принял письмо, а завершение транзакции не удалось,
+повторная аренда может создать дубликат. Ключа идемпотентности нет.
 """
 
 from __future__ import annotations
@@ -58,8 +59,8 @@ async def process_outbox(
             failed += int(changed)
             continue
 
-        # If SMTP accepted the message but this transaction fails, the lease stays
-        # PROCESSING and the message may be delivered again after five minutes.
+        # Если SMTP принял письмо, а транзакция завершилась ошибкой, аренда остаётся
+        # в PROCESSING; письмо может отправиться повторно через пять минут.
         async with uow_factory() as uow:
             changed = await uow.outbox.complete(item.id, item.claim_token, operation_time())
             await uow.commit()

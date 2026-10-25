@@ -1,4 +1,6 @@
-"""Retries only follow real UoW rollback/close on recognized database failures."""
+"""Повторы допустимы только после фактического отката и закрытия UoW при распознанных сбоях базы
+данных.
+"""
 
 from types import SimpleNamespace
 

@@ -1,4 +1,4 @@
-"""Pure user persistence contract. No ORM objects leave the repository."""
+"Чистый контракт хранения пользователей. ORM-объекты не покидают репозиторий."
 
 from dataclasses import dataclass
 from datetime import datetime

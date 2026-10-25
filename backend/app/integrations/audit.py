@@ -1,4 +1,4 @@
-"""SQLAlchemy transaction adapter for the audit port."""
+"""Транзакционный адаптер SQLAlchemy для интерфейса аудита."""
 
 from __future__ import annotations
 

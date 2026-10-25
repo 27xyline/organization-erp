@@ -1,4 +1,4 @@
-"""Transport contracts that do not require a database connection."""
+"""Транспортные контракты, не требующие подключения к базе данных."""
 
 import httpx
 import pytest

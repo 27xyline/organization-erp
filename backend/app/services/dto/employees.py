@@ -1,4 +1,4 @@
-"""Typed application commands independent of Pydantic input models."""
+"Типизированные команды приложения, не зависящие от входных моделей Pydantic."
 
 from dataclasses import asdict, dataclass
 from datetime import datetime

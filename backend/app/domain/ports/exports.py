@@ -1,4 +1,4 @@
-"""Output boundary for rendering authorized report projections."""
+"Граница вывода для формирования разрешённых проекций отчётов."
 
 from __future__ import annotations
 

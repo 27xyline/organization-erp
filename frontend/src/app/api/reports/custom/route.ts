@@ -4,7 +4,7 @@ import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiValidationError } from '@/lib/http/api-response'
 import { z } from 'zod'
 import type { Permission } from '@/lib/auth/permissions'
-import { proxyStage12Request } from '@/lib/backend/stage12'
+import { proxyReportingRequest } from '@/lib/backend/reporting'
 
 const querySchema = z.object({
   dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       }, { status: 403 })
     }
 
-    return proxyStage12Request(request, `${request.nextUrl.pathname}${request.nextUrl.search}`, auth.user, auth.requestId)
+    return proxyReportingRequest(request, `${request.nextUrl.pathname}${request.nextUrl.search}`, auth.user, auth.requestId)
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
   }

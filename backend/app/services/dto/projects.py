@@ -1,4 +1,4 @@
-"""Pure application commands. Patches preserve absent fields explicitly."""
+"Чистые команды приложения. В операциях patch явно сохраняются отсутствующие поля."
 
 from dataclasses import asdict, dataclass
 from decimal import Decimal

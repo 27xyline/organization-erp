@@ -3,7 +3,7 @@ export interface LegacyAssetDateInput {
   plannedDisposalDate?: string | null
 }
 
-/** Preserve legacy JavaScript Date coercion at the BFF boundary, without adding business validation. */
+/** Сохраняем прежнее приведение к JavaScript Date на границе BFF, не добавляя бизнес-валидацию. */
 export function normalizeLegacyAssetDates<T extends LegacyAssetDateInput>(input: T): T {
   const normalized = { ...input }
   if (typeof input.recordingDate === 'string') {

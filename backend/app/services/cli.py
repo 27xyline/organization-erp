@@ -1,4 +1,4 @@
-"""Operational read/seed use cases behind explicit CLI entry points."""
+"Операционные сценарии чтения и заполнения данными, доступные через явные точки входа CLI."
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from app.domain.ports.cli import DemoSeedPort, DocumentFileVerificationPort, Ver
 
 
 class DemoSeedService:
-    """Seed the deterministic training dataset; never invoked by app startup."""
+    "Заполнить предсказуемый учебный набор данных; при запуске приложения не вызывается."
 
     def __init__(self, seed_port: DemoSeedPort) -> None:
         self._seed_port = seed_port
@@ -16,7 +16,7 @@ class DemoSeedService:
 
 
 class VerifyDataService:
-    """Run read-only relational and stored-file checks through ports."""
+    "Выполнить проверки связей и сохранённых файлов только для чтения через порты."
 
     def __init__(
         self, verify_port: VerifyDataPort, document_files: DocumentFileVerificationPort

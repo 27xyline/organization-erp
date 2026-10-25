@@ -1,7 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
-import { resolveStage08E2EDocumentStorageRoot } from './src/lib/stage08-e2e-storage'
-import { resolveStage10E2EDocumentStorageRoot } from './src/lib/stage10-e2e-storage'
-import { resolveStage14CE2EDocumentStorageRoot } from './src/lib/stage14c-e2e-storage'
+import { resolveE2EDocumentStorageRoot } from './src/lib/e2e-storage'
 
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3001'
 const serverUrl = new URL(baseURL)
@@ -10,45 +8,28 @@ const serverHost = serverUrl.hostname === 'localhost' ? '127.0.0.1' : serverUrl.
 const backendBaseUrl = process.env.PLAYWRIGHT_BACKEND_URL || 'http://127.0.0.1:8000'
 const backendUrl = new URL(backendBaseUrl)
 const backendPort = backendUrl.port || (backendUrl.protocol === 'https:' ? '443' : '80')
-const isolatedE2eDatabaseUrl = process.env.STAGE14C_E2E_DATABASE_URL ??
-  process.env.STAGE14B_E2E_DATABASE_URL ??
-  process.env.STAGE10_E2E_DATABASE_URL ??
-  process.env.STAGE09_E2E_DATABASE_URL ??
-  process.env.STAGE08_E2E_DATABASE_URL ??
-  process.env.STAGE07_E2E_DATABASE_URL ??
-  process.env.STAGE06_E2E_DATABASE_URL ??
-  process.env.STAGE05_E2E_DATABASE_URL ??
-  process.env.STAGE04_E2E_DATABASE_URL ?? process.env.STAGE03_TEST_DATABASE_URL
-if (!isolatedE2eDatabaseUrl) {
-  throw new Error('STAGE07_E2E_DATABASE_URL (or a prior-stage compatibility variable) must point to an isolated shared Node/Python E2E database')
+const isolatedE2eDatabaseUrl = process.env.E2E_DATABASE_URL
+if (!isolatedE2eDatabaseUrl || new URL(isolatedE2eDatabaseUrl).pathname !== '/erp_e2e') {
+  throw new Error('E2E_DATABASE_URL must point to the isolated PostgreSQL database erp_e2e')
 }
-const e2eDatabaseName = new URL(isolatedE2eDatabaseUrl).pathname.replace(/^\//, '')
-const isStage10E2E = e2eDatabaseName === 'erp_stage10_e2e'
-const isStage14BE2E = e2eDatabaseName === 'erp_stage14b_e2e'
-const isStage14CE2E = e2eDatabaseName === 'erp_stage14c_e2e'
-if (!/^erp_stage0[3-9]_e2e$/.test(e2eDatabaseName) && !isStage10E2E && !isStage14BE2E && !isStage14CE2E) {
-  throw new Error('Playwright requires an isolated stage-specific E2E database')
+if (!['postgresql:', 'postgres:'].includes(new URL(isolatedE2eDatabaseUrl).protocol)) {
+  throw new Error('E2E_DATABASE_URL must use PostgreSQL')
 }
-const documentStorageRoot = isStage14CE2E
-  ? resolveStage14CE2EDocumentStorageRoot(process.env.DOCUMENT_STORAGE_ROOT)
-  : isStage10E2E
-    ? resolveStage10E2EDocumentStorageRoot(process.env.DOCUMENT_STORAGE_ROOT)
-    : resolveStage08E2EDocumentStorageRoot(process.env.DOCUMENT_STORAGE_ROOT)
-if (!process.env.DATABASE_URL || process.env.DATABASE_URL !== isolatedE2eDatabaseUrl) {
-  throw new Error('DATABASE_URL and the isolated E2E database URL must be the same isolated database')
+if (process.env.DATABASE_URL !== isolatedE2eDatabaseUrl) {
+  throw new Error('DATABASE_URL and E2E_DATABASE_URL must point to the same isolated database')
 }
-for (const name of ['BACKEND_CSRF_SECRET']) {
-  if (!process.env[name] || Buffer.byteLength(process.env[name]!, 'utf8') < 32) {
-      throw new Error(`${name} must be a distinct secret of at least 32 bytes for Stage 07 E2E`)
-  }
+const documentStorageRoot = resolveE2EDocumentStorageRoot(process.env.DOCUMENT_STORAGE_ROOT)
+if (Buffer.byteLength(process.env.BACKEND_CSRF_SECRET ?? '', 'utf8') < 32) {
+  throw new Error('BACKEND_CSRF_SECRET must be at least 32 bytes for E2E')
 }
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
+  testIgnore: process.env.E2E_VERIFY_ONLY === '1' ? /^(?!.*full-flow\.spec\.ts$).*$/ : undefined,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
-  globalSetup: './e2e/global-setup.ts',
+  globalSetup: process.env.E2E_VERIFY_ONLY === '1' ? undefined : './e2e/global-setup.ts',
   use: {
     baseURL,
     trace: 'retain-on-failure',
@@ -73,31 +54,8 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 120_000,
       env: {
-        BACKEND_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
-        BACKEND_TEST_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
-        STAGE07_TEST_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
-        STAGE07_E2E_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
-        STAGE08_E2E_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
-        STAGE09_E2E_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
-        STAGE10_E2E_DATABASE_URL: isStage10E2E
-          ? isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:')
-          : '',
-        STAGE14B_TEST_DATABASE_URL: isStage14BE2E
-          ? isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:')
-          : '',
-        STAGE14C_TEST_DATABASE_URL: isStage14CE2E
-          ? isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:')
-          : '',
-        STAGE14C_E2E_DATABASE_URL: isStage14CE2E
-          ? isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:')
-          : '',
-        STAGE08_TEST_DATABASE_URL: process.env.STAGE08_TEST_DATABASE_URL || '',
+        BACKEND_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgres(?:ql)?:/, 'postgresql+asyncpg:'),
         DOCUMENT_STORAGE_ROOT: documentStorageRoot,
-        STAGE06_TEST_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
-        STAGE06_E2E_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
-        STAGE05_TEST_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
-        STAGE05_E2E_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
-        STAGE04_E2E_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
         BACKEND_ENVIRONMENT: 'test',
         BACKEND_OTEL_ENABLED: 'false',
         BACKEND_CSRF_SECRET: process.env.BACKEND_CSRF_SECRET || '',

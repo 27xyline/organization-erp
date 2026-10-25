@@ -27,7 +27,6 @@ Thumbs.db
 
 *.db
 *.db-journal
-.runtime/
 backend/.venv/
 backend/.uv-cache/
 __pycache__/
@@ -37,3 +36,6 @@ __pycache__/
 .coverage
 .coverage.*
 coverage.xml
+
+backend/var/
+frontend/.test-data/

@@ -10,7 +10,7 @@ from sqlalchemy.orm import DeclarativeBase
 
 
 class Base(DeclarativeBase):
-    """Base for ORM mappings of the Alembic-owned PostgreSQL schema."""
+    """Базовый класс ORM-отображений схемы PostgreSQL, управляемой Alembic."""
 
 
 _CUID_ALPHABET = string.ascii_lowercase + string.digits
@@ -29,10 +29,10 @@ def _base36(value: int, width: int) -> str:
 
 
 def new_cuid() -> str:
-    """Return a 25-character lowercase CUID-shaped ID accepted by Zod `.cuid()`.
+    """Возвращает 25-символьный идентификатор в нижнем регистре, совместимый с Zod `.cuid()`.
 
-    This preserves the legacy string format and provides collision resistance, but does not
-    claim byte-for-byte Prisma generator compatibility or ordering.
+    Сохраняет строковый формат legacy и снижает вероятность коллизий, но не гарантирует
+    побайтовую совместимость с генератором Prisma или совпадение порядка.
     """
     global _CUID_COUNTER
     with _CUID_LOCK:
@@ -44,6 +44,6 @@ def new_cuid() -> str:
 
 
 def utc_now_naive() -> datetime:
-    """Return UTC without tzinfo, rounded to milliseconds for TIMESTAMP(3)."""
+    """Возвращает UTC без tzinfo с округлением до миллисекунд для TIMESTAMP(3)."""
     now = datetime.now(UTC).replace(tzinfo=None)
     return now.replace(microsecond=(now.microsecond // 1000) * 1000)

@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiError } from '@/lib/http/api-response'
 import { z } from 'zod'
-import { proxyStage09 } from '@/lib/backend/stage09'
+import { proxyNotificationRequest } from '@/lib/backend/notifications'
 
 const smtpTestSchema = z.object({
   host: z.string().trim().min(1),
@@ -22,5 +22,5 @@ export async function POST(request: NextRequest) {
     return apiError('BAD_REQUEST', 'Неверный формат настроек', 400)
   }
 
-  return proxyStage09(request, '/api/notifications/smtp/test', auth.user, auth.requestId)
+  return proxyNotificationRequest(request, '/api/notifications/smtp/test', auth.user, auth.requestId)
 }

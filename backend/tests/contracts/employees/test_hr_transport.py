@@ -1,4 +1,6 @@
-"""Transport matrix through actual FastAPI routing, independently of PostgreSQL availability."""
+"""Матрица транспортных проверок через реальные маршруты FastAPI независимо от доступности
+PostgreSQL.
+"""
 
 from dataclasses import replace
 from datetime import datetime

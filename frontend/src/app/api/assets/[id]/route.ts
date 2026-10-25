@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { updateAssetSchema } from '@/features/assets/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiValidationError } from '@/lib/http/api-response'
-import { proxyStage07AssetJsonRequest, proxyStage07Request } from '@/lib/backend/stage07'
+import { proxyAssetJsonRequest, proxyAssetRequest } from '@/lib/backend/assets'
 import { normalizeLegacyAssetDates } from '@/features/assets/infrastructure/legacy-date-transport'
 
 export async function GET(
@@ -13,7 +13,7 @@ export async function GET(
   if (auth.response) return auth.response
 
   const id = (await params).id
-  return proxyStage07Request(request, `/api/assets/${encodeURIComponent(id)}`, auth.user, auth.requestId)
+  return proxyAssetRequest(request, `/api/assets/${encodeURIComponent(id)}`, auth.user, auth.requestId)
 }
 
 export async function PUT(
@@ -27,7 +27,7 @@ export async function PUT(
   if (!input.success) return apiValidationError(input.error)
   const id = (await params).id
 
-  return proxyStage07AssetJsonRequest(
+  return proxyAssetJsonRequest(
     request, `/api/assets/${encodeURIComponent(id)}`, auth.user, auth.requestId, normalizeLegacyAssetDates(input.data),
   )
 }

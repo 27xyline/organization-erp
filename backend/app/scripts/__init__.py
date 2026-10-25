@@ -1,1 +1,1 @@
-"""Explicitly invoked operational commands; importing this package has no side effects."""
+"""Операционные команды, запускаемые явно; импорт этого пакета не вызывает побочных эффектов."""

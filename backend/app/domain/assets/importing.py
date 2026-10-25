@@ -1,4 +1,4 @@
-"""Pure file-format contract for importing assets from an XLSX workbook."""
+"Чистый контракт формата файла для импорта активов из книги XLSX."
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ MAX_ASSET_IMPORT_FILE_BYTES = 5 * 1024 * 1024
 
 
 class AssetWorkbookFormatError(Exception):
-    """A workbook does not follow the asset import file contract."""
+    "Книга не соответствует контракту файла импорта активов."
 
 
 @dataclass(frozen=True, slots=True)

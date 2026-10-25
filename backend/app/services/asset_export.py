@@ -1,4 +1,4 @@
-"""XLSX exports for the legacy assets and operations workbook contracts."""
+"Экспорт XLSX в соответствии с контрактами прежних книг активов и операций."
 
 from __future__ import annotations
 

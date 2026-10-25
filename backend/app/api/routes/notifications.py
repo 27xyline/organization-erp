@@ -1,4 +1,4 @@
-"""Authenticated in-app notifications and preference endpoints."""
+"""Эндпоинты авторизованных уведомлений в приложении и пользовательских настроек."""
 
 from math import ceil
 from typing import Annotated, Any

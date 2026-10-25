@@ -1,1 +1,1 @@
-"""Database engine and SQLAlchemy metadata foundation."""
+"""Основа движка базы данных и метаданных SQLAlchemy."""

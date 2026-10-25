@@ -65,17 +65,12 @@ jobs:
         run: npm run build
       - working-directory: frontend
         run: npx playwright install --with-deps chromium
-      - name: Install Python backend for two-process auth E2E
-        uses: astral-sh/setup-uv@v10
-        with:
-          enable-cache: true
-          cache-dependency-glob: backend/uv.lock
       - name: Prepare isolated shared E2E database
         env:
           DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/project1_test
         run: |
-          createdb --template=project1_test erp_stage07_e2e
-          psql postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage07_e2e -v ON_ERROR_STOP=1 <<'SQL'
+          createdb --template=project1_test erp_e2e
+          psql postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_e2e -v ON_ERROR_STOP=1 <<'SQL'
           DO $$
           DECLARE all_tables text;
           BEGIN
@@ -87,17 +82,13 @@ jobs:
           END
           $$;
           SQL
-      - name: Install Python backend dependencies for E2E
-        working-directory: backend
-        run: uv sync --frozen
       - name: Run browser tests against the shared E2E database
         working-directory: frontend
         env:
-          DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage07_e2e
-          STAGE07_E2E_DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage07_e2e
-          STAGE07_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage07_e2e
-          BACKEND_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage07_e2e
-          BACKEND_CSRF_SECRET: ci-only-stage07-csrf-secret-with-at-least-thirty-two-characters
+          DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_e2e
+          E2E_DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_e2e
+          BACKEND_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_e2e
+          BACKEND_CSRF_SECRET: ci-only-e2e-csrf-secret-with-at-least-thirty-two-characters
           BACKEND_PUBLIC_ORIGIN: http://localhost:3001
         run: npm run test:e2e
       - working-directory: frontend
@@ -111,21 +102,15 @@ jobs:
         env:
           POSTGRES_USER: project1
           POSTGRES_PASSWORD: project1_ci_password
-          POSTGRES_DB: erp_stage02_test
+          POSTGRES_DB: erp_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U project1 -d erp_stage02_test"
+          --health-cmd "pg_isready -U project1 -d erp_test"
           --health-interval 5s --health-timeout 5s --health-retries 12
     env:
-      BACKEND_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage02_test
-      BACKEND_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage02_test
-      STAGE02_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage02_test
-      STAGE03_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage03_test
-      STAGE05_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage05_test
-      STAGE06_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage06_test
-      STAGE07_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage07_test
-      STAGE14A_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_stage02_test
+      BACKEND_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_test
+      BACKEND_TEST_DATABASE_URL: postgresql+asyncpg://project1:project1_ci_password@127.0.0.1:5432/erp_test
       BACKEND_ENVIRONMENT: test
       BACKEND_OTEL_ENABLED: "false"
     steps:
@@ -146,40 +131,6 @@ jobs:
       - name: Verify migrated PostgreSQL catalog
         working-directory: backend
         run: uv run python -m app.scripts.verify_schema
-      - name: Create isolated Stage 03 test copy
-        run: createdb --template=erp_stage02_test erp_stage03_test
-      - name: Create isolated Stage 05 test copy
-        run: createdb --template=erp_stage02_test erp_stage05_test
-      - name: Create isolated Stage 06 test copy
-        run: |
-          createdb --template=erp_stage02_test erp_stage06_test
-          psql postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage06_test -v ON_ERROR_STOP=1 <<'SQL'
-          DO $$
-          DECLARE all_tables text;
-          BEGIN
-            SELECT string_agg(format('%I.%I', schemaname, tablename), ', ')
-              INTO all_tables
-              FROM pg_tables
-             WHERE schemaname = 'public';
-            EXECUTE 'TRUNCATE TABLE ' || all_tables || ' CASCADE';
-          END
-          $$;
-          SQL
-      - name: Create isolated Stage 07 test copy
-        run: |
-          createdb --template=erp_stage02_test erp_stage07_test
-          psql postgresql://project1:project1_ci_password@127.0.0.1:5432/erp_stage07_test -v ON_ERROR_STOP=1 <<'SQL'
-          DO $$
-          DECLARE all_tables text;
-          BEGIN
-            SELECT string_agg(format('%I.%I', schemaname, tablename), ', ')
-              INTO all_tables
-              FROM pg_tables
-             WHERE schemaname = 'public';
-            EXECUTE 'TRUNCATE TABLE ' || all_tables || ' CASCADE';
-          END
-          $$;
-          SQL
       - name: Check Python formatting and types
         working-directory: backend
         run: |

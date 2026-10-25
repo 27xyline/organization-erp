@@ -1,4 +1,4 @@
-"""Pydantic transport schemas for existing asset contracts."""
+"""Транспортные схемы Pydantic для существующих контрактов имущества."""
 
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ class AssetInput(BaseModel):
             try:
                 return datetime.fromisoformat(value.replace("Z", "+00:00"))
             except ValueError:
-                # Live legacy Zod accepts nonempty strings; Prisma Date rejects them as 500.
+                # Zod принимает непустые строки; Prisma Date отклоняет их с ошибкой 500.
                 raise DomainError("internal_error", "An unexpected error occurred", 500) from None
         return value
 

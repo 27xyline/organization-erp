@@ -1,4 +1,4 @@
-"""Employee use cases; organization mutations and audit share one explicit commit."""
+"Сценарии сотрудников; изменения организации и аудит фиксируются одной явной транзакцией."
 
 from __future__ import annotations
 
@@ -299,7 +299,7 @@ class EmployeeService:
                 if "contractSignedDate" in data
                 else before.contractSignedDate
             )
-            # Legacy update preserves the current end date for blank/null input.
+            # При пустом значении или null прежнее обновление сохраняет текущую дату окончания.
             end = (
                 parse_date(command.contractEndDate, optional=True)
                 if "contractEndDate" in data and command.contractEndDate not in ("", None)

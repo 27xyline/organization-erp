@@ -1,4 +1,4 @@
-"""HTTP adapters for the existing approval URL and response contracts."""
+"""HTTP-адаптеры для существующего URL согласований и контрактов ответов."""
 
 from math import ceil
 from typing import Annotated, Any

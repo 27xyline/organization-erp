@@ -1,4 +1,4 @@
-"""PostgreSQL leasing and completion for detached email delivery records."""
+"""Аренда и завершение обработки отделённых записей отправки почты в PostgreSQL."""
 
 from __future__ import annotations
 
@@ -64,7 +64,7 @@ class SqlAlchemyOutboxRepository:
         )
         if row is None:
             return None
-        # Copy the JSON before the transaction closes: the sender receives no ORM state.
+        # Скопировать JSON до завершения транзакции: отправитель не получает состояние ORM.
         return ClaimedOutbox(
             str(row["id"]),
             str(row["userId"]),

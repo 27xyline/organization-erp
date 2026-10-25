@@ -1,4 +1,4 @@
-"""Typed detached document/storage contracts below application and persistence."""
+"Типизированные контракты документов и хранилища без ORM-моделей для нижних слоёв приложения."
 
 from collections.abc import AsyncIterable
 from dataclasses import dataclass

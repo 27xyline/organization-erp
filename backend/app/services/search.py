@@ -1,4 +1,4 @@
-"""Global search use case."""
+"Сценарий глобального поиска."
 
 from app.domain.auth.rules import AccessContext
 from app.domain.ports.search import SearchPort

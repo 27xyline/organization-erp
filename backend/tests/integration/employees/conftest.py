@@ -1,10 +1,8 @@
-import os
 import uuid
 from collections.abc import AsyncIterator
 
 import pytest
 from sqlalchemy import delete
-from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import app.db.registry  # noqa: F401
@@ -22,27 +20,12 @@ from app.services.employees import EmployeeService
 from app.services.personnel_actions import PersonnelActionService
 from app.services.workforce import WorkforceService
 from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
+from tests.database import test_database_url as resolve_test_database_url
 
 
 @pytest.fixture
 async def hr_env() -> AsyncIterator[dict]:
-    stage08_url = os.environ.get("STAGE08_TEST_DATABASE_URL")
-    stage07_url = os.environ.get("STAGE07_TEST_DATABASE_URL")
-    stage06_url = os.environ.get("STAGE06_TEST_DATABASE_URL")
-    url = (
-        stage08_url or stage07_url or stage06_url or os.environ.get("STAGE05_TEST_DATABASE_URL", "")
-    )
-    expected = (
-        "erp_stage08_test"
-        if stage08_url
-        else "erp_stage07_test"
-        if stage07_url
-        else "erp_stage06_test"
-        if stage06_url
-        else "erp_stage05_test"
-    )
-    if not url or make_url(url).database != expected:
-        pytest.fail(f"HR tests must point to isolated {expected}")
+    url = resolve_test_database_url()
     engine = create_async_engine(Settings(database_url=url).database_url.get_secret_value())
     sessions = async_sessionmaker(engine, expire_on_commit=False)
     prefix = "s5-" + uuid.uuid4().hex

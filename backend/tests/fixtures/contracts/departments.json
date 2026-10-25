@@ -1,0 +1,202 @@
+{
+  "departmentCreate": {
+    "code": "ORGANIZATION-D-1",
+    "name": "organization Исходное подразделение",
+    "parentId": null,
+    "headEmployeeId": null,
+    "isActive": true
+  },
+  "departmentDuplicateCodeError": "CODE_EXISTS",
+  "molCreate": {
+    "code": "ORGANIZATION-M-1",
+    "fullName": "Synthetic MOL",
+    "departmentId": "department-1",
+    "department": "organization Исходное подразделение",
+    "photo": null
+  },
+  "molDuplicateCodeError": "CODE_EXISTS",
+  "departmentRename": {
+    "name": "organization Переименованное подразделение",
+    "denormalizedDepartmentNames": [
+      "organization Переименованное подразделение",
+      "organization Переименованное подразделение",
+      "organization Переименованное подразделение"
+    ]
+  },
+  "groupCrud": {
+    "create": {
+      "code": "ORGANIZATION-G-1",
+      "name": "Synthetic group",
+      "description": "Synthetic description"
+    },
+    "update": {
+      "code": "ORGANIZATION-G-2",
+      "name": "Synthetic group updated",
+      "description": null
+    },
+    "listCodes": [
+      "ORGANIZATION-G-2"
+    ],
+    "getCount": 0,
+    "duplicateCodeError": "CODE_EXISTS"
+  },
+  "groupDelete": {
+    "success": true
+  },
+  "molUpdate": {
+    "code": "ORGANIZATION-M-2",
+    "fullName": "Synthetic MOL updated",
+    "departmentId": "department-1",
+    "department": "organization Переименованное подразделение",
+    "storageLocation": "Synthetic room 2",
+    "photo": "data:image/png;base64,c3ludGhldGlj",
+    "getCount": 0
+  },
+  "molDelete": {
+    "success": true
+  },
+  "departmentDelete": {
+    "success": true
+  },
+  "audit": [
+    {
+      "action": "DEPARTMENT_CREATE",
+      "entityType": "Department",
+      "entityId": "department-1",
+      "details": {
+        "after": {
+          "code": "ORGANIZATION-D-1",
+          "name": "organization Исходное подразделение",
+          "isActive": true,
+          "parentId": null,
+          "headEmployeeId": null
+        }
+      },
+      "requestId": "organization-legacy-create"
+    },
+    {
+      "action": "MOL_CREATE",
+      "entityType": "Mol",
+      "entityId": "mol-1",
+      "details": {
+        "after": {
+          "id": "mol-1",
+          "code": "ORGANIZATION-M-1",
+          "fullName": "Synthetic MOL",
+          "department": "organization Исходное подразделение",
+          "departmentId": "department-1"
+        }
+      },
+      "requestId": "organization-legacy-mol-create"
+    },
+    {
+      "action": "DEPARTMENT_UPDATE",
+      "entityType": "Department",
+      "entityId": "department-1",
+      "details": {
+        "after": {
+          "code": "ORGANIZATION-D-1",
+          "name": "organization Переименованное подразделение",
+          "isActive": true,
+          "parentId": null,
+          "headEmployeeId": null
+        },
+        "before": {
+          "code": "ORGANIZATION-D-1",
+          "name": "organization Исходное подразделение",
+          "isActive": true,
+          "parentId": null,
+          "headEmployeeId": null
+        }
+      },
+      "requestId": "organization-legacy-rename"
+    },
+    {
+      "action": "ASSET_GROUP_CREATE",
+      "entityType": "AssetGroup",
+      "entityId": "group-1",
+      "details": {
+        "after": {
+          "id": "group-1",
+          "code": "ORGANIZATION-G-1",
+          "name": "Synthetic group"
+        }
+      },
+      "requestId": "organization-legacy-group-create"
+    },
+    {
+      "action": "ASSET_GROUP_UPDATE",
+      "entityType": "AssetGroup",
+      "entityId": "group-1",
+      "details": {
+        "after": {
+          "code": "ORGANIZATION-G-2",
+          "name": "Synthetic group updated"
+        },
+        "before": {
+          "code": "ORGANIZATION-G-1",
+          "name": "Synthetic group"
+        }
+      },
+      "requestId": "organization-legacy-group-update"
+    },
+    {
+      "action": "ASSET_GROUP_DELETE",
+      "entityType": "AssetGroup",
+      "entityId": "group-1",
+      "details": {
+        "before": {
+          "code": "ORGANIZATION-G-2",
+          "name": "Synthetic group updated"
+        }
+      },
+      "requestId": "organization-legacy-group-delete"
+    },
+    {
+      "action": "MOL_UPDATE",
+      "entityType": "Mol",
+      "entityId": "mol-1",
+      "details": {
+        "after": {
+          "code": "ORGANIZATION-M-2",
+          "fullName": "Synthetic MOL updated",
+          "department": "organization Переименованное подразделение",
+          "departmentId": "department-1"
+        },
+        "before": {
+          "code": "ORGANIZATION-M-1",
+          "fullName": "Synthetic MOL",
+          "department": "organization Переименованное подразделение",
+          "departmentId": "department-1"
+        }
+      },
+      "requestId": "organization-legacy-mol-update"
+    },
+    {
+      "action": "MOL_DELETE",
+      "entityType": "Mol",
+      "entityId": "mol-1",
+      "details": {
+        "before": {
+          "code": "ORGANIZATION-M-2",
+          "fullName": "Synthetic MOL updated",
+          "department": "organization Переименованное подразделение",
+          "departmentId": "department-1"
+        }
+      },
+      "requestId": "organization-legacy-mol-delete"
+    },
+    {
+      "action": "DEPARTMENT_DELETE",
+      "entityType": "Department",
+      "entityId": "department-1",
+      "details": {
+        "before": {
+          "code": "ORGANIZATION-D-1",
+          "name": "organization Переименованное подразделение"
+        }
+      },
+      "requestId": "organization-legacy-department-delete"
+    }
+  ]
+}

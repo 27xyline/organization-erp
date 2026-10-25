@@ -52,9 +52,9 @@ describe('procurement contracts', () => {
       receivedAt: '2026-07-25',
       items: [{ procurementItemId: 'item-1', quantity: 0 }],
     }).success).toBe(false)
-    // 7707083893 is a valid Russian INN (Sberbank)
+    // 7707083893 — корректный российский ИНН (Сбербанк)
     expect(supplierSchema.safeParse({ name: 'ООО ЛабСнаб', taxId: '7707083893' }).success).toBe(true)
-    // 7701234567 has incorrect checksum
+    // У 7701234567 неверная контрольная сумма
     expect(supplierSchema.safeParse({ name: 'ООО ЛабСнаб', taxId: '7701234567' }).success).toBe(false)
     expect(supplierSchema.safeParse({ name: 'ООО ЛабСнаб', taxId: '123' }).success).toBe(false)
   })

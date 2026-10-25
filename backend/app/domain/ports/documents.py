@@ -1,4 +1,4 @@
-"""Typed lower-layer document persistence, private storage and rendering boundaries."""
+"Типизированные границы хранения документов, закрытого хранилища и формирования представлений."
 
 from collections.abc import Awaitable, Callable
 from typing import BinaryIO, Protocol
@@ -40,7 +40,7 @@ class DocumentRepository(DocumentMetadataPort, Protocol):
     ) -> DownloadMetadata | None: ...
     async def options(self, access: AccessContext) -> DocumentOptions: ...
     async def referenced(self, key: str) -> bool:
-        """Fence prior writer transactions before checking a fresh committed reference."""
+        "Дождаться завершения предыдущих записей перед проверкой новой зафиксированной ссылки."
         ...
 
 

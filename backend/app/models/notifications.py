@@ -1,4 +1,4 @@
-"""SQLAlchemy mappings for notifications tables."""
+"""Отображения SQLAlchemy для таблиц уведомлений."""
 
 from __future__ import annotations
 

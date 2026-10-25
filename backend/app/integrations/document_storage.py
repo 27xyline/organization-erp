@@ -1,8 +1,11 @@
-"""Private local objects with fd-relative no-follow access and recoverable leases.
+"""Закрытые локальные объекты с доступом относительно fd без перехода по ссылкам и \
+восстанавливаемыми арендами.
 
-Every upload journals its key before promotion. A locked pending journal protects an
-active transaction. Recovery is explicit, must run against the owning database,
-and removes only unlocked journals after checking that database for references.
+Перед публикацией каждой загрузки её ключ записывается в журнал. Заблокированный ожидающий \
+журнал защищает
+активную транзакцию. Восстановление запускается явно, должно выполняться для базы \
+данных-владельца
+и удаляет только незаблокированные журналы после проверки ссылок в этой базе данных.
 """
 
 from __future__ import annotations
@@ -31,7 +34,7 @@ DIR = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
 async def _owned_thread[T](
     operation: Callable[..., T], *args: object, cancelled: Callable[[T], None] | None = None
 ) -> T:
-    """Wait for our OS worker even after cancellation before exposing ownership."""
+    """Даже после отмены дождаться системного рабочего процесса, прежде чем передавать владение."""
     worker = asyncio.create_task(asyncio.to_thread(operation, *args))
     interrupted = False
     while True:
@@ -54,8 +57,9 @@ async def _owned_thread[T](
 class LocalDocumentStorage:
     def __init__(self, root: Path, project_root: Path | None = None) -> None:
         self.root = Path(os.path.abspath(root))
-        # Only fixed OS aliases are trusted. Mutable application symlink ancestors
-        # are rejected by the subsequent fd-relative O_NOFOLLOW walk.
+        # Доверяем только фиксированным системным псевдонимам. Изменяемые приложением
+        # предки-ссылки
+        # отклоняются последующим обходом относительно fd с флагом O_NOFOLLOW.
         for alias, destination in (
             (Path("/var"), Path("/private/var")),
             (Path("/tmp"), Path("/private/tmp")),
@@ -143,9 +147,9 @@ class LocalDocumentStorage:
         directory = self._directory((".staging",), create=True)
         lease: BinaryIO | None = None
         try:
-            # _directory opens .staging afresh, never dup's its description. This
-            # kernel lock coordinates both processes and threads of this object.
-            # Recovery cannot observe a published name before its first lease.
+            # _directory каждый раз заново открывает .staging, а не дублирует дескриптор. Эта
+            # блокировка ядра синхронизирует процессы и потоки этого объекта.
+            # Восстановление не может увидеть опубликованное имя до создания первой аренды.
             fcntl.flock(directory, fcntl.LOCK_EX)
             fd = os.open(
                 identifier + ".pending",
@@ -169,7 +173,7 @@ class LocalDocumentStorage:
         except BaseException:
             if lease is not None:
                 lease.close()
-            # A partially initialized journal remains recoverable by its UUID.
+            # Частично инициализированный журнал можно восстановить по его UUID.
             raise
         finally:
             os.close(directory)
@@ -202,7 +206,7 @@ class LocalDocumentStorage:
     @staticmethod
     def _write(output: BinaryIO, digest: Any, chunk: bytes) -> None:
         output.write(chunk)
-        # hashlib implementations expose a stable update method.
+        # Реализации hashlib предоставляют стабильный метод update.
         digest.update(chunk)
 
     @staticmethod
@@ -217,7 +221,8 @@ class LocalDocumentStorage:
         destination: int | None = None
         try:
             destination = self._directory((first, second), create=True)
-            # link is exclusive; a UUID collision cannot overwrite an existing object.
+            # создание ссылки выполняется эксклюзивно; совпадение UUID не перезапишет
+            # существующий объект.
             os.link(
                 name + ".tmp",
                 name,
@@ -256,7 +261,7 @@ class LocalDocumentStorage:
         await _owned_thread(self._finish, staged)
 
     async def abandon(self, staged: StagedObject) -> None:
-        # Keep journal for reconciliation if commit acknowledgement is uncertain.
+        # Сохранять журнал для сверки, если подтверждение фиксации транзакции не получено.
         await _owned_thread(staged.lease.close)
 
     def _get(self, stored: StoredObject) -> BinaryIO:
@@ -321,9 +326,9 @@ class LocalDocumentStorage:
         directory = self._directory((".staging",), create=True)
         leases = []
         try:
-            # Hold only for publication/enumeration, not DB reconciliation.
-            # Once acquired, every visible journal's creator either established
-            # its file lease or died while the OS released this directory lock.
+            # Удерживать только при публикации или перечислении, но не при сверке с БД.
+            # После захвата блокировки создатель каждого видимого журнала либо установил
+            # аренду файла, либо завершился, и ОС освободила эту блокировку каталога.
             fcntl.flock(directory, fcntl.LOCK_EX)
             for name in os.listdir(directory):
                 if not re.fullmatch(r"[0-9a-f-]{36}\.pending", name):
@@ -345,8 +350,9 @@ class LocalDocumentStorage:
                         if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
                             raise ValueError("Nonregular journal")
                         key = f"{identifier[:2]}/{identifier[2:4]}/{identifier}"
-                        # Empty/prefix content is an interrupted initialization.
-                        # Anything else is retained for operator investigation.
+                        # Пустое содержимое или только префикс означает прерванную
+                        # инициализацию.
+                        # Любое другое содержимое сохраняется для расследования оператором.
                         if not key.encode("ascii").startswith(handle.read(200)):
                             raise ValueError("Journal does not match its canonical candidate")
                     except BaseException:

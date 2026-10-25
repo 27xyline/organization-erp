@@ -1,4 +1,4 @@
-"""Validate legacy query aliases without silently coercing invalid booleans."""
+"""Проверяет псевдонимы legacy-параметров, не преобразуя молча некорректные логические значения."""
 
 from fastapi import Request
 from pydantic import ValidationError

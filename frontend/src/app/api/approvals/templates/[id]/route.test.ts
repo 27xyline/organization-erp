@@ -10,7 +10,7 @@ vi.mock('@/lib/auth/authorization', () => ({
   authorizeApiRequest: mocks.authorizeApiRequest,
 }))
 
-vi.mock('@/lib/backend/stage09', () => ({ proxyStage09: mocks.proxy }))
+vi.mock('@/lib/backend/notifications', () => ({ proxyNotificationRequest: mocks.proxy }))
 
 import { PATCH } from './route'
 

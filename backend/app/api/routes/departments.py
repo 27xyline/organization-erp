@@ -1,4 +1,4 @@
-"""HTTP endpoints for departments and their SSR references."""
+"""HTTP-эндпоинты подразделений и связанных с ними SSR-справочников."""
 
 from typing import Annotated, Any, Literal
 

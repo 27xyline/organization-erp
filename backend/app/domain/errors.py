@@ -17,7 +17,7 @@ class DomainError(Exception):
 
 @dataclass(slots=True)
 class PersistenceConflict(Exception):
-    """A constraint conflict translated by the persistence adapter."""
+    "Конфликт ограничения, преобразованный адаптером хранения данных."
 
     constraint: str
 
@@ -26,4 +26,4 @@ class PersistenceConflict(Exception):
 
 
 class RetryableTransactionError(Exception):
-    """Persistence reports PostgreSQL serialization or deadlock; transaction rolled back."""
+    "Ошибка сериализации или взаимной блокировки PostgreSQL; транзакция отменена."

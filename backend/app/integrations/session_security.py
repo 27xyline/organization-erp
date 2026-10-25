@@ -11,7 +11,7 @@ CSRF_HEADER_NAME = "x-csrf-token"
 
 
 def new_session_token() -> str:
-    """Return an opaque URL-safe token with 256 bits of entropy."""
+    """Возвращает непрозрачный токен, безопасный для URL и содержащий 256 бит энтропии."""
     return secrets.token_urlsafe(32)
 
 
@@ -20,7 +20,7 @@ def hash_session_token(token: str) -> str:
 
 
 class SessionTokenManager:
-    """Adapter for generating opaque tokens and storing only their SHA-256 hashes."""
+    """Адаптер для создания непрозрачных токенов и хранения только их хешей SHA-256."""
 
     def new_token(self) -> str:
         return new_session_token()

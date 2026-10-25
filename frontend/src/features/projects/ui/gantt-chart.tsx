@@ -13,12 +13,12 @@ interface GanttChartProps {
 }
 
 export function GanttChart({ tasks, startDate: projectStart, endDate: projectEnd }: GanttChartProps) {
-  // Filter only level 1 tasks for the chart
+  // Для диаграммы отбираем только задачи первого уровня
   const level1Tasks = useMemo(() => {
     return tasks.filter(t => t.level === 1 && t.startDate && t.endDate)
   }, [tasks])
 
-  // Calculate chart timeline
+  // Вычисляем временную шкалу диаграммы
   const { start, end, totalDays } = useMemo(() => {
     if (level1Tasks.length === 0) {
       const start = projectStart || new Date()
@@ -30,7 +30,7 @@ export function GanttChart({ tasks, startDate: projectStart, endDate: projectEnd
     const minDate = new Date(Math.min(...dates.map(d => d.getTime())))
     const maxDate = new Date(Math.max(...dates.map(d => d.getTime())))
     
-    // Add some padding
+    // Добавляем небольшой отступ
     const start = projectStart || addDays(minDate, -7)
     const end = projectEnd || addDays(maxDate, 7)
     
@@ -41,7 +41,7 @@ export function GanttChart({ tasks, startDate: projectStart, endDate: projectEnd
     }
   }, [level1Tasks, projectStart, projectEnd])
 
-  // Generate month headers
+  // Формируем заголовки месяцев
   const months = useMemo(() => {
     const months = []
     let current = startOfMonth(start)
@@ -69,7 +69,7 @@ export function GanttChart({ tasks, startDate: projectStart, endDate: projectEnd
   return (
     <div className="overflow-x-auto">
       <div className="min-w-[800px]">
-        {/* Timeline Header */}
+        {/* Заголовок временной шкалы */}
         <div className="flex border-b">
           <div className="w-64 flex-shrink-0 p-2 font-medium border-r bg-muted/50">
             Задача
@@ -87,7 +87,7 @@ export function GanttChart({ tasks, startDate: projectStart, endDate: projectEnd
           </div>
         </div>
 
-        {/* Tasks */}
+        {/* Задачи */}
         {level1Tasks.map((task) => {
           const taskStart = task.startDate!
           const taskEnd = task.endDate!
@@ -106,7 +106,7 @@ export function GanttChart({ tasks, startDate: projectStart, endDate: projectEnd
                 </div>
               </div>
               <div className="flex-1 relative h-12">
-                {/* Grid lines for months */}
+                {/* Линии сетки по месяцам */}
                 {months.map((month, idx) => (
                   <div
                     key={idx}
@@ -118,7 +118,7 @@ export function GanttChart({ tasks, startDate: projectStart, endDate: projectEnd
                   />
                 ))}
                 
-                {/* Task bar */}
+                {/* Полоса задачи */}
                 <div
                   className={cn(
                     "absolute top-2 h-8 rounded-md flex items-center px-2 text-xs text-white font-medium shadow-sm",
@@ -139,7 +139,7 @@ export function GanttChart({ tasks, startDate: projectStart, endDate: projectEnd
           )
         })}
 
-        {/* Legend */}
+        {/* Легенда */}
         <div className="flex gap-4 mt-4 text-sm">
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 rounded bg-green-500" />

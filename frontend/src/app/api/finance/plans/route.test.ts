@@ -3,13 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ authorize: vi.fn(), proxy: vi.fn() }))
 vi.mock('@/lib/auth/authorization', () => ({ authorizeApiRequest: mocks.authorize }))
-vi.mock('@/lib/backend/stage10', () => ({ proxyStage10Request: mocks.proxy }))
+vi.mock('@/lib/backend/finance', () => ({ proxyFinanceRequest: mocks.proxy }))
 
 import { DELETE, GET, POST } from './route'
 
 const user = { id: 'accountant-1', sessionVersion: 3 }
 
-describe('finance plans Stage10 BFF routes', () => {
+describe('finance plans Payroll BFF routes', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.authorize.mockResolvedValue({ user, requestId: 'request-finance' })

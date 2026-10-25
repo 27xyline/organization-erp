@@ -26,7 +26,7 @@ export const createEmployeeSchema = employeeSchema.extend({
 })
 
 export const updateEmployeeSchema = employeeSchema.partial().extend({
-  // Some fields might still be mandatory for update or have specific constraints
+  // При обновлении некоторые поля могут оставаться обязательными или иметь особые ограничения
   id: z.string().optional(),
 })
 

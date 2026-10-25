@@ -1,4 +1,4 @@
-"""SQLAlchemy approval queries and transactional state changes."""
+"""Запросы согласований через SQLAlchemy и транзакционные изменения состояния."""
 
 from collections.abc import Callable
 from typing import Any

@@ -1,4 +1,4 @@
-"""Pure rules for catalog references."""
+"Чистые правила для ссылок на справочники."
 
 from app.domain.errors import DomainError
 

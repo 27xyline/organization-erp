@@ -1,4 +1,4 @@
-"""Staff schedule and absence workflows. Legacy permits overlapping vacations."""
+"Расписание и отсутствия сотрудников. Допускаются пересекающиеся отпуска."
 
 from datetime import datetime
 from decimal import Decimal

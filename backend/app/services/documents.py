@@ -1,4 +1,4 @@
-"""Document use cases: one DB commit, private storage leases, explicit reconciliation."""
+"Документы: одна фиксация БД, аренда хранилища и явная сверка."
 
 import re
 import unicodedata
@@ -128,8 +128,8 @@ class DocumentService:
                 raise DomainError("FORBIDDEN", "Недостаточно прав", 403)
 
     async def _compensate(self, staged: StagedObject) -> None:
-        # A commit exception may mean COMMIT reached PostgreSQL but its reply was lost.
-        # Check in a fresh session before deleting, or retain a journal for explicit recovery.
+        # COMMIT мог дойти до PostgreSQL, хотя ответ об ошибке потерян.
+        # Перед удалением проверить состояние в новой сессии или сохранить журнал восстановления.
         try:
             async with self._uow_factory() as uow:
                 referenced = await uow.documents.referenced(staged.stored.key)
@@ -236,7 +236,7 @@ class DocumentService:
         await self._preflight_create(metadata, context.actor)
         content = await self.rendering.render(
             command.render_template()
-        )  # adapter offloads synchronous rendering
+        )  # адаптер выполняет синхронное формирование в отдельном потоке
 
         async def chunks() -> AsyncIterator[bytes]:
             yield content

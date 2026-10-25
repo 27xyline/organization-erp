@@ -30,7 +30,7 @@ def test_renderers_keep_russian_labels_and_numeric_values_readable() -> None:
 
     pdf = render_pdf("Отчёт", columns, rows)
     assert pdf.startswith(b"%PDF-")
-    assert b"/FontFile2" in pdf  # embedded TrueType font keeps Cyrillic renderable
+    assert b"/FontFile2" in pdf  # встроенный шрифт TrueType обеспечивает отображение кириллицы
 
     qr = render_qr("https://erp.example/документы")
     assert qr.startswith(b"\x89PNG\r\n\x1a\n")

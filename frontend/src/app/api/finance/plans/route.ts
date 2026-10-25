@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { financePlanDeleteSchema, financePlanSaveSchema } from '@/features/finance/contracts/finance-plan'
 import { FinancePlanType } from '@/lib/contracts/enums'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { proxyStage10Request } from '@/lib/backend/stage10'
+import { proxyFinanceRequest } from '@/lib/backend/finance'
 import { validateRequest } from '@/lib/http/validate-request'
 
 export const dynamic = 'force-dynamic'
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   if (!Number.isInteger(year) || year < 2000 || year > 2100) {
     return Response.json({ error: 'Invalid finance year' }, { status: 400 })
   }
-  return proxyStage10Request(
+  return proxyFinanceRequest(
     request,
     `${request.nextUrl.pathname}${request.nextUrl.search}`,
     auth.user,
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     await request.clone().json().catch(() => null),
   )
   if (!validation.success) return Response.json({ error: validation.error }, { status: 400 })
-  return proxyStage10Request(request, '/api/finance/plans', auth.user, auth.requestId)
+  return proxyFinanceRequest(request, '/api/finance/plans', auth.user, auth.requestId)
 }
 
 export async function DELETE(request: NextRequest) {
@@ -54,5 +54,5 @@ export async function DELETE(request: NextRequest) {
     await request.clone().json().catch(() => null),
   )
   if (!validation.success) return Response.json({ error: validation.error }, { status: 400 })
-  return proxyStage10Request(request, '/api/finance/plans', auth.user, auth.requestId)
+  return proxyFinanceRequest(request, '/api/finance/plans', auth.user, auth.requestId)
 }

@@ -1,1 +1,1 @@
-"""Asset rules independent of persistence and transport."""
+"Правила активов, не зависящие от хранения и транспорта."

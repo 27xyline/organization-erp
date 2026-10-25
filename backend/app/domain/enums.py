@@ -1,4 +1,4 @@
-"""Framework-independent workflow values shared by services and persistence."""
+"Значения рабочих процессов, общие для сервисов и хранения данных и не зависящие от фреймворка."
 
 from enum import StrEnum
 

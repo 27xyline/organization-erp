@@ -1,4 +1,4 @@
-"""Staff schedule transport; financial calculation remains in Stage10."""
+"""Транспорт расписания сотрудников; финансовые расчёты остаются в сервисах финансов."""
 
 from typing import Annotated, Any
 

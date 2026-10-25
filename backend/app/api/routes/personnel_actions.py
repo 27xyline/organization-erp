@@ -1,4 +1,4 @@
-"""Personnel action HTTP contracts."""
+"""HTTP-контракты кадровых действий."""
 
 from typing import Annotated, Any
 
@@ -54,7 +54,7 @@ async def sync(context: Context, service: Service) -> dict[str, Any]:
 
 @router.delete("/{identifier}")
 async def delete_action(identifier: str, context: Context, service: Service) -> dict[str, Any]:
-    # This legacy missing-record branch was an unmapped service error (generic 500).
+    # В legacy-ветке для отсутствующей записи ошибка сервиса не преобразовывалась (общая 500).
     try:
         return {"data": await service.delete(identifier, context)}
     except DomainError as error:

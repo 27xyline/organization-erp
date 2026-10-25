@@ -1,4 +1,4 @@
-"""Persistence boundaries for scheduled alert runs and source queries."""
+"Границы хранения данных для запусков запланированных уведомлений и запросов к источникам."
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""HR records and persistence boundary. No ORM escapes the adapter."""
+"HR-записи и граница хранения данных. ORM-модели не покидают адаптер."
 
 from __future__ import annotations
 

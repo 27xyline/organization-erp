@@ -1,4 +1,4 @@
-"""Approval use cases; state, audit and notification intents share one UoW."""
+"Сценарии согласования: состояние, аудит и уведомления используют одну единицу работы."
 
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ def can_view_all(context: RequestContext) -> bool:
 async def create_approval_in_uow(
     command: ApprovalCommand, context: RequestContext, uow: UnitOfWork
 ) -> dict[str, Any]:
-    """Create an approval in a caller-owned transaction; never commits it."""
+    "Создать согласование в транзакции вызывающего кода; не фиксировать транзакцию."
     assert context.actor is not None
     actor = context.actor
     validate_deadline(command.dueAt, datetime.now(UTC))
@@ -121,7 +121,7 @@ async def decide_approval_in_uow(
     context: RequestContext,
     uow: UnitOfWork,
 ) -> dict[str, Any]:
-    """Apply an approval decision and its audit/notification in a caller-owned UoW."""
+    "Применить решение и записать аудит с уведомлением в единице работы вызывающего кода."
     assert context.actor is not None
     actor = context.actor
     request = await uow.approvals.get_for_update(identifier)

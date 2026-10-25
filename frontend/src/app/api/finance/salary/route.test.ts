@@ -3,11 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({ authorize: vi.fn(), proxy: vi.fn() }))
 vi.mock('@/lib/auth/authorization', () => ({ authorizeApiRequest: mocks.authorize }))
-vi.mock('@/lib/backend/stage10', () => ({ proxyStage10Request: mocks.proxy }))
+vi.mock('@/lib/backend/finance', () => ({ proxyFinanceRequest: mocks.proxy }))
 
 import { GET } from './route'
 
-describe('finance salary Stage10 BFF route', () => {
+describe('finance salary Payroll BFF route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.authorize.mockResolvedValue({

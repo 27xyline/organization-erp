@@ -9,7 +9,7 @@ from app.core.context import Actor
 from app.main import create_app
 from app.services.dto.auth import CredentialResult
 
-CSRF_SECRET = "stage14b-csrf-test-secret-unique-xxxxxxxx"
+CSRF_SECRET = "sessions-csrf-test-secret-unique-xxxxxxxx"
 
 
 class FakeSessions:
@@ -35,7 +35,7 @@ async def client():
             otel_enabled=False,
         )
     )
-    app.state.tracer = trace.get_tracer("stage14b-contract")
+    app.state.tracer = trace.get_tracer("sessions-contract")
     service = FakeSessions()
     app.dependency_overrides[get_sessions_service] = lambda: service
     async with httpx.AsyncClient(
@@ -119,7 +119,7 @@ async def test_account_me_returns_only_the_actor_contract():
             otel_enabled=False,
         )
     )
-    app.state.tracer = trace.get_tracer("stage14b-contract")
+    app.state.tracer = trace.get_tracer("sessions-contract")
     app.dependency_overrides[get_actor] = lambda: Actor(
         actor_id="u1",
         username="user.one",
@@ -163,7 +163,7 @@ async def test_missing_csrf_secret_fails_closed_as_auth_unavailable():
             otel_enabled=False,
         )
     )
-    app.state.tracer = trace.get_tracer("stage14b-contract")
+    app.state.tracer = trace.get_tracer("sessions-contract")
     async with httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app), base_url="http://test"
     ) as test_client:

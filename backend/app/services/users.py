@@ -1,4 +1,4 @@
-"""User use cases own permissions and a single transaction, including audit."""
+"Сценарии пользователей управляют разрешениями и одной транзакцией, включая аудит."
 
 from datetime import datetime
 from typing import Any
@@ -94,7 +94,7 @@ class UserService:
         self._passwords = passwords
 
     async def create_initial_admin(self, username: str, name: str, password: str) -> str:
-        """Bootstrap the first administrator through the normal user/audit ports."""
+        "Создать первого администратора через стандартные порты пользователей и аудита."
         username, name = username.strip().lower(), name.strip()
         if not 3 <= len(username) <= 100 or not all(
             character.isascii() and (character.isalnum() or character in "._-")
@@ -254,7 +254,7 @@ class UserService:
                 key: input[key] for key in ("name", "isActive") if key in input
             }
             values.update(employeeId=employee_id, role=compatibility_role(assignments))
-            # Permission/scope changes and disabling revoke sessions, in addition to passwords.
+            # Смена пароля, разрешений, области доступа и отключение отзывают сессии.
             if (
                 password_hash
                 or "assignments" in input

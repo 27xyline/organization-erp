@@ -1,4 +1,4 @@
-/** Frontend API values kept independent from the database ORM schema. */
+/** Значения API клиентской части независимы от схемы ORM базы данных. */
 export const AssetStatus = {
   IN_STOCK: 'IN_STOCK',
   IN_USE: 'IN_USE',

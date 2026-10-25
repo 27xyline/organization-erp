@@ -1,4 +1,4 @@
-"""Detached dataclasses for department application results."""
+"Dataclass-структуры результатов приложения для подразделений без ORM-моделей."
 
 from dataclasses import dataclass
 

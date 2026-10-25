@@ -87,38 +87,38 @@ model Asset {
   groupId String
   group   AssetGroup @relation(fields: [groupId], references: [id])
 
-  // Project relation
+  // Связь с проектом
   projectId String?
   project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
-  // Source of purchase
+  // Источник приобретения
   contractCode        String?
   internalFundingCode String?
   isExistingAsset     Boolean @default(false)
 
-  // Basis for recording
+  // Основание постановки на учёт
   recordingDate   DateTime
   documentType    String
   documentDetails String
 
-  // Yandex.Disk file references
+  // Ссылки на файлы в Яндекс.Диске
   documentFiles String[] @default([])
 
-  // Status
+  // Статус
   status AssetStatus @default(IN_STOCK)
 
-  // Archive flag
+  // Признак архивирования
   isArchived Boolean @default(false)
 
-  // Planning
+  // Планирование
   plannedDisposalDate   DateTime?
   plannedDisposalReason String?
 
-  // Photos and notes
+  // Фотографии и примечания
   photos String[] @default([])
   notes  String?
 
-  // Accounting form (145 or 367)
+  // Форма учёта (145 или 367)
   accountingForm String @default("145")
 
   createdAt DateTime @default(now())
@@ -217,26 +217,26 @@ model Operation {
   assetId String
   asset   Asset  @relation(fields: [assetId], references: [id])
 
-  // For transfers
+  // Для перемещений
   fromMolId String?
   fromMol   Mol?    @relation("FromMol", fields: [fromMolId], references: [id])
 
   toMolId String?
   toMol   Mol?    @relation("ToMol", fields: [toMolId], references: [id])
 
-  // Quantities
+  // Количества
   quantity  Decimal @db.Decimal(10, 2)
   unitPrice Decimal @db.Decimal(10, 2)
   totalCost Decimal @db.Decimal(12, 2)
 
-  // Document info
+  // Сведения о документе
   date            DateTime
   reason          String?
   documentType    String
   documentDetails String
   documentFiles   String[] @default([])
 
-  // Status change
+  // Изменение статуса
   oldStatus AssetStatus?
   newStatus AssetStatus?
 
@@ -627,7 +627,7 @@ model ApprovalTemplate {
   @@map("approval_templates")
 }
 
-// Projects
+// Проекты
 enum ProjectStatus {
   ACTIVE
   COMPLETED
@@ -645,20 +645,20 @@ model Project {
   tasks       String?
   results     String?
 
-  // Dates
+  // Даты
   startDate DateTime?
   endDate   DateTime?
 
-  // Status
+  // Статус
   status ProjectStatus @default(ACTIVE)
 
-  // Budget
+  // Бюджет
   plannedBudget Decimal @default(0) @db.Decimal(12, 2)
   actualBudget  Decimal @default(0) @db.Decimal(12, 2)
   plannedRevenue Decimal @default(0) @db.Decimal(12, 2)
   actualRevenue  Decimal @default(0) @db.Decimal(12, 2)
 
-  // Relations
+  // Связи
   assets              Asset[]
   tasksList           Task[]
   financePlanEntries  FinancePlanEntry[]
@@ -838,7 +838,7 @@ model ProjectMember {
   @@map("project_members")
 }
 
-// Tasks with 3-level hierarchy
+// Задачи с трёхуровневой иерархией
 model Task {
   id          String       @id @default(cuid())
   name        String
@@ -847,21 +847,21 @@ model Task {
   risk        TaskRisk     @default(LOW)
   isMilestone Boolean      @default(false)
 
-  // Hierarchy (Level 1, 2, 3)
-  level    Int     @default(1) // 1, 2, or 3
+  // Иерархия (уровни 1, 2, 3)
+  level    Int     @default(1) // 1, 2 или 3
   parentId String?
   parent   Task?   @relation("TaskChildren", fields: [parentId], references: [id])
   children Task[]  @relation("TaskChildren")
 
-  // Dates and duration
+  // Даты и длительность
   startDate DateTime?
   endDate   DateTime?
-  duration  Int? // in days
+  duration  Int? // в днях
 
-  // Progress
+  // Прогресс
   progress Int @default(0) // 0-100%
 
-  // Legacy responsible person field kept for backwards-compatible display.
+  // Устаревшее поле ответственного сохранено для совместимости отображения.
   responsible  String?
   assignees    TaskAssignee[]
   checklist    TaskChecklistItem[]
@@ -870,10 +870,10 @@ model Task {
   successors   TaskDependency[]    @relation("TaskPredecessors")
   timeEntries  TimeEntry[]
 
-  // Status
+  // Статус
   status TaskStatus @default(NOT_STARTED)
 
-  // Project relation
+  // Связь с проектом
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -969,7 +969,7 @@ enum TaskRisk {
   @@map("task_risk")
 }
 
-// Employees and HR
+// Сотрудники и кадровый учёт
 model Employee {
   id                 String                 @id @default(cuid())
   code               String                 @unique // Табельный номер
@@ -983,7 +983,7 @@ model Employee {
   contractEndDate    DateTime?
   contractNumber     String?
 
-  // Contact info
+  // Контактные данные
   phone         String?
   email         String?
   birthDate     DateTime?
@@ -994,15 +994,15 @@ model Employee {
   manager       Employee?  @relation("EmployeeManager", fields: [managerId], references: [id], onDelete: SetNull)
   directReports Employee[] @relation("EmployeeManager")
 
-  // Staff schedule position
+  // Позиция штатного расписания
   staffScheduleId String?
   staffSchedule   StaffSchedule? @relation(fields: [staffScheduleId], references: [id])
   employmentRate  Decimal        @default(1) @db.Decimal(5, 2) // Количество ставок сотрудника
 
-  // Status
+  // Статус
   status EmployeeStatus @default(ACTIVE)
 
-  // Relations
+  // Связи
   vacations          Vacation[]
   actions            PersonnelAction[]
   salaryEntries      SalaryEntry[]
@@ -1149,7 +1149,7 @@ model StaffSchedule {
   rate          Decimal    @db.Decimal(5, 2) // Количество ставок
   salary        Decimal    @db.Decimal(10, 2) // Зарплата
 
-  // Relations
+  // Связи
   employees Employee[]
 
   createdAt DateTime @default(now())
@@ -1260,11 +1260,11 @@ model PersonnelAction {
   date        DateTime
   description String?
 
-  // Employee
+  // Сотрудник
   employeeId String
   employee   Employee @relation(fields: [employeeId], references: [id])
 
-  // Additional data
+  // Дополнительные данные
   oldDepartment      String?
   newDepartment      String?
   oldPosition        String?
@@ -1296,7 +1296,7 @@ model Vacation {
   endDate   DateTime
   type      VacationType @default(VACATION)
 
-  // Employee
+  // Сотрудник
   employeeId String
   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 

@@ -1,4 +1,4 @@
-"""Persistence port for permission-scoped global search."""
+"Порт хранения для глобального поиска с учётом разрешений."
 
 from typing import Protocol
 

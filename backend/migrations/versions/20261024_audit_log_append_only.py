@@ -1,4 +1,4 @@
-"""Protect the legacy audit log from direct updates and deletes."""
+"""Защитить журнал аудита прежней системы от прямых обновлений и удалений."""
 
 from alembic import op
 

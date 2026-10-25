@@ -1,4 +1,4 @@
-"""Add opaque Python-owned browser sessions."""
+"""Добавить браузерные сессии с непрозрачными токенами под управлением Python."""
 
 import sqlalchemy as sa
 from alembic import op

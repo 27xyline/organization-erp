@@ -1,4 +1,4 @@
-"""Employee persistence and bounded read composition on one AsyncSession."""
+"""Сохранение сотрудников и ограниченная композиция чтения в одной AsyncSession."""
 
 from __future__ import annotations
 

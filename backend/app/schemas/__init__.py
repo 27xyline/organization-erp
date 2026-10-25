@@ -1,1 +1,1 @@
-"""Stable API schemas."""
+"""Стабильные схемы API."""

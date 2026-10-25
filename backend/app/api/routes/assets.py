@@ -1,4 +1,4 @@
-"""Asset HTTP adapters. Application commands remain transport independent."""
+"""HTTP-адаптеры имущества. Команды приложения не зависят от транспортного слоя."""
 
 from collections.abc import Callable
 from dataclasses import asdict

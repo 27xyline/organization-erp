@@ -1,4 +1,4 @@
-"""Existing document status transition matrix."""
+"Существующая матрица переходов статусов документа."
 
 TRANSITIONS = {
     "DRAFT": ("IN_REVIEW",),

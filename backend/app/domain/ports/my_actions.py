@@ -1,4 +1,4 @@
-"""Persistence port for the actor's dashboard action list."""
+"Порт хранения списка действий пользователя на панели управления."
 
 from datetime import datetime
 from typing import Any, Protocol

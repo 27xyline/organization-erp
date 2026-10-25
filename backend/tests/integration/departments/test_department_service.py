@@ -17,7 +17,7 @@ from app.repositories.audit import SqlAlchemyAuditRepository
 from app.repositories.users import SqlAlchemyUserRepository
 from app.services.dto.catalogs import MolCommand
 from app.services.dto.departments import DepartmentCommand, DepartmentListQuery
-from tests.stage04_support import wire
+from tests.organization_support import wire
 
 
 @pytest.mark.anyio
@@ -136,7 +136,7 @@ async def test_department_rename_updates_denormalized_snapshots_and_audit_atomic
             Employee(
                 id=employee_id,
                 code=employee_id,
-                fullName="Stage04 Employee",
+                fullName="organization Employee",
                 department="Before",
                 departmentId=department["id"],
                 status=EmployeeStatus.ACTIVE,
@@ -158,7 +158,7 @@ async def test_department_rename_updates_denormalized_snapshots_and_audit_atomic
             MolCommand(
                 code=env["prefix"],
                 department="Before",
-                full_name="Stage04 MOL",
+                full_name="organization MOL",
                 storage_location="Room 1",
                 present_fields=frozenset({"code", "department", "full_name", "storage_location"}),
             ),
@@ -206,7 +206,7 @@ async def test_department_rename_updates_denormalized_snapshots_and_audit_atomic
 
     async def append_then_fail(repository, record):
         await original_append(repository, record)
-        raise RuntimeError("stage04 injected failure after audit append")
+        raise RuntimeError("organization injected failure after audit append")
 
     monkeypatch.setattr(SqlAlchemyAuditRepository, "append", append_then_fail)
     with pytest.raises(RuntimeError, match="injected failure"):

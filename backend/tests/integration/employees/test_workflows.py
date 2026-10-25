@@ -823,7 +823,8 @@ async def test_profile_composes_project_salary_documents_and_mol_assets_without_
             assert result["employee"]["mol"]["assets"][0]["quantity"] == 2
             assert result["employee"]["mol"]["assets"][0]["totalCost"] == 200
             assert result["employee"]["documents"][0]["id"] == document_id
-            # HR employee access does not authorize a document linked to an unassigned project.
+            # Кадровый доступ к сотруднику не даёт доступа к документу, связанному с неназначенным
+            # проектом.
             access = AccessContext(
                 env["user_id"],
                 None,
@@ -835,6 +836,6 @@ async def test_profile_composes_project_salary_documents_and_mol_assets_without_
                 employee.id, replace(env["actor"], access=access)
             )
             assert scoped.documents == ()
-            assert len(scoped.salary_entries) == 1  # preserve legacy salary field visibility
+            assert len(scoped.salary_entries) == 1  # сохраняем прежнюю видимость полей зарплаты
         finally:
             await outer.rollback()

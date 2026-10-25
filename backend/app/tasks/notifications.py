@@ -1,4 +1,4 @@
-"""Standalone notification worker; the API lifespan never starts this loop."""
+"Автономный обработчик уведомлений; жизненный цикл API не запускает этот цикл."
 
 from __future__ import annotations
 

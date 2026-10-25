@@ -10,5 +10,5 @@ npm-debug.log*
 playwright-report
 test-results
 *.tsbuildinfo
-.runtime
+.test-data
 e2e

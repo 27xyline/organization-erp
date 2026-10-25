@@ -1,4 +1,4 @@
-"""PHC-compatible Argon2id adapter. CPU work never blocks the event loop."""
+"""Адаптер Argon2id, совместимый с PHC. Работа CPU не блокирует цикл событий."""
 
 import asyncio
 
@@ -8,7 +8,7 @@ from argon2.low_level import Type
 
 
 class Argon2PasswordHasher:
-    # Match existing @node-rs/argon2 defaults: 19 MiB, two iterations, one lane.
+    # Использовать стандартные параметры @node-rs/argon2: 19 МиБ, две итерации, один поток.
     def __init__(self) -> None:
         self._hasher = PasswordHasher(
             time_cost=2, memory_cost=19456, parallelism=1, hash_len=32, salt_len=16, type=Type.ID

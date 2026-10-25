@@ -1,4 +1,4 @@
-"""Email delivery boundary used by outbox processors."""
+"Граница доставки электронной почты, используемая обработчиками очереди исходящих сообщений."
 
 from __future__ import annotations
 

@@ -14,7 +14,7 @@ export function NotificationBell({ className }: { className?: string }) {
       const payload = await response.json()
       setCount(Math.max(0, Number(payload.data?.count) || 0))
     } catch {
-      // The bell is non-critical; the inbox still exposes request errors.
+      // Сбой колокольчика некритичен; ошибки запросов по-прежнему отображаются в списке уведомлений.
     }
   }, [])
 

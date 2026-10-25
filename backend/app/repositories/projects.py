@@ -1,4 +1,5 @@
-"""Bounded project reads and transactional writes. Never commits."""
+"""Ограниченные операции чтения проектов и транзакционная запись. \
+Фиксация транзакции не выполняется."""
 
 from __future__ import annotations
 
@@ -41,7 +42,7 @@ from app.repositories.employees import columns, employee_loads
 
 
 def decimal_string(value: Decimal) -> str:
-    """Prisma Decimal.toJSON uses decimal notation without trailing scale zeros."""
+    """Prisma Decimal.toJSON использует десятичную запись без конечных нулей масштаба."""
     text = format(value, "f")
     return text.rstrip("0").rstrip(".") if "." in text else text
 
@@ -92,7 +93,8 @@ class SqlAlchemyProjectRepository:
         self._session = session
 
     async def lock(self, project_id: str) -> bool:
-        # Called after the actor lock by every migrated graph/membership writer.
+        # Вызывается после блокировки субъекта каждым перенесённым обработчиком графа или
+        # членства.
         return (
             await self._session().scalar(
                 select(Project.id).where(Project.id == project_id).with_for_update()

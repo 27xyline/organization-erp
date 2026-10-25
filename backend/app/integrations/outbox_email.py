@@ -1,4 +1,4 @@
-"""SMTP adapter for detached outbox payloads."""
+"""Адаптер SMTP для отделённых данных outbox."""
 
 from __future__ import annotations
 

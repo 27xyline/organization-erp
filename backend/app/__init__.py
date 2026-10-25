@@ -1,1 +1,1 @@
-"""Python API foundation for Organization ERP."""
+"""Основа Python API системы Organization ERP."""

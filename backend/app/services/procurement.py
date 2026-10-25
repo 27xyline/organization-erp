@@ -1,4 +1,4 @@
-"""Procurement use cases with approvals, assets, audit and receipts in one UoW."""
+"Сценарии закупок, объединяющие согласования, активы, аудит и поступления в одной единице работы."
 
 from __future__ import annotations
 
@@ -31,14 +31,16 @@ from app.services.dto.procurement import (
 _ERRORS = {
     "NOT_FOUND": ("PROCUREMENT_NOT_FOUND", "Закупка или её этап не найдены", 404),
     "INVALID_STATE": (
-        "INVALID_PROCUREMENT_STATE", "Действие недоступно на текущем этапе закупки", 409
+        "INVALID_PROCUREMENT_STATE",
+        "Действие недоступно на текущем этапе закупки",
+        409,
     ),
     "REFERENCE_NOT_FOUND": ("REFERENCE_NOT_FOUND", "Связанный объект не найден", 422),
-    "BUDGET_EXCEEDED": (
-        "BUDGET_EXCEEDED", "Сумма договора превышает бюджетный лимит", 409
-    ),
+    "BUDGET_EXCEEDED": ("BUDGET_EXCEEDED", "Сумма договора превышает бюджетный лимит", 409),
     "DELIVERY_EXCEEDED": (
-        "DELIVERY_EXCEEDED", "Количество поставки превышает остаток по заявке", 409
+        "DELIVERY_EXCEEDED",
+        "Количество поставки превышает остаток по заявке",
+        409,
     ),
     "ALREADY_CAPITALIZED": ("ALREADY_CAPITALIZED", "Позиция уже поставлена на учёт", 409),
 }
@@ -52,19 +54,21 @@ def _fail(code: str) -> NoReturn:
 def _persistence_error(error: PersistenceConflict) -> NoReturn:
     code, message = {
         "procurement_requests_number_key": (
-            "PROCUREMENT_NUMBER_EXISTS", "Номер заявки уже используется"
+            "PROCUREMENT_NUMBER_EXISTS",
+            "Номер заявки уже используется",
         ),
-        "suppliers_taxId_key": (
-            "SUPPLIER_TAX_ID_EXISTS", "Поставщик с таким ИНН уже существует"
-        ),
+        "suppliers_taxId_key": ("SUPPLIER_TAX_ID_EXISTS", "Поставщик с таким ИНН уже существует"),
         "procurement_contracts_number_key": (
-            "CONTRACT_NUMBER_EXISTS", "Номер договора уже используется"
+            "CONTRACT_NUMBER_EXISTS",
+            "Номер договора уже используется",
         ),
         "procurement_deliveries_contractId_number_key": (
-            "DELIVERY_NUMBER_EXISTS", "Номер поставки уже используется для договора"
+            "DELIVERY_NUMBER_EXISTS",
+            "Номер поставки уже используется для договора",
         ),
         "assets_inventoryNumber_key": (
-            "INVENTORY_NUMBER_EXISTS", "Инвентарный номер уже используется"
+            "INVENTORY_NUMBER_EXISTS",
+            "Инвентарный номер уже используется",
         ),
     }.get(error.constraint, ("PERSISTENCE_CONFLICT", "Конфликт сохранения данных"))
     raise DomainError(code, message, 409) from error
@@ -76,11 +80,13 @@ def _effective_status(request: Any) -> str:
     approval = request.approvalRequest
     if approval is None:
         return str(request.status)
-    return str({
-        ApprovalRequestStatus.APPROVED: ProcurementStatus.APPROVED,
-        ApprovalRequestStatus.REJECTED: ProcurementStatus.REJECTED,
-        ApprovalRequestStatus.CANCELLED: ProcurementStatus.CANCELLED,
-    }.get(approval.status, request.status).value)
+    return str(
+        {
+            ApprovalRequestStatus.APPROVED: ProcurementStatus.APPROVED,
+            ApprovalRequestStatus.REJECTED: ProcurementStatus.REJECTED,
+            ApprovalRequestStatus.CANCELLED: ProcurementStatus.CANCELLED,
+        }.get(approval.status, request.status).value
+    )
 
 
 def _serialize(request: Any) -> dict[str, Any]:
@@ -107,8 +113,13 @@ def _serialize(request: Any) -> dict[str, Any]:
                 ),
                 "deliveredQuantity": delivered,
                 "deliveryItems": [
-                    {"id": line.id, "quantity": line.quantity, "assetId": line.assetId,
-                     "createdAt": line.createdAt, "updatedAt": line.updatedAt}
+                    {
+                        "id": line.id,
+                        "quantity": line.quantity,
+                        "assetId": line.assetId,
+                        "createdAt": line.createdAt,
+                        "updatedAt": line.updatedAt,
+                    }
                     for line in item.deliveryItems
                 ],
             }
@@ -142,8 +153,11 @@ def _serialize(request: Any) -> dict[str, Any]:
                             "unitPrice": line.procurementItem.unitPrice,
                         },
                         "asset": (
-                            {"id": line.asset.id, "inventoryNumber": line.asset.inventoryNumber,
-                             "name": line.asset.name}
+                            {
+                                "id": line.asset.id,
+                                "inventoryNumber": line.asset.inventoryNumber,
+                                "name": line.asset.name,
+                            }
                             if line.asset
                             else None
                         ),
@@ -260,19 +274,33 @@ class ProcurementService:
                 if search:
                     contract = row.contract
                     haystack = " ".join(
-                        filter(None, (row.number, row.title,
-                                      contract.number if contract else None,
-                                      contract.supplier.name if contract else None))
+                        filter(
+                            None,
+                            (
+                                row.number,
+                                row.title,
+                                contract.number if contract else None,
+                                contract.supplier.name if contract else None,
+                            ),
+                        )
                     ).casefold()
                     if search not in haystack:
                         continue
                 due_at = item["contract"]["deliveryDueAt"] if item["contract"] else None
                 overdue = bool(due_at and due_at < now) and item["status"] not in {
-                    "DELIVERED", "CAPITALIZED", "REJECTED", "CANCELLED"
+                    "DELIVERED",
+                    "CAPITALIZED",
+                    "REJECTED",
+                    "CANCELLED",
                 }
                 matched.append((item, overdue))
         active_status = {
-            "DRAFT", "SUBMITTED", "APPROVED", "CONTRACTED", "PARTIALLY_DELIVERED", "DELIVERED"
+            "DRAFT",
+            "SUBMITTED",
+            "APPROVED",
+            "CONTRACTED",
+            "PARTIALLY_DELIVERED",
+            "DELIVERED",
         }
         summary = {
             "active": sum(item["status"] in active_status for item, _ in matched),
@@ -304,9 +332,7 @@ class ProcurementService:
             allowed_departments = context.actor.access.allowed_department_ids("assets.create")
             if allowed_departments is not None:
                 allowed = set(allowed_departments)
-                result["mols"] = [
-                    mol for mol in result["mols"] if mol["departmentId"] in allowed
-                ]
+                result["mols"] = [mol for mol in result["mols"] if mol["departmentId"] in allowed]
             if context.actor.access.has("documents.read"):
                 page = await uow.documents.list(
                     DocumentFilter(page=1, pageSize=200), context.actor.access
@@ -323,9 +349,7 @@ class ProcurementService:
                 ]
             return result
 
-    async def create(
-        self, command: ProcurementCommand, context: RequestContext
-    ) -> dict[str, Any]:
+    async def create(self, command: ProcurementCommand, context: RequestContext) -> dict[str, Any]:
         actor = context.actor
         assert actor is not None
         _authorize(actor, "procurement.create")
@@ -342,8 +366,13 @@ class ProcurementService:
                 row = await uow.procurement.create_request(values, items)
             except PersistenceConflict as error:
                 _persistence_error(error)
-            await _audit(uow, context, "PROCUREMENT_CREATED", row.id,
-                          {"number": row.number, "budgetLimit": str(row.budgetLimit)})
+            await _audit(
+                uow,
+                context,
+                "PROCUREMENT_CREATED",
+                row.id,
+                {"number": row.number, "budgetLimit": str(row.budgetLimit)},
+            )
             result = _serialize(await uow.procurement.request(row.id))
             await uow.commit()
             return result
@@ -371,8 +400,13 @@ class ProcurementService:
                 _fail("REFERENCE_NOT_FOUND")
             await self._check_document(uow, command.documentId, context)
             await uow.procurement.replace_request(row, values, items)
-            await _audit(uow, context, "PROCUREMENT_UPDATED", identifier,
-                          {"budgetLimit": str(command.budgetLimit), "itemCount": len(items)})
+            await _audit(
+                uow,
+                context,
+                "PROCUREMENT_UPDATED",
+                identifier,
+                {"budgetLimit": str(command.budgetLimit), "itemCount": len(items)},
+            )
             result = _serialize(await uow.procurement.request(identifier))
             await uow.commit()
             return result
@@ -400,8 +434,7 @@ class ProcurementService:
                     documentId=row.documentId,
                     dueAt=command.dueAt,
                     steps=tuple(
-                        ApprovalStepCommand(approver, name)
-                        for name, approver in command.steps
+                        ApprovalStepCommand(approver, name) for name, approver in command.steps
                     ),
                 ),
                 context,
@@ -411,8 +444,13 @@ class ProcurementService:
                 identifier,
                 {"approvalRequestId": approval["id"], "status": ProcurementStatus.SUBMITTED},
             )
-            await _audit(uow, context, "PROCUREMENT_SUBMITTED", identifier,
-                          {"approvalRequestId": approval["id"]})
+            await _audit(
+                uow,
+                context,
+                "PROCUREMENT_SUBMITTED",
+                identifier,
+                {"approvalRequestId": approval["id"]},
+            )
             result = _serialize(await uow.procurement.request(identifier))
             await uow.commit()
             return result
@@ -427,19 +465,36 @@ class ProcurementService:
             await _check_actor(uow, actor)
             try:
                 supplier = await uow.procurement.create_supplier(
-                    {"name": command.name, "taxId": command.taxId, "email": command.email,
-                     "phone": command.phone, "address": command.address}
+                    {
+                        "name": command.name,
+                        "taxId": command.taxId,
+                        "email": command.email,
+                        "phone": command.phone,
+                        "address": command.address,
+                    }
                 )
             except PersistenceConflict as error:
                 _persistence_error(error)
             await uow.audit.append(
-                AuditRecord("SUPPLIER_CREATED", "Supplier", supplier.id, actor.actor_id,
-                            {"name": supplier.name}, context.request_id)
+                AuditRecord(
+                    "SUPPLIER_CREATED",
+                    "Supplier",
+                    supplier.id,
+                    actor.actor_id,
+                    {"name": supplier.name},
+                    context.request_id,
+                )
             )
             await uow.commit()
-            return {"id": supplier.id, "name": supplier.name, "taxId": supplier.taxId,
-                    "email": supplier.email, "phone": supplier.phone, "address": supplier.address,
-                    "isActive": supplier.isActive}
+            return {
+                "id": supplier.id,
+                "name": supplier.name,
+                "taxId": supplier.taxId,
+                "email": supplier.email,
+                "phone": supplier.phone,
+                "address": supplier.address,
+                "isActive": supplier.isActive,
+            }
 
     async def create_contract(
         self, identifier: str, command: ProcurementContractCommand, context: RequestContext
@@ -466,17 +521,30 @@ class ProcurementService:
             await self._check_document(uow, command.documentId, context)
             try:
                 await uow.procurement.create_contract(
-                    {"requestId": identifier, "supplierId": command.supplierId,
-                     "number": command.number, "amount": command.amount,
-                     "signedAt": command.signedAt, "deliveryDueAt": command.deliveryDueAt,
-                     "documentId": command.documentId}
+                    {
+                        "requestId": identifier,
+                        "supplierId": command.supplierId,
+                        "number": command.number,
+                        "amount": command.amount,
+                        "signedAt": command.signedAt,
+                        "deliveryDueAt": command.deliveryDueAt,
+                        "documentId": command.documentId,
+                    }
                 )
             except PersistenceConflict as error:
                 _persistence_error(error)
             await uow.procurement.set_request_status(identifier, ProcurementStatus.CONTRACTED)
-            await _audit(uow, context, "PROCUREMENT_CONTRACTED", identifier,
-                          {"contractNumber": command.number, "supplierId": command.supplierId,
-                           "amount": str(command.amount)})
+            await _audit(
+                uow,
+                context,
+                "PROCUREMENT_CONTRACTED",
+                identifier,
+                {
+                    "contractNumber": command.number,
+                    "supplierId": command.supplierId,
+                    "amount": str(command.amount),
+                },
+            )
             result = _serialize(await uow.procurement.request(identifier))
             await uow.commit()
             return result
@@ -493,18 +561,21 @@ class ProcurementService:
             if row is None:
                 _fail("NOT_FOUND")
             if row.contract is None or row.status not in {
-                ProcurementStatus.CONTRACTED, ProcurementStatus.PARTIALLY_DELIVERED
+                ProcurementStatus.CONTRACTED,
+                ProcurementStatus.PARTIALLY_DELIVERED,
             }:
                 _fail("INVALID_STATE")
             await self._check_document(uow, command.documentId, context)
             ordered = {item.id: item.quantity for item in row.items}
-            prior = {item.id: sum((line.quantity for line in item.deliveryItems), Decimal(0))
-                     for item in row.items}
+            prior = {
+                item.id: sum((line.quantity for line in item.deliveryItems), Decimal(0))
+                for item in row.items
+            }
             incoming: dict[str, Decimal] = {}
             for line in command.items:
-                incoming[line.procurementItemId] = incoming.get(
-                    line.procurementItemId, Decimal(0)
-                ) + line.quantity
+                incoming[line.procurementItemId] = (
+                    incoming.get(line.procurementItemId, Decimal(0)) + line.quantity
+                )
             from app.domain.procurement.rules import validate_delivery_quantities
 
             try:
@@ -513,9 +584,14 @@ class ProcurementService:
                 _fail(str(error))
             try:
                 await uow.procurement.create_delivery(
-                    {"requestId": identifier, "contractId": row.contract.id,
-                     "number": command.number, "receivedAt": command.receivedAt,
-                     "note": command.note, "documentId": command.documentId},
+                    {
+                        "requestId": identifier,
+                        "contractId": row.contract.id,
+                        "number": command.number,
+                        "receivedAt": command.receivedAt,
+                        "note": command.note,
+                        "documentId": command.documentId,
+                    },
                     [
                         {"procurementItemId": item_id, "quantity": quantity}
                         for item_id, quantity in incoming.items()
@@ -524,18 +600,26 @@ class ProcurementService:
             except PersistenceConflict as error:
                 _persistence_error(error)
             status = (
-                ProcurementStatus.DELIVERED if fully_delivered
+                ProcurementStatus.DELIVERED
+                if fully_delivered
                 else ProcurementStatus.PARTIALLY_DELIVERED
             )
             await uow.procurement.set_request_status(identifier, status)
-            await _audit(uow, context, "PROCUREMENT_DELIVERY_REGISTERED", identifier,
-                          {"deliveryNumber": command.number, "fullyDelivered": fully_delivered})
+            await _audit(
+                uow,
+                context,
+                "PROCUREMENT_DELIVERY_REGISTERED",
+                identifier,
+                {"deliveryNumber": command.number, "fullyDelivered": fully_delivered},
+            )
             result = _serialize(await uow.procurement.request(identifier))
             await uow.commit()
             return result
 
     async def capitalize(
-        self, delivery_item_id: str, command: ProcurementCapitalizeCommand,
+        self,
+        delivery_item_id: str,
+        command: ProcurementCapitalizeCommand,
         context: RequestContext,
     ) -> dict[str, Any]:
         actor = context.actor
@@ -590,9 +674,17 @@ class ProcurementService:
                 and request.status == ProcurementStatus.DELIVERED
             ):
                 await uow.procurement.set_request_status(request.id, ProcurementStatus.CAPITALIZED)
-            await _audit(uow, context, "PROCUREMENT_CAPITALIZED", request.id,
-                          {"deliveryItemId": delivery_item_id, "assetId": asset.id,
-                           "inventoryNumber": asset.inventoryNumber})
+            await _audit(
+                uow,
+                context,
+                "PROCUREMENT_CAPITALIZED",
+                request.id,
+                {
+                    "deliveryItemId": delivery_item_id,
+                    "assetId": asset.id,
+                    "inventoryNumber": asset.inventoryNumber,
+                },
+            )
             await uow.commit()
             return {"id": asset.id, "inventoryNumber": asset.inventoryNumber}
 
@@ -615,11 +707,24 @@ class ProcurementService:
         command: ProcurementCommand, actor_id: str
     ) -> tuple[dict[str, Any], builtins.list[dict[str, Any]]]:
         return (
-            {"number": command.number, "title": command.title,
-             "description": command.description, "budgetLimit": command.budgetLimit,
-             "neededBy": command.neededBy, "projectId": command.projectId,
-             "documentId": command.documentId, "requestedById": actor_id},
-            [{"name": item.name, "quantity": item.quantity, "unit": item.unit,
-              "unitPrice": item.unitPrice, "groupId": item.groupId}
-             for item in command.items],
+            {
+                "number": command.number,
+                "title": command.title,
+                "description": command.description,
+                "budgetLimit": command.budgetLimit,
+                "neededBy": command.neededBy,
+                "projectId": command.projectId,
+                "documentId": command.documentId,
+                "requestedById": actor_id,
+            },
+            [
+                {
+                    "name": item.name,
+                    "quantity": item.quantity,
+                    "unit": item.unit,
+                    "unitPrice": item.unitPrice,
+                    "groupId": item.groupId,
+                }
+                for item in command.items
+            ],
         )

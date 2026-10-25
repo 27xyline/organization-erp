@@ -1,4 +1,4 @@
-"""Ports for explicit operational CLI use cases."""
+"Порты для явно вызываемых операционных сценариев CLI."
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Inventory snapshots and counts; completing a sheet never adjusts stock."""
+"Снимки и подсчёт запасов; завершение ведомости не изменяет остатки."
 
 from dataclasses import asdict
 from datetime import UTC, datetime

@@ -1,4 +1,4 @@
-"""Typed application inputs; transport validation lives in API schemas."""
+"Типизированные входные данные приложения; проверка транспорта выполняется в схемах API."
 
 from dataclasses import asdict, dataclass, field
 from datetime import datetime

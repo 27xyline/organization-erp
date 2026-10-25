@@ -14,7 +14,7 @@ from app.models.users import AuditLog, User
 from app.repositories.users import SqlAlchemyUserRepository
 from app.services.dto.catalogs import GroupCommand, MolCommand
 from app.services.dto.departments import DepartmentCommand
-from tests.stage04_support import wire
+from tests.organization_support import wire
 
 
 def group_command(prefix: str, *, code: str = "G") -> GroupCommand:
@@ -30,7 +30,7 @@ def mol_command(prefix: str, department_id: str, *, code: str = "M") -> MolComma
     return MolCommand(
         code=prefix + code,
         department_id=department_id,
-        full_name="Stage04 Responsible",
+        full_name="organization Responsible",
         storage_location="Room 1",
         present_fields=frozenset({"code", "department_id", "full_name", "storage_location"}),
     )
@@ -267,14 +267,14 @@ async def test_mol_department_resolution_scope_filter_direct_id_and_audit(organi
             "after": {
                 "id": mol1["id"],
                 "code": mol1["code"],
-                "fullName": "Stage04 Responsible",
+                "fullName": "organization Responsible",
                 "departmentId": first["id"],
                 "department": "First",
             }
         }
         assert events[1].details["before"] == {
             "code": mol1["code"],
-            "fullName": "Stage04 Responsible",
+            "fullName": "organization Responsible",
             "departmentId": first["id"],
             "department": "First",
         }

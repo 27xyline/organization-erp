@@ -1,4 +1,4 @@
-"""SQLAlchemy mappings for projects tables."""
+"""Отображения SQLAlchemy для таблиц проектов."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Python enum definitions matching PostgreSQL enum labels and sort order."""
+"""Перечисления Python соответствуют меткам PostgreSQL и порядку их сортировки."""
 
 from enum import StrEnum
 

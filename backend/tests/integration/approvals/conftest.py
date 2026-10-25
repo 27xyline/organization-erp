@@ -53,7 +53,7 @@ async def approval_env(db_session_factory):
             )
         document = Document(
             id=prefix + "-document",
-            title="Stage09 document",
+            title="approvals document",
             createdById=ids[0],
             status=DocumentStatus.DRAFT,
         )
@@ -64,7 +64,7 @@ async def approval_env(db_session_factory):
                 documentId=document.id,
                 versionNumber=1,
                 storageKey="aa/bb/00000000-0000-4000-8000-000000000001",
-                originalFilename="stage09.pdf",
+                originalFilename="approvals.pdf",
                 mimeType="application/pdf",
                 extension="pdf",
                 sizeBytes=1,
@@ -93,8 +93,8 @@ async def approval_env(db_session_factory):
             await session.execute(
                 delete(ApprovalTemplate).where(ApprovalTemplate.createdById == ids[0])
             )
-            # The production trigger makes document versions immutable; disable it
-            # transactionally only while removing this isolated test fixture.
+            # Триггер рабочей базы делает версии документов неизменяемыми; отключать его
+            # в транзакции только на время удаления этой изолированной тестовой фикстуры.
             await session.execute(
                 text(
                     'ALTER TABLE "document_versions" DISABLE TRIGGER "document_versions_immutable"'

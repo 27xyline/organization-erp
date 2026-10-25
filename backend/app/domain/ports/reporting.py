@@ -1,4 +1,4 @@
-"""Reporting persistence boundary: repositories return detached projections."""
+"Граница хранения данных отчётности: репозитории возвращают проекции без ORM-моделей."
 
 from __future__ import annotations
 

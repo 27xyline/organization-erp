@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { proxyStage10Request } from '@/lib/backend/stage10'
+import { proxyFinanceRequest } from '@/lib/backend/finance'
 import { apiValidationError } from '@/lib/http/api-response'
 
 export const dynamic = 'force-dynamic'
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     request.nextUrl.searchParams.get('year') || new Date().getFullYear(),
   )
   if (!year.success) return apiValidationError(year.error)
-  return proxyStage10Request(
+  return proxyFinanceRequest(
     request,
     `${request.nextUrl.pathname}${request.nextUrl.search}`,
     auth.user,

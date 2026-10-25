@@ -14,9 +14,9 @@ from app.services.dto.reporting import DashboardQuery
 
 @pytest.mark.anyio
 async def test_dashboard_department_filter_keeps_asset_mol_exists_local(
-    stage12_session_factory: async_sessionmaker[AsyncSession],
+    db_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
-    async with stage12_session_factory() as session:
+    async with db_session_factory() as session:
         access = AccessContext(
             "s12-home-admin",
             None,
@@ -35,12 +35,14 @@ async def test_dashboard_department_filter_keeps_asset_mol_exists_local(
 
 @pytest.mark.anyio
 async def test_dashboard_aggregates_full_scoped_employee_result_over_one_hundred_rows(
-    stage12_session_factory: async_sessionmaker[AsyncSession],
+    db_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
-    async with stage12_session_factory() as session:
+    async with db_session_factory() as session:
         transaction = await session.begin()
         try:
-            session.add(Department(id="s12-reporting-dept", code="S12-R", name="Stage12 Reporting"))
+            session.add(
+                Department(id="s12-reporting-dept", code="S12-R", name="reporting Reporting")
+            )
             await session.flush()
             session.add_all(
                 [
@@ -48,7 +50,7 @@ async def test_dashboard_aggregates_full_scoped_employee_result_over_one_hundred
                         id=f"s12-reporting-{index}",
                         code=f"S12-R-{index}",
                         fullName=f"Reporting Person {index}",
-                        department="Stage12 Reporting",
+                        department="reporting Reporting",
                         departmentId="s12-reporting-dept",
                         employmentRate=Decimal("0.50"),
                     )

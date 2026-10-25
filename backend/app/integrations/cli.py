@@ -1,4 +1,4 @@
-"""Session-owning SQLAlchemy adapters for operational CLI ports."""
+"""Адаптеры SQLAlchemy с управлением сессиями для интерфейсов операционного CLI."""
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 

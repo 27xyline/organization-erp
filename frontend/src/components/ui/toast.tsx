@@ -26,7 +26,7 @@ const ToastContext = createContext<ToastContextValue | null>(null)
 export function useToast() {
   const context = useContext(ToastContext)
   if (!context) {
-    // Fallback for cases where the provider is not yet mounted
+    // Запасной вариант на случай, если провайдер ещё не смонтирован
     return {
       toast: {
         success: (message: string) => console.log('[toast:success]', message),

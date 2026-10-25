@@ -1,4 +1,4 @@
-"""Pure authorization rules; a target must pass within one complete grant."""
+"Чистые правила авторизации: целевой объект должен входить в один полный набор разрешений."
 
 from dataclasses import dataclass
 from typing import Any

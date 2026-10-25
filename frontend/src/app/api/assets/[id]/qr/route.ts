@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { proxyStage07Request } from '@/lib/backend/stage07'
+import { proxyAssetRequest } from '@/lib/backend/assets'
 
 export async function GET(
   request: NextRequest,
@@ -11,5 +11,5 @@ export async function GET(
   const { id } = await context.params
   const path = new URL(`/api/assets/${encodeURIComponent(id)}/qr`, request.nextUrl.origin)
   path.searchParams.set('origin', process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin)
-  return proxyStage07Request(request, `${path.pathname}${path.search}`, auth.user, auth.requestId)
+  return proxyAssetRequest(request, `${path.pathname}${path.search}`, auth.user, auth.requestId)
 }

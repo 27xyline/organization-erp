@@ -1,4 +1,4 @@
-"""Real PostgreSQL HTTP lifecycle covers every transferred browser method."""
+"""Жизненный цикл HTTP с реальной PostgreSQL охватывает каждый перенесённый браузерный метод."""
 
 import httpx
 import pytest

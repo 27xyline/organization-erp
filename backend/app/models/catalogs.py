@@ -1,4 +1,4 @@
-"""SQLAlchemy mappings for catalogs tables."""
+"""Отображения SQLAlchemy для таблиц справочников."""
 
 from __future__ import annotations
 

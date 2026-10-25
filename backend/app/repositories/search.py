@@ -1,4 +1,4 @@
-"""Permission-filtered global search projections."""
+"""Проекции глобального поиска с фильтрацией по разрешениям."""
 
 from sqlalchemy import exists, false, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession

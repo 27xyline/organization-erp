@@ -78,23 +78,23 @@ export function ReportsPage({
 }) {
   const [activeTab, setActiveTab] = useState('summary')
 
-  // Turnover State
+  // Состояние отчёта об оборачиваемости
   const [turnoverData, setTurnoverData] = useState<any>(null)
   const [loadingTurnover, setLoadingTurnover] = useState(false)
 
-  // Profitability State
+  // Состояние отчёта о рентабельности
   const [profitabilityData, setProfitabilityData] = useState<any[]>([])
   const [loadingProfitability, setLoadingProfitability] = useState(false)
 
-  // Depreciation State
+  // Состояние отчёта об амортизации
   const [depreciationData, setDepreciationData] = useState<any>(null)
   const [loadingDepreciation, setLoadingDepreciation] = useState(false)
 
-  // Vacations State
+  // Состояние отчёта об отпусках
   const [vacationsData, setVacationsData] = useState<any[]>([])
   const [loadingVacations, setLoadingVacations] = useState(false)
 
-  // Presets & Constructor State
+  // Состояние шаблонов и конструктора отчётов
   const [presets, setPresets] = useState<any[]>([])
   const [presetName, setPresetName] = useState('')
   const [groupBy, setGroupBy] = useState<'department' | 'project'>(defaultCustomGroupBy)
@@ -121,7 +121,7 @@ export function ReportsPage({
     .map(([metric]) => metric)
     .filter((metric) => availableCustomMetrics.includes(metric))
 
-  // Fetch Turnover Data
+  // Загружаем данные об оборачиваемости
   const fetchTurnover = async () => {
     setLoadingTurnover(true)
     try {
@@ -138,7 +138,7 @@ export function ReportsPage({
     }
   }
 
-  // Fetch Profitability Data
+  // Загружаем данные о рентабельности
   const fetchProfitability = async () => {
     setLoadingProfitability(true)
     try {
@@ -155,7 +155,7 @@ export function ReportsPage({
     }
   }
 
-  // Fetch Depreciation Data
+  // Загружаем данные об амортизации
   const fetchDepreciation = async () => {
     setLoadingDepreciation(true)
     try {
@@ -172,7 +172,7 @@ export function ReportsPage({
     }
   }
 
-  // Fetch Vacations Data
+  // Загружаем данные об отпусках
   const fetchVacations = async () => {
     setLoadingVacations(true)
     try {
@@ -189,7 +189,7 @@ export function ReportsPage({
     }
   }
 
-  // Fetch Presets
+  // Загружаем шаблоны
   const fetchPresets = async () => {
     setLoadingPresets(true)
     try {
@@ -204,7 +204,7 @@ export function ReportsPage({
     }
   }
 
-  // Save Preset
+  // Сохраняем шаблон
   const savePreset = async () => {
     if (!presetName.trim() || !selectedMetrics.length) return
     try {
@@ -227,7 +227,7 @@ export function ReportsPage({
     }
   }
 
-  // Delete Preset
+  // Удаляем шаблон
   const deletePreset = async (id: string) => {
     try {
       const res = await fetch(`/api/reports/presets?id=${id}`, { method: 'DELETE' })
@@ -239,7 +239,7 @@ export function ReportsPage({
     }
   }
 
-  // Load Preset
+  // Загружаем шаблон
   const loadPreset = (preset: any) => {
     const presetGroup = preset.groupBy as 'department' | 'project'
     if (!customGroups[presetGroup]) {
@@ -257,7 +257,7 @@ export function ReportsPage({
     void buildCustomReport(presetGroup, metrics)
   }
 
-  // Build Custom Report
+  // Строим пользовательский отчёт
   const buildCustomReport = async (
     gBy = groupBy,
     metrics: ReportMetric[] = selectedMetrics,
@@ -353,7 +353,7 @@ export function ReportsPage({
           {canBuildCustom && <TabsTrigger value="constructor">Конструктор</TabsTrigger>}
         </TabsList>
 
-        {/* Tab 1: Summary Panel */}
+        {/* Вкладка 1: сводная панель */}
         <TabsContent value="summary" className="space-y-6 mt-4">
           <Card>
             <CardHeader>
@@ -512,7 +512,7 @@ export function ReportsPage({
           </section>
         </TabsContent>
 
-        {/* Tab 2: Turnover Rate */}
+        {/* Вкладка 2: оборачиваемость */}
         <TabsContent value="turnover" className="mt-4">
           <Card>
             <CardHeader>
@@ -555,7 +555,7 @@ export function ReportsPage({
           </Card>
         </TabsContent>
 
-        {/* Tab 3: Profitability */}
+        {/* Вкладка 3: рентабельность */}
         <TabsContent value="profitability" className="mt-4">
           <Card>
             <CardHeader>
@@ -617,7 +617,7 @@ export function ReportsPage({
           </Card>
         </TabsContent>
 
-        {/* Tab 4: Depreciation */}
+        {/* Вкладка 4: амортизация */}
         <TabsContent value="depreciation" className="space-y-6 mt-4">
           <Card>
             <CardHeader>
@@ -726,7 +726,7 @@ export function ReportsPage({
           </Card>
         </TabsContent>
 
-        {/* Tab 5: Vacations */}
+        {/* Вкладка 5: отпуска */}
         <TabsContent value="vacations" className="mt-4">
           <Card>
             <CardHeader>
@@ -772,9 +772,9 @@ export function ReportsPage({
           </Card>
         </TabsContent>
 
-        {/* Tab 6: Report Constructor */}
+        {/* Вкладка 6: конструктор отчётов */}
         <TabsContent value="constructor" className="grid gap-6 lg:grid-cols-[380px_1fr] mt-4">
-          {/* Constructor Sidebar */}
+          {/* Боковая панель конструктора */}
           <div className="space-y-6">
             <Card>
               <CardHeader>
@@ -869,7 +869,7 @@ export function ReportsPage({
             </Card>
           </div>
 
-          {/* Constructor Table & Preset List */}
+          {/* Таблица конструктора и список шаблонов */}
           <div className="space-y-6">
             <Card>
               <CardHeader>

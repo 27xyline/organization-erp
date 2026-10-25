@@ -12,7 +12,7 @@ export interface BackendList<T> {
   pagination: BackendPagination
 }
 
-/** Read a `{data: ...}` response for a server-rendered page. */
+/** Читаем ответ `{data: ...}` для страницы, отрисовываемой на сервере. */
 export async function readBackendData<T>(response: Response, message: string): Promise<T> {
   if (!response.ok) throw new BackendRequestError(message, response.status)
   try {

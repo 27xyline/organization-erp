@@ -1,4 +1,4 @@
-"""Project persistence ports and detached domain records."""
+"Порты хранения проектов и доменные записи без ORM-моделей."
 
 from __future__ import annotations
 

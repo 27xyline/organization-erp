@@ -1,1 +1,1 @@
-"""HTTP routing and request adapters."""
+"""Маршрутизация HTTP и адаптеры запросов."""

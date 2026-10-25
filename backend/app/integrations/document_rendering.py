@@ -1,4 +1,4 @@
-"""Existing order/acceptance templates, rendered outside the event loop."""
+"""Существующие шаблоны заказа и акта приёмки; формируются вне цикла событий."""
 
 import asyncio
 from io import BytesIO

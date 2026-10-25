@@ -1,4 +1,4 @@
-"""Document-file integrity adapter used by the explicit verify-data CLI."""
+"""Адаптер проверки целостности файлов документов, используемый явной командой CLI verify-data."""
 
 from typing import BinaryIO
 
@@ -19,7 +19,8 @@ class LocalDocumentFileVerificationAdapter:
             )
             return True
         except Exception:
-            # Legacy verify-data treats missing, invalid, and corrupt files alike.
+            # Старая команда verify-data одинаково обрабатывает отсутствующие,
+            # недопустимые и повреждённые файлы.
             return False
         finally:
             if contents is not None:

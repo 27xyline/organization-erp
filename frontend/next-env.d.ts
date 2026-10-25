@@ -3,5 +3,5 @@
 import "./.next-dev/dev/types/routes.d.ts";
 import "./.next-dev/dev/types/root-params.d.ts";
 
-// NOTE: This file should not be edited
-// see https://nextjs.org/docs/app/api-reference/config/typescript for more information.
+// ПРИМЕЧАНИЕ: этот файл не следует редактировать
+// Подробнее: https://nextjs.org/docs/app/api-reference/config/typescript.

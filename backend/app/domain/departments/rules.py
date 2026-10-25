@@ -1,4 +1,4 @@
-"""Pure department input normalization and hierarchy checks."""
+"Чистая нормализация входных данных подразделений и проверка иерархии."
 
 from app.domain.errors import DomainError
 

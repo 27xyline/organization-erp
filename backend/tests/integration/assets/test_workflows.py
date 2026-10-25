@@ -1,4 +1,4 @@
-"""PostgreSQL invariants, independent connection races, rollback and scoped denial."""
+"""Инварианты PostgreSQL, гонки независимых подключений, откат и отказ с учётом области доступа."""
 
 import asyncio
 from dataclasses import replace
@@ -86,7 +86,8 @@ async def test_decimal_race_two_independent_sessions_cannot_overdispose(asset_en
 
     racing_service = AssetService(racing_factory)
     try:
-        # Separate actors deliberately avoid the shared actor-row lock serializing both requests.
+        # Разные субъекты намеренно исключают общую блокировку строки субъекта, которая
+        # последовательно выполняла бы оба запроса.
         results = await asyncio.gather(
             racing_service.dispose(asset.id, movement(prefix, "0.20"), context),
             racing_service.dispose(asset.id, movement(prefix, "0.20"), second_context),
@@ -268,7 +269,9 @@ async def test_same_holder_transfer_cannot_create_extra_stock_through_typed_serv
 async def test_asset_project_change_and_project_delete_share_project_before_asset_lock_order(
     asset_env,
 ):
-    """Referenced project stays locked until reassignment; concurrent delete then clears its FK."""
+    """Проект по ссылке остаётся заблокированным до переназначения; затем параллельное удаление
+    очищает его внешний ключ.
+    """
     from app.models.projects import Project
     from app.services.assets import AssetService
     from app.services.dto.projects import ProjectCommand

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiValidationError } from '@/lib/http/api-response'
-import { proxyStage12Request } from '@/lib/backend/stage12'
+import { proxyReportingRequest } from '@/lib/backend/reporting'
 import { z } from 'zod'
 
 const querySchema = z.object({
@@ -20,5 +20,5 @@ export async function GET(request: NextRequest) {
   const query = querySchema.safeParse(searchParams)
   if (!query.success) return apiValidationError(query.error)
 
-  return proxyStage12Request(request, `${request.nextUrl.pathname}${request.nextUrl.search}`, auth.user, auth.requestId)
+  return proxyReportingRequest(request, `${request.nextUrl.pathname}${request.nextUrl.search}`, auth.user, auth.requestId)
 }

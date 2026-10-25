@@ -18,7 +18,7 @@ from app.models.users import User, UserDepartmentScope, UserRoleAssignment
 
 
 class SqlAlchemyTimekeepingRepository:
-    """Timekeeping queries and writes in the UoW-owned session."""
+    """Запросы и записи учёта рабочего времени в сессии, принадлежащей UoW."""
 
     def __init__(self, session: Callable[[], AsyncSession]) -> None:
         self._session = session
@@ -162,7 +162,8 @@ class SqlAlchemyTimekeepingRepository:
                         break
                 if valid:
                     return {"approverId": user.id, "approverEmployeeId": head_id, "fallback": False}
-        # Match the legacy HR/admin fallback when the hierarchy has no eligible head.
+        # Повторяет запасной вариант старой HR/admin-логики, если в иерархии нет
+        # подходящего руководителя.
         fallback = await session.scalar(
             select(User)
             .join(UserRoleAssignment, UserRoleAssignment.userId == User.id)
@@ -228,8 +229,8 @@ class SqlAlchemyTimekeepingRepository:
             for key, value in values.items():
                 setattr(row, key, value)
         await session.flush()
-        # The service builds the public JSON contract after the UoW commits;
-        # eagerly load all relationships while the AsyncSession is active.
+        # Сервис формирует публичный JSON-контракт после фиксации UoW;
+        # предварительно загрузить все связи, пока активна AsyncSession.
         refreshed = await self.get_entry(row.id)
         assert refreshed is not None
         return refreshed

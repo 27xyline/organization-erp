@@ -1,4 +1,4 @@
-"""Pure legacy task graph and hierarchy invariants."""
+"Чистые инварианты графа задач и иерархии из прежней реализации."
 
 from collections.abc import Sequence
 

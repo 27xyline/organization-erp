@@ -1,1 +1,1 @@
-"""Pure domain types and rules."""
+"Чистые доменные типы и правила."

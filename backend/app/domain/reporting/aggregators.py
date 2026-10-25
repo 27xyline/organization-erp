@@ -1,4 +1,4 @@
-"""Pure helpers shared by report and dashboard use cases."""
+"Чистые вспомогательные функции, общие для сценариев отчётов и панели управления."
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ class Page[T]:
 
 
 def page_from_full_scope[T](rows: Sequence[T], page: int, page_size: int) -> Page[T]:
-    """Slice an already scoped result while retaining its full-scope total."""
+    "Выбрать часть результата с уже заданной областью доступа, сохранив итог для всей области."
     if page < 1 or page_size < 1:
         raise ValueError("page and page_size must be positive")
     start = (page - 1) * page_size
@@ -34,7 +34,7 @@ def percent(value: int | float | Decimal, total: int | float | Decimal) -> float
 
 
 def months_in_period(date_from: date, date_to: date) -> int:
-    """Count inclusive calendar months."""
+    "Посчитать календарные месяцы включительно."
     return max(1, (date_to.year - date_from.year) * 12 + date_to.month - date_from.month + 1)
 
 
@@ -129,7 +129,7 @@ def aggregate_workforce(
     salaries: Sequence[SalaryInput],
     months: int,
 ) -> tuple[tuple[WorkforceRow, ...], dict[str, Decimal | int]]:
-    """Aggregate complete scoped rows by department using Decimal arithmetic."""
+    "Сгруппировать все строки заданной области по подразделениям с помощью Decimal."
     data: dict[str, _WorkforceAccumulator] = {}
     for employee in employees:
         row = data.setdefault(

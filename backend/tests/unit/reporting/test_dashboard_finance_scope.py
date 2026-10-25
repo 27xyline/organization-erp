@@ -32,7 +32,8 @@ class _DashboardRepository:
                     "employmentRate": Decimal("1"),
                     "contractEndDate": None,
                     "position": "Разработчик",
-                    # A malicious/buggy adapter must not bypass service-level authorization.
+                    # Злонамеренный или ошибочный адаптер не должен обходить авторизацию на уровне
+                    # сервиса.
                     "salary": Decimal("987654321.25"),
                 }
             ],

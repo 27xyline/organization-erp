@@ -1,4 +1,4 @@
-"""HTTP-only Zod-compatible project/task inputs."""
+"""Входные данные проектов и задач только для HTTP, совместимые с Zod."""
 
 from decimal import Decimal
 from typing import Annotated, Any, Literal

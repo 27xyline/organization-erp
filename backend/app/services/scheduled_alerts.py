@@ -1,4 +1,4 @@
-"""Concurrency-safe scheduled alert runner and legacy-compatible generation."""
+"Безопасный при гонках запуск запланированных уведомлений и совместимая генерация."
 
 from __future__ import annotations
 
@@ -76,8 +76,8 @@ async def generate_scheduled_alerts(
     now: datetime,
     context: RequestContext,
 ) -> AlertResult:
-    """Generate scheduled alerts from legacy source records and persist via intents."""
-    # Implemented in a separate collector so the scheduler owns only the lock lifecycle.
+    "Сформировать запланированные уведомления и сохранить намерения отправки."
+    # Сборщик отделён; планировщик управляет жизненным циклом блокировки.
     from app.services.scheduled_alert_generation import collect_scheduled_alerts
 
     return await collect_scheduled_alerts(uow_factory, queries, now, context)

@@ -140,10 +140,10 @@ async def test_sql_metrics_and_spans_exclude_statement_and_bind_values(db_engine
 
 
 @pytest.mark.anyio
-async def test_api_readiness_is_independent_of_unavailable_collector(stage02_database_url) -> None:
+async def test_api_readiness_is_independent_of_unavailable_collector(test_database_url) -> None:
     app = create_app(
         Settings(
-            database_url=stage02_database_url,
+            database_url=test_database_url,
             otel_enabled=True,
             otel_exporter_otlp_endpoint="http://127.0.0.1:1",
             otel_export_timeout_seconds=0.1,

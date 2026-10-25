@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from app.core.config import Settings
 
 ROOT = Path(__file__).resolve().parents[2]
-EXPECTED_CATALOG = ROOT / "migrations" / "catalog_stage14b.json"
+EXPECTED_CATALOG = ROOT / "migrations" / "schema_catalog.json"
 SERVICE_TABLES = {"_prisma_migrations", "alembic_version"}
 
 _CATALOG_QUERIES = {
@@ -91,7 +91,7 @@ _CATALOG_QUERIES = {
 
 
 async def catalog_snapshot(engine: AsyncEngine) -> dict[str, Any]:
-    """Read raw PostgreSQL catalog objects without consulting SQLAlchemy metadata."""
+    """Читает исходные объекты каталога PostgreSQL, не обращаясь к метаданным SQLAlchemy."""
     snapshot: dict[str, Any] = {"enums": {}, "tables": {}}
     async with engine.connect() as connection:
         for row in (await connection.execute(text(_CATALOG_QUERIES["enums"]))).mappings():
@@ -128,7 +128,7 @@ async def catalog_snapshot(engine: AsyncEngine) -> dict[str, Any]:
 
 
 def _is_column_not_null_duplicate(row: Any) -> bool:
-    """Ignore PG18's generated NOT NULL catalog row, already represented by attnotnull."""
+    """Игнорирует созданную в PG18 строку каталога NOT NULL, уже представленную полем attnotnull."""
     return (
         row["constraint_type"] in ("n", b"n")
         and row["column_not_null"] is True
@@ -143,7 +143,8 @@ def _is_column_not_null_duplicate(row: Any) -> bool:
 
 
 def compare_catalogs(expected: dict[str, Any], actual: dict[str, Any]) -> list[str]:
-    """Return deterministic catalog-level differences between expected and live DDL."""
+    """Возвращает детерминированные различия на уровне каталога между ожидаемым \
+    и действующим DDL."""
     differences: list[str] = []
     expected = json.loads(json.dumps(expected))
     actual = json.loads(json.dumps(actual))
@@ -197,16 +198,8 @@ async def _main(expected_catalog_path: Path = EXPECTED_CATALOG) -> int:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--legacy",
-        action="store_true",
-        help="compare against the frozen pre-stamp Prisma schema",
-    )
-    args = parser.parse_args()
-    catalog_path = (
-        EXPECTED_CATALOG.parent / "legacy_catalog.json" if args.legacy else EXPECTED_CATALOG
-    )
-    raise SystemExit(asyncio.run(_main(catalog_path)))
+    parser.parse_args()
+    raise SystemExit(asyncio.run(_main(EXPECTED_CATALOG)))
 
 
 if __name__ == "__main__":

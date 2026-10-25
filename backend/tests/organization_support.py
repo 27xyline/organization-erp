@@ -1,0 +1,119 @@
+"""Фикстуры справочников организации для изолированной тестовой базы PostgreSQL."""
+
+import uuid
+from collections.abc import AsyncIterator
+
+import pytest
+from sqlalchemy import delete, or_
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+import app.db.registry  # noqa: F401
+from app.core.config import Settings
+from app.core.context import Actor, RequestContext
+from app.db.uow import create_unit_of_work_factory
+from app.domain.auth.rules import AccessContext, ScopeGrant
+from app.models.assets import Asset
+from app.models.catalogs import AssetGroup, Mol
+from app.models.departments import Department
+from app.models.employees import Employee
+from app.models.enums import AppRole, ScopeMode, UserRole
+from app.models.timekeeping import StaffSchedule
+from app.models.users import AuditLog, User, UserRoleAssignment
+from app.services.catalogs import CatalogService
+from app.services.departments import DepartmentService
+from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
+from tests.database import test_database_url as resolve_test_database_url
+
+
+def wire(record):
+    """Преобразовать типизированный результат приложения в публичный контракт для проверок."""
+    return record.as_dict() if hasattr(record, "as_dict") else record
+
+
+@pytest.fixture
+async def organization_env() -> AsyncIterator[dict]:
+    url = resolve_test_database_url()
+    url = Settings(database_url=url).database_url.get_secret_value()
+    engine = create_async_engine(url, echo=False, hide_parameters=True)
+    sessions = async_sessionmaker(engine, expire_on_commit=False)
+    factory = create_unit_of_work_factory(sessions)
+    prefix = "s4-" + uuid.uuid4().hex
+    user_id = prefix + "-user"
+    department_ids: list[str] = []
+    mol_ids: list[str] = []
+    group_ids: list[str] = []
+    asset_ids: list[str] = []
+    employee_ids: list[str] = []
+    staff_schedule_ids: list[str] = []
+    try:
+        async with sessions() as session:
+            session.add(
+                User(
+                    id=user_id,
+                    username=user_id,
+                    name="organization test actor",
+                    passwordHash="unused-organization-fixture-hash",
+                    role=UserRole.ADMIN,
+                )
+            )
+            session.add(
+                UserRoleAssignment(
+                    id=prefix + "-assignment",
+                    userId=user_id,
+                    role=AppRole.ADMIN,
+                    departmentScopeMode=ScopeMode.ALL,
+                    projectScopeMode=ScopeMode.ALL,
+                )
+            )
+            await session.commit()
+        actor = Actor(
+            actor_id=user_id,
+            is_authenticated=True,
+            session_version=1,
+            access=AccessContext(
+                user_id=user_id,
+                employee_id=None,
+                employee_department_id=None,
+                member_project_ids=(),
+                grants=(ScopeGrant(prefix + "-admin", "ADMIN", "ALL", "ALL"),),
+            ),
+        )
+        yield {
+            "engine": engine,
+            "sessions": sessions,
+            "factory": factory,
+            "departments": DepartmentService(factory),
+            "catalogs": CatalogService(factory),
+            "actor": actor,
+            "context": RequestContext(prefix + "-request", actor=actor),
+            "prefix": prefix,
+            "department_ids": department_ids,
+            "mol_ids": mol_ids,
+            "group_ids": group_ids,
+            "asset_ids": asset_ids,
+            "employee_ids": employee_ids,
+            "staff_schedule_ids": staff_schedule_ids,
+        }
+    finally:
+        async with sessions() as session:
+            await clear_audit_logs_for_test_cleanup(session)
+            await session.execute(
+                delete(AuditLog).where(
+                    or_(
+                        AuditLog.userId == user_id,
+                        AuditLog.entityId.like(prefix + "%"),
+                        AuditLog.requestId == prefix + "-request",
+                    )
+                )
+            )
+            await session.execute(delete(Asset).where(Asset.id.in_(asset_ids)))
+            await session.execute(delete(Mol).where(Mol.id.in_(mol_ids)))
+            await session.execute(delete(AssetGroup).where(AssetGroup.id.in_(group_ids)))
+            await session.execute(
+                delete(StaffSchedule).where(StaffSchedule.id.in_(staff_schedule_ids))
+            )
+            await session.execute(delete(Employee).where(Employee.id.in_(employee_ids)))
+            await session.execute(delete(Department).where(Department.id.in_(department_ids)))
+            await session.execute(delete(User).where(User.id == user_id))
+            await session.commit()
+        await engine.dispose()

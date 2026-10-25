@@ -1,4 +1,4 @@
-"""Employee transport and SSR composition. All decisions are delegated to services."""
+"""Транспорт сотрудников и композиция SSR. Все решения делегируются сервисам."""
 
 import math
 from datetime import datetime
@@ -211,7 +211,7 @@ async def update_profile(
         **values,
     )
     result = await service.update_profile(identifier, command, context)
-    # Legacy profile mutation returns employee columns, without staffSchedule relation.
+    # Изменение профиля в legacy возвращает поля сотрудника без связи staffSchedule.
     data = result.as_dict()
     data.pop("staffSchedule")
     return {"data": wire(data)}

@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { dashboardQuerySchema } from '@/features/reporting/contracts/dashboard'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiValidationError } from '@/lib/http/api-response'
-import { proxyStage12Request } from '@/lib/backend/stage12'
+import { proxyReportingRequest } from '@/lib/backend/reporting'
 
 export async function GET(request: NextRequest) {
   const auth = await authorizeApiRequest(request, 'reports.export')
@@ -13,5 +13,5 @@ export async function GET(request: NextRequest) {
   const format = request.nextUrl.searchParams.get('format') || 'xlsx'
   const path = new URL(request.url)
   path.searchParams.set('format', format)
-  return proxyStage12Request(request, `${path.pathname}${path.search}`, auth.user, auth.requestId)
+  return proxyReportingRequest(request, `${path.pathname}${path.search}`, auth.user, auth.requestId)
 }

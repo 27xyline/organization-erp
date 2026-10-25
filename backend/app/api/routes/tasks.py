@@ -1,4 +1,4 @@
-"""Task, dependency, checklist and comment HTTP adapters."""
+"""HTTP-адаптеры задач, зависимостей, контрольных списков и комментариев."""
 
 from typing import Annotated, Any
 

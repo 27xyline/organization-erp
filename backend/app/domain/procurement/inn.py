@@ -1,4 +1,4 @@
-"""Russian taxpayer identification number validation."""
+"Проверка российского идентификационного номера налогоплательщика."
 
 
 def is_valid_russian_inn(value: str) -> bool:
@@ -12,6 +12,7 @@ def is_valid_russian_inn(value: str) -> bool:
 
     if len(digits) == 10:
         return check((2, 4, 10, 3, 5, 9, 4, 6, 8)) == digits[9]
-    return check((7, 2, 4, 10, 3, 5, 9, 4, 6, 8)) == digits[10] and check(
-        (3, 7, 2, 4, 10, 3, 5, 9, 4, 6, 8)
-    ) == digits[11]
+    return (
+        check((7, 2, 4, 10, 3, 5, 9, 4, 6, 8)) == digits[10]
+        and check((3, 7, 2, 4, 10, 3, 5, 9, 4, 6, 8)) == digits[11]
+    )

@@ -1,13 +1,11 @@
-"""Fixtures write only to explicitly guarded disposable PostgreSQL test copies."""
+"""Фикстуры пишут только в явно защищённые временные тестовые копии PostgreSQL."""
 
-import os
 import uuid
 from collections.abc import AsyncIterator
 
 import pytest
 from pydantic import SecretStr
 from sqlalchemy import delete, or_
-from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import app.db.registry  # noqa: F401
@@ -19,53 +17,14 @@ from app.models.users import AuditLog, User, UserRoleAssignment
 from app.services.auth import AuthService
 from app.services.users import UserService
 from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
+from tests.database import test_database_url as resolve_test_database_url
 
-PASSWORD = "Stage03-password!"
+PASSWORD = "auth-password!"
 
 
 @pytest.fixture
 async def auth_env() -> AsyncIterator[dict]:
-    stage14b_url = os.environ.get("STAGE14B_TEST_DATABASE_URL")
-    stage08_url = os.environ.get("STAGE08_TEST_DATABASE_URL")
-    stage07_url = os.environ.get("STAGE07_TEST_DATABASE_URL")
-    stage06_url = os.environ.get("STAGE06_TEST_DATABASE_URL")
-    stage05_url = os.environ.get("STAGE05_TEST_DATABASE_URL")
-    stage04_url = os.environ.get("STAGE04_TEST_DATABASE_URL")
-    url = (
-        stage14b_url
-        or stage08_url
-        or stage07_url
-        or stage06_url
-        or stage05_url
-        or stage04_url
-        or os.environ.get("STAGE03_TEST_DATABASE_URL", "")
-    )
-    expected_database = (
-        "erp_stage14b_test"
-        if stage14b_url
-        else "erp_stage08_test"
-        if stage08_url
-        else "erp_stage07_test"
-        if stage07_url
-        else "erp_stage06_test"
-        if stage06_url
-        else "erp_stage05_test"
-        if stage05_url
-        else "erp_stage04_test"
-        if stage04_url
-        else "erp_stage03_test"
-    )
-    if (
-        not url
-        or make_url(url).database != expected_database
-        or make_url(url).get_backend_name() != "postgresql"
-    ):
-        pytest.fail(
-            "STAGE14B_TEST_DATABASE_URL, STAGE03_TEST_DATABASE_URL, STAGE04_TEST_DATABASE_URL, "
-            "STAGE05_TEST_DATABASE_URL, or STAGE06_TEST_DATABASE_URL "
-            "must point exactly "
-            "to its dedicated PostgreSQL test database"
-        )
+    url = resolve_test_database_url()
     url = Settings(database_url=url).database_url.get_secret_value()
     engine = create_async_engine(url, echo=False, hide_parameters=True)
     sessions = async_sessionmaker(engine, expire_on_commit=False)
@@ -82,7 +41,7 @@ async def auth_env() -> AsyncIterator[dict]:
                 User(
                     id=identifier,
                     username=username or identifier,
-                    name="Stage03 test",
+                    name="auth test",
                     role=UserRole.ADMIN if role == "ADMIN" else UserRole.VIEWER,
                     passwordHash=await passwords.hash(PASSWORD),
                     isActive=active,

@@ -11,7 +11,7 @@ function exporterUrl(endpoint: string, signal: 'traces' | 'metrics'): string {
   return url.toString()
 }
 
-/** Telemetry is optional: a missing or unavailable collector must not block ERP. */
+/** Телеметрия необязательна: отсутствие или недоступность сборщика не должны блокировать ERP. */
 export function startObservability(serviceName: string): NodeSDK | undefined {
   const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT
   if (!endpoint || sdk) return sdk

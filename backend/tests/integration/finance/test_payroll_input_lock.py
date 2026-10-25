@@ -13,9 +13,9 @@ from app.models.finance import PayrollPeriod
 
 @pytest.mark.anyio
 async def test_exclusive_payroll_input_gate_waits_for_shared_reader_uow(
-    stage10_session_factory: async_sessionmaker[AsyncSession],
+    db_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
-    factory = SqlAlchemyUnitOfWorkFactory(stage10_session_factory)
+    factory = SqlAlchemyUnitOfWorkFactory(db_session_factory)
     async with factory() as reader:
         await reader.payroll_input_lock.lock_shared()
         waiting_writer = asyncio.create_task(_take_exclusive(factory))
@@ -32,9 +32,9 @@ async def _take_exclusive(factory: SqlAlchemyUnitOfWorkFactory) -> None:
 
 @pytest.mark.anyio
 async def test_period_row_lock_waits_for_exclusive_payroll_input_writer(
-    stage10_session_factory: async_sessionmaker[AsyncSession],
+    db_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
-    factory = SqlAlchemyUnitOfWorkFactory(stage10_session_factory)
+    factory = SqlAlchemyUnitOfWorkFactory(db_session_factory)
     suffix = uuid4().hex
     year = 2000 + int(suffix[:2], 16) % 101
     month = 1 + int(suffix[2:4], 16) % 12
@@ -46,7 +46,7 @@ async def test_period_row_lock_waits_for_exclusive_payroll_input_writer(
             assert not waiting_period_writer.done(), "period lock must acquire shared gate first"
         await asyncio.wait_for(waiting_period_writer, timeout=3)
     finally:
-        async with stage10_session_factory() as cleanup:
+        async with db_session_factory() as cleanup:
             await cleanup.execute(
                 delete(PayrollPeriod).where(
                     PayrollPeriod.year == year, PayrollPeriod.month == month

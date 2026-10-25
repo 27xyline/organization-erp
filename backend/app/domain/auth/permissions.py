@@ -1,4 +1,4 @@
-"""Permission catalog ported from src/lib/auth/permissions.ts."""
+"Каталог разрешений, перенесённый из src/lib/auth/permissions.ts."
 
 PERMISSION_SCOPE: dict[str, str] = {
     "departments.read": "department",

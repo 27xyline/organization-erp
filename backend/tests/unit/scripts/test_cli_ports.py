@@ -109,7 +109,7 @@ async def test_verify_repository_preserves_legacy_counter_set_and_file_metadata(
         "documentCurrentVersionMismatch",
         "unsafeDocumentMetadata",
     }
-    assert len(session.statements) == 12  # eleven counters plus the version metadata query
+    assert len(session.statements) == 12  # одиннадцать счётчиков и запрос метаданных версии
     query_text = "\n".join(session.statements)
     for legacy_sql_marker in (
         'LEFT JOIN "mols"',
@@ -198,10 +198,10 @@ def test_demo_seed_has_department_employee_project_task_assignment_chain() -> No
     [
         Settings(
             environment="production",
-            database_url="postgresql+asyncpg://localhost:5432/erp_stage11_test",
+            database_url="postgresql+asyncpg://localhost:5432/erp_procurement_test",
         ),
         Settings(database_url="postgresql+asyncpg://localhost:5432/organization_erp"),
-        Settings(database_url="postgresql+asyncpg://db.example:5432/erp_stage11_test"),
+        Settings(database_url="postgresql+asyncpg://db.example:5432/erp_procurement_test"),
     ],
 )
 def test_seed_target_guard_rejects_production_working_and_remote_targets(

@@ -7,9 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class SqlAlchemyPayrollInputLockRepository:
-    """Acquire the global payroll-input gate in the caller-owned transaction."""
+    """Захватывает общие блокировки ввода данных расчёта зарплаты в транзакции вызывающего кода."""
 
-    _LOCK_NAMESPACE = 5_265_235  # stable application namespace, distinct from period keys
+    _LOCK_NAMESPACE = 5_265_235  # стабильное пространство имён приложения, отдельное от
+    # ключей периодов
     _LOCK_KEY = 10
 
     def __init__(self, session: Callable[[], AsyncSession]) -> None:

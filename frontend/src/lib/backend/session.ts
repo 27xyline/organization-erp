@@ -12,7 +12,7 @@ const SESSION_REQUEST_HEADERS = [
   'traceparent',
 ] as const
 
-/** Forward the browser's session transport to Python without trusting browser auth headers. */
+/** Передаём данные сессии браузера в Python, не доверяя заголовкам авторизации браузера. */
 export async function proxySessionRequest(request: Request, path: string): Promise<Response> {
   const headers = new Headers()
   for (const name of SESSION_REQUEST_HEADERS) {

@@ -1,4 +1,4 @@
-"""Pure application document commands and results."""
+"Чистые команды и результаты приложения для документов."
 
 from collections.abc import Iterator
 from dataclasses import dataclass

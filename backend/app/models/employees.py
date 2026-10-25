@@ -1,4 +1,4 @@
-"""SQLAlchemy mappings for employees tables."""
+"""Отображения SQLAlchemy для таблиц сотрудников."""
 
 from __future__ import annotations
 

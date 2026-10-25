@@ -1,18 +1,17 @@
-"""Safe audit-log cleanup for the explicitly disposable integration databases."""
+"""Безопасная очистка журнала аудита в явно выделенных временных базах интеграционных тестов."""
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-_DISPOSABLE_DATABASES = {f"erp_stage{stage:02d}_test" for stage in range(2, 15)} | {
-    "erp_stage14b_test"
-}
+_DISPOSABLE_DATABASES = {"erp_test"}
 
 
 async def clear_audit_logs_for_test_cleanup(session: AsyncSession) -> None:
-    """Clear audit rows when their append-only trigger prevents fixture teardown.
+    """Удалить записи аудита, если триггер запрета изменений мешает очистке фикстур.
 
-    This helper is deliberately unavailable to arbitrary databases. TRUNCATE is
-    test cleanup only and must never weaken or alter the production trigger.
+    Эта функция намеренно недоступна для произвольных баз данных. TRUNCATE
+    используется только для очистки тестов и не должен ослаблять или изменять
+    триггер рабочей базы.
     """
     database = await session.scalar(text("SELECT current_database()"))
     if database not in _DISPOSABLE_DATABASES:

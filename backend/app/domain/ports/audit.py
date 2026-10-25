@@ -1,4 +1,4 @@
-"""Audit records accepted by transactional use cases."""
+"Записи аудита, принимаемые транзакционными сценариями использования."
 
 from __future__ import annotations
 

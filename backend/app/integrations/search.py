@@ -1,4 +1,4 @@
-"""SQLAlchemy adapter for the global search port."""
+"""Адаптер SQLAlchemy для интерфейса глобального поиска."""
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 

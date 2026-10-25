@@ -1,1 +1,1 @@
-"""Pure reporting rules and aggregates."""
+"Чистые правила и агрегаты отчётности."

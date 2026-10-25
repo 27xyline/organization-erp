@@ -1,1 +1,1 @@
-"""Pure finance rules and calculations."""
+"Чистые финансовые правила и расчёты."

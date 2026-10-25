@@ -1,4 +1,4 @@
-"""Typed commands and read models for the asset catalogs."""
+"Типизированные команды и модели чтения для справочников активов."
 
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any

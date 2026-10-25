@@ -1,4 +1,5 @@
-"""Scoped SQL projections for dashboards and reports; ORM rows stay repository-local."""
+"""SQL-проекции в заданной области для панелей мониторинга и отчётов; \
+строки ORM остаются внутри репозитория."""
 
 from __future__ import annotations
 
@@ -640,7 +641,8 @@ class SqlAlchemyReportingRepository:
                     month_range,
                 )
             )
-            # Each request has at most one contract by schema; sum only the project-scoped requests.
+            # По схеме у каждой заявки не более одного договора; суммировать только заявки
+            # в области проекта.
             from app.models.procurement import ProcurementContract, ProcurementRequest
 
             procurement = await self.session.scalar(

@@ -2,31 +2,18 @@ from __future__ import annotations
 
 import asyncio
 import multiprocessing
-import os
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
 from sqlalchemy import delete, text
-from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.models.enums import NotificationOutboxStatus
 from app.models.notifications import Notification, NotificationOutbox
 from app.models.users import User
 from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
-
-
-def _stage13_database_url() -> str:
-    value = os.environ.get("STAGE13_TEST_DATABASE_URL")
-    if not value:
-        pytest.skip("STAGE13_TEST_DATABASE_URL is required for the multiprocessing PostgreSQL test")
-    parsed = make_url(value)
-    if parsed.get_backend_name() != "postgresql" or parsed.database != "erp_stage13_test":
-        pytest.fail("Multiprocessing outbox test requires the isolated erp_stage13_test database")
-    if parsed.drivername in {"postgresql", "postgresql+psycopg"}:
-        return parsed.set(drivername="postgresql+asyncpg").render_as_string(hide_password=False)
-    return value
+from tests.database import test_database_url as resolve_test_database_url
 
 
 def _outbox_worker_process(
@@ -75,7 +62,7 @@ def _outbox_worker_process(
 
 @pytest.mark.anyio
 async def test_two_os_workers_send_one_claimed_outbox_row_at_most_once() -> None:
-    database_url = _stage13_database_url()
+    database_url = resolve_test_database_url()
     prefix = "s13-process-outbox-" + uuid4().hex
     user_id = prefix + "-user"
     engine = create_async_engine(database_url, pool_size=2, max_overflow=0)
@@ -148,7 +135,8 @@ async def test_two_os_workers_send_one_claimed_outbox_row_at_most_once() -> None
         first_start.set()
         assert await asyncio.to_thread(send_started.wait, 20)
 
-        # Keep the first worker inside SMTP while the second OS process tries to claim.
+        # Удерживаем первый обработчик внутри SMTP, пока второй процесс ОС пытается захватить
+        # задачу.
         second.start()
         assert await asyncio.to_thread(second_ready.wait, 20)
         second_start.set()
@@ -197,7 +185,7 @@ async def test_two_os_workers_send_one_claimed_outbox_row_at_most_once() -> None
 
 @pytest.mark.anyio
 async def test_crashed_worker_lease_is_retried_after_restart() -> None:
-    database_url = _stage13_database_url()
+    database_url = resolve_test_database_url()
     prefix = "s13-process-crash-" + uuid4().hex
     user_id = prefix + "-user"
     engine = create_async_engine(database_url, pool_size=2, max_overflow=0)
@@ -266,7 +254,7 @@ async def test_crashed_worker_lease_is_retried_after_restart() -> None:
         assert await asyncio.to_thread(crash_send_started.wait, 20)
         assert await asyncio.to_thread(outcomes.get, True, 20) == ("sent", "crashed", prefix)
 
-        # Kill the worker while SMTP is blocked; the committed lease must survive.
+        # Завершаем обработчик при заблокированном SMTP; зафиксированная аренда должна сохраниться.
         crashed.terminate()
         await asyncio.to_thread(crashed.join, 10)
         assert not crashed.is_alive()

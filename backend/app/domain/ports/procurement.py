@@ -1,4 +1,4 @@
-"""Procurement persistence operations bound to the caller's unit of work."""
+"Операции хранения закупок, привязанные к единице работы вызывающего кода."
 
 from typing import Any, Protocol
 

@@ -1,4 +1,4 @@
-"""HTTP payloads for asset catalogs."""
+"""Данные HTTP-запросов для справочников имущества."""
 
 from typing import Annotated
 

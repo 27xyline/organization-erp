@@ -1,4 +1,4 @@
-"""In-app notification reads and preference updates."""
+"Чтение уведомлений в приложении и изменение настроек."
 
 from __future__ import annotations
 

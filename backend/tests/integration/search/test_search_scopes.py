@@ -17,15 +17,15 @@ from app.services.search import SearchService
 
 @pytest.mark.anyio
 async def test_search_hides_scoped_employee_asset_project_task_and_document_fields(
-    stage11_session_factory: async_sessionmaker[AsyncSession],
+    db_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
-    async with stage11_session_factory() as session:
+    async with db_session_factory() as session:
         transaction = await session.begin()
         try:
             session.add_all(
                 [
-                    Department(id="s12-visible-dept", code="S12-V", name="Stage12 visible"),
-                    Department(id="s12-hidden-dept", code="S12-H", name="Stage12 hidden"),
+                    Department(id="s12-visible-dept", code="S12-V", name="reporting visible"),
+                    Department(id="s12-hidden-dept", code="S12-H", name="reporting hidden"),
                 ]
             )
             await session.flush()
@@ -68,7 +68,7 @@ async def test_search_hides_scoped_employee_asset_project_task_and_document_fiel
                     User(
                         id="s12-document-author",
                         username="s12-doc-author",
-                        name="Stage12 author",
+                        name="reporting author",
                         passwordHash="not-a-real-hash",
                     ),
                 ]

@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { MAX_ASSET_IMPORT_FILE_BYTES } from '@/features/assets/contracts/asset-import'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiError } from '@/lib/http/api-response'
-import { proxyStage07Request } from '@/lib/backend/stage07'
+import { proxyAssetRequest } from '@/lib/backend/assets'
 
 export async function POST(request: NextRequest) {
   const auth = await authorizeApiRequest(request, 'assets.create')
@@ -20,5 +20,5 @@ export async function POST(request: NextRequest) {
     return apiError('ASSET_IMPORT_FILE_TOO_LARGE', 'Файл слишком большой. Максимальный размер — 5 МБ', 422)
   }
 
-  return proxyStage07Request(request, '/api/assets/import/preview', auth.user, auth.requestId)
+  return proxyAssetRequest(request, '/api/assets/import/preview', auth.user, auth.requestId)
 }

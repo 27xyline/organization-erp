@@ -34,6 +34,8 @@ class UserSession(Base):
         TIMESTAMP(timezone=False, precision=3), nullable=True
     )
     createdAt: Mapped[datetime] = mapped_column(
-        TIMESTAMP(timezone=False, precision=3), nullable=False, default=utc_now_naive,
+        TIMESTAMP(timezone=False, precision=3),
+        nullable=False,
+        default=utc_now_naive,
         server_default=text("CURRENT_TIMESTAMP"),
     )

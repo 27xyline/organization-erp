@@ -16,11 +16,11 @@ from app.services.procurement import ProcurementService
 
 @pytest.mark.anyio
 async def test_duplicate_request_number_maps_unique_constraint_to_contract_error(
-    stage11_session_factory,
+    db_session_factory,
 ) -> None:
     suffix = uuid4().hex[:10]
     user_id = f"number-user-{suffix}"
-    async with stage11_session_factory() as session:
+    async with db_session_factory() as session:
         session.add(
             User(
                 id=user_id,
@@ -48,7 +48,7 @@ async def test_duplicate_request_number_maps_unique_constraint_to_contract_error
             ),
         ),
     )
-    service = ProcurementService(SqlAlchemyUnitOfWorkFactory(stage11_session_factory))
+    service = ProcurementService(SqlAlchemyUnitOfWorkFactory(db_session_factory))
     command = ProcurementCommand(
         number=f"UNIQUE-{suffix}",
         title="Заявка с уникальным номером",

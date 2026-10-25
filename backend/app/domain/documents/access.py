@@ -1,4 +1,4 @@
-"""Scope checks use the same complete grant as the legacy document module."""
+"Проверки доступа используют полный набор разрешений прежнего модуля документов."
 
 from app.core.context import Actor
 from app.domain.auth.rules import AccessContext

@@ -1,4 +1,4 @@
-"""SQLAlchemy adapter for the my-actions port."""
+"""Адаптер SQLAlchemy для интерфейса my-actions."""
 
 from datetime import datetime
 from typing import Any

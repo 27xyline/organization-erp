@@ -14,11 +14,11 @@ from app.main import create_app
 async def test_manual_notification_processors_require_user_update_permission() -> None:
     app = create_app(Settings(otel_enabled=False))
     actor = Actor(
-        actor_id="stage13-employee",
+        actor_id="outbox-employee",
         is_authenticated=True,
-        access=AccessContext("stage13-employee", None, None, (), ()),
+        access=AccessContext("outbox-employee", None, None, (), ()),
     )
-    context = RequestContext("stage13-permission-test", actor=actor)
+    context = RequestContext("outbox-permission-test", actor=actor)
     app.dependency_overrides[get_authenticated_context] = lambda: context
 
     async with app.router.lifespan_context(app):

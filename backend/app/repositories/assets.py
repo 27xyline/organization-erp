@@ -1,4 +1,5 @@
-"""SQLAlchemy asset persistence. Detached results; never commits."""
+"""Сохранение основных средств через SQLAlchemy. Результаты отделены от сессии; \
+фиксация транзакции не выполняется."""
 
 from __future__ import annotations
 

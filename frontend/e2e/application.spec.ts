@@ -4,8 +4,8 @@ import { authenticatedDelete, authenticatedPost, authenticatedPut } from './auth
 
 async function login(page: Page, credentials = E2E_ADMIN) {
   await page.goto('/login')
-  // SessionProvider can issue overlapping requests that rotate the CSRF cookie.
-  // Submit credentials only after those initial requests have settled.
+  // SessionProvider может отправлять параллельные запросы, которые обновляют CSRF-cookie.
+  // Отправляем учётные данные только после завершения этих начальных запросов.
   await page.waitForLoadState('networkidle')
   await page.getByLabel('Пользователь').fill(credentials.username)
   await page.getByLabel('Пароль').fill(credentials.password)
@@ -117,7 +117,7 @@ test('admin creates, partially transfers and archives an asset', async ({ page }
   await expect(page.locator('td:visible').filter({ hasText: inventoryNumber })).toBeVisible()
 })
 
-test('Stage 04 departments and catalogs use Python for admin CRUD and scoped MOL access', async ({ page, browser }) => {
+test('Departments and catalogs use Python for admin CRUD and scoped MOL access', async ({ page, browser }) => {
   await login(page)
   const suffix = Date.now().toString(36).toUpperCase()
 
@@ -266,7 +266,7 @@ test('employee and finance sections render after login', async ({ page }) => {
   await expect(page.getByRole('main').getByRole('heading', { name: 'Оклад', exact: true, level: 1 })).toBeVisible()
 })
 
-test('Stage 05 HR workflow is department scoped and employee reads stay self scoped', async ({ page, browser }) => {
+test('HR workflow is department scoped and employee reads stay self scoped', async ({ page, browser }) => {
   await login(page)
   const departmentsResponse = await page.request.get('/api/departments')
   expect(departmentsResponse.status()).toBe(200)

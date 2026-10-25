@@ -1,4 +1,4 @@
-"""Duration-weighted DAG longest path with legacy stable tie breaking."""
+"Самый длинный путь в DAG с весами длительности и стабильным разрешением равенств."
 
 from collections import deque
 from collections.abc import Sequence

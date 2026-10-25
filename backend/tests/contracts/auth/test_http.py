@@ -6,7 +6,7 @@ from app.core.config import Settings
 from app.main import create_app
 from tests.auth_support import PASSWORD
 
-CSRF_SECRET = "stage14d-csrf-contract-secret-xxxxxxxx"
+CSRF_SECRET = "runtime-csrf-contract-secret-xxxxxxxx"
 PUBLIC_ORIGIN = "http://test"
 
 

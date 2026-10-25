@@ -1,4 +1,4 @@
-"""Every migrated route/method runs against the real schema and services."""
+"""Каждый перенесённый маршрут и метод выполняется с реальной схемой и сервисами."""
 
 from dataclasses import replace
 from decimal import Decimal

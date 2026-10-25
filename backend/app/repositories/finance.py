@@ -13,7 +13,8 @@ from app.models.projects import Project, ProjectMember
 
 
 class SqlAlchemyFinanceRepository:
-    """Finance reads and writes bound to the caller-owned SQLAlchemy session."""
+    """Операции чтения и записи финансов используют сессию SQLAlchemy, \
+    принадлежащую вызывающему коду."""
 
     def __init__(self, session: Callable[[], AsyncSession]) -> None:
         self._session = session

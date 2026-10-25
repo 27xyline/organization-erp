@@ -15,11 +15,11 @@ from app.services.procurement import ProcurementService
 
 
 @pytest.mark.anyio
-async def test_options_documents_follow_document_read_scope(stage11_session_factory) -> None:
+async def test_options_documents_follow_document_read_scope(db_session_factory) -> None:
     suffix = uuid4().hex[:10]
     user_id = f"options-user-{suffix}"
     project_a, project_b = f"options-a-{suffix}", f"options-b-{suffix}"
-    async with stage11_session_factory() as session:
+    async with db_session_factory() as session:
         session.add_all(
             [
                 User(
@@ -35,13 +35,18 @@ async def test_options_documents_follow_document_read_scope(stage11_session_fact
         )
         await session.flush()
         documents = [
-            Document(id=f"doc-a-{suffix}", title="Доступный", projectId=project_a,
-                     createdById=user_id),
-            Document(id=f"doc-b-{suffix}", title="Чужой", projectId=project_b,
-                     createdById=user_id),
-            Document(id=f"doc-archived-{suffix}", title="Архивный", projectId=project_a,
-                     createdById=user_id, status="ARCHIVED",
-                     archivedAt=datetime.now(UTC).replace(tzinfo=None)),
+            Document(
+                id=f"doc-a-{suffix}", title="Доступный", projectId=project_a, createdById=user_id
+            ),
+            Document(id=f"doc-b-{suffix}", title="Чужой", projectId=project_b, createdById=user_id),
+            Document(
+                id=f"doc-archived-{suffix}",
+                title="Архивный",
+                projectId=project_a,
+                createdById=user_id,
+                status="ARCHIVED",
+                archivedAt=datetime.now(UTC).replace(tzinfo=None),
+            ),
         ]
         session.add_all(documents)
         session.add_all(
@@ -61,7 +66,7 @@ async def test_options_documents_follow_document_read_scope(stage11_session_fact
         )
         await session.commit()
 
-    service = ProcurementService(SqlAlchemyUnitOfWorkFactory(stage11_session_factory))
+    service = ProcurementService(SqlAlchemyUnitOfWorkFactory(db_session_factory))
 
     def context(project_mode: str, project_ids: tuple[str, ...] = ()) -> RequestContext:
         access = AccessContext(
@@ -69,8 +74,7 @@ async def test_options_documents_follow_document_read_scope(stage11_session_fact
             employee_id=None,
             employee_department_id=None,
             member_project_ids=(),
-            grants=(ScopeGrant("scope", "ADMIN", "ALL", project_mode,
-                               project_ids=project_ids),),
+            grants=(ScopeGrant("scope", "ADMIN", "ALL", project_mode, project_ids=project_ids),),
         )
         return RequestContext(
             request_id=f"options-{suffix}",

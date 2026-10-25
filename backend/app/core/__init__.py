@@ -1,1 +1,1 @@
-"""Application configuration and process-level wiring."""
+"""Конфигурация приложения и связка компонентов на уровне процесса."""

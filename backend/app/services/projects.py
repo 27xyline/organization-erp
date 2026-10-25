@@ -1,4 +1,4 @@
-"""Project use cases and one-transaction audit boundary."""
+"Сценарии проектов и граница аудита в одной транзакции."
 
 from __future__ import annotations
 
@@ -37,9 +37,9 @@ async def check_actor(uow: UnitOfWork, actor: Actor) -> None:
 
 
 async def lock_project(uow: UnitOfWork, identifier: str, actor: Actor) -> None:
-    # Actor -> project matches UserService scope writers, whose FK inserts take
-    # a project KEY SHARE lock after locking the actor. All graph/member writers
-    # then serialize on the project row before validating graph state.
+    # UserService задаёт порядок пользователь -> проект: вставки внешнего ключа
+    # берут KEY SHARE проекта после блокировки пользователя. Операции изменения графа и участников
+    # затем последовательно блокируют строку проекта перед проверкой состояния графа.
     await check_actor(uow, actor)
     if not await uow.projects.lock(identifier):
         raise project_error()

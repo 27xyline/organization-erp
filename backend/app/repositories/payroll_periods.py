@@ -17,7 +17,8 @@ from app.repositories.payroll_input_lock import SqlAlchemyPayrollInputLockReposi
 
 
 class SqlAlchemyPayrollPeriodRepository:
-    """Create and lock the unique payroll period row in the caller's transaction."""
+    """Создаёт и блокирует уникальную запись периода расчёта зарплаты \
+    в транзакции вызывающего кода."""
 
     def __init__(self, session: Callable[[], AsyncSession]) -> None:
         self._session = session

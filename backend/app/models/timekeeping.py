@@ -1,4 +1,4 @@
-"""SQLAlchemy mappings for timekeeping tables."""
+"""Отображения SQLAlchemy для таблиц учёта рабочего времени."""
 
 from __future__ import annotations
 

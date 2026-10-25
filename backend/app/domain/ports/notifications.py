@@ -1,4 +1,4 @@
-"""Notification intents persisted transactionally for later delivery."""
+"Намерения отправить уведомления сохраняются транзакционно для последующей доставки."
 
 from __future__ import annotations
 

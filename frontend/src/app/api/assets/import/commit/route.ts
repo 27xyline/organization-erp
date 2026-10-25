@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { assetImportCommitSchema } from '@/features/assets/contracts/asset-import'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiValidationError } from '@/lib/http/api-response'
-import { proxyStage07Request } from '@/lib/backend/stage07'
+import { proxyAssetRequest } from '@/lib/backend/assets'
 
 export async function POST(request: NextRequest) {
   const auth = await authorizeApiRequest(request, 'assets.create')
@@ -12,5 +12,5 @@ export async function POST(request: NextRequest) {
   const input = assetImportCommitSchema.safeParse(payload)
   if (!input.success) return apiValidationError(input.error)
 
-  return proxyStage07Request(request, '/api/assets/import/commit', auth.user, auth.requestId)
+  return proxyAssetRequest(request, '/api/assets/import/commit', auth.user, auth.requestId)
 }

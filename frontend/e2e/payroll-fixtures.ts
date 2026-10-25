@@ -29,7 +29,7 @@ export async function seedApprovedZeroHoursForOtherEmployees(
       submittedAt: decidedAt,
       decidedById: admin.id,
       decidedAt,
-      decisionReason: 'Stage 14C E2E confirmed zero hours',
+      decisionReason: 'Full flow E2E confirmed zero hours',
     })),
     skipDuplicates: true,
   })

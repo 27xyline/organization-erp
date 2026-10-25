@@ -1,4 +1,3 @@
-
 import pytest
 from sqlalchemy import select
 
@@ -14,15 +13,13 @@ async def test_session_persists_only_hash_and_logout_revokes_it(auth_env):
     user_id = await auth_env["seed"]()
     service = SessionsService(auth_env["factory"], auth_env["auth"], SessionTokenManager())
 
-    login = await service.login(user_id, "Stage03-password!")
+    login = await service.login(user_id, "auth-password!")
     assert login is not None
     credentials, raw_token = login
     assert credentials.id == user_id
 
     async with auth_env["sessions"]() as session:
-        stored = await session.scalar(
-            select(UserSession).where(UserSession.userId == user_id)
-        )
+        stored = await session.scalar(select(UserSession).where(UserSession.userId == user_id))
     assert stored is not None
     assert stored.tokenHash != raw_token
     assert len(stored.tokenHash) == 64
@@ -40,8 +37,8 @@ async def test_session_persists_only_hash_and_logout_revokes_it(auth_env):
 async def test_password_change_invalidates_every_existing_session(auth_env):
     user_id = await auth_env["seed"]()
     service = SessionsService(auth_env["factory"], auth_env["auth"], SessionTokenManager())
-    first = await service.login(user_id, "Stage03-password!")
-    second = await service.login(user_id, "Stage03-password!")
+    first = await service.login(user_id, "auth-password!")
+    second = await service.login(user_id, "auth-password!")
     assert first is not None and second is not None
     assert first[1] != second[1]
     actor = await service.resolve(first[1])
@@ -49,7 +46,7 @@ async def test_password_change_invalidates_every_existing_session(auth_env):
     from app.core.context import RequestContext
 
     await auth_env["users"].change_password(
-        "Stage03-password!", "Stage14B-new-password!", RequestContext("stage14b", actor=actor)
+        "auth-password!", "sessions-new-password!", RequestContext("sessions", actor=actor)
     )
 
     for token in (first[1], second[1]):
@@ -62,12 +59,12 @@ async def test_password_change_invalidates_every_existing_session(auth_env):
 async def test_inactive_and_forced_password_users_are_resolved_by_python(auth_env):
     service = SessionsService(auth_env["factory"], auth_env["auth"], SessionTokenManager())
     forced_id = await auth_env["seed"](forced=True)
-    forced = await service.login(forced_id, "Stage03-password!")
+    forced = await service.login(forced_id, "auth-password!")
     assert forced is not None
     assert (await service.resolve(forced[1])).must_change_password is True
 
     inactive_id = await auth_env["seed"]()
-    inactive = await service.login(inactive_id, "Stage03-password!")
+    inactive = await service.login(inactive_id, "auth-password!")
     assert inactive is not None
     async with auth_env["factory"]() as uow:
         await uow.users.update_auth(inactive_id, {"isActive": False})
@@ -86,7 +83,7 @@ async def test_role_assignment_change_invalidates_an_existing_session(auth_env):
     subject_id = await auth_env["seed"]()
     admin = await auth_env["auth"].resolve_actor(admin_id, 1)
     service = SessionsService(auth_env["factory"], auth_env["auth"], SessionTokenManager())
-    login = await service.login(subject_id, "Stage03-password!")
+    login = await service.login(subject_id, "auth-password!")
     assert login is not None
 
     await auth_env["users"].update(
@@ -102,7 +99,7 @@ async def test_role_assignment_change_invalidates_an_existing_session(auth_env):
                 }
             ]
         },
-        RequestContext("stage14b-role-change", actor=admin),
+        RequestContext("sessions-role-change", actor=admin),
     )
 
     with pytest.raises(DomainError) as error:

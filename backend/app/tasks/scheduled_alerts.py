@@ -1,4 +1,4 @@
-"""Scheduled alert task entry point shared by the worker and manual API route."""
+"Точка входа задачи запланированных уведомлений, общая для обработчика и ручного маршрута API."
 
 from app.services.scheduled_alerts import generate_scheduled_alerts, run_scheduled_alerts
 

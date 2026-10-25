@@ -59,7 +59,7 @@ async def test_async_smtp_transport_delivers_message_to_local_server() -> None:
                 from_email="noreply@example.test",
             ),
             "recipient@example.test",
-            "Stage 13 transport smoke",
+            "Notification transport smoke",
             "SMTP delivery reached the local test server.",
         )
         raw_message = await asyncio.wait_for(received, timeout=2)
@@ -70,5 +70,5 @@ async def test_async_smtp_transport_delivers_message_to_local_server() -> None:
     message = message_from_bytes(raw_message, policy=default)
     assert message["From"] == "noreply@example.test"
     assert message["To"] == "recipient@example.test"
-    assert message["Subject"] == "Stage 13 transport smoke"
+    assert message["Subject"] == "Notification transport smoke"
     assert message.get_content().strip() == "SMTP delivery reached the local test server."

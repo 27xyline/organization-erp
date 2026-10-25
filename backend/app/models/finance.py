@@ -1,4 +1,4 @@
-"""SQLAlchemy mappings for finance tables."""
+"""Отображения SQLAlchemy для финансовых таблиц."""
 
 from __future__ import annotations
 

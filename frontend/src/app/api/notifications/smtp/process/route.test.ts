@@ -4,7 +4,7 @@ import { NextRequest } from 'next/server'
 const mocks = vi.hoisted(() => ({ authorizeApiRequest: vi.fn(), proxy: vi.fn() }))
 
 vi.mock('@/lib/auth/authorization', () => ({ authorizeApiRequest: mocks.authorizeApiRequest }))
-vi.mock('@/lib/backend/stage09', () => ({ proxyStage09: mocks.proxy }))
+vi.mock('@/lib/backend/notifications', () => ({ proxyNotificationRequest: mocks.proxy }))
 vi.mock('@/features/notifications/application/smtp.service', () => ({
   SmtpService: { processOutbox: vi.fn().mockResolvedValue({ processed: 1 }) },
 }))

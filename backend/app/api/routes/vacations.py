@@ -1,4 +1,4 @@
-"""Vacation and sick leave transport."""
+"""Транспорт отпусков и больничных."""
 
 from datetime import datetime
 from typing import Annotated, Any
@@ -30,7 +30,7 @@ async def save_preserving_fk_error(
         return await service.save_vacation(identifier, command, context)
     except DomainError as error:
         if error.code == "EMPLOYEE_NOT_FOUND":
-            # The legacy route leaves an unknown employee FK violation unmapped (generic 500).
+            # Legacy-маршрут не преобразует нарушение FK для неизвестного сотрудника (общая 500).
             raise RuntimeError("Vacation employee reference is missing") from error
         raise
 

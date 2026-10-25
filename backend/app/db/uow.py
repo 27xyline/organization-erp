@@ -1,4 +1,4 @@
-"""SQLAlchemy implementation of the application transaction boundary."""
+"""Реализация границы транзакции приложения на SQLAlchemy."""
 
 from __future__ import annotations
 
@@ -55,7 +55,7 @@ from app.repositories.workforce import SqlAlchemyWorkforceRepository
 
 
 class UnitOfWorkStateError(RuntimeError):
-    """Raised when an operation is attempted outside an active UoW."""
+    """Возникает при попытке выполнить операцию вне активного UoW."""
 
 
 class _State(Enum):
@@ -67,7 +67,7 @@ class _State(Enum):
 
 
 class SqlAlchemyUnitOfWork:
-    """Own exactly one session and one terminal transaction decision."""
+    """Владеет ровно одной сессией и принимает одно итоговое решение по транзакции."""
 
     def __init__(
         self,
@@ -222,7 +222,7 @@ class SqlAlchemyUnitOfWork:
 
 
 class SqlAlchemyUnitOfWorkFactory:
-    """Create a fresh UoW and AsyncSession on every call."""
+    """При каждом вызове создаёт новый UoW и AsyncSession."""
 
     def __init__(
         self,

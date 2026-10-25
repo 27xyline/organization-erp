@@ -1,4 +1,4 @@
-"""Project membership snapshots; legacy emits no audit or notifications."""
+"Снимки состава проекта; прежняя реализация не создаёт записей аудита и уведомлений."
 
 from __future__ import annotations
 

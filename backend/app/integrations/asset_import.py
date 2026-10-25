@@ -1,4 +1,4 @@
-"""Openpyxl adapters for the legacy asset import/template/export workbooks."""
+"""Адаптеры Openpyxl для старых книг импорта, шаблонов и экспорта основных средств."""
 
 from __future__ import annotations
 
@@ -47,7 +47,8 @@ def _cell_value(value: object) -> object:
 
 
 def parse_asset_import_workbook(payload: bytes) -> tuple[ParsedAssetImportRow, ...]:
-    """Read workbook cells and map known headers; business validation stays in services."""
+    """Читает ячейки книги и сопоставляет известные заголовки; \
+    бизнес-проверка остаётся в сервисах."""
     try:
         workbook = load_workbook(BytesIO(payload), data_only=True, read_only=False)
     except Exception as error:
@@ -249,7 +250,7 @@ def build_export_workbook(headers: Sequence[str], rows: Sequence[Mapping[str, ob
 
 
 class OpenpyxlAssetWorkbook:
-    """Openpyxl adapter implementing the domain workbook port."""
+    """Адаптер Openpyxl, реализующий доменный интерфейс для книг."""
 
     def parse_workbook(self, payload: bytes) -> tuple[ParsedAssetImportRow, ...]:
         return parse_asset_import_workbook(payload)

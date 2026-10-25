@@ -70,9 +70,7 @@ def _command(value: ProcurementCreateInput | ProcurementUpdateInput) -> Procurem
 
 
 @router.get("")
-async def list_procurement(
-    request: Request, context: Context, service: Service
-) -> JSONResponse:
+async def list_procurement(request: Request, context: Context, service: Service) -> JSONResponse:
     query = ProcurementQueryInput.model_validate(dict(request.query_params))
     result = await service.list(
         ProcurementQuery(
@@ -114,9 +112,7 @@ async def create_supplier(
     value: SupplierCreateInput, context: Context, service: Service
 ) -> JSONResponse:
     return _response(
-        await service.create_supplier(
-            SupplierCommand(**value.model_dump()), context
-        ),
+        await service.create_supplier(SupplierCommand(**value.model_dump()), context),
         201,
     )
 

@@ -1,4 +1,4 @@
-"""Ports for translating asset workbook data to and from XLSX bytes."""
+"Порты преобразования данных книги активов в байты XLSX и обратно."
 
 from __future__ import annotations
 

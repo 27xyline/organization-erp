@@ -1,4 +1,4 @@
-"""Maintenance transitions with asset status and audit in the same transaction."""
+"Переходы обслуживания с изменением статуса актива и записью аудита в одной транзакции."
 
 from dataclasses import asdict
 from datetime import UTC, datetime

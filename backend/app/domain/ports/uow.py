@@ -1,4 +1,4 @@
-"""Framework-independent transaction and repository boundary."""
+"Граница транзакций и репозиториев, не зависящая от фреймворка."
 
 from __future__ import annotations
 

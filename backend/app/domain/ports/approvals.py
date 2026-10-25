@@ -1,4 +1,4 @@
-"""Approval persistence contract used by approval workflows."""
+"Контракт хранения согласований, используемый рабочими процессами согласования."
 
 from typing import Any, Protocol
 

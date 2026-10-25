@@ -57,7 +57,7 @@ def _context(
 
 @pytest.mark.anyio
 async def test_payroll_month_matches_legacy_golden_fields_and_numbers(
-    stage10_session_factory: async_sessionmaker[AsyncSession],
+    db_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     suffix = uuid4().hex
     user_id = f"s10-user-{suffix}"
@@ -69,10 +69,10 @@ async def test_payroll_month_matches_legacy_golden_fields_and_numbers(
     schedule_id = f"s10-schedule-{suffix}"
     project_id = f"s10-project-{suffix}"
     year, month = 2026, 10
-    async with stage10_session_factory() as seed:
+    async with db_session_factory() as seed:
         seed.add_all(
             [
-                Department(id=department_id, code=f"S10{suffix}", name=f"Stage10 {suffix}"),
+                Department(id=department_id, code=f"S10{suffix}", name=f"finance {suffix}"),
                 Department(id=outside_department_id, code=f"OUT{suffix}", name=f"Outside {suffix}"),
             ]
         )
@@ -198,7 +198,7 @@ async def test_payroll_month_matches_legacy_golden_fields_and_numbers(
         await seed.commit()
 
     service = PayrollService(
-        SqlAlchemyUnitOfWorkFactory(stage10_session_factory), OpenpyxlPayrollWorkbook()
+        SqlAlchemyUnitOfWorkFactory(db_session_factory), OpenpyxlPayrollWorkbook()
     )
     try:
         result = await service.get_month(
@@ -323,7 +323,7 @@ async def test_payroll_month_matches_legacy_golden_fields_and_numbers(
             }
         ]
     finally:
-        async with stage10_session_factory() as cleanup:
+        async with db_session_factory() as cleanup:
             await clear_audit_logs_for_test_cleanup(cleanup)
             await cleanup.execute(
                 PayrollAdjustment.__table__.delete().where(
@@ -364,15 +364,15 @@ async def test_payroll_month_matches_legacy_golden_fields_and_numbers(
 
 @pytest.mark.anyio
 async def test_adjustment_create_and_delete_use_open_period_and_write_audit(
-    stage10_session_factory: async_sessionmaker[AsyncSession],
+    db_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     suffix = uuid4().hex
     user_id = f"s10-user-{suffix}"
     employee_id = f"s10-employee-{suffix}"
     department_id = f"s10-dept-{suffix}"
     year, month = 2027, 2
-    async with stage10_session_factory() as seed:
-        seed.add(Department(id=department_id, code=f"S10{suffix}", name="Stage10"))
+    async with db_session_factory() as seed:
+        seed.add(Department(id=department_id, code=f"S10{suffix}", name="finance"))
         await seed.flush()
         seed.add_all(
             [
@@ -381,7 +381,7 @@ async def test_adjustment_create_and_delete_use_open_period_and_write_audit(
                     id=employee_id,
                     code=f"S10{suffix}",
                     fullName="Worker",
-                    department="Stage10",
+                    department="finance",
                     departmentId=department_id,
                 ),
             ]
@@ -399,7 +399,7 @@ async def test_adjustment_create_and_delete_use_open_period_and_write_audit(
         await seed.commit()
     context = _context(user_id, f"s10-adjustment-{suffix}")
     service = PayrollService(
-        SqlAlchemyUnitOfWorkFactory(stage10_session_factory), OpenpyxlPayrollWorkbook()
+        SqlAlchemyUnitOfWorkFactory(db_session_factory), OpenpyxlPayrollWorkbook()
     )
     adjustment_id: str | None = None
     try:
@@ -419,7 +419,7 @@ async def test_adjustment_create_and_delete_use_open_period_and_write_audit(
         assert created["employeeId"] == employee_id
         assert created["amount"] == 12.5
         assert created["description"] == "Recognition bonus"
-        async with stage10_session_factory() as verify:
+        async with db_session_factory() as verify:
             record = await verify.get(PayrollAdjustment, adjustment_id)
             assert record is not None and record.amount == Decimal("12.50")
             audit_before = list(
@@ -430,7 +430,7 @@ async def test_adjustment_create_and_delete_use_open_period_and_write_audit(
             assert len(audit_before) == 1 and audit_before[0].action == "PAYROLL_ADJUSTMENT_CREATE"
 
         await service.remove_adjustment(adjustment_id, context)
-        async with stage10_session_factory() as verify:
+        async with db_session_factory() as verify:
             assert await verify.get(PayrollAdjustment, adjustment_id) is None
             audit = list(
                 (
@@ -442,7 +442,7 @@ async def test_adjustment_create_and_delete_use_open_period_and_write_audit(
                 "PAYROLL_ADJUSTMENT_DELETE",
             }
     finally:
-        async with stage10_session_factory() as cleanup:
+        async with db_session_factory() as cleanup:
             await clear_audit_logs_for_test_cleanup(cleanup)
             if adjustment_id:
                 await cleanup.execute(
@@ -468,13 +468,13 @@ async def test_adjustment_create_and_delete_use_open_period_and_write_audit(
 
 @pytest.mark.anyio
 async def test_payroll_month_returns_legacy_scalar_fields_for_existing_period(
-    stage10_session_factory: async_sessionmaker[AsyncSession],
+    db_session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
     suffix = uuid4().hex
     period_id = f"s10-period-{suffix}"
     year = 2000 + int(suffix[:4], 16) % 100
     month = 1 + int(suffix[4:6], 16) % 12
-    async with stage10_session_factory() as seed:
+    async with db_session_factory() as seed:
         while await seed.scalar(
             select(PayrollPeriod.id).where(PayrollPeriod.year == year, PayrollPeriod.month == month)
         ):
@@ -483,7 +483,7 @@ async def test_payroll_month_returns_legacy_scalar_fields_for_existing_period(
         await seed.commit()
 
     service = PayrollService(
-        SqlAlchemyUnitOfWorkFactory(stage10_session_factory), OpenpyxlPayrollWorkbook()
+        SqlAlchemyUnitOfWorkFactory(db_session_factory), OpenpyxlPayrollWorkbook()
     )
     try:
         result = await service.get_month(
@@ -507,7 +507,7 @@ async def test_payroll_month_returns_legacy_scalar_fields_for_existing_period(
         assert period["closedById"] is None
         assert period["closedBy"] is None
     finally:
-        async with stage10_session_factory() as cleanup:
+        async with db_session_factory() as cleanup:
             await cleanup.execute(
                 PayrollPeriod.__table__.delete().where(PayrollPeriod.id == period_id)
             )

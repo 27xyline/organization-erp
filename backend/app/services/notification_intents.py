@@ -14,7 +14,7 @@ async def publish(
     actor_id: str | None = None,
     request_id: str | None = None,
 ) -> dict[str, int]:
-    """Legacy-compatible producer within the caller's UoW; no SMTP or commit."""
+    "Совместимый отправитель в единице работы вызывающего кода; без SMTP и фиксации транзакции."
     plan = await uow.notifications.deliveries(
         tuple(sorted(set(recipient_user_ids))), intent.event_type
     )

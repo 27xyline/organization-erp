@@ -193,7 +193,7 @@ export default async function ProjectPage(props: ProjectPageProps) {
   }>>(activityResponse, 'Не удалось загрузить историю проекта из backend')
   const projectDocuments = documentResult.data
 
-  // Calculate budget remaining
+  // Вычисляем остаток бюджета
   const remainingBudget = Number(project.plannedBudget) - Number(project.actualBudget)
   const projectDurationDays = project.startDate && project.endDate
     ? Math.ceil((new Date(project.endDate).getTime() - new Date(project.startDate).getTime()) / (1000 * 60 * 60 * 24))

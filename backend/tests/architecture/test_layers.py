@@ -9,7 +9,7 @@ FORBIDDEN_ROOTS = {"fastapi", "pydantic", "sqlalchemy", "asyncpg"}
 
 
 def find_forbidden_imports(app: Path) -> list[str]:
-    """Detect forbidden imports transitively reachable from domain and core/context."""
+    """Выявить запрещённые импорты, транзитивно достижимые из domain и core/context."""
     modules: dict[str, tuple[Path, set[str]]] = {}
     for source in app.rglob("*.py"):
         relative = source.relative_to(app).with_suffix("")
@@ -101,8 +101,8 @@ def test_domain_and_core_context_do_not_depend_on_framework_or_infrastructure() 
     assert violations == []
 
 
-def test_stage09_services_do_not_import_infrastructure() -> None:
-    stage09_services = {
+def test_approvals_services_do_not_import_infrastructure() -> None:
+    approvals_services = {
         "services.approvals",
         "services.notifications",
         "services.smtp_settings",
@@ -112,11 +112,11 @@ def test_stage09_services_do_not_import_infrastructure() -> None:
     assert not [
         violation
         for violation in violations
-        if violation.split(":", maxsplit=1)[0] in stage09_services
+        if violation.split(":", maxsplit=1)[0] in approvals_services
     ]
 
 
-def test_stage12_reporting_services_depend_on_ports_not_adapters_or_http_types() -> None:
+def test_reporting_reporting_services_depend_on_ports_not_adapters_or_http_types() -> None:
     import ast
 
     modules = ("dashboard.py", "reporting.py", "exports.py")
@@ -142,7 +142,7 @@ def test_stage12_reporting_services_depend_on_ports_not_adapters_or_http_types()
     assert violations == []
 
 
-def test_stage12_search_and_my_actions_services_depend_on_ports() -> None:
+def test_reporting_search_and_my_actions_services_depend_on_ports() -> None:
     import ast
 
     modules = ("search.py", "my_actions.py")

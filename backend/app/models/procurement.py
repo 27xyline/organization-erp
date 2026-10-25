@@ -1,4 +1,4 @@
-"""SQLAlchemy mappings for procurement tables."""
+"""Отображения SQLAlchemy для таблиц закупок."""
 
 from __future__ import annotations
 
@@ -55,7 +55,9 @@ class ProcurementRequest(Base):
         "ProcurementItem", back_populates="request", cascade="all, delete-orphan"
     )
     contract: Mapped[Any | None] = relationship(
-        "ProcurementContract", back_populates="request", uselist=False,
+        "ProcurementContract",
+        back_populates="request",
+        uselist=False,
         cascade="all, delete-orphan",
     )
     deliveries: Mapped[list[Any]] = relationship(
@@ -351,11 +353,13 @@ class ProcurementDeliveryItem(Base):
         ),
     )
     delivery: Mapped[Any] = relationship(
-        "ProcurementDelivery", foreign_keys="[ProcurementDeliveryItem.deliveryId]",
+        "ProcurementDelivery",
+        foreign_keys="[ProcurementDeliveryItem.deliveryId]",
         back_populates="items",
     )
     procurementItem: Mapped[Any] = relationship(
-        "ProcurementItem", foreign_keys="[ProcurementDeliveryItem.procurementItemId]",
+        "ProcurementItem",
+        foreign_keys="[ProcurementDeliveryItem.procurementItemId]",
         back_populates="deliveryItems",
     )
     asset: Mapped[Any] = relationship("Asset", foreign_keys="[ProcurementDeliveryItem.assetId]")

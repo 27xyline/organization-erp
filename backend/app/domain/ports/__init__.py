@@ -1,1 +1,1 @@
-"""Pure Python ports used by application services."""
+"Чистые Python-порты, используемые сервисами приложения."

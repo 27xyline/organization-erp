@@ -1,1 +1,1 @@
-"""Pure timekeeping rules and calculations."""
+"Чистые правила и расчёты учёта рабочего времени."

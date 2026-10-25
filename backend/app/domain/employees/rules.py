@@ -1,4 +1,4 @@
-"""Profile validation independent of HTTP and persistence."""
+"Проверка профиля, не зависящая от HTTP и хранения данных."
 
 from datetime import datetime
 

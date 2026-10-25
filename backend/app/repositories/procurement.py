@@ -1,4 +1,5 @@
-"""SQLAlchemy persistence for procurement; every operation reuses its UoW session."""
+"""Сохранение данных закупок через SQLAlchemy; каждая операция повторно \
+использует сессию своего UoW."""
 
 from collections.abc import Callable
 from typing import Any, cast
@@ -113,9 +114,7 @@ class SqlAlchemyProcurementRepository:
 
     async def update_request_values(self, identifier: str, values: dict[str, Any]) -> None:
         await self._session().execute(
-            update(ProcurementRequest)
-            .where(ProcurementRequest.id == identifier)
-            .values(**values)
+            update(ProcurementRequest).where(ProcurementRequest.id == identifier).values(**values)
         )
         row = await self._session().get(ProcurementRequest, identifier)
         if row is not None:
@@ -254,8 +253,9 @@ class SqlAlchemyProcurementRepository:
             select(AssetGroup.id, AssetGroup.code, AssetGroup.name).order_by(AssetGroup.code)
         )
         mols = await session.execute(
-            select(Mol.id, Mol.code, Mol.fullName, Mol.storageLocation, Mol.departmentId)
-            .order_by(Mol.code)
+            select(Mol.id, Mol.code, Mol.fullName, Mol.storageLocation, Mol.departmentId).order_by(
+                Mol.code
+            )
         )
         return {
             "projects": [dict(row._mapping) for row in projects],

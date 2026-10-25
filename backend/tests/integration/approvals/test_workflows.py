@@ -17,7 +17,7 @@ from app.services.dto.approvals import ApprovalCommand, ApprovalDecisionCommand,
 
 def command(env, *, entity_type=None, entity_id=None):
     return ApprovalCommand(
-        title="Review Stage09 document",
+        title="Review approvals document",
         description="Two-step approval",
         documentId=env.document_id,
         entityType=entity_type,
@@ -80,11 +80,11 @@ async def test_templates_and_approver_options_preserve_active_order(approval_env
         {"approverId": env.approver_one, "name": "First"},
         {"approverId": env.approver_two, "name": "Second"},
     ]
-    created = await env.service.create_template("Stage09 route", steps, env.context)
+    created = await env.service.create_template("approvals route", steps, env.context)
     assert created["steps"] == steps and created["isActive"] is True
     assert any(item["id"] == created["id"] for item in await env.service.templates(env.context))
     with pytest.raises(DomainError) as duplicate:
-        await env.service.create_template("Stage09 route", steps, env.context)
+        await env.service.create_template("approvals route", steps, env.context)
     assert duplicate.value.code == "APPROVAL_TEMPLATE_EXISTS"
 
     updated = await env.service.update_template(created["id"], {"isActive": False}, env.context)
@@ -115,7 +115,7 @@ async def test_rejecting_second_step_and_cancel_restore_document_and_lock_versio
 
     cancelled = await env.service.create(command(env), env.context)
     result = await env.service.cancel(cancelled["id"], env.context)
-    # The legacy endpoint returns the pre-cancel request snapshot.
+    # Прежний обработчик возвращает снимок заявки до отмены.
     assert result["status"] == "PENDING"
     async with env.session_factory() as session:
         stored = await session.get(ApprovalRequest, cancelled["id"])

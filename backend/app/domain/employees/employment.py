@@ -1,4 +1,4 @@
-"""Pure rules from the legacy HR domain; rates are deliberately not capped at one."""
+"Чистые правила прежнего HR-домена; ставки намеренно не ограничиваются единицей."
 
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -56,7 +56,7 @@ def validate_contract_dates(signed: datetime | None, end: datetime | None) -> No
 
 
 def fixed_money(value: float) -> str:
-    """Match Number.toFixed(2), including binary floating multiplication and ties."""
+    "Повторяет Number.toFixed(2), включая двоичное умножение и обработку равных значений."
     from decimal import ROUND_HALF_UP
 
     return format(

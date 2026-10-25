@@ -1,4 +1,4 @@
-"""SQLAlchemy mappings for reporting tables."""
+"""Отображения SQLAlchemy для таблиц отчётности."""
 
 from __future__ import annotations
 

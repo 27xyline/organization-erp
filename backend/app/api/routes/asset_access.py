@@ -1,4 +1,4 @@
-"""Legacy authorization precedence, before request body validation."""
+"""Приоритет legacy-авторизации перед проверкой тела запроса."""
 
 from typing import Annotated
 

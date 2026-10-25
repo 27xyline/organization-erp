@@ -1,0 +1,1236 @@
+{
+  "provenance": "Live original TypeScript HTTP on isolated source-preserving erp_documents_legacy; synthetic documents rows only; options original values excluded; generated binary bytes excluded due renderer implementation differences.",
+  "calls": {
+    "list-empty": {
+      "method": "GET",
+      "route": "list-empty",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "bodyShape": {
+        "data": {
+          "kind": "array",
+          "length": 0,
+          "item": null
+        },
+        "pagination": {
+          "page": "number",
+          "pageSize": "number",
+          "total": "number",
+          "totalPages": "number"
+        }
+      },
+      "request": {
+        "query": {
+          "page": 1,
+          "pageSize": 25,
+          "search": "S08-96a3c136-f459-4adf-9535-a3c174b8854f",
+          "archived": false
+        }
+      },
+      "response": {
+        "data": [],
+        "pagination": {
+          "page": 1,
+          "pageSize": 25,
+          "total": 0,
+          "totalPages": 1
+        }
+      }
+    },
+    "upload-v1": {
+      "method": "POST",
+      "route": "upload-v1",
+      "status": 201,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "bodyShape": {
+        "data": {
+          "id": "string",
+          "title": "string",
+          "description": "string",
+          "category": "string",
+          "status": "string",
+          "currentVersion": "number",
+          "lockVersion": "number",
+          "projectId": "null",
+          "employeeId": "null",
+          "assetId": "null",
+          "createdById": "string",
+          "archivedAt": "null",
+          "createdAt": "string",
+          "updatedAt": "string",
+          "project": "null",
+          "employee": "null",
+          "asset": "null",
+          "createdBy": {
+            "id": "string",
+            "name": "string",
+            "username": "string"
+          },
+          "versions": {
+            "kind": "array",
+            "length": 1,
+            "item": {
+              "id": "string",
+              "documentId": "string",
+              "versionNumber": "number",
+              "originalFilename": "string",
+              "mimeType": "string",
+              "extension": "string",
+              "sizeBytes": "string",
+              "sha256": "string",
+              "comment": "null",
+              "uploadedById": "string",
+              "uploadedBy": {
+                "id": "string",
+                "name": "string",
+                "username": "string"
+              },
+              "createdAt": "string"
+            }
+          }
+        }
+      },
+      "request": {
+        "metadata": {
+          "title": "S08-96a3c136-f459-4adf-9535-a3c174b8854f synthetic document",
+          "description": "S08-96a3c136-f459-4adf-9535-a3c174b8854f upload/version/archive capture",
+          "category": "GENERAL",
+          "filename": "documents-synthetic-v1.txt"
+        },
+        "contentType": "text/plain",
+        "bodyUtf8": "synthetic documents document version 1 S08-96a3c136-f459-4adf-9535-a3c174b8854f\n",
+        "bodySha256": "3307e0570d84571df55369ef4d96da83c0865eeff6ffce8ca8b0c009027010f2"
+      },
+      "response": {
+        "data": {
+          "id": "cmvkjarla001rlinryl7j4rnl",
+          "title": "S08-96a3c136-f459-4adf-9535-a3c174b8854f synthetic document",
+          "description": "S08-96a3c136-f459-4adf-9535-a3c174b8854f upload/version/archive capture",
+          "category": "GENERAL",
+          "status": "DRAFT",
+          "currentVersion": 1,
+          "lockVersion": 1,
+          "projectId": null,
+          "employeeId": null,
+          "assetId": null,
+          "createdById": "cmvkj7uu30000li8gf0va04c2",
+          "archivedAt": null,
+          "createdAt": "2026-10-23T05:33:21.070Z",
+          "updatedAt": "2026-10-23T05:33:21.070Z",
+          "project": null,
+          "employee": null,
+          "asset": null,
+          "createdBy": {
+            "id": "cmvkj7uu30000li8gf0va04c2",
+            "name": "documents Synthetic Capture Admin",
+            "username": "documents-capture-admin-bf189700"
+          },
+          "versions": [
+            {
+              "id": "cmvkjarla001tlinrwzrc7c28",
+              "documentId": "cmvkjarla001rlinryl7j4rnl",
+              "versionNumber": 1,
+              "originalFilename": "documents-synthetic-v1.txt",
+              "mimeType": "text/plain",
+              "extension": "txt",
+              "sizeBytes": "80",
+              "sha256": "3307e0570d84571df55369ef4d96da83c0865eeff6ffce8ca8b0c009027010f2",
+              "comment": null,
+              "uploadedById": "cmvkj7uu30000li8gf0va04c2",
+              "uploadedBy": {
+                "id": "cmvkj7uu30000li8gf0va04c2",
+                "name": "documents Synthetic Capture Admin",
+                "username": "documents-capture-admin-bf189700"
+              },
+              "createdAt": "2026-10-23T05:33:21.070Z"
+            }
+          ]
+        }
+      }
+    },
+    "list-after-upload": {
+      "method": "GET",
+      "route": "list-after-upload",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "bodyShape": {
+        "data": {
+          "kind": "array",
+          "length": 1,
+          "item": {
+            "id": "string",
+            "title": "string",
+            "description": "string",
+            "category": "string",
+            "status": "string",
+            "currentVersion": "number",
+            "lockVersion": "number",
+            "projectId": "null",
+            "employeeId": "null",
+            "assetId": "null",
+            "createdById": "string",
+            "archivedAt": "null",
+            "createdAt": "string",
+            "updatedAt": "string",
+            "project": "null",
+            "employee": "null",
+            "asset": "null",
+            "createdBy": {
+              "id": "string",
+              "name": "string",
+              "username": "string"
+            },
+            "versions": {
+              "kind": "array",
+              "length": 1,
+              "item": {
+                "id": "string",
+                "documentId": "string",
+                "versionNumber": "number",
+                "originalFilename": "string",
+                "mimeType": "string",
+                "extension": "string",
+                "sizeBytes": "string",
+                "sha256": "string",
+                "comment": "null",
+                "uploadedById": "string",
+                "uploadedBy": {
+                  "id": "string",
+                  "name": "string",
+                  "username": "string"
+                },
+                "createdAt": "string"
+              }
+            }
+          }
+        },
+        "pagination": {
+          "page": "number",
+          "pageSize": "number",
+          "total": "number",
+          "totalPages": "number"
+        }
+      },
+      "request": {
+        "query": {
+          "page": 1,
+          "pageSize": 25,
+          "search": "S08-96a3c136-f459-4adf-9535-a3c174b8854f",
+          "archived": false
+        }
+      },
+      "response": {
+        "data": [
+          {
+            "id": "cmvkjarla001rlinryl7j4rnl",
+            "title": "S08-96a3c136-f459-4adf-9535-a3c174b8854f synthetic document",
+            "description": "S08-96a3c136-f459-4adf-9535-a3c174b8854f upload/version/archive capture",
+            "category": "GENERAL",
+            "status": "DRAFT",
+            "currentVersion": 1,
+            "lockVersion": 1,
+            "projectId": null,
+            "employeeId": null,
+            "assetId": null,
+            "createdById": "cmvkj7uu30000li8gf0va04c2",
+            "archivedAt": null,
+            "createdAt": "2026-10-23T05:33:21.070Z",
+            "updatedAt": "2026-10-23T05:33:21.070Z",
+            "project": null,
+            "employee": null,
+            "asset": null,
+            "createdBy": {
+              "id": "cmvkj7uu30000li8gf0va04c2",
+              "name": "documents Synthetic Capture Admin",
+              "username": "documents-capture-admin-bf189700"
+            },
+            "versions": [
+              {
+                "id": "cmvkjarla001tlinrwzrc7c28",
+                "documentId": "cmvkjarla001rlinryl7j4rnl",
+                "versionNumber": 1,
+                "originalFilename": "documents-synthetic-v1.txt",
+                "mimeType": "text/plain",
+                "extension": "txt",
+                "sizeBytes": "80",
+                "sha256": "3307e0570d84571df55369ef4d96da83c0865eeff6ffce8ca8b0c009027010f2",
+                "comment": null,
+                "uploadedById": "cmvkj7uu30000li8gf0va04c2",
+                "uploadedBy": {
+                  "id": "cmvkj7uu30000li8gf0va04c2",
+                  "name": "documents Synthetic Capture Admin",
+                  "username": "documents-capture-admin-bf189700"
+                },
+                "createdAt": "2026-10-23T05:33:21.070Z"
+              }
+            ]
+          }
+        ],
+        "pagination": {
+          "page": 1,
+          "pageSize": 25,
+          "total": 1,
+          "totalPages": 1
+        }
+      }
+    },
+    "detail": {
+      "method": "GET",
+      "route": "detail",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "bodyShape": {
+        "data": {
+          "id": "string",
+          "title": "string",
+          "description": "string",
+          "category": "string",
+          "status": "string",
+          "currentVersion": "number",
+          "lockVersion": "number",
+          "projectId": "null",
+          "employeeId": "null",
+          "assetId": "null",
+          "createdById": "string",
+          "archivedAt": "null",
+          "createdAt": "string",
+          "updatedAt": "string",
+          "project": "null",
+          "employee": "null",
+          "asset": "null",
+          "createdBy": {
+            "id": "string",
+            "name": "string",
+            "username": "string"
+          },
+          "versions": {
+            "kind": "array",
+            "length": 1,
+            "item": {
+              "id": "string",
+              "documentId": "string",
+              "versionNumber": "number",
+              "originalFilename": "string",
+              "mimeType": "string",
+              "extension": "string",
+              "sizeBytes": "string",
+              "sha256": "string",
+              "comment": "null",
+              "uploadedById": "string",
+              "uploadedBy": {
+                "id": "string",
+                "name": "string",
+                "username": "string"
+              },
+              "createdAt": "string"
+            }
+          }
+        }
+      },
+      "response": {
+        "data": {
+          "id": "cmvkjarla001rlinryl7j4rnl",
+          "title": "S08-96a3c136-f459-4adf-9535-a3c174b8854f synthetic document",
+          "description": "S08-96a3c136-f459-4adf-9535-a3c174b8854f upload/version/archive capture",
+          "category": "GENERAL",
+          "status": "DRAFT",
+          "currentVersion": 1,
+          "lockVersion": 1,
+          "projectId": null,
+          "employeeId": null,
+          "assetId": null,
+          "createdById": "cmvkj7uu30000li8gf0va04c2",
+          "archivedAt": null,
+          "createdAt": "2026-10-23T05:33:21.070Z",
+          "updatedAt": "2026-10-23T05:33:21.070Z",
+          "project": null,
+          "employee": null,
+          "asset": null,
+          "createdBy": {
+            "id": "cmvkj7uu30000li8gf0va04c2",
+            "name": "documents Synthetic Capture Admin",
+            "username": "documents-capture-admin-bf189700"
+          },
+          "versions": [
+            {
+              "id": "cmvkjarla001tlinrwzrc7c28",
+              "documentId": "cmvkjarla001rlinryl7j4rnl",
+              "versionNumber": 1,
+              "originalFilename": "documents-synthetic-v1.txt",
+              "mimeType": "text/plain",
+              "extension": "txt",
+              "sizeBytes": "80",
+              "sha256": "3307e0570d84571df55369ef4d96da83c0865eeff6ffce8ca8b0c009027010f2",
+              "comment": null,
+              "uploadedById": "cmvkj7uu30000li8gf0va04c2",
+              "uploadedBy": {
+                "id": "cmvkj7uu30000li8gf0va04c2",
+                "name": "documents Synthetic Capture Admin",
+                "username": "documents-capture-admin-bf189700"
+              },
+              "createdAt": "2026-10-23T05:33:21.070Z"
+            }
+          ]
+        }
+      }
+    },
+    "download-v1": {
+      "method": "GET",
+      "route": "download-v1",
+      "status": 200,
+      "headers": {
+        "content-type": "text/plain",
+        "content-length": "80",
+        "cache-control": "private, no-store",
+        "x-content-type-options": "nosniff",
+        "contentDisposition": {
+          "attachment": true,
+          "hasAsciiFilename": true,
+          "hasUtf8Filename": true
+        },
+        "etag": "\"sha256-3307e0570d84571df55369ef4d96da83c0865eeff6ffce8ca8b0c009027010f2\""
+      },
+      "bodyShape": "binary",
+      "byteLength": 80,
+      "sha256": "3307e0570d84571df55369ef4d96da83c0865eeff6ffce8ca8b0c009027010f2"
+    },
+    "upload-v2": {
+      "method": "POST",
+      "route": "upload-v2",
+      "status": 201,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "bodyShape": {
+        "data": {
+          "id": "string",
+          "title": "string",
+          "description": "string",
+          "category": "string",
+          "status": "string",
+          "currentVersion": "number",
+          "lockVersion": "number",
+          "projectId": "null",
+          "employeeId": "null",
+          "assetId": "null",
+          "createdById": "string",
+          "archivedAt": "null",
+          "createdAt": "string",
+          "updatedAt": "string",
+          "project": "null",
+          "employee": "null",
+          "asset": "null",
+          "createdBy": {
+            "id": "string",
+            "name": "string",
+            "username": "string"
+          },
+          "versions": {
+            "kind": "array",
+            "length": 2,
+            "item": {
+              "id": "string",
+              "documentId": "string",
+              "versionNumber": "number",
+              "originalFilename": "string",
+              "mimeType": "string",
+              "extension": "string",
+              "sizeBytes": "string",
+              "sha256": "string",
+              "comment": "string",
+              "uploadedById": "string",
+              "uploadedBy": {
+                "id": "string",
+                "name": "string",
+                "username": "string"
+              },
+              "createdAt": "string"
+            }
+          }
+        }
+      },
+      "request": {
+        "metadata": {
+          "filename": "documents-synthetic-v2.txt",
+          "comment": "S08-96a3c136-f459-4adf-9535-a3c174b8854f second version",
+          "lockVersion": 1
+        },
+        "contentType": "text/plain",
+        "bodyUtf8": "synthetic documents document version 2 S08-96a3c136-f459-4adf-9535-a3c174b8854f\n",
+        "bodySha256": "324b190070fa3d58da3490f40d33b8f9de97a16b2bb9695b146748827da37592"
+      },
+      "response": {
+        "data": {
+          "id": "cmvkjarla001rlinryl7j4rnl",
+          "title": "S08-96a3c136-f459-4adf-9535-a3c174b8854f synthetic document",
+          "description": "S08-96a3c136-f459-4adf-9535-a3c174b8854f upload/version/archive capture",
+          "category": "GENERAL",
+          "status": "DRAFT",
+          "currentVersion": 2,
+          "lockVersion": 2,
+          "projectId": null,
+          "employeeId": null,
+          "assetId": null,
+          "createdById": "cmvkj7uu30000li8gf0va04c2",
+          "archivedAt": null,
+          "createdAt": "2026-10-23T05:33:21.070Z",
+          "updatedAt": "2026-10-23T05:33:21.215Z",
+          "project": null,
+          "employee": null,
+          "asset": null,
+          "createdBy": {
+            "id": "cmvkj7uu30000li8gf0va04c2",
+            "name": "documents Synthetic Capture Admin",
+            "username": "documents-capture-admin-bf189700"
+          },
+          "versions": [
+            {
+              "id": "cmvkjarp8001zlinrjqkrpmuo",
+              "documentId": "cmvkjarla001rlinryl7j4rnl",
+              "versionNumber": 2,
+              "originalFilename": "documents-synthetic-v2.txt",
+              "mimeType": "text/plain",
+              "extension": "txt",
+              "sizeBytes": "80",
+              "sha256": "324b190070fa3d58da3490f40d33b8f9de97a16b2bb9695b146748827da37592",
+              "comment": "S08-96a3c136-f459-4adf-9535-a3c174b8854f second version",
+              "uploadedById": "cmvkj7uu30000li8gf0va04c2",
+              "uploadedBy": {
+                "id": "cmvkj7uu30000li8gf0va04c2",
+                "name": "documents Synthetic Capture Admin",
+                "username": "documents-capture-admin-bf189700"
+              },
+              "createdAt": "2026-10-23T05:33:21.213Z"
+            },
+            {
+              "id": "cmvkjarla001tlinrwzrc7c28",
+              "documentId": "cmvkjarla001rlinryl7j4rnl",
+              "versionNumber": 1,
+              "originalFilename": "documents-synthetic-v1.txt",
+              "mimeType": "text/plain",
+              "extension": "txt",
+              "sizeBytes": "80",
+              "sha256": "3307e0570d84571df55369ef4d96da83c0865eeff6ffce8ca8b0c009027010f2",
+              "comment": null,
+              "uploadedById": "cmvkj7uu30000li8gf0va04c2",
+              "uploadedBy": {
+                "id": "cmvkj7uu30000li8gf0va04c2",
+                "name": "documents Synthetic Capture Admin",
+                "username": "documents-capture-admin-bf189700"
+              },
+              "createdAt": "2026-10-23T05:33:21.070Z"
+            }
+          ]
+        }
+      }
+    },
+    "download-v2": {
+      "method": "GET",
+      "route": "download-v2",
+      "status": 200,
+      "headers": {
+        "content-type": "text/plain",
+        "content-length": "80",
+        "cache-control": "private, no-store",
+        "x-content-type-options": "nosniff",
+        "contentDisposition": {
+          "attachment": true,
+          "hasAsciiFilename": true,
+          "hasUtf8Filename": true
+        },
+        "etag": "\"sha256-324b190070fa3d58da3490f40d33b8f9de97a16b2bb9695b146748827da37592\""
+      },
+      "bodyShape": "binary",
+      "byteLength": 80,
+      "sha256": "324b190070fa3d58da3490f40d33b8f9de97a16b2bb9695b146748827da37592"
+    },
+    "download-current-v2": {
+      "method": "GET",
+      "route": "download-current-v2",
+      "status": 200,
+      "headers": {
+        "content-type": "text/plain",
+        "content-length": "80",
+        "cache-control": "private, no-store",
+        "x-content-type-options": "nosniff",
+        "contentDisposition": {
+          "attachment": true,
+          "hasAsciiFilename": true,
+          "hasUtf8Filename": true
+        },
+        "etag": "\"sha256-324b190070fa3d58da3490f40d33b8f9de97a16b2bb9695b146748827da37592\""
+      },
+      "bodyShape": "binary",
+      "byteLength": 80,
+      "sha256": "324b190070fa3d58da3490f40d33b8f9de97a16b2bb9695b146748827da37592"
+    },
+    "status-to-in-review": {
+      "method": "PATCH",
+      "route": "status-to-in-review",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "bodyShape": {
+        "data": {
+          "id": "string",
+          "title": "string",
+          "description": "string",
+          "category": "string",
+          "status": "string",
+          "currentVersion": "number",
+          "lockVersion": "number",
+          "projectId": "null",
+          "employeeId": "null",
+          "assetId": "null",
+          "createdById": "string",
+          "archivedAt": "null",
+          "createdAt": "string",
+          "updatedAt": "string",
+          "project": "null",
+          "employee": "null",
+          "asset": "null",
+          "createdBy": {
+            "id": "string",
+            "name": "string",
+            "username": "string"
+          },
+          "versions": {
+            "kind": "array",
+            "length": 2,
+            "item": {
+              "id": "string",
+              "documentId": "string",
+              "versionNumber": "number",
+              "originalFilename": "string",
+              "mimeType": "string",
+              "extension": "string",
+              "sizeBytes": "string",
+              "sha256": "string",
+              "comment": "string",
+              "uploadedById": "string",
+              "uploadedBy": {
+                "id": "string",
+                "name": "string",
+                "username": "string"
+              },
+              "createdAt": "string"
+            }
+          }
+        }
+      },
+      "request": {
+        "json": {
+          "status": "IN_REVIEW",
+          "lockVersion": 2
+        }
+      },
+      "response": {
+        "data": {
+          "id": "cmvkjarla001rlinryl7j4rnl",
+          "title": "S08-96a3c136-f459-4adf-9535-a3c174b8854f synthetic document",
+          "description": "S08-96a3c136-f459-4adf-9535-a3c174b8854f upload/version/archive capture",
+          "category": "GENERAL",
+          "status": "IN_REVIEW",
+          "currentVersion": 2,
+          "lockVersion": 3,
+          "projectId": null,
+          "employeeId": null,
+          "assetId": null,
+          "createdById": "cmvkj7uu30000li8gf0va04c2",
+          "archivedAt": null,
+          "createdAt": "2026-10-23T05:33:21.070Z",
+          "updatedAt": "2026-10-23T05:33:21.327Z",
+          "project": null,
+          "employee": null,
+          "asset": null,
+          "createdBy": {
+            "id": "cmvkj7uu30000li8gf0va04c2",
+            "name": "documents Synthetic Capture Admin",
+            "username": "documents-capture-admin-bf189700"
+          },
+          "versions": [
+            {
+              "id": "cmvkjarp8001zlinrjqkrpmuo",
+              "documentId": "cmvkjarla001rlinryl7j4rnl",
+              "versionNumber": 2,
+              "originalFilename": "documents-synthetic-v2.txt",
+              "mimeType": "text/plain",
+              "extension": "txt",
+              "sizeBytes": "80",
+              "sha256": "324b190070fa3d58da3490f40d33b8f9de97a16b2bb9695b146748827da37592",
+              "comment": "S08-96a3c136-f459-4adf-9535-a3c174b8854f second version",
+              "uploadedById": "cmvkj7uu30000li8gf0va04c2",
+              "uploadedBy": {
+                "id": "cmvkj7uu30000li8gf0va04c2",
+                "name": "documents Synthetic Capture Admin",
+                "username": "documents-capture-admin-bf189700"
+              },
+              "createdAt": "2026-10-23T05:33:21.213Z"
+            },
+            {
+              "id": "cmvkjarla001tlinrwzrc7c28",
+              "documentId": "cmvkjarla001rlinryl7j4rnl",
+              "versionNumber": 1,
+              "originalFilename": "documents-synthetic-v1.txt",
+              "mimeType": "text/plain",
+              "extension": "txt",
+              "sizeBytes": "80",
+              "sha256": "3307e0570d84571df55369ef4d96da83c0865eeff6ffce8ca8b0c009027010f2",
+              "comment": null,
+              "uploadedById": "cmvkj7uu30000li8gf0va04c2",
+              "uploadedBy": {
+                "id": "cmvkj7uu30000li8gf0va04c2",
+                "name": "documents Synthetic Capture Admin",
+                "username": "documents-capture-admin-bf189700"
+              },
+              "createdAt": "2026-10-23T05:33:21.070Z"
+            }
+          ]
+        }
+      }
+    },
+    "download-corrupted-version": {
+      "method": "GET",
+      "route": "/api/documents/{id}/download?version=2",
+      "status": 503,
+      "bodyShape": {
+        "error": {
+          "code": "string",
+          "message": "string"
+        }
+      }
+    },
+    "archive": {
+      "method": "POST",
+      "route": "archive",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "bodyShape": {
+        "data": {
+          "id": "string",
+          "title": "string",
+          "description": "string",
+          "category": "string",
+          "status": "string",
+          "currentVersion": "number",
+          "lockVersion": "number",
+          "projectId": "null",
+          "employeeId": "null",
+          "assetId": "null",
+          "createdById": "string",
+          "archivedAt": "string",
+          "createdAt": "string",
+          "updatedAt": "string",
+          "project": "null",
+          "employee": "null",
+          "asset": "null",
+          "createdBy": {
+            "id": "string",
+            "name": "string",
+            "username": "string"
+          },
+          "versions": {
+            "kind": "array",
+            "length": 2,
+            "item": {
+              "id": "string",
+              "documentId": "string",
+              "versionNumber": "number",
+              "originalFilename": "string",
+              "mimeType": "string",
+              "extension": "string",
+              "sizeBytes": "string",
+              "sha256": "string",
+              "comment": "string",
+              "uploadedById": "string",
+              "uploadedBy": {
+                "id": "string",
+                "name": "string",
+                "username": "string"
+              },
+              "createdAt": "string"
+            }
+          }
+        }
+      },
+      "request": {
+        "json": {
+          "lockVersion": 3
+        }
+      },
+      "response": {
+        "data": {
+          "id": "cmvkjarla001rlinryl7j4rnl",
+          "title": "S08-96a3c136-f459-4adf-9535-a3c174b8854f synthetic document",
+          "description": "S08-96a3c136-f459-4adf-9535-a3c174b8854f upload/version/archive capture",
+          "category": "GENERAL",
+          "status": "ARCHIVED",
+          "currentVersion": 2,
+          "lockVersion": 4,
+          "projectId": null,
+          "employeeId": null,
+          "assetId": null,
+          "createdById": "cmvkj7uu30000li8gf0va04c2",
+          "archivedAt": "2026-10-23T05:33:21.396Z",
+          "createdAt": "2026-10-23T05:33:21.070Z",
+          "updatedAt": "2026-10-23T05:33:21.397Z",
+          "project": null,
+          "employee": null,
+          "asset": null,
+          "createdBy": {
+            "id": "cmvkj7uu30000li8gf0va04c2",
+            "name": "documents Synthetic Capture Admin",
+            "username": "documents-capture-admin-bf189700"
+          },
+          "versions": [
+            {
+              "id": "cmvkjarp8001zlinrjqkrpmuo",
+              "documentId": "cmvkjarla001rlinryl7j4rnl",
+              "versionNumber": 2,
+              "originalFilename": "documents-synthetic-v2.txt",
+              "mimeType": "text/plain",
+              "extension": "txt",
+              "sizeBytes": "80",
+              "sha256": "324b190070fa3d58da3490f40d33b8f9de97a16b2bb9695b146748827da37592",
+              "comment": "S08-96a3c136-f459-4adf-9535-a3c174b8854f second version",
+              "uploadedById": "cmvkj7uu30000li8gf0va04c2",
+              "uploadedBy": {
+                "id": "cmvkj7uu30000li8gf0va04c2",
+                "name": "documents Synthetic Capture Admin",
+                "username": "documents-capture-admin-bf189700"
+              },
+              "createdAt": "2026-10-23T05:33:21.213Z"
+            },
+            {
+              "id": "cmvkjarla001tlinrwzrc7c28",
+              "documentId": "cmvkjarla001rlinryl7j4rnl",
+              "versionNumber": 1,
+              "originalFilename": "documents-synthetic-v1.txt",
+              "mimeType": "text/plain",
+              "extension": "txt",
+              "sizeBytes": "80",
+              "sha256": "3307e0570d84571df55369ef4d96da83c0865eeff6ffce8ca8b0c009027010f2",
+              "comment": null,
+              "uploadedById": "cmvkj7uu30000li8gf0va04c2",
+              "uploadedBy": {
+                "id": "cmvkj7uu30000li8gf0va04c2",
+                "name": "documents Synthetic Capture Admin",
+                "username": "documents-capture-admin-bf189700"
+              },
+              "createdAt": "2026-10-23T05:33:21.070Z"
+            }
+          ]
+        }
+      }
+    },
+    "list-archived": {
+      "method": "GET",
+      "route": "list-archived",
+      "status": 200,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "bodyShape": {
+        "data": {
+          "kind": "array",
+          "length": 1,
+          "item": {
+            "id": "string",
+            "title": "string",
+            "description": "string",
+            "category": "string",
+            "status": "string",
+            "currentVersion": "number",
+            "lockVersion": "number",
+            "projectId": "null",
+            "employeeId": "null",
+            "assetId": "null",
+            "createdById": "string",
+            "archivedAt": "string",
+            "createdAt": "string",
+            "updatedAt": "string",
+            "project": "null",
+            "employee": "null",
+            "asset": "null",
+            "createdBy": {
+              "id": "string",
+              "name": "string",
+              "username": "string"
+            },
+            "versions": {
+              "kind": "array",
+              "length": 1,
+              "item": {
+                "id": "string",
+                "documentId": "string",
+                "versionNumber": "number",
+                "originalFilename": "string",
+                "mimeType": "string",
+                "extension": "string",
+                "sizeBytes": "string",
+                "sha256": "string",
+                "comment": "string",
+                "uploadedById": "string",
+                "uploadedBy": {
+                  "id": "string",
+                  "name": "string",
+                  "username": "string"
+                },
+                "createdAt": "string"
+              }
+            }
+          }
+        },
+        "pagination": {
+          "page": "number",
+          "pageSize": "number",
+          "total": "number",
+          "totalPages": "number"
+        }
+      },
+      "request": {
+        "query": {
+          "page": 1,
+          "pageSize": 25,
+          "search": "S08-96a3c136-f459-4adf-9535-a3c174b8854f",
+          "archived": true
+        }
+      },
+      "response": {
+        "data": [
+          {
+            "id": "cmvkjarla001rlinryl7j4rnl",
+            "title": "S08-96a3c136-f459-4adf-9535-a3c174b8854f synthetic document",
+            "description": "S08-96a3c136-f459-4adf-9535-a3c174b8854f upload/version/archive capture",
+            "category": "GENERAL",
+            "status": "ARCHIVED",
+            "currentVersion": 2,
+            "lockVersion": 4,
+            "projectId": null,
+            "employeeId": null,
+            "assetId": null,
+            "createdById": "cmvkj7uu30000li8gf0va04c2",
+            "archivedAt": "2026-10-23T05:33:21.396Z",
+            "createdAt": "2026-10-23T05:33:21.070Z",
+            "updatedAt": "2026-10-23T05:33:21.397Z",
+            "project": null,
+            "employee": null,
+            "asset": null,
+            "createdBy": {
+              "id": "cmvkj7uu30000li8gf0va04c2",
+              "name": "documents Synthetic Capture Admin",
+              "username": "documents-capture-admin-bf189700"
+            },
+            "versions": [
+              {
+                "id": "cmvkjarp8001zlinrjqkrpmuo",
+                "documentId": "cmvkjarla001rlinryl7j4rnl",
+                "versionNumber": 2,
+                "originalFilename": "documents-synthetic-v2.txt",
+                "mimeType": "text/plain",
+                "extension": "txt",
+                "sizeBytes": "80",
+                "sha256": "324b190070fa3d58da3490f40d33b8f9de97a16b2bb9695b146748827da37592",
+                "comment": "S08-96a3c136-f459-4adf-9535-a3c174b8854f second version",
+                "uploadedById": "cmvkj7uu30000li8gf0va04c2",
+                "uploadedBy": {
+                  "id": "cmvkj7uu30000li8gf0va04c2",
+                  "name": "documents Synthetic Capture Admin",
+                  "username": "documents-capture-admin-bf189700"
+                },
+                "createdAt": "2026-10-23T05:33:21.213Z"
+              }
+            ]
+          }
+        ],
+        "pagination": {
+          "page": 1,
+          "pageSize": 25,
+          "total": 1,
+          "totalPages": 1
+        }
+      }
+    },
+    "generate-personnel-order": {
+      "method": "POST",
+      "route": "generate-personnel-order",
+      "status": 201,
+      "headers": {
+        "content-type": "application/json"
+      },
+      "bodyShape": {
+        "data": {
+          "id": "string",
+          "title": "string",
+          "description": "string",
+          "category": "string",
+          "status": "string",
+          "currentVersion": "number",
+          "lockVersion": "number",
+          "projectId": "null",
+          "employeeId": "null",
+          "assetId": "null",
+          "createdById": "string",
+          "archivedAt": "null",
+          "createdAt": "string",
+          "updatedAt": "string",
+          "project": "null",
+          "employee": "null",
+          "asset": "null",
+          "createdBy": {
+            "id": "string",
+            "name": "string",
+            "username": "string"
+          },
+          "versions": {
+            "kind": "array",
+            "length": 1,
+            "item": {
+              "id": "string",
+              "documentId": "string",
+              "versionNumber": "number",
+              "originalFilename": "string",
+              "mimeType": "string",
+              "extension": "string",
+              "sizeBytes": "string",
+              "sha256": "string",
+              "comment": "null",
+              "uploadedById": "string",
+              "uploadedBy": {
+                "id": "string",
+                "name": "string",
+                "username": "string"
+              },
+              "createdAt": "string"
+            }
+          }
+        }
+      },
+      "request": {
+        "json": {
+          "template": "PERSONNEL_ORDER",
+          "title": "S08-96a3c136-f459-4adf-9535-a3c174b8854f generated order",
+          "number": "S08-96a3c136-f459-4adf-9535-a3c174b8854f-ORDER",
+          "date": "2026-10-23",
+          "subject": "S08-96a3c136-f459-4adf-9535-a3c174b8854f synthetic subject",
+          "details": "S08-96a3c136-f459-4adf-9535-a3c174b8854f synthetic details",
+          "basis": "S08-96a3c136-f459-4adf-9535-a3c174b8854f synthetic basis",
+          "format": "docx"
+        }
+      },
+      "response": {
+        "data": {
+          "id": "cmvkjarxv002blinrujxkosnx",
+          "title": "S08-96a3c136-f459-4adf-9535-a3c174b8854f generated order",
+          "description": "Создано по шаблону: приказ (DOCX)",
+          "category": "ORDER",
+          "status": "DRAFT",
+          "currentVersion": 1,
+          "lockVersion": 1,
+          "projectId": null,
+          "employeeId": null,
+          "assetId": null,
+          "createdById": "cmvkj7uu30000li8gf0va04c2",
+          "archivedAt": null,
+          "createdAt": "2026-10-23T05:33:21.523Z",
+          "updatedAt": "2026-10-23T05:33:21.523Z",
+          "project": null,
+          "employee": null,
+          "asset": null,
+          "createdBy": {
+            "id": "cmvkj7uu30000li8gf0va04c2",
+            "name": "documents Synthetic Capture Admin",
+            "username": "documents-capture-admin-bf189700"
+          },
+          "versions": [
+            {
+              "id": "cmvkjarxv002dlinrhuc8wq4h",
+              "documentId": "cmvkjarxv002blinrujxkosnx",
+              "versionNumber": 1,
+              "originalFilename": "S08-96a3c136-f459-4adf-9535-a3c174b8854f-generated-order.docx",
+              "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+              "extension": "docx",
+              "sizeBytes": "8857",
+              "sha256": "c0cdaa6e5aad97922cf4d28ec6068bc8553468742037ae2de91d6f5e9d07cd63",
+              "comment": null,
+              "uploadedById": "cmvkj7uu30000li8gf0va04c2",
+              "uploadedBy": {
+                "id": "cmvkj7uu30000li8gf0va04c2",
+                "name": "documents Synthetic Capture Admin",
+                "username": "documents-capture-admin-bf189700"
+              },
+              "createdAt": "2026-10-23T05:33:21.523Z"
+            }
+          ]
+        }
+      }
+    },
+    "download-generated-docx": {
+      "method": "GET",
+      "route": "download-generated-docx",
+      "status": 200,
+      "headers": {
+        "content-type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "content-length": "8857",
+        "cache-control": "private, no-store",
+        "x-content-type-options": "nosniff",
+        "contentDisposition": {
+          "attachment": true,
+          "hasAsciiFilename": true,
+          "hasUtf8Filename": true
+        },
+        "etag": "\"sha256-c0cdaa6e5aad97922cf4d28ec6068bc8553468742037ae2de91d6f5e9d07cd63\""
+      },
+      "bodyShape": "binary",
+      "byteLength": 8857,
+      "sha256": "c0cdaa6e5aad97922cf4d28ec6068bc8553468742037ae2de91d6f5e9d07cd63"
+    }
+  },
+  "audit": [
+    {
+      "action": "DOCUMENT_CREATED",
+      "entityType": "Document",
+      "details": {
+        "status": "DRAFT",
+        "assetId": null,
+        "version": 1,
+        "category": "GENERAL",
+        "mimeType": "text/plain",
+        "projectId": null,
+        "sizeBytes": "80",
+        "employeeId": null
+      },
+      "detailsShape": {
+        "status": "string",
+        "assetId": "null",
+        "version": "number",
+        "category": "string",
+        "mimeType": "string",
+        "projectId": "null",
+        "sizeBytes": "string",
+        "employeeId": "null"
+      },
+      "detailsSha256": "9191f0254d9033b81218a6794884d9bbf66bbe3b122d442ada4c8560378ed3ca"
+    },
+    {
+      "action": "DOCUMENT_DOWNLOADED",
+      "entityType": "Document",
+      "details": {
+        "version": 1
+      },
+      "detailsShape": {
+        "version": "number"
+      },
+      "detailsSha256": "2430f1a2ad2982d0067885488a4c89e21ad1d7c83b115ba8f1b20acc88dfaea8"
+    },
+    {
+      "action": "DOCUMENT_VERSION_ADDED",
+      "entityType": "Document",
+      "details": {
+        "version": 2,
+        "mimeType": "text/plain",
+        "sizeBytes": "80"
+      },
+      "detailsShape": {
+        "version": "number",
+        "mimeType": "string",
+        "sizeBytes": "string"
+      },
+      "detailsSha256": "cd027d040cbf78914a48cc39cb3cc3ea24a3d0a449dcb50507d5d6bf538261da"
+    },
+    {
+      "action": "DOCUMENT_DOWNLOADED",
+      "entityType": "Document",
+      "details": {
+        "version": 2
+      },
+      "detailsShape": {
+        "version": "number"
+      },
+      "detailsSha256": "732322c128ed67841ef5aa42c7cd04ffcd74a61b2d17d710cd502b713d62930d"
+    },
+    {
+      "action": "DOCUMENT_DOWNLOADED",
+      "entityType": "Document",
+      "details": {
+        "version": 2
+      },
+      "detailsShape": {
+        "version": "number"
+      },
+      "detailsSha256": "732322c128ed67841ef5aa42c7cd04ffcd74a61b2d17d710cd502b713d62930d"
+    },
+    {
+      "action": "DOCUMENT_STATUS_CHANGED",
+      "entityType": "Document",
+      "details": {
+        "to": "IN_REVIEW",
+        "from": "DRAFT"
+      },
+      "detailsShape": {
+        "to": "string",
+        "from": "string"
+      },
+      "detailsSha256": "68804c00fb71affb8f1b1d3b8c480a29ef7b749d82cef1957705193c10187b25"
+    },
+    {
+      "action": "DOCUMENT_ARCHIVED",
+      "entityType": "Document",
+      "details": {
+        "previousStatus": "IN_REVIEW"
+      },
+      "detailsShape": {
+        "previousStatus": "string"
+      },
+      "detailsSha256": "761b9c44c99125f0e7666a8ef90c918ef9d03b2234f3fb16863fe3d5c96f19f3"
+    },
+    {
+      "action": "DOCUMENT_CREATED",
+      "entityType": "Document",
+      "details": {
+        "status": "DRAFT",
+        "assetId": null,
+        "version": 1,
+        "category": "ORDER",
+        "mimeType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "projectId": null,
+        "sizeBytes": "8857",
+        "employeeId": null
+      },
+      "detailsShape": {
+        "status": "string",
+        "assetId": "null",
+        "version": "number",
+        "category": "string",
+        "mimeType": "string",
+        "projectId": "null",
+        "sizeBytes": "string",
+        "employeeId": "null"
+      },
+      "detailsSha256": "df67abeaaaa5d814b218ab9dfb330084feec261c60f0658c46afe72760c6ba8d"
+    },
+    {
+      "action": "DOCUMENT_DOWNLOADED",
+      "entityType": "Document",
+      "details": {
+        "version": 1
+      },
+      "detailsShape": {
+        "version": "number"
+      },
+      "detailsSha256": "2430f1a2ad2982d0067885488a4c89e21ad1d7c83b115ba8f1b20acc88dfaea8"
+    }
+  ],
+  "outboxDelta": 0
+}

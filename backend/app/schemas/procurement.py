@@ -1,4 +1,4 @@
-"""HTTP input contracts for procurement workflows."""
+"""Контракты HTTP-входных данных для процессов закупки."""
 
 from datetime import date, datetime
 from decimal import Decimal
@@ -31,9 +31,7 @@ class _ProcurementFields(BaseModel):
 
     @model_validator(mode="after")
     def validate_budget(self) -> "_ProcurementFields":
-        total = sum(
-            (item.quantity * item.unitPrice for item in self.items), Decimal(0)
-        )
+        total = sum((item.quantity * item.unitPrice for item in self.items), Decimal(0))
         if total > self.budgetLimit:
             raise ValueError("Стоимость позиций превышает бюджетный лимит")
         return self

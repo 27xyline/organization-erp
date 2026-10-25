@@ -5,7 +5,7 @@ import {
   createTimeEntrySchema,
   timeEntryQuerySchema,
 } from '@/features/timekeeping/contracts/time-entry'
-import { proxyStage10Request } from '@/lib/backend/stage10'
+import { proxyFinanceRequest } from '@/lib/backend/finance'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   if (auth.response) return auth.response
   const query = timeEntryQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams))
   if (!query.success) return apiValidationError(query.error)
-  return proxyStage10Request(
+  return proxyFinanceRequest(
     request,
     `${request.nextUrl.pathname}${request.nextUrl.search}`,
     auth.user,
@@ -27,5 +27,5 @@ export async function POST(request: NextRequest) {
   if (auth.response) return auth.response
   const input = createTimeEntrySchema.safeParse(await request.clone().json().catch(() => null))
   if (!input.success) return apiValidationError(input.error)
-  return proxyStage10Request(request, '/api/time-entries', auth.user, auth.requestId)
+  return proxyFinanceRequest(request, '/api/time-entries', auth.user, auth.requestId)
 }

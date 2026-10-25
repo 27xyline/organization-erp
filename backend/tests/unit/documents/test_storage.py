@@ -124,9 +124,9 @@ async def test_fsync_failure_leaves_no_temp_or_journal(tmp_path, monkeypatch):
 async def test_effective_public_root_alias_is_rejected(tmp_path, alias):
     project = tmp_path / "project"
     (project / "public").mkdir(parents=True)
-    (project / ".runtime").mkdir()
+    (project / "var").mkdir()
     if alias == "dotdot":
-        root = project / ".runtime" / ".." / "public" / "documents"
+        root = project / "var" / ".." / "public" / "documents"
     else:
         (project / "alias").symlink_to(project / "public", target_is_directory=True)
         root = project / "alias" / "documents"
@@ -265,7 +265,7 @@ async def test_unknown_corrupt_journal_is_retained_and_does_not_leak_other_lease
         await storage.recover(unreferenced)
     assert journal.exists()
     assert (tmp_path / corrupt.stored.key).exists()
-    # Repair the known test journal, then prove every earlier lease was released.
+    # Исправляем известный тестовый журнал, затем проверяем освобождение всех прежних аренд.
     journal.write_bytes(corrupt.stored.key.encode())
     assert await storage.recover(unreferenced) == 2
     assert await storage.recover(unreferenced) == 0
@@ -325,8 +325,8 @@ async def test_recovery_cannot_unpublish_a_journal_before_creator_flocks(tmp_pat
         recovery.start()
         sender.close()
         assert await asyncio.to_thread(ready.wait, 5)
-        # The active creator has not reached its file flock. Another process must
-        # not classify that visible journal as abandoned and unlink its name.
+        # Активный создатель ещё не дошёл до файловой блокировки flock. Другой процесс
+        # не должен считать видимый журнал заброшенным и удалять его имя.
         assert not await asyncio.to_thread(receiver.poll, 0.15)
         release.set()
         staged = await task

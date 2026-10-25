@@ -1,1 +1,1 @@
-"""Department rules and invariants."""
+"Правила и инварианты подразделений."

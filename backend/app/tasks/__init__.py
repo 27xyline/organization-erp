@@ -1,1 +1,1 @@
-"""Standalone async background task entry points."""
+"Автономные точки входа асинхронных фоновых задач."

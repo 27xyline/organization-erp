@@ -1,4 +1,4 @@
-"""Transport independent commands for procurement workflows."""
+"Команды рабочих процессов закупок, не зависящие от транспорта."
 
 from dataclasses import dataclass
 from datetime import date, datetime

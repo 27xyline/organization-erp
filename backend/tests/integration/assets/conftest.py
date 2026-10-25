@@ -37,7 +37,7 @@ async def asset_env(db_session_factory):
                 User(
                     id=prefix,
                     username=prefix,
-                    name="Stage07",
+                    name="assets",
                     passwordHash="unused",
                     mustChangePassword=False,
                     role="ADMIN",
@@ -79,7 +79,7 @@ async def asset_env(db_session_factory):
         await session.commit()
     factory = create_unit_of_work_factory(db_session_factory)
     command = AssetCommand(
-        "Stage07 asset",
+        "assets asset",
         prefix,
         Decimal("12.34"),
         "шт",

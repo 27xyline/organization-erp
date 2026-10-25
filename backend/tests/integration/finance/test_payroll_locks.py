@@ -80,7 +80,7 @@ def _pause_period_status_change(monkeypatch: pytest.MonkeyPatch):
 
 @pytest.mark.anyio
 async def test_real_close_service_serializes_real_time_entry_update(
-    stage10_session_factory: async_sessionmaker[AsyncSession],
+    db_session_factory: async_sessionmaker[AsyncSession],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     suffix = uuid4().hex
@@ -88,7 +88,7 @@ async def test_real_close_service_serializes_real_time_entry_update(
     employee_id, entry_id = f"s10-employee-{suffix}", f"s10-entry-{suffix}"
     year, month = 2000 + int(suffix[:2], 16) % 101, 1 + int(suffix[2:4], 16) % 12
     work_date = date(year, month, 12)
-    async with stage10_session_factory() as seed:
+    async with db_session_factory() as seed:
         seed.add(Department(id=department_id, code=f"S10{suffix}", name=f"S10 {suffix}"))
         await seed.flush()
         seed.add_all(
@@ -98,7 +98,7 @@ async def test_real_close_service_serializes_real_time_entry_update(
                     id=employee_id,
                     code=f"S10{suffix}",
                     fullName="Worker",
-                    department="Stage10",
+                    department="finance",
                     departmentId=department_id,
                 ),
             ]
@@ -128,8 +128,8 @@ async def test_real_close_service_serializes_real_time_entry_update(
         await seed.commit()
 
     context = _context(user_id, "ADMIN", request_id=f"s10-race-edit-{suffix}")
-    periods = PayrollPeriodService(SqlAlchemyUnitOfWorkFactory(stage10_session_factory))
-    timekeeping = TimekeepingService(SqlAlchemyUnitOfWorkFactory(stage10_session_factory))
+    periods = PayrollPeriodService(SqlAlchemyUnitOfWorkFactory(db_session_factory))
+    timekeeping = TimekeepingService(SqlAlchemyUnitOfWorkFactory(db_session_factory))
     lock_acquired, release_close = _pause_period_status_change(monkeypatch)
     closing: asyncio.Task[dict[str, object]] | None = None
     writer: asyncio.Task[dict[str, object]] | None = None
@@ -154,7 +154,7 @@ async def test_real_close_service_serializes_real_time_entry_update(
         with pytest.raises(DomainError) as rejected:
             await asyncio.wait_for(writer, timeout=3)
         assert rejected.value.code == "PERIOD_CLOSED"
-        async with stage10_session_factory() as verify:
+        async with db_session_factory() as verify:
             entry = await verify.get(TimeEntry, entry_id)
             sheet = await verify.scalar(
                 select(Timesheet).where(Timesheet.employeeId == employee_id)
@@ -174,7 +174,7 @@ async def test_real_close_service_serializes_real_time_entry_update(
         await asyncio.gather(
             *(task for task in (closing, writer) if task is not None), return_exceptions=True
         )
-        async with stage10_session_factory() as cleanup:
+        async with db_session_factory() as cleanup:
             await clear_audit_logs_for_test_cleanup(cleanup)
             await cleanup.execute(
                 AuditLog.__table__.delete().where(AuditLog.requestId == context.request_id)
@@ -198,7 +198,7 @@ async def test_real_close_service_serializes_real_time_entry_update(
 
 @pytest.mark.anyio
 async def test_real_close_and_approve_serialize_pending_timesheet_without_partial_audit(
-    stage10_session_factory: async_sessionmaker[AsyncSession],
+    db_session_factory: async_sessionmaker[AsyncSession],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     suffix = uuid4().hex
@@ -211,7 +211,7 @@ async def test_real_close_and_approve_serialize_pending_timesheet_without_partia
     )
     role_id, admin_role_id = f"s10-role-{suffix}", f"s10-admin-role-{suffix}"
     year, month = 2000 + int(suffix[:2], 16) % 101, 1 + int(suffix[2:4], 16) % 12
-    async with stage10_session_factory() as seed:
+    async with db_session_factory() as seed:
         seed.add(Department(id=department_id, code=f"S10{suffix}", name=f"S10 {suffix}"))
         await seed.flush()
         seed.add_all(
@@ -220,14 +220,14 @@ async def test_real_close_and_approve_serialize_pending_timesheet_without_partia
                     id=worker_id,
                     code=f"W{suffix}",
                     fullName="Worker",
-                    department="Stage10",
+                    department="finance",
                     departmentId=department_id,
                 ),
                 Employee(
                     id=head_id,
                     code=f"H{suffix}",
                     fullName="Head",
-                    department="Stage10",
+                    department="finance",
                     departmentId=department_id,
                 ),
             ]
@@ -311,8 +311,8 @@ async def test_real_close_and_approve_serialize_pending_timesheet_without_partia
         request_id=f"s10-approve-{suffix}",
     )
     period_admin = _context(admin_user_id, "ADMIN", request_id=f"s10-close-{suffix}")
-    periods = PayrollPeriodService(SqlAlchemyUnitOfWorkFactory(stage10_session_factory))
-    timekeeping = TimekeepingService(SqlAlchemyUnitOfWorkFactory(stage10_session_factory))
+    periods = PayrollPeriodService(SqlAlchemyUnitOfWorkFactory(db_session_factory))
+    timekeeping = TimekeepingService(SqlAlchemyUnitOfWorkFactory(db_session_factory))
     lock_acquired, release_close = _pause_period_status_change(monkeypatch)
     sheet_id: str | None = None
     try:
@@ -336,7 +336,7 @@ async def test_real_close_and_approve_serialize_pending_timesheet_without_partia
         assert pending.value.code == "PAYROLL_TIMESHEETS_PENDING"
         approved = await asyncio.wait_for(decision, timeout=3)
         assert approved["status"] == "APPROVED"
-        async with stage10_session_factory() as verify:
+        async with db_session_factory() as verify:
             sheet = await verify.get(Timesheet, sheet_id)
             assert sheet is not None and str(sheet.status) == "APPROVED"
             period = await verify.scalar(
@@ -362,7 +362,7 @@ async def test_real_close_and_approve_serialize_pending_timesheet_without_partia
         with pytest.raises(DomainError) as post_close:
             await timekeeping.decide(sheet_id, TimesheetDecisionInput(decision="APPROVE"), reviewer)
         assert post_close.value.code == "PERIOD_CLOSED"
-        async with stage10_session_factory() as verify:
+        async with db_session_factory() as verify:
             sheet = await verify.get(Timesheet, sheet_id)
             approval = await verify.scalar(
                 select(ApprovalRequest).where(
@@ -384,7 +384,7 @@ async def test_real_close_and_approve_serialize_pending_timesheet_without_partia
             assert [item.action for item in audits].count("TIMESHEET_APPROVE") == 1
     finally:
         release_close.set()
-        async with stage10_session_factory() as cleanup:
+        async with db_session_factory() as cleanup:
             await clear_audit_logs_for_test_cleanup(cleanup)
             await cleanup.execute(
                 AuditLog.__table__.delete().where(

@@ -1,4 +1,4 @@
-"""SQLAlchemy persistence for the singleton SMTP settings row."""
+"""Сохранение единственной записи настроек SMTP через SQLAlchemy."""
 
 from collections.abc import Callable
 from typing import Any

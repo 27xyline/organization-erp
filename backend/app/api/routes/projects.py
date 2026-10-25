@@ -1,4 +1,4 @@
-"""Project and member HTTP adapters; payroll remains owned by TypeScript."""
+"""HTTP-адаптеры проектов и участников; расчёт зарплаты остаётся на стороне TypeScript."""
 
 from math import ceil
 from typing import Annotated, Any, Literal

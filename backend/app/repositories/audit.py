@@ -7,7 +7,8 @@ from app.models.users import AuditLog
 
 
 class SqlAlchemyAuditRepository:
-    """Append-only API; global database immutability belongs to the DDL handoff."""
+    """API только для добавления записей; неизменяемость на уровне всей базы данных \
+обеспечивается передачей DDL."""
 
     def __init__(self, session: Callable[[], AsyncSession]) -> None:
         self._session = session
