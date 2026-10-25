@@ -73,7 +73,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      BACKEND_DATABASE_URL: ${BACKEND_DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-project1}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-project1}}
+      BACKEND_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-project1}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-project1}
       BACKEND_ENVIRONMENT: ${BACKEND_ENVIRONMENT:-development}
       BACKEND_BRIDGE_SECRET: ${BACKEND_BRIDGE_SECRET:-}
       BACKEND_INTERNAL_AUTH_SECRET: ${BACKEND_INTERNAL_AUTH_SECRET:-}
@@ -106,7 +106,7 @@ services:
     restart: unless-stopped
     stop_grace_period: 90s
     environment:
-      BACKEND_DATABASE_URL: ${BACKEND_DATABASE_URL:-postgresql+asyncpg://${POSTGRES_USER:-project1}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-project1}}
+      BACKEND_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-project1}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-project1}
       BACKEND_ENVIRONMENT: ${BACKEND_ENVIRONMENT:-development}
       BACKEND_OTEL_ENABLED: ${BACKEND_OTEL_ENABLED:-true}
       BACKEND_OTEL_EXPORTER_OTLP_ENDPOINT: ${BACKEND_OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}

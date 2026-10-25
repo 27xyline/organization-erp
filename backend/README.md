@@ -8,7 +8,7 @@ The backend reads these environment variables:
 
 | Variable | Purpose |
 | --- | --- |
-| `BACKEND_DATABASE_URL` | Async PostgreSQL connection used by the application. Local Compose defaults to the prepared `erp_migration_20261007` copy. |
+| `BACKEND_DATABASE_URL` | Async PostgreSQL connection used by host-run backend commands. Compose `migrate`, backend, and worker all derive their database from `POSTGRES_DB`; they do not accept a separate backend target override. |
 | `BACKEND_TEST_DATABASE_URL` | Separate PostgreSQL database for integration tests, such as `erp_stage01_test`. |
 | `BACKEND_BRIDGE_SECRET` | Private HS256 key used only for short-lived Next.js-to-Python actor tokens; at least 32 bytes. |
 | `BACKEND_INTERNAL_AUTH_SECRET` | Separate private bearer secret used only by Next.js for the internal credential-auth endpoint; at least 32 bytes. |
@@ -19,7 +19,7 @@ The backend reads these environment variables:
 | `BACKEND_OTEL_ENABLED` | Enables OpenTelemetry traces and metrics; Compose defaults to `true`. |
 | `BACKEND_OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP HTTP base endpoint for traces and metrics; defaults to the Compose collector address. |
 
-Keep the backend URLs pointed at the isolated migration/test databases. Do not point them at the original `project1` database. For direct host execution, use `127.0.0.1` and the published PostgreSQL port; inside Compose, use the `postgres` service name.
+Keep host-run backend commands pointed at the isolated migration/test databases. Do not point a host-run backend or rehearsal at the original `project1` database. Compose uses its own PostgreSQL service and shares `POSTGRES_DB` across `migrate`, Next.js, backend, and worker. For direct host execution, use `127.0.0.1` and the published PostgreSQL port; inside Compose, use the `postgres` service name. For an existing Prisma schema, follow the Stage 14A verify-and-stamp handoff before starting the Alembic migration job.
 
 For Stage 14B, `POST /api/auth/login` creates an opaque eight-hour session whose SHA-256 hash alone is persisted. Python checks expiry, revocation, active-user state, and `sessionVersion` on every request. `GET /api/account/me` is the Next.js server and BFF actor source; it is fetched with the incoming cookie and `no-store`. Password, role/scope, and deactivation changes invalidate sessions through the existing `sessionVersion` field. Unsafe browser requests require a signed CSRF cookie/header pair; when `Origin` is present it must match `BACKEND_PUBLIC_ORIGIN`. `BACKEND_BRIDGE_SECRET`, `BACKEND_INTERNAL_AUTH_SECRET`, and `BACKEND_CSRF_SECRET` must be different, at least 32 bytes, and never committed. Missing or invalid auth configuration fails closed.
 

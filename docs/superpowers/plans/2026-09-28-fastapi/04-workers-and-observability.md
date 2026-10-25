@@ -23,9 +23,9 @@
 - [x] Цикл 30 секунд, независимые jobs, graceful SIGTERM/SIGINT; сбой одного job не останавливает другой. Worker не запускается в FastAPI lifespan.
 - [x] Manual processors `/api/notifications/smtp/process` и `/generate-alerts` используют те же Python services/locks, permission `access.users.update`; actor/request ID передаются сервисам.
 - [x] Next BFF routes для `/api/notifications/smtp/process` и `/api/notifications/generate-alerts` переключены на соответствующие Python endpoints; permission, user/sessionVersion и request ID передаются дальше. Focused Vitest — 4 passed.
-- [ ] Production worker stop/drain и rollback rehearsal не выполнялись: локальные ERP контейнеры остановлены, удалённый target не проверялся; active leases и внешняя SMTP-конфигурация неизвестны. TypeScript scheduled-alert worker нельзя запускать параллельно с Python worker.
+- [x] Изолированная проверка последовательной смены worker ownership на disposable DB: Python → TypeScript → Python; каждый процесс завершился по SIGINT с exit 0, outbox/active claims остались пустыми, SMTP не настроен, параллельного запуска не было. In-flight drain дополнительно покрывает `test_shutdown_waits_for_both_in_flight_jobs`. Production target, его active leases/SMTP и rollback не трогались и остаются отдельным pre-cutover gate; TypeScript scheduled-alert worker нельзя запускать параллельно с Python worker.
 - [x] Python worker service добавлен в Compose с command, process healthcheck, backend readiness dependency и `stop_grace_period: 90s`.
-- [ ] Перед runtime activation нужно выровнять migration target: Compose `migrate` использует `POSTGRES_DB=project1`, backend/worker по умолчанию — `erp_migration_20261007`. Прямую зависимость от текущего `migrate` не добавлять, пока Stage14A не определит единый target. Document volume не менялся.
+- [x] Перед runtime activation выровнять migration target: `migrate`, backend и worker в Compose выводят URL из одного `POSTGRES_DB`; backend ждёт успешного `migrate`, worker — healthy backend. Compose игнорирует отдельный `BACKEND_DATABASE_URL` override, который остаётся для host-run команд. Существующие Prisma schemas проходят verify/stamp handoff Stage 14A до Alembic upgrade; миграции на рабочей БД здесь не запускались.
 
 **Проверки:** `uv run pytest tests/unit/outbox tests/integration/outbox tests/integration/test_worker_shutdown.py -q`; реальная PostgreSQL и локальный тестовый SMTP, два worker processes, crash/restart, terminal failure. Unit mock SMTP не заменяет transport smoke test.
 
@@ -43,8 +43,8 @@
 - [x] В logs только технический context, exception messages scrubbed. Labels ограничены route template, method/status, SQL operation, job и outcome.
 - [x] При отключённом Collector API и worker продолжают работать; exporter/shutdown ограничены timeout. Readiness не зависит от мониторинга.
 - [x] Grafana dashboard получает live HTTP/SQL/worker metrics. HTTP error burst и heartbeat loss проверены `promtool test rules`; внешний канал уведомлений не заявлен работающим.
-- [ ] Повторить тот же Stage12 baseline. Доступный Oct 7 source dump в отдельной PG18 DB дал другие row counts, поэтому сравнимый baseline не запускался; Stage13 smoke DB также несопоставима.
+- [x] Повторить reporting measurement тем же Stage12 script, filters и 10 iterations на доступной изолированной БД. Получен новый sample, но counts (`departments=15`, `projects=12`, `assets=15`) отличаются от Stage12 (`17`, `14`, `16`); latency delta не заявляется. Сопоставимый исторический dataset недоступен.
 
 **Проверки:** полный целевой Stage13 набор, `mypy app`, Ruff; `docker compose --profile observability config --quiet`; Collector `validate`, Prometheus config/rules и `promtool test rules`; live метрики прошли Collector → Prometheus → Grafana. Подробности и ограничения — [Stage 13 validation](../../../backend-migration/stage13-validation.md).
 
-**Готово:** фоновые сценарии и observability Python, стек мониторинга существующий. **Учебная пауза:** самостоятельно воспроизвести delayed queue и объяснить метрики, затем команда на 14.
+**Готово:** локальная реализация и acceptance Stage 13; фоновые сценарии и observability используют существующий стек мониторинга. Перед production cutover отдельно требуются target-specific проверка leases/SMTP и rollback rehearsal; сравнимый Stage12 dataset не найден. **Учебная пауза:** самостоятельно воспроизвести delayed queue и объяснить метрики.

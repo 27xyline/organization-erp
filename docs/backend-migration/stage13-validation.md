@@ -39,15 +39,26 @@ Worker/outbox и observability реализованы и проверены из
 
 PostgreSQL тесты запускались только против `erp_stage13_test` в временном PostgreSQL 18.6 Alpine контейнере. Наблюдаемость проверялась отдельным Compose project `stage13-observability`, с временными ports и volumes. После проверок контейнеры, сеть и volumes этого проекта, API/worker smoke containers и disposable PostgreSQL удалены адресно; соседние ERP/CRM контейнеры и volumes не изменялись.
 
-Для runtime smoke использовался Compose service graph с одной явно выровненной БД `erp_stage13_rehearsal`; штатный файл Compose не менялся. В `docker-compose.yml` `migrate` и backend/worker по умолчанию всё ещё выбирают разные БД, поэтому фактическое наблюдение успешного smoke не гарантирует migration ordering в стандартной конфигурации. Кроме того, краткий PG18.6 image override выявил несовместимость с текущим Compose volume target `/var/lib/postgresql/data`; PG18 требует отдельный layout/upgrade. Неудачный временный project и его volumes удалены; основной Compose по-прежнему использует PostgreSQL 15.
+Для первоначального runtime smoke использовался Compose service graph с одной явно выровненной БД `erp_stage13_rehearsal`; на тот момент штатный файл Compose не менялся, а `migrate` и backend/worker выбирали разные БД при явном `.env.example` override. Это исторический снимок до исправления 25 октября ниже. Краткий PG18.6 image override выявил несовместимость с текущим Compose volume target `/var/lib/postgresql/data`; PG18 требует отдельный layout/upgrade. Неудачный временный project и его volumes удалены; основной Compose по-прежнему использует PostgreSQL 15.
 
 Для повтора Stage12 baseline найденный `.runtime/migration-baseline/2026-10-07/source-backup.dump` был восстановлен только в отдельный PostgreSQL 18.6 контейнер `stage13-baseline-pg18` с read-only mount архива; Prisma довёл эту БД до 41 миграции. Получены counts `departments=10, employees=40, staff_schedule=30, salary_entries=240, finance_plan_entries=240, projects=25, tasks=196, assets=120, vacations=14, personnel_actions=10`. Они отличаются от сохранённого Stage12 baseline (`17, 0, 0, 0, 0, 14, 0, 16, 0, 0` соответственно), поэтому latency на этом dump не измерялась как сравнимый baseline. Временный контейнер удалён; исходный архив и остальные контейнеры не менялись.
 
-## Открытые gates
+## Дополнение после возврата к Stage 13 — 25 октября 2026
 
-1. **Production runtime cutover и rollback rehearsal не выполнялись.** Next BFF code уже направляет ручные processors в Python, но целевое окружение не проверено. Перед активацией Python worker нужно подтвердить активные leases и SMTP, остановить TypeScript worker (его scheduled-alert lock не общий с Python), включить один выбранный Python processor и проверить rollback порядок. Реальные письма не отправлялись.
-2. **Compose migration ordering требует отдельного решения.** Текущий Compose `migrate` направлен на `POSTGRES_DB` (по умолчанию `project1`), а backend/worker по умолчанию используют подготовленную копию `erp_migration_20261007`. Worker ждёт backend readiness, но прямую зависимость от `migrate` не добавлял, потому что тот применяет миграции к другой БД. Stage14 migration work должен определить единый безопасный target.
-3. **Stage12 reporting baseline не повторён.** Доступный Oct 7 source dump восстановлен и проверен, но его row counts отличаются от сохранённого Stage12 dataset; он не является сопоставимой копией. Stage13 smoke DB была пустой до тестов. Ускорение не заявляется.
-4. **Внешний alert канал не проверялся.** Prometheus rules валидированы и протестированы локально; доставка через Alertmanager/email не заявлена.
+Локальная приёмка закрыта без подключения к production target:
+
+| Проверка | Результат |
+|---|---|
+| Compose target с `.env.example` | `migrate`, backend и worker используют `postgres/project1`; backend ждёт `service_completed_successfully` от migrate, worker — `service_healthy` от backend. `docker compose --profile observability config --quiet` прошёл. Host-run `BACKEND_DATABASE_URL` оставлен отдельным. |
+| Изолированный worker ownership handoff на `erp_stage13_worker_rehearsal` | Python → SIGINT/exit 0 → TypeScript → SIGINT/exit 0 → Python → SIGINT/exit 0. Процессы не работали одновременно; SMTP не настроен; после smoke outbox=0 и active claims=0. In-flight shutdown также покрыт тестом `test_shutdown_waits_for_both_in_flight_jobs`. |
+| Stage 13 Python regression selection | `30 passed in 3.37s` на выделенной `erp_stage13_test`. |
+| Focused Next BFF Vitest | `2 files, 4 passed`. |
+| Повтор reporting baseline method | Тот же `backend/app/scripts/reporting_baseline.py`, ADMIN scope, 2026 calendar year, null filters, 10 iterations на `erp_stage11_test`: departments=15, projects=12, assets=15; dashboard 13 SQL/iteration, median 4.20 ms; turnover 2 SQL/iteration, median 0.97 ms. Stage12 saved sample был departments=17, projects=14, assets=16; latency delta несопоставим и не заявляется. |
+
+## Оставшиеся deployment/measurement границы
+
+1. **Production runtime cutover и rollback rehearsal не выполнялись.** Target, его active leases и SMTP не проверялись; реальные письма не отправлялись. Перед активацией нужно остановить TypeScript worker, проверить drain/rollback порядок и включить только один scheduled-alert owner. Изолированный последовательный smoke не доказывает production readiness.
+2. **Сопоставимый Stage12 performance delta недоступен.** Метод измерения повторён на имеющемся изолированном dataset, но counts отличаются от сохранённой Stage12 выборки; исходное состояние не синтезировалось.
+3. **Внешний alert канал не проверялся.** Prometheus rules валидированы и протестированы локально; доставка через Alertmanager/email не заявлена.
 
 `next-env.d.ts` содержит пользовательское изменение и исключён из Stage13 коммита.
