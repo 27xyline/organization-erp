@@ -10,6 +10,7 @@ from app.api.dependencies import get_authenticated_context
 from app.api.routes.payroll import get_payroll_service
 from app.core.context import Actor, RequestContext
 from app.domain.auth.rules import AccessContext, ScopeGrant
+from app.integrations.payroll_export import OpenpyxlPayrollWorkbook
 from app.main import create_app
 from app.services.payroll import PayrollService
 
@@ -189,7 +190,10 @@ async def test_payroll_export_routes_keep_binary_headers_and_not_found_contract(
 
 @pytest.mark.anyio
 async def test_payroll_export_requires_scoped_export_permission_before_uow() -> None:
-    service = PayrollService(lambda: pytest.fail("UoW must not open without payroll.export"))
+    service = PayrollService(
+        lambda: pytest.fail("UoW must not open without payroll.export"),
+        OpenpyxlPayrollWorkbook(),
+    )
     access = AccessContext(
         user_id="s10-reader",
         employee_id=None,

@@ -14,6 +14,7 @@ from app.schemas.timekeeping import (
     TimeEntryUpdateInput,
     TimesheetDecisionInput,
 )
+from app.services.dto.timekeeping import TimeEntryUpdateCommand
 from app.services.timekeeping import TimekeepingService
 from app.services.users import json_value
 
@@ -49,7 +50,11 @@ async def create_entry(value: TimeEntryInput, context: Context, service: Service
 async def update_entry(
     entry_id: str, value: TimeEntryUpdateInput, context: Context, service: Service
 ) -> Any:
-    return {"data": json_value(await service.update(entry_id, value, context))}
+    command = TimeEntryUpdateCommand(
+        values=value.model_dump(exclude_unset=True),
+        correctionReason=value.correctionReason,
+    )
+    return {"data": json_value(await service.update(entry_id, command, context))}
 
 
 @router.delete("/time-entries/{entry_id}")

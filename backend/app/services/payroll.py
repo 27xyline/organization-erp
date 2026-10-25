@@ -6,12 +6,12 @@ from decimal import Decimal
 from typing import Any
 
 from app.core.context import RequestContext
+from app.domain.enums import PayrollAdjustmentType
 from app.domain.errors import DomainError
 from app.domain.finance.payroll_calculator import calculate_payroll
 from app.domain.ports.audit import AuditRecord
+from app.domain.ports.payroll_workbooks import PayrollWorkbookPort
 from app.domain.ports.uow import UnitOfWork, UnitOfWorkFactory
-from app.integrations.payroll_export import build_payroll_workbook, build_payslip_workbook
-from app.models.enums import PayrollAdjustmentType
 from app.services.users import authorize
 
 
@@ -42,8 +42,13 @@ def _actor(context: RequestContext, permission: str) -> Any:
 
 
 class PayrollService:
-    def __init__(self, factory: UnitOfWorkFactory[UnitOfWork]) -> None:
+    def __init__(
+        self,
+        factory: UnitOfWorkFactory[UnitOfWork],
+        workbook: PayrollWorkbookPort,
+    ) -> None:
         self._factory = factory
+        self._workbook = workbook
 
     async def get_month(
         self,
@@ -283,7 +288,7 @@ class PayrollService:
         self, year: int, month: int, context: RequestContext
     ) -> tuple[bytes, str]:
         report = await self.get_month(year, month, context, permission="payroll.export")
-        content = await asyncio.to_thread(build_payroll_workbook, year, month, report["rows"])
+        content = await asyncio.to_thread(self._workbook.build_payroll, year, month, report["rows"])
         return content, f"payroll-{year}-{month:02d}.xlsx"
 
     async def export_payslip(
@@ -295,7 +300,7 @@ class PayrollService:
             raise DomainError(
                 "NOT_FOUND", "Сотрудник не найден в расчетной ведомости за этот месяц", 404
             )
-        content = await asyncio.to_thread(build_payslip_workbook, year, month, row)
+        content = await asyncio.to_thread(self._workbook.build_payslip, year, month, row)
         return content, f"payslip-{row['code']}-{year}-{month:02d}.xlsx"
 
     async def create_adjustment(

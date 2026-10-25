@@ -6,13 +6,13 @@ from typing import Any, NoReturn
 
 from app.core.context import RequestContext
 from app.domain.auth.rules import AccessContext
+from app.domain.enums import FinancePlanType
 from app.domain.errors import DomainError
 from app.domain.finance.finance_plan_rules import (
     calculate_budget_adjustments,
     normalize_allocations,
 )
 from app.domain.ports.uow import UnitOfWork, UnitOfWorkFactory
-from app.models.enums import FinancePlanType
 from app.services.users import authorize
 
 CENT = Decimal("0.01")

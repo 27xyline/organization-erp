@@ -1,6 +1,6 @@
 # Stage 14C: отчёт acceptance
 
-Статус: **runtime rehearsal пройдена; полный acceptance пока не закрыт**. Все runtime-проверки сделаны в отдельном disposable Compose project. Полный backend pytest оставляет один архитектурный failure, а переключение маршрутизации обратно на TypeScript в rehearsal не выполнялось. Production не переключался.
+Статус: **приёмочные gates Stage 14C пройдены в отдельном disposable Compose project**. Выполнены DB/document restore, legacy TypeScript route rollback smoke, полный backend pytest и architecture guard. Production не переключался; реальный cutover/rollback остаётся отдельной операцией.
 
 ## Окружение и сохранность данных
 
@@ -35,7 +35,7 @@ Counts TSV и fingerprints сохранены в `/private/tmp/organization-erp-
 
 Создан custom-format dump disposable базы (SHA-256 `1fb0850feae4aa2e242965a9ecc70ca3322dab5e6930f783236759ecbcac74fe`), восстановлен в отдельную `erp_stage14c_rollback`. Restore успешно завершился; в копии — 54 public tables. Копия document volume содержала 70 файлов и полностью совпала с сохранённым post-flow manifest.
 
-На восстановленной БД штатный `@prisma/client` прочитал counts legacy-моделей: `user 13`, `employee 42`, `project 28`, `task 199`, `procurementRequest 37`, `asset 123`, `document 63`, `documentVersion 70`, `timesheet 80`, `payrollPeriod 8`. Это подтверждает schema read compatibility для этих моделей. BFF/runtime назад на TypeScript не переключался; полноценный route rollback остаётся отдельным незакрытым gate. При возвращении к NextAuth сессии Python не переносятся, пользователи должны войти заново.
+На восстановленной БД штатный `@prisma/client` прочитал counts legacy-моделей: `user 13`, `employee 42`, `project 28`, `task 199`, `procurementRequest 37`, `asset 123`, `document 63`, `documentVersion 70`, `timesheet 80`, `payrollPeriod 8`. Изолированный TypeScript snapshot дополнительно обслужил запросы с `127.0.0.1:3302`, подключённый только к `erp_stage14c_rollback` и `rollback-documents`; подробности и проверенные маршруты приведены в [rollback-runbook.md](rollback-runbook.md). При возврате к NextAuth сессии Python не переносятся, пользователи должны войти заново.
 
 ## Кодовые gates
 
@@ -44,8 +44,10 @@ Counts TSV и fingerprints сохранены в `/private/tmp/organization-erp-
 | `npm run lint` | Успех; 0 errors, 89 существующих warnings. `.runtime/**` исключён из lint, поскольку там лежит архивная сборка, а не исходный код |
 | `npm run typecheck` | Успех (`tsc --noEmit`) |
 | Next production build | App image собран успешно в `2026-10-24T21:28:57Z`, после production auth change; после сборки менялись только E2E/config/docs, app source не менялся |
-| Полный backend pytest | `477 passed, 1 failed`; единственный failure — `test_domain_and_core_context_do_not_depend_on_framework_or_infrastructure`, который находит 17 импортов из `services.*` в запрещённые слои. Эти сервисы Stage14C не менял; failure требует отдельного архитектурного решения |
-| Stage10 finance tests | Три первоначальных failure были вызваны остаточными тестовыми строками в `erp_stage10_test`; очищена только эта disposable test-БД, затем целевые тесты прошли `3 passed`. Последний полный pytest после очистки оставил только архитектурный failure |
+| Полный backend pytest | `480 passed`; выполнен после устранения 17 нарушений layering через domain ports/DTO и обратимые совместимые aliases |
+| Architecture guard | Свежий целевой запуск `tests/architecture/test_layers.py`: `11 passed`; нарушений слоёв не осталось |
+| Точечные проверки изменений | Три затронутых integration/health теста: `3 passed`; Ruff прошёл, mypy прошёл для затронутых модулей |
+| Stage10 finance tests | Три первоначальных failure были вызваны остаточными тестовыми строками в `erp_stage10_test`; очищена только эта disposable test-БД, затем целевые тесты прошли `3 passed` |
 
 Полный lint также сначала обошёл архив `.runtime/migration-baseline` и выдал lint errors на собранных JS-файлах. После добавления `.runtime/**` в `eslint.config.mjs` штатный `npm run lint` прошёл без errors.
 
@@ -57,7 +59,7 @@ Counts TSV и fingerprints сохранены в `/private/tmp/organization-erp-
 set -a
 source /path/to/rehearsal.env
 set +a
-export PLAYWRIGHT_BASE_URL='http://127.0.0.1:3301'
+export PLAYWRIGHT_BASE_URL='http://127.0.0.1:3302'
 
 npx playwright test --config=playwright.stage14c.config.ts
 

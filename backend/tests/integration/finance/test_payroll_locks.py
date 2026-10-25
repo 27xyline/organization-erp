@@ -23,9 +23,9 @@ from app.models.users import AuditLog, User, UserRoleAssignment
 from app.repositories.payroll_periods import SqlAlchemyPayrollPeriodRepository
 from app.schemas.timekeeping import (
     SubmitTimesheetInput,
-    TimeEntryUpdateInput,
     TimesheetDecisionInput,
 )
+from app.services.dto.timekeeping import TimeEntryUpdateCommand
 from app.services.finance_periods import PayrollPeriodService
 from app.services.timekeeping import TimekeepingService
 from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
@@ -139,7 +139,10 @@ async def test_real_close_service_serializes_real_time_entry_update(
         writer = asyncio.create_task(
             timekeeping.update(
                 entry_id,
-                TimeEntryUpdateInput(hours=Decimal("3.00"), correctionReason="Approved correction"),
+                TimeEntryUpdateCommand(
+                    values={"hours": Decimal("3.00")},
+                    correctionReason="Approved correction",
+                ),
                 context,
             )
         )

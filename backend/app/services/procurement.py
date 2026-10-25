@@ -9,11 +9,10 @@ from typing import Any, NoReturn, cast
 
 from app.core.context import RequestContext
 from app.domain.documents.records import DocumentFilter
-from app.domain.enums import ApprovalRequestStatus
+from app.domain.enums import ApprovalRequestStatus, ProcurementStatus
 from app.domain.errors import DomainError, PersistenceConflict
 from app.domain.ports.audit import AuditRecord, JsonValue
 from app.domain.ports.uow import UnitOfWork, UnitOfWorkFactory
-from app.models.enums import ProcurementStatus
 from app.services.approvals import create_approval_in_uow
 from app.services.assets import create_asset_in_uow
 from app.services.catalogs import _authorize, _check_actor

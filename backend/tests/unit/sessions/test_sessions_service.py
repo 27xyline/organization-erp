@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 from app.domain.errors import DomainError
+from app.integrations.session_security import SessionTokenManager
 from app.services.sessions import SessionsService
 
 
@@ -53,7 +54,9 @@ class FakeAuth:
 async def test_login_persists_only_hash_with_eight_hour_expiry_and_resolves_actor() -> None:
     now = datetime(2026, 10, 24, tzinfo=UTC).replace(tzinfo=None)
     sessions = FakeSessions()
-    service = SessionsService(lambda: FakeUow(sessions), FakeAuth(), clock=lambda: now)
+    service = SessionsService(
+        lambda: FakeUow(sessions), FakeAuth(), SessionTokenManager(), clock=lambda: now
+    )
 
     result = await service.login("person", "ok")
 
@@ -71,7 +74,9 @@ async def test_login_persists_only_hash_with_eight_hour_expiry_and_resolves_acto
 async def test_expired_or_revoked_sessions_are_rejected() -> None:
     now = datetime(2026, 10, 24, tzinfo=UTC).replace(tzinfo=None)
     sessions = FakeSessions()
-    service = SessionsService(lambda: FakeUow(sessions), FakeAuth(), clock=lambda: now)
+    service = SessionsService(
+        lambda: FakeUow(sessions), FakeAuth(), SessionTokenManager(), clock=lambda: now
+    )
     created = await service.login("person", "ok")
     assert created is not None
     token = created[1]
@@ -84,7 +89,10 @@ async def test_expired_or_revoked_sessions_are_rejected() -> None:
     assert created is not None
     expired_token = created[1]
     old_service = SessionsService(
-        lambda: FakeUow(sessions), FakeAuth(), clock=lambda: now + timedelta(hours=9)
+        lambda: FakeUow(sessions),
+        FakeAuth(),
+        SessionTokenManager(),
+        clock=lambda: now + timedelta(hours=9),
     )
     with pytest.raises(DomainError, match="Требуется вход"):
         await old_service.resolve(expired_token)
@@ -94,7 +102,9 @@ async def test_expired_or_revoked_sessions_are_rejected() -> None:
 async def test_each_successful_login_mints_a_new_non_fixated_session_token() -> None:
     now = datetime(2026, 10, 24, tzinfo=UTC).replace(tzinfo=None)
     sessions = FakeSessions()
-    service = SessionsService(lambda: FakeUow(sessions), FakeAuth(), clock=lambda: now)
+    service = SessionsService(
+        lambda: FakeUow(sessions), FakeAuth(), SessionTokenManager(), clock=lambda: now
+    )
 
     first = await service.login("person", "ok")
     second = await service.login("person", "ok")

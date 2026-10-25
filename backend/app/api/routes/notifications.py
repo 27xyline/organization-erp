@@ -12,6 +12,10 @@ from app.core.context import RequestContext
 from app.core.tracing import trace_async_operation
 from app.domain.errors import DomainError
 from app.integrations.outbox_email import SmtpOutboxSender
+from app.repositories.scheduled_alerts import (
+    SqlAlchemyScheduledAlertLock,
+    SqlAlchemyScheduledAlertQueries,
+)
 from app.schemas.notifications import (
     NotificationPreferencesInput,
     NotificationQueryInput,
@@ -169,9 +173,9 @@ async def generate_alerts(request: Request, context: Context) -> Any:
     authorize(context.actor, "access.users.update")
     generation_context = ScheduledAlertContext(
         request=context,
-        engine=request.app.state.engine,
+        run_lock=SqlAlchemyScheduledAlertLock(request.app.state.engine),
+        queries=SqlAlchemyScheduledAlertQueries(request.app.state.session_factory),
         uow_factory=request.app.state.unit_of_work_factory,
-        session_factory=request.app.state.session_factory,
     )
     async with trace_async_operation(request.app.state.tracer, "service.scheduled_alerts.generate"):
         result = await run_scheduled_alerts(generation_context, force=True)

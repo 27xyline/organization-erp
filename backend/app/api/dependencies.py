@@ -17,9 +17,10 @@ from app.integrations.auth_bridge import verify_bridge
 from app.integrations.exports import DashboardExportRenderer
 from app.integrations.my_actions import SqlAlchemyMyActionsGateway
 from app.integrations.password_hash import Argon2PasswordHasher
+from app.integrations.payroll_export import OpenpyxlPayrollWorkbook
 from app.integrations.reporting import SqlAlchemyReportingGateway
 from app.integrations.search import SqlAlchemySearchGateway
-from app.integrations.session_security import SESSION_COOKIE_NAME
+from app.integrations.session_security import SESSION_COOKIE_NAME, SessionTokenManager
 from app.services.asset_export import AssetExportService
 from app.services.asset_import import AssetImportService
 from app.services.auth import AuthService
@@ -46,7 +47,7 @@ def get_auth_service(request: Request) -> AuthService:
 def get_sessions_service(
     request: Request, auth: Annotated[AuthService, Depends(get_auth_service)]
 ) -> SessionsService:
-    return SessionsService(request.app.state.unit_of_work_factory, auth)
+    return SessionsService(request.app.state.unit_of_work_factory, auth, SessionTokenManager())
 
 
 def get_user_service(request: Request) -> UserService:
@@ -105,7 +106,7 @@ def get_payroll_period_service(request: Request) -> PayrollPeriodService:
 
 
 def get_payroll_service(request: Request) -> PayrollService:
-    return PayrollService(request.app.state.unit_of_work_factory)
+    return PayrollService(request.app.state.unit_of_work_factory, OpenpyxlPayrollWorkbook())
 
 
 def get_workforce_service(request: Request) -> WorkforceService:

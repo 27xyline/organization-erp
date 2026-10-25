@@ -41,3 +41,41 @@ class DocumentStatus(StrEnum):
     APPROVED = "APPROVED"
     SIGNED = "SIGNED"
     ARCHIVED = "ARCHIVED"
+
+
+class ProcurementStatus(StrEnum):
+    DRAFT = "DRAFT"
+    SUBMITTED = "SUBMITTED"
+    APPROVED = "APPROVED"
+    CONTRACTED = "CONTRACTED"
+    PARTIALLY_DELIVERED = "PARTIALLY_DELIVERED"
+    DELIVERED = "DELIVERED"
+    CAPITALIZED = "CAPITALIZED"
+    REJECTED = "REJECTED"
+    CANCELLED = "CANCELLED"
+
+
+class TimeEntryType(StrEnum):
+    REGULAR = "REGULAR"
+    VACATION = "VACATION"
+    SICK_LEAVE = "SICK_LEAVE"
+    BUSINESS_TRIP = "BUSINESS_TRIP"
+    OVERTIME = "OVERTIME"
+
+
+class TimesheetStatus(StrEnum):
+    DRAFT = "DRAFT"
+    SUBMITTED = "SUBMITTED"
+    APPROVED = "APPROVED"
+    RETURNED = "RETURNED"
+
+
+class PayrollAdjustmentType(StrEnum):
+    BONUS = "BONUS"
+    ONE_TIME = "ONE_TIME"
+    DEDUCTION = "DEDUCTION"
+
+
+class FinancePlanType(StrEnum):
+    OKLAD = "OKLAD"
+    NADBAVKA = "NADBAVKA"

@@ -6,22 +6,13 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
-
 from app.core.context import RequestContext
+from app.domain.ports.scheduled_alerts import ScheduledAlertQueries, ScheduledAlertRunPort
 from app.domain.ports.uow import UnitOfWork, UnitOfWorkFactory
-from app.repositories.scheduled_alerts import SqlAlchemyScheduledAlertLock
+from app.services.dto.scheduled_alerts import AlertResult
 
 HOUR = timedelta(hours=1)
 RETRY_GAP = timedelta(minutes=5)
-
-
-@dataclass(frozen=True, slots=True)
-class AlertResult:
-    ran: bool
-    generated: int = 0
-    email_queued: int = 0
-    sources: dict[str, int] | None = None
 
 
 AlertGenerator = Callable[[datetime, RequestContext], Awaitable[AlertResult]]
@@ -30,9 +21,9 @@ AlertGenerator = Callable[[datetime, RequestContext], Awaitable[AlertResult]]
 @dataclass(frozen=True, slots=True)
 class ScheduledAlertContext:
     request: RequestContext
-    engine: AsyncEngine
+    run_lock: ScheduledAlertRunPort
+    queries: ScheduledAlertQueries
     uow_factory: UnitOfWorkFactory[UnitOfWork]
-    session_factory: async_sessionmaker[AsyncSession]
     generator: AlertGenerator | None = None
 
 
@@ -57,7 +48,7 @@ async def run_scheduled_alerts(
     now: datetime | None = None,
 ) -> AlertResult:
     timestamp = now or datetime.now(UTC).replace(tzinfo=None)
-    lock = SqlAlchemyScheduledAlertLock(context.engine)
+    lock = context.run_lock
     async with lock.hold() as connection:
         if connection is None:
             return AlertResult(ran=False, sources={})
@@ -81,7 +72,7 @@ async def run_scheduled_alerts(
 
 async def generate_scheduled_alerts(
     uow_factory: UnitOfWorkFactory[UnitOfWork],
-    session_factory: async_sessionmaker[AsyncSession],
+    queries: ScheduledAlertQueries,
     now: datetime,
     context: RequestContext,
 ) -> AlertResult:
@@ -89,7 +80,7 @@ async def generate_scheduled_alerts(
     # Implemented in a separate collector so the scheduler owns only the lock lifecycle.
     from app.services.scheduled_alert_generation import collect_scheduled_alerts
 
-    return await collect_scheduled_alerts(uow_factory, session_factory, now, context)
+    return await collect_scheduled_alerts(uow_factory, queries, now, context)
 
 
 def _resolve_generator(context: ScheduledAlertContext) -> AlertGenerator:
@@ -97,8 +88,6 @@ def _resolve_generator(context: ScheduledAlertContext) -> AlertGenerator:
         return context.generator
 
     async def generate(now: datetime, request: RequestContext) -> AlertResult:
-        return await generate_scheduled_alerts(
-            context.uow_factory, context.session_factory, now, request
-        )
+        return await generate_scheduled_alerts(context.uow_factory, context.queries, now, request)
 
     return generate

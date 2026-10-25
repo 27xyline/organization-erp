@@ -62,10 +62,10 @@
 - [x] В rehearsal включить maintenance fence и проверить unsafe writes, дождаться отсутствия запросов/worker claims, выполнить migration/backend/session smoke. Зафиксировать требование нового входа после возврата с Python session на NextAuth.
 - [x] Пройти полный сценарий: сотрудник → проект → задача → закупка → approval → доставка → asset → документ; табель → approval → payroll → close; exports и уведомления; ADMIN и scoped роли.
 - [x] Проверить DB counts/audit/outbox/document SHA и ownership после перезапуска, а не только HTTP 200.
-- [ ] Завершить routing rollback на схеме, которую TS умеет читать. DB и document volume восстановлены в отдельную копию, Prisma read smoke прошёл; сам BFF/runtime обратно на TS не переключали. После новых migrations понадобится совместимый down/forward fix либо restore в maintenance с явно описанной потерей данных после backup. Не обещать универсальный откат одним env flag.
+- [x] Завершить routing rollback rehearsal на схеме, которую TS умеет читать: legacy TS snapshot `d29003d8adb9` обслужил локальный app entrypoint `127.0.0.1:3302`, подключённый к восстановленным `erp_stage14c_rollback` и `rollback-documents`. NextAuth login, ADMIN read/create/delete, document list/download и scoped asset read/write прошли; out-of-scope read/write запрещены. Это подтверждает проверенные маршруты на копии, но не является production rollback или обещанием универсального env-флага. После новых migrations понадобится совместимый down/forward fix либо restore в maintenance с явно описанной потерей данных после backup.
 - [x] Результат содержит команды, фактические результаты, известные ограничения, schema compatibility и обновлённый перечень владельцев. Рабочее окружение переключается отдельной порученной операцией после готовой репетиции.
 
-**Проверки:** frontend lint/typecheck/build, полный cross-module Playwright, Compose/metrics и DB/data integrity прошли. Полный backend pytest: `477 passed, 1 failed` (17 архитектурных зависимостей в существующем `services.*`). DB/document restore и Prisma read smoke прошли; полноценный routing rollback остаётся gate.
+**Проверки:** frontend lint/typecheck/build, полный backend pytest (`480 passed`), architecture guard (`11 passed`), полный cross-module Playwright, Compose/metrics, DB/data integrity, DB/document restore, Prisma read smoke и изолированная legacy TypeScript route rollback rehearsal прошли.
 
 **Пауза:** пользователь проходит сценарий сам и изучает runbook. Удаление legacy кода — только после успешной репетиции.
 

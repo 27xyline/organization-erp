@@ -26,9 +26,9 @@ from app.repositories.timekeeping import SqlAlchemyTimekeepingRepository
 from app.schemas.timekeeping import (
     SubmitTimesheetInput,
     TimeEntryInput,
-    TimeEntryUpdateInput,
     TimesheetDecisionInput,
 )
+from app.services.dto.timekeeping import TimeEntryUpdateCommand
 from app.services.timekeeping import TimekeepingService
 from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
 
@@ -838,7 +838,7 @@ async def test_time_entry_update_waits_for_period_lock_then_rejects_closed_perio
             writer = asyncio.create_task(
                 TimekeepingService(SqlAlchemyUnitOfWorkFactory(stage10_session_factory)).update(
                     entry_id,
-                    TimeEntryUpdateInput(hours=Decimal("3.00")),
+                        TimeEntryUpdateCommand(values={"hours": Decimal("3.00")}),
                     RequestContext(
                         request_id=f"s10-update-{suffix}",
                         actor=Actor(
@@ -977,7 +977,7 @@ async def test_corrected_entry_update_and_delete_reset_approved_timesheet(
         service = TimekeepingService(SqlAlchemyUnitOfWorkFactory(stage10_session_factory))
         await service.update(
             entry_id,
-            TimeEntryUpdateInput(hours=Decimal("3.00"), correctionReason="Fix hours"),
+            TimeEntryUpdateCommand(values={"hours": Decimal("3.00")}, correctionReason="Fix hours"),
             context,
         )
         async with stage10_session_factory() as after_update:

@@ -2,19 +2,15 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
 from datetime import date, datetime, time, timedelta
 from typing import Any
 
-from sqlalchemy import text
-from sqlalchemy.engine import RowMapping
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
-
 from app.core.context import RequestContext
 from app.domain.ports.notifications import NotificationIntent
+from app.domain.ports.scheduled_alerts import ScheduledAlertQueries
 from app.domain.ports.uow import UnitOfWork, UnitOfWorkFactory
+from app.services.dto.scheduled_alerts import AlertResult
 from app.services.notification_intents import publish
-from app.services.scheduled_alerts import AlertResult
 
 
 def _date_key(value: date | datetime) -> str:
@@ -25,40 +21,9 @@ def _date_label(value: date | datetime) -> str:
     return value.strftime("%d.%m.%Y")
 
 
-async def _query(
-    session_factory: async_sessionmaker[AsyncSession], sql: str, **params: Any
-) -> Sequence[RowMapping]:
-    async with session_factory() as session:
-        return (await session.execute(text(sql), params)).mappings().all()
-
-
-async def _scoped_users(
-    session_factory: async_sessionmaker[AsyncSession],
-    role: str,
-    scope_kind: str,
-    scope_id: str,
-) -> tuple[str, ...]:
-    if scope_kind == "department":
-        sql = """SELECT DISTINCT u."id" FROM "users" u
-          JOIN "user_role_assignments" a ON a."userId" = u."id"
-          LEFT JOIN "user_department_scopes" s ON s."roleAssignmentId" = a."id"
-          WHERE u."isActive" AND a."role" IN ('ADMIN', :role)
-            AND (a."departmentScopeMode" = 'ALL' OR
-              (a."departmentScopeMode" = 'ASSIGNED' AND s."departmentId" = :scope_id))"""
-    else:
-        sql = """SELECT DISTINCT u."id" FROM "users" u
-          JOIN "user_role_assignments" a ON a."userId" = u."id"
-          LEFT JOIN "user_project_scopes" s ON s."roleAssignmentId" = a."id"
-          WHERE u."isActive" AND a."role" IN ('ADMIN', :role)
-            AND (a."projectScopeMode" = 'ALL' OR
-              (a."projectScopeMode" = 'ASSIGNED' AND s."projectId" = :scope_id))"""
-    rows = await _query(session_factory, sql, role=role, scope_id=scope_id)
-    return tuple(sorted(str(row["id"]) for row in rows))
-
-
 async def collect_scheduled_alerts(
     uow_factory: UnitOfWorkFactory[UnitOfWork],
-    session_factory: async_sessionmaker[AsyncSession],
+    queries: ScheduledAlertQueries,
     now: datetime,
     context: RequestContext,
 ) -> AlertResult:
@@ -68,15 +33,7 @@ async def collect_scheduled_alerts(
     start_30 = day_start - timedelta(days=30)
     alerts: list[dict[str, Any]] = []
 
-    rows = await _query(
-        session_factory,
-        """SELECT e."id", e."fullName", e."contractEndDate", u."id" AS "userId"
-      FROM "employees" e JOIN "users" u ON u."employeeId" = e."id"
-      WHERE e."status" <> 'DISMISSED' AND u."isActive"
-        AND e."contractEndDate" >= :start_day AND e."contractEndDate" <= :end_30""",
-        start_day=day_start,
-        end_30=end_30,
-    )
+    rows = await queries.contracts(day_start, end_30)
     for row in rows:
         due = row["contractEndDate"]
         alerts.append(
@@ -93,15 +50,7 @@ async def collect_scheduled_alerts(
             )
         )
 
-    rows = await _query(
-        session_factory,
-        """SELECT t."id", t."name", t."endDate", t."projectId", u."id" AS "userId"
-      FROM "tasks" t JOIN "task_assignees" ta ON ta."taskId" = t."id"
-      JOIN "employees" e ON e."id" = ta."employeeId"
-      JOIN "users" u ON u."employeeId" = e."id" AND u."isActive"
-      WHERE t."endDate" < :start_day AND t."status" <> 'COMPLETED' """,
-        start_day=day_start,
-    )
+    rows = await queries.overdue_tasks(day_start)
     for row in rows:
         due = row["endDate"]
         alerts.append(
@@ -118,18 +67,10 @@ async def collect_scheduled_alerts(
             )
         )
 
-    rows = await _query(
-        session_factory,
-        """SELECT a."id", a."name", a."inventoryNumber", a."plannedDisposalDate", m."departmentId"
-      FROM "assets" a JOIN "mols" m ON m."id" = a."molId"
-      WHERE NOT a."isArchived" AND a."plannedDisposalDate" >= :start_day
-        AND a."plannedDisposalDate" <= :end_30""",
-        start_day=day_start,
-        end_30=end_30,
-    )
+    rows = await queries.assets_for_disposal(day_start, end_30)
     for row in rows:
-        recipients = await _scoped_users(
-            session_factory, "ASSET_CUSTODIAN", "department", row["departmentId"]
+        recipients = await queries.users_in_scope(
+            "ASSET_CUSTODIAN", "department", row["departmentId"]
         )
         alerts.append(
             _alert(
@@ -145,14 +86,9 @@ async def collect_scheduled_alerts(
             )
         )
 
-    rows = await _query(
-        session_factory,
-        '''SELECT p."id", p."code", p."name", p."updatedAt"
-      FROM "projects" p WHERE p."status" = 'ACTIVE' AND p."plannedBudget" > 0
-        AND p."actualBudget" > p."plannedBudget"''',
-    )
+    rows = await queries.over_budget_projects()
     for row in rows:
-        recipients = await _scoped_users(session_factory, "PROJECT_MANAGER", "project", row["id"])
+        recipients = await queries.users_in_scope("PROJECT_MANAGER", "project", row["id"])
         alerts.append(
             _alert(
                 "budgets",
@@ -167,20 +103,10 @@ async def collect_scheduled_alerts(
             )
         )
 
-    rows = await _query(
-        session_factory,
-        """SELECT am."id", am."title", am."scheduledDate", a."id" AS "assetId",
-      a."name" AS "assetName", a."inventoryNumber", m."departmentId"
-      FROM "asset_maintenance" am JOIN "assets" a ON a."id" = am."assetId"
-      JOIN "mols" m ON m."id" = a."molId"
-      WHERE am."status" IN ('PLANNED', 'IN_PROGRESS') AND NOT a."isArchived"
-        AND am."scheduledDate" >= :start_30 AND am."scheduledDate" <= :end_30""",
-        start_30=start_30,
-        end_30=end_30,
-    )
+    rows = await queries.maintenance(start_30, end_30)
     for row in rows:
-        recipients = await _scoped_users(
-            session_factory, "ASSET_CUSTODIAN", "department", row["departmentId"]
+        recipients = await queries.users_in_scope(
+            "ASSET_CUSTODIAN", "department", row["departmentId"]
         )
         overdue = row["scheduledDate"] < day_start.date()
         title = (
@@ -202,14 +128,7 @@ async def collect_scheduled_alerts(
             )
         )
 
-    rows = await _query(
-        session_factory,
-        '''SELECT s."id", s."approverId", s."dueDate", r."id" AS "requestId",
-      r."title" AS "requestTitle" FROM "approval_steps" s
-      JOIN "approval_requests" r ON r."id" = s."requestId"
-      WHERE s."status" = 'PENDING' AND s."dueDate" <= :end_1 AND NOT s."reminderSent"''',
-        end_1=end_1,
-    )
+    rows = await queries.approval_reminders(end_1)
     for row in rows:
         due = _date_label(row["dueDate"]) if row["dueDate"] else ""
         reminder_body = (
@@ -261,16 +180,7 @@ async def collect_scheduled_alerts(
             )
             await uow.commit()
         if step_id := alert.get("after_publish_id"):
-            async with session_factory() as session:
-                await session.execute(
-                    text(
-                        'UPDATE "approval_steps" SET "reminderSent" = true '
-                        'WHERE "id" = :id AND "status" = \'PENDING\' '
-                        'AND NOT "reminderSent"'
-                    ),
-                    {"id": step_id},
-                )
-                await session.commit()
+            await queries.mark_approval_reminder_sent(step_id)
         counts[alert["source"]] = counts.get(alert["source"], 0) + result["created"]
         generated += result["created"]
         email_queued += result["emailQueued"]

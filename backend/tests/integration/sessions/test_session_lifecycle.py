@@ -3,6 +3,7 @@ import pytest
 from sqlalchemy import select
 
 from app.domain.errors import DomainError
+from app.integrations.session_security import SessionTokenManager
 from app.models.sessions import UserSession
 from app.services.auth import utc_now
 from app.services.sessions import SessionsService
@@ -11,7 +12,7 @@ from app.services.sessions import SessionsService
 @pytest.mark.anyio
 async def test_session_persists_only_hash_and_logout_revokes_it(auth_env):
     user_id = await auth_env["seed"]()
-    service = SessionsService(auth_env["factory"], auth_env["auth"])
+    service = SessionsService(auth_env["factory"], auth_env["auth"], SessionTokenManager())
 
     login = await service.login(user_id, "Stage03-password!")
     assert login is not None
@@ -38,7 +39,7 @@ async def test_session_persists_only_hash_and_logout_revokes_it(auth_env):
 @pytest.mark.anyio
 async def test_password_change_invalidates_every_existing_session(auth_env):
     user_id = await auth_env["seed"]()
-    service = SessionsService(auth_env["factory"], auth_env["auth"])
+    service = SessionsService(auth_env["factory"], auth_env["auth"], SessionTokenManager())
     first = await service.login(user_id, "Stage03-password!")
     second = await service.login(user_id, "Stage03-password!")
     assert first is not None and second is not None
@@ -59,7 +60,7 @@ async def test_password_change_invalidates_every_existing_session(auth_env):
 
 @pytest.mark.anyio
 async def test_inactive_and_forced_password_users_are_resolved_by_python(auth_env):
-    service = SessionsService(auth_env["factory"], auth_env["auth"])
+    service = SessionsService(auth_env["factory"], auth_env["auth"], SessionTokenManager())
     forced_id = await auth_env["seed"](forced=True)
     forced = await service.login(forced_id, "Stage03-password!")
     assert forced is not None
@@ -84,7 +85,7 @@ async def test_role_assignment_change_invalidates_an_existing_session(auth_env):
     admin_id = await auth_env["seed"]()
     subject_id = await auth_env["seed"]()
     admin = await auth_env["auth"].resolve_actor(admin_id, 1)
-    service = SessionsService(auth_env["factory"], auth_env["auth"])
+    service = SessionsService(auth_env["factory"], auth_env["auth"], SessionTokenManager())
     login = await service.login(subject_id, "Stage03-password!")
     assert login is not None
 

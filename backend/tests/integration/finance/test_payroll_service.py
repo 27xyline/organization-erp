@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.context import Actor, RequestContext
 from app.db.uow import SqlAlchemyUnitOfWorkFactory
 from app.domain.auth.rules import AccessContext, ScopeGrant
+from app.integrations.payroll_export import OpenpyxlPayrollWorkbook
 from app.models.departments import Department
 from app.models.employees import Employee
 from app.models.enums import EmployeeStatus, FinancePlanType, PayrollAdjustmentType
@@ -196,7 +197,9 @@ async def test_payroll_month_matches_legacy_golden_fields_and_numbers(
         )
         await seed.commit()
 
-    service = PayrollService(SqlAlchemyUnitOfWorkFactory(stage10_session_factory))
+    service = PayrollService(
+        SqlAlchemyUnitOfWorkFactory(stage10_session_factory), OpenpyxlPayrollWorkbook()
+    )
     try:
         result = await service.get_month(
             year,
@@ -395,7 +398,9 @@ async def test_adjustment_create_and_delete_use_open_period_and_write_audit(
         )
         await seed.commit()
     context = _context(user_id, f"s10-adjustment-{suffix}")
-    service = PayrollService(SqlAlchemyUnitOfWorkFactory(stage10_session_factory))
+    service = PayrollService(
+        SqlAlchemyUnitOfWorkFactory(stage10_session_factory), OpenpyxlPayrollWorkbook()
+    )
     adjustment_id: str | None = None
     try:
         created = await service.create_adjustment(
@@ -477,7 +482,9 @@ async def test_payroll_month_returns_legacy_scalar_fields_for_existing_period(
         seed.add(PayrollPeriod(id=period_id, year=year, month=month, status="OPEN"))
         await seed.commit()
 
-    service = PayrollService(SqlAlchemyUnitOfWorkFactory(stage10_session_factory))
+    service = PayrollService(
+        SqlAlchemyUnitOfWorkFactory(stage10_session_factory), OpenpyxlPayrollWorkbook()
+    )
     try:
         result = await service.get_month(
             year, month, _context(f"s10-user-{suffix}", f"s10-period-contract-{suffix}")

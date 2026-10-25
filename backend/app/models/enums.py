@@ -9,6 +9,11 @@ ApprovalStepStatus = domain_enums.ApprovalStepStatus
 DocumentStatus = domain_enums.DocumentStatus
 NotificationChannel = domain_enums.NotificationChannel
 NotificationEventType = domain_enums.NotificationEventType
+FinancePlanType = domain_enums.FinancePlanType
+PayrollAdjustmentType = domain_enums.PayrollAdjustmentType
+ProcurementStatus = domain_enums.ProcurementStatus
+TimeEntryType = domain_enums.TimeEntryType
+TimesheetStatus = domain_enums.TimesheetStatus
 
 
 class AssetStatus(StrEnum):
@@ -84,18 +89,6 @@ class ProjectStatus(StrEnum):
     ARCHIVED = "ARCHIVED"
 
 
-class ProcurementStatus(StrEnum):
-    DRAFT = "DRAFT"
-    SUBMITTED = "SUBMITTED"
-    APPROVED = "APPROVED"
-    CONTRACTED = "CONTRACTED"
-    PARTIALLY_DELIVERED = "PARTIALLY_DELIVERED"
-    DELIVERED = "DELIVERED"
-    CAPITALIZED = "CAPITALIZED"
-    REJECTED = "REJECTED"
-    CANCELLED = "CANCELLED"
-
-
 class TaskStatus(StrEnum):
     NOT_STARTED = "NOT_STARTED"
     IN_PROGRESS = "IN_PROGRESS"
@@ -129,35 +122,9 @@ class EmploymentContractType(StrEnum):
     EXTERNAL = "EXTERNAL"
 
 
-class TimeEntryType(StrEnum):
-    REGULAR = "REGULAR"
-    VACATION = "VACATION"
-    SICK_LEAVE = "SICK_LEAVE"
-    BUSINESS_TRIP = "BUSINESS_TRIP"
-    OVERTIME = "OVERTIME"
-
-
-class TimesheetStatus(StrEnum):
-    DRAFT = "DRAFT"
-    SUBMITTED = "SUBMITTED"
-    APPROVED = "APPROVED"
-    RETURNED = "RETURNED"
-
-
-class PayrollAdjustmentType(StrEnum):
-    BONUS = "BONUS"
-    ONE_TIME = "ONE_TIME"
-    DEDUCTION = "DEDUCTION"
-
-
 class PayrollPeriodStatus(StrEnum):
     OPEN = "OPEN"
     CLOSED = "CLOSED"
-
-
-class FinancePlanType(StrEnum):
-    OKLAD = "OKLAD"
-    NADBAVKA = "NADBAVKA"
 
 
 class PersonnelActionType(StrEnum):

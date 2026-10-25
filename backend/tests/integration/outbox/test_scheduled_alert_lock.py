@@ -8,6 +8,10 @@ from sqlalchemy import text
 
 from app.core.context import RequestContext
 from app.db.uow import create_unit_of_work_factory
+from app.repositories.scheduled_alerts import (
+    SqlAlchemyScheduledAlertLock,
+    SqlAlchemyScheduledAlertQueries,
+)
 from app.services.scheduled_alerts import (
     AlertResult,
     ScheduledAlertContext,
@@ -31,11 +35,11 @@ async def test_concurrent_workers_generate_alerts_once(db_engine, db_session_fac
 
     context = RequestContext(request_id="scheduled-alert-lock-test")
     generation_context = ScheduledAlertContext(
-        context,
-        db_engine,
-        create_unit_of_work_factory(db_session_factory),
-        db_session_factory,
-        generate,
+        request=context,
+        run_lock=SqlAlchemyScheduledAlertLock(db_engine),
+        queries=SqlAlchemyScheduledAlertQueries(db_session_factory),
+        uow_factory=create_unit_of_work_factory(db_session_factory),
+        generator=generate,
     )
     try:
         first, second = await asyncio.gather(

@@ -6,23 +6,23 @@ from typing import Any, NoReturn
 
 from app.core.context import RequestContext
 from app.domain.auth.rules import AccessContext
+from app.domain.enums import TimeEntryType, TimesheetStatus
 from app.domain.errors import DomainError
 from app.domain.ports.audit import AuditRecord
 from app.domain.ports.uow import UnitOfWork, UnitOfWorkFactory
 from app.domain.timekeeping.labor_calculator import calculate_labor_amounts, standard_monthly_hours
 from app.domain.timekeeping.rules import payroll_period_keys, validate_daily_hours
-from app.models.enums import TimeEntryType, TimesheetStatus
-from app.schemas.timekeeping import (
-    SubmitTimesheetInput,
-    TimeEntryInput,
-    TimeEntryUpdateInput,
-    TimesheetDecisionInput,
-)
 from app.services.approvals import create_approval_in_uow, decide_approval_in_uow
 from app.services.dto.approvals import (
     ApprovalCommand,
     ApprovalDecisionCommand,
     ApprovalStepCommand,
+)
+from app.services.dto.timekeeping import (
+    SubmitTimesheetCommand,
+    TimeEntryCommand,
+    TimeEntryUpdateCommand,
+    TimesheetDecisionCommand,
 )
 from app.services.employees import authorize
 
@@ -334,7 +334,7 @@ class TimekeepingService:
             sheet.id,
         )
 
-    async def create(self, value: TimeEntryInput, context: RequestContext) -> dict[str, Any]:
+    async def create(self, value: TimeEntryCommand, context: RequestContext) -> dict[str, Any]:
         actor = context.actor
         assert actor is not None and actor.access is not None
         authorize(actor, "timekeeping.create")
@@ -391,12 +391,12 @@ class TimekeepingService:
             return _entry_values(row)
 
     async def update(
-        self, identifier: str, value: TimeEntryUpdateInput, context: RequestContext
+        self, identifier: str, value: TimeEntryUpdateCommand, context: RequestContext
     ) -> dict[str, Any]:
         actor = context.actor
         assert actor is not None and actor.access is not None
         authorize(actor, "timekeeping.update")
-        changes = value.model_dump(exclude_unset=True, exclude={"correctionReason"})
+        changes = {key: item for key, item in value.values.items() if key != "correctionReason"}
         async with self._factory() as uow:
             await uow.payroll_input_lock.lock_shared()
             row = await uow.timekeeping.get_entry(identifier, for_update=True)
@@ -505,7 +505,9 @@ class TimekeepingService:
             )
             await uow.commit()
 
-    async def submit(self, value: SubmitTimesheetInput, context: RequestContext) -> dict[str, Any]:
+    async def submit(
+        self, value: SubmitTimesheetCommand, context: RequestContext
+    ) -> dict[str, Any]:
         actor = context.actor
         assert actor is not None and actor.access is not None
         authorize(actor, "timekeeping.timesheets.submit", {"employeeId": value.employeeId})
@@ -594,7 +596,7 @@ class TimekeepingService:
             }
 
     async def decide(
-        self, identifier: str, value: TimesheetDecisionInput, context: RequestContext
+        self, identifier: str, value: TimesheetDecisionCommand, context: RequestContext
     ) -> dict[str, Any]:
         actor = context.actor
         assert actor is not None and actor.access is not None

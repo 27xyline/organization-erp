@@ -1,10 +1,10 @@
 # Stage 14C: rehearsal переключения
 
-Статус: **runtime rehearsal выполнена в disposable окружении; полный acceptance ожидает решения по оставшимся gates**. Полный Playwright и restart verification прошли; backend pytest оставляет один architecture guard failure. Документ не разрешает production cutover.
+Статус: **приёмочные gates Stage 14C пройдены в disposable окружении**. Полный Playwright, restart verification, backend pytest, architecture guard, DB/document restore и TypeScript route rollback smoke прошли. Документ не разрешает production cutover.
 
 ## Изоляция и baseline
 
-Использовать только Compose project `org-erp-stage14c-rehearsal-20261024`, БД `erp_stage14c_e2e` на опубликованном `127.0.0.1:55442`, приложение `127.0.0.1:3301` и отдельный disposable document volume. Не подключать `project1` и не монтировать внешние volumes. PostgreSQL image — `postgres:18.6-alpine`; PG18 volume target — `/var/lib/postgresql`.
+Использовать только Compose project `org-erp-stage14c-rehearsal-20261024`, БД `erp_stage14c_e2e` на опубликованном `127.0.0.1:55442`, приложение `127.0.0.1:3302` и отдельный disposable document volume. Не подключать `project1` и не монтировать внешние volumes. PostgreSQL image — `postgres:18.6-alpine`; PG18 volume target — `/var/lib/postgresql`.
 
 Перед восстановлением сохранить fingerprint БД (версию PostgreSQL, `alembic_version`, число `_prisma_migrations`, row count каждой таблицы, ключевые FK-связи, агрегаты payroll/procurement/assets, audit и outbox) и document volume (relative path, size, SHA-256 каждого файла, totals). Сохранить JSON до/после вне volume данных. Источник файлов Stage00 проверен по ключам, размеру и SHA: **66/66**, 15 980 байт, изменений/пропусков/лишних файлов нет. Это не доказывает соответствие БД снимку: исходный dump датирован 7 октября и его counts отличаются от поздних Stage12 baseline.
 
@@ -15,7 +15,7 @@ docker compose -p org-erp-stage14c-rehearsal-20261024 ps
 set -a
 source /path/to/rehearsal.env
 set +a
-export PLAYWRIGHT_BASE_URL='http://127.0.0.1:3301'
+export PLAYWRIGHT_BASE_URL='http://127.0.0.1:3302'
 npx playwright test --config=playwright.stage14c.config.ts
 ```
 
@@ -41,8 +41,8 @@ npx playwright test --config=playwright.stage14c.config.ts
 7. Перезапустить app/backend/worker из того же disposable Compose project, не удаляя volume. При загруженном disposable env запустить только persisted-state check: `STAGE14C_VERIFY_ONLY=1 npx playwright test --config=playwright.stage14c.config.ts --grep "Stage 14C persistence survives"`; проверить IDs, статусы, payroll close и ETag/SHA-256 скачанного документа. Выполнить `docker exec <rehearsal-backend> python -m app.scripts.verify_data`, чтобы проверка использовала DB и `DOCUMENT_STORAGE_ROOT` контейнера; повторно снять fingerprints/aggregates/audit/outbox/document hashes.
 8. Сравнить до/после структурно: учесть только известные синтетические записи и audit/outbox события. Любая неожиданная разница, потерянная связь или не совпадающий файл блокирует acceptance.
 
-Полный pytest, frontend lint/typecheck/build и Compose/metrics validation выполнены отдельно от окна переключения. Последний полный pytest: **477 passed, 1 failed** — architecture guard на 17 зависимостей из `services.*`; Stage14C acceptance из-за этого gate пока pending. Целевые три Stage10 finance tests после очистки только `erp_stage10_test` прошли. Lint/typecheck/build, полный Playwright, Compose/metrics и data verifier прошли.
+Полный backend pytest после исправления layering: **480 passed**; свежий целевой architecture guard: **11 passed**. Точечные integration/health tests прошли `3 passed`; Ruff и mypy затронутых модулей прошли. Frontend lint/typecheck/build, полный Playwright, Compose/metrics и data verifier прошли отдельно от окна переключения. Три Stage10 finance tests после очистки только disposable `erp_stage10_test` прошли.
 
 ## Критерий завершения
 
-Фактические выводы Compose, миграции, сценария до/после рестарта, DB/file fingerprint и DB/document restore записаны в [acceptance-report.md](acceptance-report.md) и [rollback-runbook.md](rollback-runbook.md). Architecture guard остаётся красным, а route rollback не переключался; пока эти ограничения не рассмотрены, этап остаётся pending. Этот документ не разрешает переключать production.
+Фактические выводы Compose, миграции, сценария до/после рестарта, DB/file fingerprint и DB/document restore записаны в [acceptance-report.md](acceptance-report.md) и [rollback-runbook.md](rollback-runbook.md). Восстановленная TypeScript route rollback репетиция прошла на disposable копии. Этот документ не разрешает переключать production.

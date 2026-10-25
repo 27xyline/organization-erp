@@ -19,6 +19,16 @@ def hash_session_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+class SessionTokenManager:
+    """Adapter for generating opaque tokens and storing only their SHA-256 hashes."""
+
+    def new_token(self) -> str:
+        return new_session_token()
+
+    def hash_token(self, token: str) -> str:
+        return hash_session_token(token)
+
+
 def create_csrf_token(secret: str) -> str:
     nonce = secrets.token_urlsafe(32)
     signature = hmac.new(secret.encode(), nonce.encode(), hashlib.sha256).hexdigest()

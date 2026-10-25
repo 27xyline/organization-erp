@@ -31,6 +31,10 @@ from app.db.session import create_engine, create_session_factory
 from app.db.uow import create_unit_of_work_factory
 from app.domain.ports.uow import UnitOfWork, UnitOfWorkFactory
 from app.integrations.outbox_email import SmtpOutboxSender
+from app.repositories.scheduled_alerts import (
+    SqlAlchemyScheduledAlertLock,
+    SqlAlchemyScheduledAlertQueries,
+)
 from app.services.outbox import process_outbox
 from app.services.scheduled_alerts import ScheduledAlertContext, run_scheduled_alerts
 
@@ -165,9 +169,9 @@ async def _run_with_resources(
         async with trace_async_operation(tracer, "service.scheduled_alerts.generate"):
             generation_context = ScheduledAlertContext(
                 request=context,
-                engine=engine,
+                run_lock=SqlAlchemyScheduledAlertLock(engine),
+                queries=SqlAlchemyScheduledAlertQueries(session_factory),
                 uow_factory=uow_factory,
-                session_factory=session_factory,
             )
             return await run_scheduled_alerts(generation_context)
 

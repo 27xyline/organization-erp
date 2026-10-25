@@ -127,3 +127,13 @@ def build_payslip_workbook(year: int, month: int, row: dict[str, Any]) -> bytes:
         sheet.cell(row_index, 3).number_format = _CURRENCY_FORMAT
     _set_controlled_font(sheet)
     return _bytes(workbook)
+
+
+class OpenpyxlPayrollWorkbook:
+    """Openpyxl adapter for the application payroll workbook port."""
+
+    def build_payroll(self, year: int, month: int, rows: list[dict[str, Any]]) -> bytes:
+        return build_payroll_workbook(year, month, rows)
+
+    def build_payslip(self, year: int, month: int, row: dict[str, Any]) -> bytes:
+        return build_payslip_workbook(year, month, row)

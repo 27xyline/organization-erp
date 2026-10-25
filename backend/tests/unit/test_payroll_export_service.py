@@ -7,7 +7,7 @@ import pytest
 from app.core.context import Actor, RequestContext
 from app.domain.auth.rules import AccessContext, ScopeGrant
 from app.domain.errors import DomainError
-from app.services import payroll as payroll_module
+from app.integrations.payroll_export import OpenpyxlPayrollWorkbook
 from app.services.payroll import PayrollService
 
 
@@ -94,11 +94,21 @@ async def test_payroll_renderer_runs_only_after_month_payload_and_uow_return(
             return Uow(self)
 
     factory = Factory()
-    service = PayrollService(factory)
+
+    class Workbook:
+        def build_payroll(self, year, month, rows):
+            return b"rendered-xlsx"
+
+        def build_payslip(self, year, month, row):
+            return b"rendered-payslip"
+
+    workbook = Workbook()
+    service = PayrollService(factory, workbook)
 
     async def to_thread(renderer, *args):
         assert factory.closed, "renderer started while the payroll UoW was still open"
-        assert renderer is payroll_module.build_payroll_workbook
+        assert renderer.__self__ is workbook
+        assert renderer.__name__ == "build_payroll"
         return b"rendered-xlsx"
 
     monkeypatch.setattr(asyncio, "to_thread", to_thread)
@@ -113,7 +123,9 @@ async def test_payroll_renderer_runs_only_after_month_payload_and_uow_return(
 async def test_payslip_not_found_is_checked_before_renderer(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    service = PayrollService(lambda: pytest.fail("UoW is represented by get_month"))
+    service = PayrollService(
+        lambda: pytest.fail("UoW is represented by get_month"), OpenpyxlPayrollWorkbook()
+    )
 
     async def get_month(year: int, month: int, context: RequestContext, *, permission: str):
         return {"rows": [_row("c111")]}
