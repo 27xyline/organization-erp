@@ -1,4 +1,4 @@
-import { TimeEntryType } from '@prisma/client'
+import { TimeEntryType } from '@/lib/contracts/enums'
 import { z } from 'zod'
 
 export const timeEntryQuerySchema = z.object({

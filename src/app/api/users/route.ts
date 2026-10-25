@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { createUserSchema, usersQuerySchema } from '@/features/users/contracts/schemas'
 import { backendUnavailableResponse } from '@/lib/backend/client'
-import { proxyBackendRequest } from '@/lib/backend/bridge'
+import { proxyBackendRequest } from '@/lib/backend/transport'
 import { apiValidationError } from '@/lib/http/api-response'
 
 export async function GET(request: NextRequest) {

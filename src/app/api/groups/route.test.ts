@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server'
 const mocks = vi.hoisted(() => ({ authorize: vi.fn(), proxy: vi.fn(), unavailable: vi.fn() }))
 
 vi.mock('@/lib/auth/authorization', () => ({ authorizeApiRequest: mocks.authorize }))
-vi.mock('@/lib/backend/bridge', () => ({ proxyBackendRequest: mocks.proxy }))
+vi.mock('@/lib/backend/transport', () => ({ proxyBackendRequest: mocks.proxy }))
 vi.mock('@/lib/backend/client', () => ({ backendUnavailableResponse: mocks.unavailable }))
 
 import { NextRequest as RequestType } from 'next/server'

@@ -1,8 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { updateAssetSchema } from '@/features/assets/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { apiError, apiValidationError } from '@/lib/http/api-response'
-import { assetTarget } from '@/lib/auth/resource-scopes'
+import { apiValidationError } from '@/lib/http/api-response'
 import { proxyStage07AssetJsonRequest, proxyStage07Request } from '@/lib/backend/stage07'
 import { normalizeLegacyAssetDates } from '@/features/assets/infrastructure/legacy-date-transport'
 
@@ -14,10 +13,6 @@ export async function GET(
   if (auth.response) return auth.response
 
   const id = (await params).id
-  const target = await assetTarget(id)
-  if (target && !auth.access.allows('assets.read', target)) {
-    return apiError('FORBIDDEN', 'Недостаточно прав', 403)
-  }
   return proxyStage07Request(request, `/api/assets/${encodeURIComponent(id)}`, auth.user, auth.requestId)
 }
 
@@ -31,10 +26,6 @@ export async function PUT(
   const input = updateAssetSchema.safeParse(await request.clone().json())
   if (!input.success) return apiValidationError(input.error)
   const id = (await params).id
-  const target = await assetTarget(id)
-  if (target && !auth.access.allows('assets.update', { departmentIds: target.departmentIds })) {
-    return apiError('FORBIDDEN', 'Недостаточно прав', 403)
-  }
 
   return proxyStage07AssetJsonRequest(
     request, `/api/assets/${encodeURIComponent(id)}`, auth.user, auth.requestId, normalizeLegacyAssetDates(input.data),

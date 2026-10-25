@@ -1,7 +1,7 @@
 import { parseDashboardQuery } from '@/features/reporting/contracts/dashboard'
 import { DashboardPage } from '@/features/reporting/ui/dashboard-page'
 import { requirePagePermission } from '@/lib/auth/authorization'
-import { backendUserFetch } from '@/lib/backend/bridge'
+import { backendUserFetch } from '@/lib/backend/transport'
 import { readBackendData } from '@/lib/backend/page-data'
 import type { DashboardOverview, MyActionsResult } from '@/features/reporting/contracts/view-model'
 

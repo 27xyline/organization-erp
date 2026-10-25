@@ -1,4 +1,4 @@
-import { ProjectStatus, TaskPriority, TaskRisk, TaskStatus } from '@prisma/client'
+import { ProjectStatus, TaskPriority, TaskRisk, TaskStatus } from '@/lib/contracts/enums'
 import type { Asset } from '@/features/assets/contracts/types'
 
 export { ProjectStatus, TaskPriority, TaskRisk, TaskStatus }

@@ -1,4 +1,4 @@
-import { ProcurementStatus } from '@prisma/client'
+import { ProcurementStatus } from '@/lib/contracts/enums'
 import { z } from 'zod'
 
 const optionalId = z.string().trim().min(1).max(100).nullable().optional()

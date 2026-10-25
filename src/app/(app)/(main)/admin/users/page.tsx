@@ -1,6 +1,6 @@
 import { UsersManager, type AccessReferences, type UserRow } from '@/features/users/ui/users-manager'
 import { requirePagePermission } from '@/lib/auth/authorization'
-import { backendUserFetch } from '@/lib/backend/bridge'
+import { backendUserFetch } from '@/lib/backend/transport'
 import { BackendRequestError } from '@/lib/backend/client'
 
 export const dynamic = 'force-dynamic'

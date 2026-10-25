@@ -1,7 +1,7 @@
 import type { AssetGroup } from '@/features/assets/contracts/types'
 import { requirePagePermission } from '@/lib/auth/authorization'
 import { GroupsClient } from '@/features/assets/ui/groups-client'
-import { backendUserFetch } from '@/lib/backend/bridge'
+import { backendUserFetch } from '@/lib/backend/transport'
 import { readBackendData } from '@/lib/backend/page-data'
 
 export default async function GroupsPage() {

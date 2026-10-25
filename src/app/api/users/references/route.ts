@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { backendUnavailableResponse } from '@/lib/backend/client'
-import { proxyBackendRequest } from '@/lib/backend/bridge'
+import { proxyBackendRequest } from '@/lib/backend/transport'
 
 export async function GET(request: NextRequest) {
   const auth = await authorizeApiRequest(request, 'access.users.read')

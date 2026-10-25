@@ -1,5 +1,5 @@
 import type { CurrentUser } from '@/lib/auth/authorization'
-import { proxyBackendRequest } from '@/lib/backend/bridge'
+import { proxyBackendRequest } from '@/lib/backend/transport'
 import { backendUnavailableResponse } from '@/lib/backend/client'
 
 /** Proxy the procurement workflow as one Python-owned transaction boundary. */

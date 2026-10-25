@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { proxyBackendRequest } = vi.hoisted(() => ({ proxyBackendRequest: vi.fn() }))
-vi.mock('./bridge', () => ({ proxyBackendRequest }))
+vi.mock('./transport', () => ({ proxyBackendRequest }))
 
 import { proxyStage07AssetJsonRequest } from './stage07'
 

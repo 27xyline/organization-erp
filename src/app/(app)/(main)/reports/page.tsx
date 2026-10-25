@@ -2,7 +2,7 @@ import { parseDashboardQuery } from '@/features/reporting/contracts/dashboard'
 import { ReportsPage } from '@/features/reporting/ui/reports-page'
 import { requirePagePermission } from '@/lib/auth/authorization'
 import type { ReportMetric } from '@/features/reporting/contracts/report-presets'
-import { backendUserFetch } from '@/lib/backend/bridge'
+import { backendUserFetch } from '@/lib/backend/transport'
 import { readBackendData } from '@/lib/backend/page-data'
 import type { DashboardOverview } from '@/features/reporting/contracts/view-model'
 

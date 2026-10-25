@@ -2,7 +2,7 @@ import type { DocumentView } from '@/features/documents/contracts/ui-types'
 import { DocumentsPageClient } from '@/features/documents/ui/documents-page-client'
 import { documentsQuerySchema } from '@/features/documents/contracts/document'
 import { requirePagePermission } from '@/lib/auth/authorization'
-import { backendUserFetch } from '@/lib/backend/bridge'
+import { backendUserFetch } from '@/lib/backend/transport'
 import { readBackendList } from '@/lib/backend/page-data'
 
 interface DocumentsPageProps {

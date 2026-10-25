@@ -7,7 +7,7 @@ import { ProjectStatusLabels } from '@/features/projects/contracts/types'
 import { PageHeader } from '@/components/page-header'
 import { formatDate, formatCurrency, cn } from '@/lib/utils'
 import { requirePagePermission } from '@/lib/auth/authorization'
-import { backendUserFetch } from '@/lib/backend/bridge'
+import { backendUserFetch } from '@/lib/backend/transport'
 import { readBackendData } from '@/lib/backend/page-data'
 
 export const dynamic = 'force-dynamic'

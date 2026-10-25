@@ -2,10 +2,9 @@ import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { createVacationSchema } from '@/features/employees/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { proxyBackendRequest } from '@/lib/backend/bridge'
+import { proxyBackendRequest } from '@/lib/backend/transport'
 import { backendUnavailableResponse } from '@/lib/backend/client'
-import { apiError, apiValidationError } from '@/lib/http/api-response'
-import { employeeTarget } from '@/lib/auth/resource-scopes'
+import { apiValidationError } from '@/lib/http/api-response'
 
 const yearSchema = z.coerce.number().int().min(2000).max(2200)
 
@@ -31,10 +30,6 @@ export async function POST(request: NextRequest) {
   if (auth.response) return auth.response
   const input = createVacationSchema.safeParse(await request.clone().json())
   if (!input.success) return apiValidationError(input.error)
-  const target = await employeeTarget(input.data.employeeId)
-  if (target && !auth.access.allows('vacations.create', target)) {
-    return apiError('FORBIDDEN', 'Недостаточно прав', 403)
-  }
   try {
     return await proxyBackendRequest(request, '/api/vacations', auth.user, auth.requestId)
   } catch (error) {

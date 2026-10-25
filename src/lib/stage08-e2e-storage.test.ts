@@ -59,8 +59,7 @@ describe('Stage 08 Playwright storage isolation', () => {
     vi.stubEnv('DATABASE_URL', url)
     vi.stubEnv('STAGE08_E2E_DATABASE_URL', url)
     vi.stubEnv('PLAYWRIGHT_BASE_URL', 'http://localhost:3001')
-    vi.stubEnv('BACKEND_BRIDGE_SECRET', 'test-bridge-secret-32-bytes-minimum')
-    vi.stubEnv('BACKEND_INTERNAL_AUTH_SECRET', 'test-internal-secret-32-bytes-minimum')
+    vi.stubEnv('BACKEND_CSRF_SECRET', 'test-csrf-secret-32-bytes-minimum')
 
     const originalCwd = process.cwd()
     try {

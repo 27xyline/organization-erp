@@ -26,8 +26,6 @@ vi.mock('@opentelemetry/sdk-metrics', () => ({
   PeriodicExportingMetricReader: class { constructor(readonly options: unknown) {} },
 }))
 
-vi.mock('@prisma/instrumentation', () => ({ PrismaInstrumentation: class {} }))
-
 import { startObservability, stopObservability } from './otel'
 
 afterEach(async () => {
@@ -46,7 +44,7 @@ describe('startObservability', () => {
     expect(mocks.start).not.toHaveBeenCalled()
   })
 
-  it('registers Prisma tracing and a periodic metric exporter', () => {
+  it('registers trace and periodic metric exporters', () => {
     vi.stubEnv('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://collector:4318')
     vi.stubEnv('OTEL_SERVICE_NAME', 'erp-app')
     expect(startObservability('default')).toBeDefined()
@@ -58,7 +56,6 @@ describe('startObservability', () => {
         exportIntervalMillis: 30_000,
         exporter: expect.objectContaining({ options: { url: 'http://collector:4318/v1/metrics' } }),
       }) })],
-      instrumentations: [expect.any(Object)],
     })])
   })
 

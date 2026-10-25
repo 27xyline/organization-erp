@@ -1,13 +1,13 @@
 services:
   postgres:
-    image: postgres:15
+    image: postgres:18.6-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-project1}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-project1}
     volumes:
-      - project1_postgres_data:/var/lib/postgresql/data
+      - project1_postgres_data_v18:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -37,22 +37,12 @@ services:
       target: runner
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-project1}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-project1}
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3001}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET}
-      BACKEND_BASE_URL: ${BACKEND_BASE_URL:-http://backend:8000}
-      BACKEND_BRIDGE_SECRET: ${BACKEND_BRIDGE_SECRET:-}
-      BACKEND_INTERNAL_AUTH_SECRET: ${BACKEND_INTERNAL_AUTH_SECRET:-}
-      BACKEND_CSRF_SECRET: ${BACKEND_CSRF_SECRET:-}
-      BACKEND_PUBLIC_ORIGIN: ${BACKEND_PUBLIC_ORIGIN:-${NEXTAUTH_URL:-http://localhost:3001}}
+      BACKEND_BASE_URL: http://backend:8000
+      BACKEND_PUBLIC_ORIGIN: ${BACKEND_PUBLIC_ORIGIN:-http://localhost:3001}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3001}
-      DOCUMENT_STORAGE_ROOT: /var/lib/project1/documents
-      DOCUMENT_MAX_FILE_SIZE_BYTES: ${DOCUMENT_MAX_FILE_SIZE_BYTES:-26214400}
       PORT: 3001
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
       OTEL_SERVICE_NAME: erp-app
-    volumes:
-      - project1_document_data:/var/lib/project1/documents
     networks:
       - default
       - observability_ingest
@@ -75,10 +65,8 @@ services:
     environment:
       BACKEND_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-project1}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-project1}
       BACKEND_ENVIRONMENT: ${BACKEND_ENVIRONMENT:-development}
-      BACKEND_BRIDGE_SECRET: ${BACKEND_BRIDGE_SECRET:-}
-      BACKEND_INTERNAL_AUTH_SECRET: ${BACKEND_INTERNAL_AUTH_SECRET:-}
       BACKEND_CSRF_SECRET: ${BACKEND_CSRF_SECRET:-}
-      BACKEND_PUBLIC_ORIGIN: ${BACKEND_PUBLIC_ORIGIN:-${NEXTAUTH_URL:-http://localhost:3001}}
+      BACKEND_PUBLIC_ORIGIN: ${BACKEND_PUBLIC_ORIGIN:-http://localhost:3001}
       DOCUMENT_STORAGE_ROOT: /var/lib/project1/documents
       DOCUMENT_MAX_FILE_SIZE_BYTES: ${DOCUMENT_MAX_FILE_SIZE_BYTES:-26214400}
       BACKEND_OTEL_ENABLED: ${BACKEND_OTEL_ENABLED:-true}
@@ -183,7 +171,7 @@ services:
       - observability_backend
 
 volumes:
-  project1_postgres_data:
+  project1_postgres_data_v18:
   project1_document_data:
   project1_prometheus_data:
   project1_tempo_data:

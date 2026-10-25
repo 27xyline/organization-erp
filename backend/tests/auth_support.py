@@ -21,8 +21,6 @@ from app.services.users import UserService
 from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
 
 PASSWORD = "Stage03-password!"
-BRIDGE_SECRET = "stage03-test-bridge-secret-only-xxxxxxxxxxxxxxxx"
-INTERNAL_SECRET = "stage03-test-internal-secret-only-yyyyyyyyyyyy"
 
 
 @pytest.fixture

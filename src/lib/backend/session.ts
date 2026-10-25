@@ -21,15 +21,14 @@ export async function proxySessionRequest(request: Request, path: string): Promi
   }
   headers.delete('authorization')
   const method = request.method.toUpperCase()
-  const body = ['GET', 'HEAD'].includes(method) ? undefined : request.body
+  const body = ['GET', 'HEAD'].includes(method) ? undefined : await request.arrayBuffer()
   let response: Response
   try {
     response = await backendFetch(path, {
       method,
       headers,
       body,
-      ...(body ? { duplex: 'half' as const } : {}),
-    } as RequestInit, { forwardCookies: true })
+    }, { forwardCookies: true })
   } catch (error) {
     if (error instanceof BackendRequestError) throw error
     throw new BackendRequestError('Backend is unavailable', 502, error)

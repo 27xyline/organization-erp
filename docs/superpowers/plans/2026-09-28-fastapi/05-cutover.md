@@ -73,13 +73,13 @@
 
 **Изменить:** `src/app/api/`, `src/lib/{auth,prisma,backend}/`, `src/proxy.ts`, providers/login/session UI, `package.json`, `Dockerfile`, Compose, CI, README; архивировать описание legacy mapping в docs, не дублировать активные writers.
 
-- [ ] Удалить TypeScript services/repositories/worker/Prisma runtime/NextAuth/bridge, которые больше не используются. UI-only helpers остаются, если не являются независимыми бизнес-правилами.
-- [ ] Заменить frontend импорты enum/type из `@prisma/client` на frontend contracts/API types; удалить Prisma generation requirements для frontend build.
-- [ ] Next routes остаются только транспортными адаптерами. Не удалять их как «backend», если браузер продолжает использовать тот же origin. Ими нельзя обходить Python permissions.
-- [ ] Убрать Prisma migration/seed/create-admin commands из активного запуска; Python CLI и Alembic описаны в README; secrets `NEXTAUTH_SECRET`/bridge очищаются из конфигурации после удаления потребителей.
-- [ ] Проверить все backend imports/writers поиском; `DATABASE_URL` у frontend больше не нужен для доменной БД. `next-env.d.ts` пользовательское изменение сохранить.
-- [ ] Запуск с нуля: frontend + Python + PostgreSQL + documents + worker + optional existing observability. Redis/Celery не требуются.
-- [ ] Добавить README walkthrough одного запроса по папкам `api/schemas → services → domain → repositories/models/db`, инструкции tests/migrations и архитектурные ограничения.
-- [ ] Повторить full checks после удаления; зафиксировать итоговые изменения и измерения. Пользователь самостоятельно делает маленькое изменение service/domain и теста.
+- [x] Удалить TypeScript services/repositories/worker/Prisma runtime/NextAuth/bridge, которые больше не используются. UI-only helpers остаются, если не являются независимыми бизнес-правилами.
+- [x] Заменить frontend импорты enum/type из `@prisma/client` на frontend contracts/API types; Prisma generation остаётся только в E2E fixture script, не во frontend build.
+- [x] Next routes остаются транспортными адаптерами с Python permissions; browser-facing same-origin URLs сохранены.
+- [x] Убрать Prisma migration/seed/create-admin commands из активного запуска; Python CLI и Alembic описаны в README; неиспользуемые NextAuth/bridge/internal-auth secrets удалены.
+- [x] Проверить backend imports/writers и отсутствие frontend runtime `DATABASE_URL`; пользовательский `next-env.d.ts` сохранён с исходным SHA-256.
+- [x] Подтверждён fresh Compose старт: frontend + FastAPI + PostgreSQL 18 + documents + Python notification worker; observability остаётся optional, Redis/Celery не нужны.
+- [x] Добавлен README walkthrough одного запроса по папкам `api/schemas → services → domain → repositories/models/db`, инструкции tests/migrations и архитектурные ограничения.
+- [x] Повторить full checks после удаления; зафиксировать итоговые изменения и измерения в [Stage 14D validation](../../../backend-migration/stage14d-validation.md). Пользователь самостоятельно делает маленькое изменение service/domain и теста.
 
 **Готово:** полностью Python backend, подтверждённые tests/rehearsal, слоистая структура по скриншоту. Для эксплуатации нельзя считать незапущенный deployment выполненным. **Финальная пауза:** разобрать архитектуру и выбрать самостоятельное расширение из [идей](09-future-exercises.md).

@@ -1,4 +1,4 @@
-import { AssetStatus, OperationType } from '@prisma/client'
+import { AssetStatus, OperationType } from '@/lib/contracts/enums'
 import type { Project } from '@/features/projects/contracts/types'
 
 export { AssetStatus, OperationType }

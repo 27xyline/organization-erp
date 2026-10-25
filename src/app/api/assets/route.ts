@@ -1,9 +1,8 @@
 import type { NextRequest } from 'next/server'
 import { assetsQuerySchema } from '@/features/assets/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { apiError, apiValidationError } from '@/lib/http/api-response'
+import { apiValidationError } from '@/lib/http/api-response'
 import { createAssetSchema } from '@/features/assets/contracts/schemas'
-import { departmentForMol } from '@/lib/auth/resource-scopes'
 import { proxyStage07AssetJsonRequest, proxyStage07Request } from '@/lib/backend/stage07'
 import { normalizeLegacyAssetDates } from '@/features/assets/infrastructure/legacy-date-transport'
 
@@ -30,10 +29,6 @@ export async function POST(request: NextRequest) {
 
   const input = createAssetSchema.safeParse(await request.clone().json())
   if (!input.success) return apiValidationError(input.error)
-  const departmentId = await departmentForMol(input.data.molId)
-  if (departmentId && !auth.access.allows('assets.create', { departmentId })) {
-    return apiError('FORBIDDEN', 'Недостаточно прав', 403)
-  }
 
   return proxyStage07AssetJsonRequest(
     request, '/api/assets', auth.user, auth.requestId, normalizeLegacyAssetDates(input.data),

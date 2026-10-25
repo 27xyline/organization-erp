@@ -1,6 +1,6 @@
 import type { NextRequest } from 'next/server'
 import { financePlanDeleteSchema, financePlanSaveSchema } from '@/features/finance/contracts/finance-plan'
-import { getCurrentYear, getPlanType } from '@/features/finance/domain/finance-plan'
+import { FinancePlanType } from '@/lib/contracts/enums'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { proxyStage10Request } from '@/lib/backend/stage10'
 import { validateRequest } from '@/lib/http/validate-request'
@@ -12,8 +12,14 @@ export async function GET(request: NextRequest) {
   if (auth.response) return auth.response
 
   const rawYear = request.nextUrl.searchParams.get('year')
-  const year = rawYear ? Number.parseInt(rawYear, 10) : getCurrentYear()
-  if (!getPlanType(request.nextUrl.searchParams.get('type'))) {
+  const year = rawYear ? Number.parseInt(rawYear, 10) : new Date().getFullYear()
+  const planType = request.nextUrl.searchParams.get('type')
+  const normalizedPlanType = planType === 'oklad'
+    ? FinancePlanType.OKLAD
+    : planType === 'nadbavka'
+      ? FinancePlanType.NADBAVKA
+      : planType
+  if (!Object.values(FinancePlanType).includes(normalizedPlanType as FinancePlanType)) {
     return Response.json({ error: 'Invalid finance plan type' }, { status: 400 })
   }
   if (!Number.isInteger(year) || year < 2000 || year > 2100) {

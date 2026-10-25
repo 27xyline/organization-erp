@@ -2,7 +2,6 @@ from datetime import datetime
 
 import httpx
 import pytest
-from pydantic import SecretStr
 
 from app.api.dependencies import (
     get_authenticated_context,
@@ -159,8 +158,6 @@ async def test_department_catalog_http_envelopes_statuses_and_nullable_patch():
     app = create_app(
         Settings(
             database_url="postgresql://localhost/unreachable",
-            bridge_secret=SecretStr("bridge-test-secret-that-is-long-enough-1234"),
-            internal_auth_secret=SecretStr("internal-test-secret-that-is-long-enough-1234"),
             otel_enabled=False,
         )
     )

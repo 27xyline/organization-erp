@@ -2,13 +2,9 @@ import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { createPersonnelActionSchema } from '@/features/employees/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { proxyBackendRequest } from '@/lib/backend/bridge'
+import { proxyBackendRequest } from '@/lib/backend/transport'
 import { backendUnavailableResponse } from '@/lib/backend/client'
-import { apiError, apiValidationError } from '@/lib/http/api-response'
-import {
-  departmentForPosition,
-  employeeTarget,
-} from '@/lib/auth/resource-scopes'
+import { apiValidationError } from '@/lib/http/api-response'
 
 const querySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -35,25 +31,6 @@ export async function POST(request: NextRequest) {
   if (auth.response) return auth.response
   const input = createPersonnelActionSchema.safeParse(await request.clone().json())
   if (!input.success) return apiValidationError(input.error)
-  const employeeId = input.data.employeeId || input.data.employeeData?.id
-  const [currentTarget, nextDepartmentId] = await Promise.all([
-    employeeId ? employeeTarget(employeeId) : Promise.resolve(null),
-    departmentForPosition(input.data.staffScheduleId || input.data.employeeData?.staffScheduleId),
-  ])
-  const target = currentTarget
-    ? {
-        employeeId: currentTarget.employeeId,
-        departmentIds: [
-          ...(currentTarget.departmentId ? [currentTarget.departmentId] : []),
-          ...(nextDepartmentId ? [nextDepartmentId] : []),
-        ],
-      }
-    : nextDepartmentId
-      ? { departmentId: nextDepartmentId }
-      : null
-  if (target && !auth.access.allows('personnelActions.create', target)) {
-    return apiError('FORBIDDEN', 'Недостаточно прав', 403)
-  }
   try {
     return await proxyBackendRequest(request, '/api/personnel-actions', auth.user, auth.requestId)
   } catch (error) {

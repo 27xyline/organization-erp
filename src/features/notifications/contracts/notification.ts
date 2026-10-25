@@ -1,4 +1,4 @@
-import { NotificationChannel, NotificationEventType } from '@prisma/client'
+import { NotificationChannel, NotificationEventType } from '@/lib/contracts/enums'
 import { z } from 'zod'
 
 const booleanQuery = z.enum(['true', 'false']).transform((value) => value === 'true')

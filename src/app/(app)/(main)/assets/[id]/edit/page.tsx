@@ -3,8 +3,7 @@ import { AssetForm } from '@/features/assets/ui/asset-form'
 import { OperationsHistory } from '@/features/assets/ui/operations-history'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { requirePagePermission } from '@/lib/auth/authorization'
-import { assetTarget } from '@/lib/auth/resource-scopes'
-import { backendUserFetch } from '@/lib/backend/bridge'
+import { backendUserFetch } from '@/lib/backend/transport'
 import { readBackendData } from '@/lib/backend/page-data'
 import { readAssetById, readAssetCatalogs } from '@/features/assets/infrastructure/backend-ssr'
 
@@ -14,11 +13,7 @@ interface EditAssetPageProps {
 
 export default async function EditAssetPage(props: EditAssetPageProps) {
   const params = await props.params
-  const target = await assetTarget(params.id)
-  if (!target) notFound()
-  const user = await requirePagePermission('assets.update', {
-    departmentIds: target.departmentIds,
-  })
+  const user = await requirePagePermission('assets.update')
   const [asset, { mols, groups }, projectResponse] = await Promise.all([
     readAssetById(user, params.id),
     readAssetCatalogs(user),
@@ -32,6 +27,12 @@ export default async function EditAssetPage(props: EditAssetPageProps) {
   if (!asset) {
     notFound()
   }
+
+  const departmentIds = Array.from(new Set([
+    asset.mol.departmentId,
+    ...asset.holdings.map((holding) => holding.mol.departmentId),
+  ]))
+  await requirePagePermission('assets.update', { departmentIds })
 
   return (
     <div className="h-full overflow-auto">

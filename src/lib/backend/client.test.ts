@@ -8,7 +8,7 @@ import {
   forwardRequestHeaders,
   forwardedResponse,
 } from './client'
-import { proxyBackendRequest } from './bridge'
+import { proxyBackendRequest } from './transport'
 
 describe('backend client', () => {
   afterEach(() => {
@@ -194,8 +194,6 @@ describe('backend client', () => {
 
   it('forwards a user request with a signed bridge token and streams the backend response', async () => {
     vi.stubEnv('BACKEND_BASE_URL', 'http://127.0.0.1:8000')
-    vi.stubEnv('BACKEND_BRIDGE_SECRET', 'bridge-secret-for-tests-only-32-bytes')
-    vi.stubEnv('BACKEND_INTERNAL_AUTH_SECRET', 'different-internal-secret-for-test')
     const fetchMock = vi.fn<typeof fetch>(async () => new Response('backend-stream', {
       status: 206,
       headers: { 'x-request-id': 'request-from-python', 'content-type': 'application/octet-stream' },
@@ -205,7 +203,9 @@ describe('backend client', () => {
       method: 'POST',
       headers: {
         authorization: 'Basic browser-credential',
-        cookie: 'next-auth.session-token=private',
+        cookie: 'erp_session=private',
+        origin: 'https://erp.example',
+        'x-csrf-token': 'csrf-token',
         'content-type': 'application/json',
         traceparent: '00-11111111111111111111111111111111-2222222222222222-01',
       },
@@ -222,9 +222,10 @@ describe('backend client', () => {
     expect(url).toBeInstanceOf(URL)
     expect((url as URL).pathname + (url as URL).search).toBe('/api/users?search=a')
     const headers = new Headers(init?.headers)
-    expect(headers.get('authorization')).toMatch(/^Bearer [^.]+\.[^.]+\.[^.]+$/)
-    expect(headers.get('authorization')).not.toContain('browser-credential')
-    expect(headers.get('cookie')).toBeNull()
+    expect(headers.get('authorization')).toBeNull()
+    expect(headers.get('cookie')).toBe('erp_session=private')
+    expect(headers.get('origin')).toBe('https://erp.example')
+    expect(headers.get('x-csrf-token')).toBe('csrf-token')
     expect(headers.get('x-request-id')).toBe('request-from-next')
     expect(headers.get('traceparent')).toBe(
       '00-11111111111111111111111111111111-2222222222222222-01',

@@ -1,683 +1,180 @@
 # Organization ERP
 
-Внутренняя система учёта организации: имущество, сотрудники, проекты, закупки, финансы, документооборот и согласования. Модульный Next.js-монолит с PostgreSQL и ролевой моделью доступа.
-
----
-
-## Содержание
-
-- [Функциональность](#функциональность)
-- [Стек технологий](#стек-технологий)
-- [Быстрый старт](#быстрый-старт)
-- [Переменные окружения](#переменные-окружения)
-- [Архитектура](#архитектура)
-- [Бизнес-модули](#бизнес-модули)
-- [Роли и безопасность](#роли-и-безопасность)
-- [Ежедневная разработка](#ежедневная-разработка)
-- [Prisma и миграции](#prisma-и-миграции)
-- [Тестирование](#тестирование)
-- [Команды npm](#команды-npm)
-- [Docker и production](#docker-и-production)
-- [Структура репозитория](#структура-репозитория)
-
----
-
-## Функциональность
-
-| Модуль | Возможности |
-| --- | --- |
-| **Имущество** | Реестр ТМЦ с инвентарными номерами, группами, статусами. Операции поступления, перемещения, списания. Распределённый учёт через МОЛ и `AssetHolding`. Обслуживание и плановые проверки. |
-| **Сотрудники** | Кадровый учёт, табельные номера, контракты (основной, внутренний, внешний). Навыки, сертификаты, менеджерская иерархия. Кадровые действия: приём, перевод, увольнение. Отпуска и больничные. |
-| **Проекты** | Проекты с бюджетами (план/факт, доходы/расходы), участниками, задачами с 3-уровневой иерархией. Диаграмма Ганта, критический путь, зависимости, вехи, чек-листы, комментарии. |
-| **Финансы** | Штатное расписание, зарплатные ведомости, финансовый план (оклад + надбавка), расчёт зарплаты по проектам. Расчётные периоды с закрытием. |
-| **Закупки** | Полный цикл: заявка → согласование → контракт с поставщиком → поставки → постановка на учёт. Привязка к проектам и документам. Валидация ИНН. |
-| **Документы** | Электронный документооборот: версионирование файлов с SHA-256, категории (договор, приказ, акт, счёт…), статусы жизненного цикла. Хранение на локальной файловой системе. |
-| **Согласования** | Многошаговые цепочки согласований с произвольными участниками. Статусы шагов, сроки, напоминания. Оптимистичная блокировка. |
-| **Уведомления** | In-app и email уведомления. Настраиваемые предпочтения по типам событий. Outbox-паттерн для email. Scheduled-алерты: просроченные задачи, истекающие контракты, обслуживание имущества, перерасход бюджета. |
-| **Табель** | Учёт рабочего времени по сотрудникам, проектам и задачам. Типы: рабочий день, отпуск, больничный, командировка, сверхурочные. |
-| **Подразделения** | Иерархическая оргструктура. Руководители подразделений. Связь с сотрудниками, МОЛ, штатным расписанием. |
-| **Отчётность** | Дашборд с KPI: численность, ФОТ, бюджеты проектов, статусы имущества. Аналитика по подразделениям. Сохранённые пресеты отчётов. |
-| **Экспорт** | Выгрузка реестров в Excel (ExcelJS), Word (docx), PDF (PDFKit). |
-| **Аудит** | Журнал действий пользователей с привязкой к сущностям. Request ID для трассировки. |
-
----
-
-## Стек технологий
-
-| Слой | Технология |
-| --- | --- |
-| Runtime | Node.js ≥ 22 |
-| Фреймворк | Next.js 16, React 19, TypeScript |
-| БД | PostgreSQL 15, Prisma ORM 6.19 |
-| Аутентификация | NextAuth 4 (Credentials), JWT-сессии, Argon2id |
-| UI | TailwindCSS 3, Radix UI, Lucide React |
-| Валидация | Zod |
-| Экспорт | ExcelJS, docx, PDFKit |
-| Тесты | Vitest (unit/integration), Playwright (E2E) |
-| CI/CD | GitHub Actions |
-| Инфраструктура | Docker, Docker Compose v2 |
-
-Проверить локальные версии:
-
-```bash
-node --version    # ≥ 22.0.0
-npm --version
-docker --version
-docker compose version
-```
-
----
+Внутренняя система учёта имущества, сотрудников, проектов, закупок, финансов,
+документов и согласований. Интерфейс работает на Next.js; FastAPI — единственный
+backend и владелец бизнес-правил, доступа к данным и сессий. PostgreSQL хранит
+данные, Alembic управляет схемой, Python worker обрабатывает уведомления.
 
 ## Быстрый старт
 
-Приложение запускается на хосте, PostgreSQL — в Docker:
+Нужны Node.js 22+, Python 3.13+, `uv` и Docker Compose.
 
-```bash
-# 1. Настройка окружения
-cp .env.example .env           # задайте POSTGRES_PASSWORD и NEXTAUTH_SECRET
-
-# 2. Запуск БД
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres
-
-# 3. Установка и инициализация
+```sh
+cp .env.example .env
+# В .env задайте свой POSTGRES_PASSWORD и BACKEND_CSRF_SECRET.
+# Секрет можно сгенерировать командой: openssl rand -hex 32
 npm ci
-npm run db:generate
-npm run db:migrate:deploy
-npm run db:seed                # небольшой связанный учебный набор (только локальная dev/test БД!)
-npm run user:create-admin      # интерактивно: логин, имя, пароль ≥ 12 символов
-
-# 4. Запуск
-npm run dev
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
 ```
 
-Приложение доступно на **http://localhost:3001**. После первого входа администратор обязан сменить пароль.
+Compose запускает PostgreSQL 18.6 в новом volume `project1_postgres_data_v18`,
+одноразовый `migrate` с `alembic upgrade head`,
+FastAPI, Next.js и Python notification worker. Документы хранятся в отдельном
+Docker volume. Интерфейс доступен на `http://localhost:3001`, backend — на
+`http://127.0.0.1:8000`. Observability запускается отдельно:
 
-Сгенерировать секрет для NextAuth:
+Это fresh-cluster запуск. Существующий PostgreSQL 15 volume сохраняется и не
+подключается автоматически к PostgreSQL 18. Перенос его данных требует
+отдельно подготовленного и проверенного `pg_upgrade` либо backup/restore;
+`alembic upgrade head` управляет схемой, но не переносит данные между кластерами.
 
-```bash
-openssl rand -base64 48
+```sh
+docker compose -f docker-compose.yml -f docker-compose.dev.yml \
+  --profile observability up --build -d
 ```
 
----
+Для первого входа создайте администратора с хоста. Убедитесь, что
+`BACKEND_DATABASE_URL` в `.env` указывает на локальную Compose БД
+(`localhost:5434`), затем выполните:
+
+```sh
+npm run user:create-admin
+```
+
+Команда запускает Python CLI через `uv`, просит логин, имя и скрытый пароль.
+Пользователю потребуется сменить временный пароль после входа. Небольшой
+связанный учебный набор можно добавить отдельно командой `npm run db:seed`;
+проверка инвариантов данных запускается через `npm run db:verify`.
 
 ## Переменные окружения
 
-Скопируйте `.env.example` в `.env`. Файл `.env` содержит секреты и исключён из Git.
+Next.js не подключается к доменной БД. Его серверная часть получает адрес
+FastAPI и передаёт браузерную Python session для проверки на каждом запросе.
 
-| Переменная | Назначение | Локальное значение |
+| Переменная | Кто использует | Назначение |
 | --- | --- | --- |
-| `POSTGRES_USER` | пользователь PostgreSQL в Docker | `project1` |
-| `POSTGRES_PASSWORD` | пароль PostgreSQL | задайте свой |
-| `POSTGRES_DB` | имя основной БД | `project1` |
-| `POSTGRES_PORT` | порт PostgreSQL на хосте (dev-overlay) | `5434` |
-| `DATABASE_URL` | подключение Prisma и приложения на хосте | `postgresql://...@localhost:5434/project1` |
-| `NEXTAUTH_URL` | канонический URL приложения | `http://localhost:3001` |
-| `NEXTAUTH_SECRET` | секрет подписи сессий, минимум 32 символа | уникальный секрет |
-| `NEXT_PUBLIC_APP_URL` | публичный URL | `http://localhost:3001` |
-| `PORT` | порт на хосте | `3001` |
-| `APP_PORT` | публикация порта контейнера `app` | `3001` |
-| `PLAYWRIGHT_BASE_URL` | URL для E2E-тестов | `http://127.0.0.1:3001` |
-| `DOCUMENT_STORAGE_ROOT` | каталог хранения документов | `./.runtime/documents` |
-| `DOCUMENT_MAX_FILE_SIZE_BYTES` | максимальный размер файла (≤ 100 МБ) | `26214400` |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Compose | Создание локальной PostgreSQL БД |
+| `BACKEND_DATABASE_URL` | Python CLI на хосте | Адрес БД с драйвером `postgresql+asyncpg`; для локального Docker — `localhost:5434` |
+| `BACKEND_BASE_URL` | Next.js | URL FastAPI; `localhost:8000` для запуска на хосте, Compose задаёт `backend:8000` |
+| `BACKEND_CSRF_SECRET` | FastAPI | Подпись CSRF token |
+| `BACKEND_PUBLIC_ORIGIN` | Next.js и FastAPI | Браузерный origin для проверки unsafe запросов |
+| `NEXT_PUBLIC_APP_URL` | Next.js | Публичный адрес приложения, например для QR-кода |
+| `DOCUMENT_STORAGE_ROOT` | FastAPI и worker | Корень файлового хранилища документов |
 
-В Compose контейнеры `app` и `migrate` подключаются к PostgreSQL по `postgres:5432`. `DATABASE_URL` из `.env` используется командами на хосте.
+Сгенерируйте секрет отдельным вызовом `openssl rand -hex 32`. Не
+используйте значение из `.env.example` как ключ. В Compose backend и worker
+получают `BACKEND_DATABASE_URL` из `POSTGRES_*`; значение в `.env` нужно для
+host-run CLI и Python-команд.
 
-Документы хранятся на локальной ФС. В Docker — отдельный volume `project1_document_data`. Не размещайте каталог внутри `public`, `.next`, `src` или `node_modules`.
+## Как проходит запрос
 
-Переменные Yandex OAuth присутствуют в `.env.example` как резерв, но код их не использует.
+Пример — загрузка проекта на странице `/projects`:
 
----
+1. Страница в `src/app/(app)/(main)/projects/page.tsx` проверяет actor и
+   permission для отображения страницы, затем загружает данные через
+   Python-backed SSR client.
+2. Браузерные запросы идут на тот же origin, например `/api/projects`. Файл в
+   `src/app/api/projects/route.ts` — BFF transport adapter: он проверяет
+   сессию/CSRF, сохраняет публичный URL и пересылает запрос в FastAPI.
+3. `src/lib/backend/transport.ts` пересылает Python session cookie и CSRF
+   headers; `src/lib/backend/client.ts` отправляет запрос на фиксированный
+   backend URL без кэширования. Недоступность Python возвращает ошибку;
+   Prisma fallback нет.
+4. FastAPI связывает URL с обработчиком в `backend/app/api/routes/projects.py`.
+   Pydantic schema проверяет вход и ответ, service выполняет сценарий, domain
+   применяет бизнес-правила через ports, repository работает с моделями и
+   SQLAlchemy session.
+5. Транзакция фиксируется через Unit of Work. Backend повторно проверяет actor,
+   permission и ресурсный scope. Ответ возвращается через BFF в браузер.
 
-## Архитектура
+Исходный путь по слоям:
 
-### Модульная структура
-
-Приложение разделено на предметные модули внутри `src/features/`. Каждый модуль использует только нужные слои:
-
-```
-src/features/<feature>/
-├── contracts/       Zod-схемы, DTO, публичные типы
-├── domain/          чистые бизнес-правила, доменные ошибки
-├── application/     запросы, команды, транзакционные сценарии
-├── infrastructure/  сложные Prisma-запросы и helpers
-└── ui/              предметные React-компоненты и hooks
-```
-
-### Направление зависимостей
-
-```
-app ──► feature/application ──► feature/domain
- │               └───────────► feature/infrastructure ──► lib/prisma
- └──► feature/ui
-```
-
-### Основные правила
-
-- `src/app` — маршрутизация, авторизация, HTTP-адаптация, композиция экранов
-- `src/lib` — общая инфраструктура, не зависит от `features` или `app`
-- **domain** не зависит от application, infrastructure, UI, Next.js, Prisma Client
-- **UI** не обращается напрямую к Prisma или infrastructure
-- межмодульный обмен — через `contracts`; композиция модулей — в `app`
-- HTTP URL, JSON-контракты, роли и Prisma-схема — стабильные внешние границы
-
----
-
-## Бизнес-модули
-
-### Имущество (`assets`)
-
-Центральная сущность — `Asset` с инвентарным номером, ценой, группой и статусом жизненного цикла:
-
-`IN_STOCK` → `IN_USE` → `UNDER_REPAIR` → `PLANNED_FOR_DISPOSAL` → `PARTIALLY_DISPOSED` → `FULLY_DISPOSED`
-
-Имущество привязано к **МОЛ** (материально ответственное лицо) через `AssetHolding` — одно ТМЦ может быть распределено между несколькими МОЛ. Каждая операция (поступление, перемещение, списание, смена статуса) фиксируется в `Operation`.
-
-Обслуживание (`AssetMaintenance`): плановые осмотры, калибровки, ремонты с отслеживанием дат и стоимости.
-
-### Сотрудники (`employees`)
-
-Полный кадровый учёт: табельный номер, подразделение, должность, тип контракта (основной / внутреннее / внешнее совместительство), ставка, контактные данные.
-
-Кадровые действия (`PersonnelAction`): приём, увольнение, перевод, продление, повышение — с историей изменений.
-
-Отпуска и отсутствия (`Vacation`): отпуск, больничный, командировка, отпуск без содержания.
-
-Навыки (`EmployeeSkill`) и сертификаты (`EmployeeCertificate`) с датами выдачи и истечения.
-
-### Проекты (`projects`)
-
-Проекты с бюджетным планированием (план/факт расходов и доходов), датами, статусами (`ACTIVE`, `COMPLETED`, `ARCHIVED`).
-
-**Задачи** — 3-уровневая иерархия с зависимостями (Finish-to-Start с lag), приоритетами, рисками, вехами. Чек-листы и комментарии. Алгоритм **критического пути** для выявления узких мест.
-
-**Участники проекта** — сотрудники с должностью, ставкой и зарплатой в контексте проекта.
-
-Визуализация: **диаграмма Ганта** (SVAR React Gantt).
-
-### Финансы (`finance`)
-
-- **Штатное расписание** (`StaffSchedule`): должности, ставки, оклады по подразделениям
-- **Зарплатные ведомости** (`SalaryEntry`): помесячные записи по сотрудникам
-- **Финансовый план** (`FinancePlanEntry`): оклады и надбавки по сотрудникам и проектам
-- **Корректировки** (`PayrollAdjustment`): премии, разовые выплаты, удержания
-- **Расчётные периоды** (`PayrollPeriod`): открытие/закрытие с фиксацией ответственного
-
-### Закупки (`procurement`)
-
-Полный цикл от заявки до постановки на баланс:
-
-```
-DRAFT → SUBMITTED → APPROVED → CONTRACTED → PARTIALLY_DELIVERED → DELIVERED → CAPITALIZED
+```text
+src/app (страница или BFF route)
+  → src/lib/backend (session-aware transport)
+  → backend/app/api/routes + backend/app/schemas
+  → backend/app/services
+  → backend/app/domain
+  → backend/app/repositories + backend/app/models
+  → backend/app/db + PostgreSQL
 ```
 
-- **Заявка** (`ProcurementRequest`): позиции, бюджетный лимит, валидация (сумма ≤ лимит)
-- **Согласование**: многошаговая цепочка через модуль `approvals`
-- **Контракт** (`ProcurementContract`): поставщик с валидацией ИНН, сумма, сроки
-- **Поставки** (`ProcurementDelivery`): приёмка позиций, привязка к активам
+Для нового поведения ищите бизнес-сценарий в Python `services`, правило — в
+`domain`, сохранение — в `repositories` и соответствующий API schema/route.
+В `src/features` находятся UI и frontend contracts, а не отдельные владельцы
+бизнес-записей.
 
-### Документы (`documents`)
+## Архитектурные правила
 
-Электронный документооборот с версионированием файлов:
+- FastAPI — единственный backend и единственный владелец доменных записей.
+- Next API routes сохраняют browser-facing URL и работают как транспортные
+  адаптеры. Они не пишут в БД и не обходят Python permissions/scopes.
+- Сессии, проверка `sessionVersion`, роли и resource scopes принадлежат Python.
+  Unsafe запросы требуют CSRF cookie/header; проверка `Origin` не отключается.
+- `backend/app/api` зависит от schemas и services; services координируют
+  domain и repositories; domain не зависит от FastAPI/SQLAlchemy.
+- Alembic — единственный активный DDL owner. Prisma migration history и schema
+  сохранены как архивная справка и не запускаются приложением.
+- PostgreSQL и каталог документов должны репетироваться на отдельной копии до
+  миграции. Не подключайте старый Prisma runtime к схеме под Alembic.
+- Redis/Celery не требуются для базового запуска: notification worker работает
+  на Python и PostgreSQL.
 
-- Категории: общий, договор, приказ, акт, счёт, кадровый, проектный, имущественный
-- Жизненный цикл: `DRAFT` → `IN_REVIEW` → `APPROVED` → `SIGNED` → `ARCHIVED`
-- Каждая версия хранится с SHA-256 хешем, MIME-типом и оригинальным именем
-- Оптимистичная блокировка (`lockVersion`) для конкурентного доступа
-- Документы привязываются к проектам, сотрудникам, имуществу
+## Python CLI и миграции
 
-### Согласования (`approvals`)
+В активном запуске миграции выполняет Compose service `migrate`. Для host-run
+команд используйте Python backend и `BACKEND_DATABASE_URL`:
 
-Универсальный механизм многошаговых согласований:
-
-- Произвольное количество шагов с именованными согласователями
-- Последовательная обработка: `WAITING` → `PENDING` → `APPROVED`/`REJECTED`
-- Сроки и напоминания (`reminderSent`)
-- Привязка к документам, проектам, закупкам
-- Оптимистичная блокировка
-
-### Уведомления (`notifications`)
-
-- **In-app**: нотификации в интерфейсе (колокольчик)
-- **Email**: SMTP-рассылка через outbox-паттерн с ретраями
-- Настраиваемые предпочтения по типам событий и каналам
-- **Scheduled-алерты**: истекающие контракты сотрудников, просроченные задачи, плановое списание имущества, обслуживание, перерасход бюджета
-
-### Табель (`timekeeping`)
-
-Учёт рабочего времени: рабочие дни, отпуска, больничные, командировки, сверхурочные. Привязка к сотруднику, проекту и задаче.
-
-### Отчётность (`reporting`)
-
-Дашборд с ключевыми показателями:
-
-- Численность и загруженность штатного расписания
-- ФОТ: план vs факт
-- Бюджеты проектов: использование, отклонения, средний прогресс
-- Имущество: количество, стоимость, требующие внимания
-- Текущие отсутствия, просроченные задачи
-- Аналитика по подразделениям
-- Сохранённые пресеты отчётов
-
----
-
-## Роли и безопасность
-
-### Ролевая модель (RBAC)
-
-Система использует двухуровневую ролевую модель:
-
-**Системные роли** (`UserRole`) — базовый уровень доступа:
-
-| Роль | Описание |
-| --- | --- |
-| `ADMIN` | все операции и управление пользователями |
-| `EDITOR` | доменные изменения без управления пользователями |
-| `VIEWER` | только чтение и экспорт |
-
-**Прикладные роли** (`AppRole`) — гранулярные полномочия с область видимости:
-
-| Роль | Описание |
-| --- | --- |
-| `ADMIN` | Полный доступ ко всему |
-| `HR` | Кадровые операции |
-| `ACCOUNTANT` | Финансы, зарплаты, бюджеты |
-| `PROJECT_MANAGER` | Управление проектами |
-| `ASSET_CUSTODIAN` | Учёт имущества (МОЛ) |
-| `DEPARTMENT_HEAD` | Руководитель подразделения |
-| `AUDITOR` | Аудит и отчётность |
-| `EMPLOYEE` | Базовый доступ сотрудника |
-
-Каждая прикладная роль назначается пользователю с **режимом области видимости** (`ScopeMode`):
-
-- `ALL` — доступ ко всем записям
-- `ASSIGNED` — только назначенные подразделения/проекты
-- `SELF` — только собственные записи
-- `NONE` — без ограничения по scope
-
-### Безопасность
-
-- Middleware (`proxy.ts`) выполняет раннее перенаправление; Server Components и API повторно проверяют пользователя в PostgreSQL
-- Мутации требуют допустимую роль и same-origin
-- Пароли — **Argon2id**
-- Блокировка после 5 неверных попыток на 15 минут
-- JWT-сессии с максимальным временем жизни 8 часов
-- Versioned sessions (`sessionVersion`) — мгновенная инвалидация при смене пароля или деактивации
-- Audit log с `requestId` для сквозной трассировки
-- Health endpoints: `GET /api/health/live`, `GET /api/health/ready`
-
----
-
-## Ежедневная разработка
-
-### Управление локальной БД
-
-```bash
-# Поднять PostgreSQL
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres
-
-# Состояние и логи
-docker compose -f docker-compose.yml -f docker-compose.dev.yml ps
-docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f postgres
-
-# Запустить приложение
-npm run dev
-
-# Остановить/запустить без удаления данных
-docker compose -f docker-compose.yml -f docker-compose.dev.yml stop postgres
-docker compose -f docker-compose.yml -f docker-compose.dev.yml start postgres
-
-# Удалить контейнеры, сохранив данные
-docker compose -f docker-compose.yml -f docker-compose.dev.yml down
-
-# Полный сброс (необратимо!)
-docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres
-npm run db:migrate:deploy
-npm run db:seed
+```sh
+cd backend
+uv sync --frozen
+uv run alembic current
+uv run alembic upgrade head
+uv run python -m app.scripts.verify_schema
+uv run python -m app.scripts.seed
+uv run python -m app.scripts.verify_data
+uv run python -m app.scripts.create_admin
 ```
 
-Dev-overlay публикует PostgreSQL на хосте. Не подключайте `docker-compose.dev.yml` в production.
+Перед `upgrade head` на существующей базе выполните проверку и handoff из
+[Stage 14A](docs/backend-migration/migration-handoff.md). Не запускайте Prisma
+migrate, `db push` или `reset` и не удаляйте volumes. Рабочее переключение или
+rollback не выполняется этим README; порядок и ограничения rehearsal описаны в
+[Stage 14C acceptance](docs/backend-migration/acceptance-report.md),
+[cutover runbook](docs/backend-migration/cutover-runbook.md) и
+[rollback runbook](docs/backend-migration/rollback-runbook.md).
 
-### Seed и администратор
+## Проверки
 
-```bash
-npm run db:seed              # связанный учебный набор Python CLI (идемпотентно)
-npm run user:create-admin    # интерактивное создание (TTY, пароль скрыт)
-npm run db:verify            # проверка целостности данных
-```
+Frontend:
 
-Эти npm-команды запускают соответствующие Python entrypoints через `uv` (установите `uv` для Python backend). Launcher загружает корневой `.env`, передаёт `DATABASE_URL` в `BACKEND_DATABASE_URL` и `NODE_ENV` в `BACKEND_ENVIRONMENT`, не печатая значения переменных. Уже заданные `BACKEND_*` переменные имеют приоритет.
-
-Python seed создаёт небольшой связанный граф: учебное подразделение, штатную позицию, сотрудника, проект, участие сотрудника в проекте и назначенную задачу. Он безопасен для повторного запуска. Полный набор, создаваемый старым `prisma/demo-seed.ts`, через публичную команду больше не запускается.
-
-Seed запрещён в production и для баз `organization_erp` и `project1`; разрешены только локальные хосты и Docker-хост `postgres`. Удалённая БД запрещена.
-
-`db:verify` проверяет балансы имущества и остатков, отрицательные значения, orphan-ссылки на активы и МОЛ, секретные шаблоны в audit JSON, циклы/дубли подразделений и несоответствие названий подразделения в связанных снимках, текущие версии документов, безопасный формат метаданных и наличие/контрольную сумму файлов документов.
-
----
-
-## Prisma и миграции
-
-Схема: `prisma/schema.prisma`. Миграции: `prisma/migrations/`.
-
-### Применить существующие миграции
-
-```bash
-npm ci
-npm run db:generate
-npm run db:migrate:deploy    # безопасно для CI и production
-```
-
-### Создать новую миграцию
-
-```bash
-# 1. Измените prisma/schema.prisma
-# 2. Создайте и примените миграцию
-npm run db:migrate -- --name add_asset_location
-
-# 3. Проверьте
-npm run db:generate
-npm run db:verify
-npm run check
-
-# 4. Закоммитьте изменения
-```
-
-Имя миграции — `snake_case`, описывает изменение: `add_employee_department`, `make_contract_code_optional`.
-
-### Миграция с ручным SQL
-
-```bash
-npm run db:migrate -- --name backfill_asset_holdings --create-only
-# Отредактируйте migration.sql
-npm run db:migrate
-npm run db:verify
-```
-
-Для опасных изменений используйте **expand/contract**: добавьте новые nullable-поля, совместимый код, backfill, а удаление старых полей вынесите в отдельный релиз.
-
-### Полезные команды
-
-```bash
-npm run db:generate              # перегенерировать Prisma Client
-npm run db:studio                # открыть Prisma Studio
-npx prisma migrate status        # состояние миграций
-npx prisma migrate reset         # полный сброс (только dev!)
-```
-
-> **Не используйте** `prisma db push` вместо миграций. Не изменяйте уже применённые `migration.sql` — оформляйте исправления новой миграцией.
-
----
-
-## Тестирование
-
-### Unit и integration тесты (Vitest)
-
-```bash
-npm test
-```
-
-Среда: jsdom. Конфигурация: `vitest.config.ts`.
-
-### E2E тесты (Playwright)
-
-```bash
-# Установить браузер (первый раз)
-npx playwright install chromium
-
-# Рекомендуется отдельная тестовая БД
-docker compose -f docker-compose.yml -f docker-compose.dev.yml exec postgres \
-  createdb -U project1 project1_test
-
-DATABASE_URL="postgresql://project1:<пароль>@localhost:5434/project1_test" \
-  npm run db:migrate:deploy
-
-DATABASE_URL="postgresql://project1:<пароль>@localhost:5434/project1_test" \
-PLAYWRIGHT_BASE_URL="http://127.0.0.1:3001" \
-  npm run test:e2e
-```
-
-E2E создаёт пользователей `e2e-admin`, `e2e-viewer` и тестовые записи. Не запускайте с production `DATABASE_URL`.
-
-### Полный CI-набор
-
-```bash
-npm ci
-npm run db:generate
-npm run db:migrate:deploy
+```sh
 npm run lint
 npm run typecheck
 npm test
 npm run build
-npx playwright install chromium
-npm run test:e2e
-npm audit --omit=dev --audit-level=high
 ```
 
-Сокращённая команда (lint + typecheck + tests + build):
+Backend (из `backend/`):
 
-```bash
-npm run check
+```sh
+uv sync --frozen
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy app
+uv run pytest
 ```
 
----
+Playwright требует отдельную disposable БД и локальный CSRF secret. Prisma
+client используется только тестовыми E2E fixture helpers; команда `npm run
+test:e2e` генерирует его для теста. Frontend build и production image от Prisma
+не зависят.
 
-## Команды npm
+## Полезные документы
 
-| Команда | Назначение |
-| --- | --- |
-| **Разработка** | |
-| `npm run dev` | dev-сервер (порт 3001) |
-| `npm run dev:turbo` | dev-сервер с Turbopack |
-| `npm run dev:webpack` | dev-сервер с Webpack |
-| `npm run dev:reset` | очистить кеш и запустить dev |
-| **Сборка** | |
-| `npm run build` | production build |
-| `npm run build:clean` | очистить кеш + build |
-| `npm run start` | запустить production build |
-| `npm run start:prod` | очистить + собрать + запустить |
-| `npm run clean:next` | удалить `.next`, `.next-dev`, `.next-dev-turbo` |
-| **Проверки** | |
-| `npm run lint` | ESLint |
-| `npm run typecheck` | TypeScript `--noEmit` |
-| `npm test` | Vitest |
-| `npm run test:e2e` | Playwright |
-| `npm run check` | lint + typecheck + tests + build |
-| **База данных** | |
-| `npm run db:generate` | Prisma Client |
-| `npm run db:migrate` | создать/применить dev-миграцию |
-| `npm run db:migrate:deploy` | применить готовые миграции |
-| `npm run db:studio` | Prisma Studio |
-| `npm run db:seed` | идемпотентный связанный учебный набор через Python CLI |
-| `npm run db:verify` | проверка реляционной целостности и файлов документов через Python CLI |
-| **Администрирование** | |
-| `npm run user:create-admin` | создать ADMIN-пользователя |
-
----
-
-## Docker и production
-
-### Локальная проверка production Docker
-
-```bash
-docker compose config          # проверить итоговую конфигурацию (не публикуйте!)
-docker compose build
-docker compose up -d
-docker compose ps
-```
-
-Compose запускает сервисы по порядку:
-
-1. **`postgres`** — PostgreSQL 15 с постоянным volume
-2. **`migrate`** — одноразовый контейнер `prisma migrate deploy`
-3. **`app`** — production Next.js (после успешных миграций)
-
-`Exited (0)` у `migrate` — нормально.
-
-```bash
-docker compose logs --tail=100 migrate
-docker compose logs -f app
-curl --fail http://127.0.0.1:3001/api/health/live    # процесс отвечает
-curl --fail http://127.0.0.1:3001/api/health/ready   # подключение к БД
-```
-
-### Production: подготовка
-
-На сервере: Docker Engine + Docker Compose v2. Разворачивайте из проверенного commit/tag.
-
-```bash
-cp .env.example .env
-chmod 600 .env
-```
-
-Обязательно:
-
-- `POSTGRES_PASSWORD` — длинный уникальный пароль
-- `NEXTAUTH_SECRET` — минимум 32 символа
-- `NEXTAUTH_URL` и `NEXT_PUBLIC_APP_URL` — одинаковый HTTPS origin
-- `APP_PORT=127.0.0.1:3001` — ограничить loopback (если reverse proxy на том же сервере)
-- Не подключайте `docker-compose.dev.yml`
-- TLS — на reverse proxy, проксируйте на `127.0.0.1:3001`
-
-### Production: первый запуск
-
-```bash
-docker compose build
-docker compose up -d
-docker compose ps
-docker compose logs --tail=100 migrate
-docker compose logs --tail=100 app
-curl --fail http://127.0.0.1:3001/api/health/live
-curl --fail http://127.0.0.1:3001/api/health/ready
-```
-
-Создание первого администратора:
-
-```bash
-docker compose run --rm -it \
-  backend python -m app.scripts.create_admin
-```
-
-**Не запускайте `db:seed` в production.**
-
-### Production: backup
-
-Перед каждой миграцией:
-
-```bash
-BACKUP_FILE="/srv/project1/dumps/project1-$(date +%F-%H%M%S).dump"
-docker compose exec -T postgres sh -c \
-  'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' \
-  > "$BACKUP_FILE"
-test -s "$BACKUP_FILE"
-ls -lh "$BACKUP_FILE"
-```
-
-Храните копии вне сервера. Регулярно проверяйте восстановление.
-
-### Production: обновление
-
-1. Включить maintenance mode
-2. Создать и проверить backup
-3. Получить проверенный commit/tag
-4. Собрать и запустить:
-
-```bash
-docker compose build
-docker compose up -d
-```
-
-5. Проверить:
-
-```bash
-docker compose logs --tail=100 migrate
-docker compose ps
-curl --fail http://127.0.0.1:3001/api/health/live
-curl --fail http://127.0.0.1:3001/api/health/ready
-```
-
-6. Проверка данных:
-
-```bash
-docker compose run --rm backend python -m app.scripts.verify_data
-```
-
-7. Smoke-тест → отключить maintenance mode
-
-### Production: восстановление из backup
-
-```bash
-docker compose stop app migrate
-docker compose exec -T postgres sh -c \
-  'dropdb -U "$POSTGRES_USER" --if-exists "$POSTGRES_DB" && createdb -U "$POSTGRES_USER" "$POSTGRES_DB"'
-docker compose exec -T postgres sh -c \
-  'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' \
-  < /srv/project1/dumps/project1-YYYY-MM-DD-HHMMSS.dump
-docker compose up -d migrate app
-```
-
-После восстановления: проверить логи migrate, `db:verify`, health → smoke-тест → открыть доступ.
-
----
-
-## Rollout AssetHolding
-
-**Release A:**
-1. Maintenance mode + backup
-2. Additive-миграция пользователей и `AssetHolding`
-3. `npm run db:verify` + smoke/E2E
-4. Открыть доступ (legacy `Asset.molId` остаётся для rollback)
-
-**Release B** (после стабильного периода):
-1. Backup + `db:verify`
-2. Удалить legacy `Asset.molId` отдельной миграцией
-3. Полный CI + smoke-тесты
-
-При ошибке Release A: доступ не открывается, контейнеры останавливаются, база восстанавливается из backup.
-
----
-
-## Структура репозитория
-
-```
-prisma/                     схема, миграции и dev seed
-scripts/                    admin-скрипты и проверки БД
-src/
-├── app/
-│   ├── (auth)/             логин
-│   ├── (app)/(main)/       основные страницы
-│   │   ├── assets/         имущество
-│   │   ├── employees/      сотрудники
-│   │   ├── projects/       проекты
-│   │   ├── finance/        финансы
-│   │   ├── procurement/    закупки
-│   │   ├── documents/      документы
-│   │   ├── approvals/      согласования
-│   │   ├── timekeeping/    табель
-│   │   ├── reports/        отчётность
-│   │   ├── notifications/  уведомления
-│   │   └── admin/          администрирование
-│   └── api/                REST API endpoints
-├── features/               бизнес-модули
-│   ├── assets/             contracts, domain, application, infrastructure, ui
-│   ├── employees/          contracts, domain, application, infrastructure, ui
-│   ├── projects/           contracts, domain, application, ui
-│   ├── finance/            contracts, domain, application, ui
-│   ├── procurement/        contracts, application, ui
-│   ├── documents/          contracts, domain, application, infrastructure, ui
-│   ├── approvals/          contracts, application, ui
-│   ├── notifications/      contracts, application, ui
-│   ├── timekeeping/        contracts, domain, application, ui
-│   ├── departments/        contracts, application, ui
-│   ├── reporting/          contracts, domain, application, ui
-│   ├── exports/            application
-│   └── users/              application
-├── components/             общий UI-kit, layout, навигация
-├── lib/                    auth, DB, HTTP, logger, errors
-└── types/                  TypeScript декларации
-e2e/                        Playwright E2E тесты
-.github/workflows/ci.yml   CI pipeline
-Dockerfile                  multi-stage production image
-docker-compose.yml          production topology
-docker-compose.dev.yml      dev-overlay (порт PostgreSQL)
-```
+- [Backend API и слои](backend/README.md)
+- [Stage 14B: Python sessions](docs/backend-migration/stage14b-validation.md)
+- [Stage 14C: acceptance](docs/backend-migration/acceptance-report.md)
+- [Stage 14D: runtime cleanup and validation](docs/backend-migration/stage14d-validation.md)
+- [Stage 14A: передача миграций Alembic](docs/backend-migration/migration-handoff.md)
+- [Будущие практические упражнения](docs/superpowers/plans/2026-09-28-fastapi/09-future-exercises.md)

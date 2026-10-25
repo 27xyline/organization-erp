@@ -2,13 +2,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const mocks = vi.hoisted(() => ({
-  authorize: vi.fn(), proxy: vi.fn(), unavailable: vi.fn(), allows: vi.fn(() => true),
-  departmentForPosition: vi.fn(),
+  authorize: vi.fn(), proxy: vi.fn(), unavailable: vi.fn(),
 }))
 
 vi.mock('@/lib/auth/authorization', () => ({ authorizeApiRequest: mocks.authorize }))
-vi.mock('@/lib/auth/resource-scopes', () => ({ departmentForPosition: mocks.departmentForPosition }))
-vi.mock('@/lib/backend/bridge', () => ({ proxyBackendRequest: mocks.proxy }))
+vi.mock('@/lib/backend/transport', () => ({ proxyBackendRequest: mocks.proxy }))
 vi.mock('@/lib/backend/client', () => ({ backendUnavailableResponse: mocks.unavailable }))
 
 import { GET, POST } from './route'
@@ -18,9 +16,7 @@ const user = { id: 'hr-1', sessionVersion: 2 }
 describe('employees collection BFF', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mocks.authorize.mockResolvedValue({ user, access: { allows: mocks.allows }, requestId: 'req-1' })
-    mocks.allows.mockReturnValue(true)
-    mocks.departmentForPosition.mockResolvedValue('department-1')
+    mocks.authorize.mockResolvedValue({ user, requestId: 'req-1' })
     mocks.proxy.mockResolvedValue(new Response(JSON.stringify({ data: [], pagination: { page: 2 } }), { status: 200 }))
     mocks.unavailable.mockReturnValue(new Response(null, { status: 503 }))
   })
@@ -37,7 +33,7 @@ describe('employees collection BFF', () => {
     expect(response.status).toBe(200)
   })
 
-  it('validates create input and checks the target position scope before forwarding', async () => {
+  it('validates create input before forwarding to Python', async () => {
     const invalid = await POST(new NextRequest('http://localhost/api/employees', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: '', fullName: '' }),
     }))
@@ -54,7 +50,6 @@ describe('employees collection BFF', () => {
     mocks.proxy.mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: 'employee-1' } }), { status: 201 }))
     const response = await POST(req)
     expect(mocks.authorize).toHaveBeenCalledWith(req, 'employees.create')
-    expect(mocks.allows).toHaveBeenCalledWith('employees.create', { departmentId: 'department-1' })
     expect(mocks.proxy).toHaveBeenCalledWith(req, '/api/employees', user, 'req-1')
     expect(response.status).toBe(201)
   })

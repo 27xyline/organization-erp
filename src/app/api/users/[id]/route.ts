@@ -3,7 +3,7 @@ import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { updateUserSchema } from '@/features/users/contracts/schemas'
 import { apiValidationError } from '@/lib/http/api-response'
 import { backendUnavailableResponse } from '@/lib/backend/client'
-import { proxyBackendRequest } from '@/lib/backend/bridge'
+import { proxyBackendRequest } from '@/lib/backend/transport'
 
 export async function PATCH(
   request: NextRequest,

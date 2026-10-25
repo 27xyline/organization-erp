@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import type { DocumentView } from '@/features/documents/contracts/ui-types'
 import { DocumentDetailClient } from '@/features/documents/ui/document-detail-client'
 import { requirePagePermission } from '@/lib/auth/authorization'
-import { backendUserFetch } from '@/lib/backend/bridge'
+import { backendUserFetch } from '@/lib/backend/transport'
 import { BackendRequestError } from '@/lib/backend/client'
 import { readBackendData } from '@/lib/backend/page-data'
 

@@ -173,6 +173,7 @@ test('Stage 10 timekeeping approval, payroll close, denied edit, and reopen', as
   expect(approved.ok(), await approved.text()).toBeTruthy()
   await reviewer.context.close()
   await admin.page.reload()
+  await admin.page.waitForLoadState('networkidle')
   const approvedMonthLoad = admin.page.waitForResponse((response) => {
     const url = new URL(response.url())
     return url.pathname === '/api/time-entries' &&
@@ -185,6 +186,7 @@ test('Stage 10 timekeeping approval, payroll close, denied edit, and reopen', as
   await expect(approvedEmployeeCard.getByText('Утверждён')).toBeVisible()
 
   await admin.page.goto('/finance/payroll')
+  await admin.page.waitForLoadState('networkidle')
   const payrollLoad = admin.page.waitForResponse((response) => {
     const url = new URL(response.url())
     return url.pathname === '/api/payroll' &&

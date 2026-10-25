@@ -32,6 +32,12 @@ it('forwards only session and CSRF transport headers and returns backend Set-Coo
   const response = await proxySessionRequest(request, '/api/auth/login')
 
   const forwarded = new Headers(fetchMock.mock.calls[0][1]?.headers)
+  expect(String(fetchMock.mock.calls[0][0])).toBe('http://127.0.0.1:8000/api/auth/login')
+  expect(fetchMock.mock.calls[0][1]?.method).toBe('POST')
+  expect(JSON.parse(new TextDecoder().decode(fetchMock.mock.calls[0][1]?.body as ArrayBuffer))).toEqual({
+    username: 'person',
+    password: 'secret',
+  })
   expect(forwarded.get('cookie')).toBe('erp_csrf=signed; unrelated=ignored')
   expect(forwarded.get('origin')).toBe('https://erp.example')
   expect(forwarded.get('x-csrf-token')).toBe('signed')

@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
 import { createGroupSchema } from '@/features/assets/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { proxyBackendRequest } from '@/lib/backend/bridge'
+import { proxyBackendRequest } from '@/lib/backend/transport'
 import { backendUnavailableResponse } from '@/lib/backend/client'
 import { apiValidationError } from '@/lib/http/api-response'
 

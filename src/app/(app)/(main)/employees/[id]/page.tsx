@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import { requirePagePermission } from '@/lib/auth/authorization'
 import { EmployeeProfileClient } from '@/features/employees/ui/employee-profile-client'
-import { backendUserFetch } from '@/lib/backend/bridge'
+import { backendUserFetch } from '@/lib/backend/transport'
 import { readBackendData } from '@/lib/backend/page-data'
 
 type EmployeeProfileData = Parameters<typeof EmployeeProfileClient>[0]['initialData']

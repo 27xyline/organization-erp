@@ -1,6 +1,6 @@
 # Перенос backend Organization ERP на Python: архитектура и ограничения
 
-Дата: 28 сентября 2026. Статус: проект решения для постепенного выполнения; реализация не начата.
+Дата: 28 сентября 2026. Статус: исходный проектный документ. Текущая целевая архитектура и запуск описаны в корневом README; журнал исполнения остаётся в `docs/backend-migration/`.
 
 ## Цель
 
@@ -82,7 +82,7 @@ backend/
       departments.py, employees.py, projects.py
       # остальные бизнес-сервисы по мере переноса
     integrations/
-      auth_bridge.py          # временная проверка signed bridge
+      session_security.py    # cookie sessions and CSRF
       document_storage.py
       smtp.py
       document_rendering.py
@@ -107,7 +107,7 @@ backend/
 | `repositories` | SQLAlchemy queries и реализация портов | Импортирует models, domain, db; не вызывает services |
 | `models` | SQLAlchemy mapping таблиц/relationships | Не содержит бизнес-сервисы и HTTP schemas |
 | `db` | Пулы, lifecycle session и UoW, registry | `uow.py` собирает repository на одной session |
-| `integrations` | Storage, SMTP, rendering, временный auth bridge | Реализует порты; не решает бизнес-статусы |
+| `integrations` | Session security, storage, SMTP, rendering | Реализует порты; не решает бизнес-статусы |
 | `tasks` | Цикл worker, расписание, shutdown | Вызывает services; не копирует бизнес-логику |
 | `core` | Настройки, logging, metrics и composition | `container.py` единственное общее место сборки зависимостей |
 | `scripts` | CLI команды | Вызывают services; не имеют независимого набора бизнес-правил |
@@ -137,7 +137,7 @@ backend/
 | SQLAlchemy 2.x, asyncpg, Alembic | ORM, транзакции, PostgreSQL migrations | 01–02, handoff 14 |
 | pytest, AnyIO asyncio backend, HTTPX, asgi-lifespan | Unit, HTTP и реальные DB-тесты | 01 |
 | Ruff, mypy | Проверка Python-кода | 01 |
-| argon2-cffi, PyJWT | Существующие пароли и временный bridge | 03 |
+| argon2-cffi | Проверка паролей и session-backed auth | 03–14B |
 | aiosmtplib, Jinja2, openpyxl, python-docx, ReportLab | Аналоги уже имеющихся SMTP/exports | По модулям |
 | OpenTelemetry Python | Подключение Python к существующим Collector/Prometheus/Grafana/Tempo | База 01, полный этап 13 |
 | Docker Compose, GitHub Actions, Playwright | Текущие запуск/CI/E2E | Каждый этап |
@@ -146,15 +146,9 @@ Python 3.13 — проектный выбор, а не утверждение о
 
 Redis, Celery, RabbitMQ, Kafka, S3/MinIO, отдельный admin framework и Kubernetes не входят в обязательную реализацию. В плане будет список самостоятельных упражнений для их будущего введения с конкретной задачей. Базовый перенос сохраняет существующие возможности и не требует этих систем.
 
-## Переходный frontend и авторизация
+## Frontend и авторизация после Stage 14D
 
-До этапа 14 NextAuth остаётся единственным владельцем браузерной сессии. С этапа 03 проверка пароля/блокировки и управление пользователями идут через Python; Credentials provider делегирует их внутреннему endpoint. Не делать вторую независимую таблицу сессий на этом этапе.
-
-Next.js после проверки NextAuth session создаёт внутренний JWT с `sub`, `sessionVersion`, `iss=erp-next`, `aud=erp-python`, `iat`, `exp` (60 секунд). Подпись HS256 отдельным `BACKEND_BRIDGE_SECRET`, фиксированный разрешённый алгоритм, без передачи ролей как источника истины. Python проверяет подпись, issuer/audience/expiry, активность пользователя, версию сессии, `mustChangePassword` и загружает scope grants из БД. Доверять входным `x-user-id`/`x-role` нельзя. Bridge token не отдаётся браузеру. Внутренний login endpoint доступен только доверенному BFF с отдельной аутентификацией вызова.
-
-Для каждого перенесённого модуля Next.js route становится тонким адаптером, передающим метод, query/body, bridge token, request ID и traceparent. Прямые server-page imports заменяются вызовами `src/lib/backend/client.ts`. Ошибки сети дают понятный 502/503, без возврата к старой записи. Для персональных ответов `cache: 'no-store'`; streaming download/upload не превращается в JSON.
-
-На этапе 14 браузерная авторизация полностью переходит в FastAPI: opaque случайный session token в HttpOnly cookie, в PostgreSQL только hash токена, срок 8 часов, revoke при logout/смене пароля/деактивации. Cookie SameSite=Lax, Secure в production; небезопасные методы проверяют Origin и CSRF token, отсутствие Origin не обходит CSRF. Браузер обращается к одному origin через BFF, который прозрачно передаёт cookie/Set-Cookie. SSR получает actor через `/api/account/me`; guard не считает наличие cookie доказательством авторизации. Старые NextAuth сессии потребуют повторного входа. Bridge и NextAuth удаляются только после этого переключения.
+FastAPI владеет opaque session token в HttpOnly cookie, хешем токена в PostgreSQL, сроком сессии и проверками пользователя/ролей/scopes. Next.js не использует NextAuth, actor JWT или отдельный credentials endpoint. SSR получает actor через `/api/account/me`; BFF проверяет пользовательское permission до передачи запроса. `src/lib/backend/transport.ts` пересылает браузерные session cookie, Origin и CSRF header на фиксированный `BACKEND_BASE_URL`, а Python повторно проверяет сессию и ресурсный scope. GET SSR-запросы также пересылают session cookie. Unsafe методы проходят Python CSRF middleware. Персональные ответы не кэшируются; upload/download bodies остаются потоковыми.
 
 ## Данные и владение миграциями
 

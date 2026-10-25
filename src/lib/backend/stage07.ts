@@ -2,7 +2,7 @@ import 'server-only'
 
 import type { CurrentUser } from '@/lib/auth/authorization'
 import { backendUnavailableResponse } from './client'
-import { proxyBackendRequest } from './bridge'
+import { proxyBackendRequest } from './transport'
 
 /** Proxy a Stage 07 request without allowing a TypeScript database fallback. */
 export async function proxyStage07Request(

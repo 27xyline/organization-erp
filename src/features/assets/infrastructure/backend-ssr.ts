@@ -1,6 +1,6 @@
 import type { Asset, AssetGroup, Mol } from '@/features/assets/contracts/types'
 import type { AssetSavedViewSummary } from '@/features/assets/contracts/saved-view'
-import { backendUserFetch } from '@/lib/backend/bridge'
+import { backendUserFetch } from '@/lib/backend/transport'
 import { BackendRequestError } from '@/lib/backend/client'
 import { readBackendData } from '@/lib/backend/page-data'
 

@@ -1,4 +1,4 @@
-import { DocumentCategory, DocumentStatus } from '@prisma/client'
+import { DocumentCategory, DocumentStatus } from '@/lib/contracts/enums'
 import { z } from 'zod'
 
 const optionalId = z

@@ -11,6 +11,7 @@ const backendBaseUrl = process.env.PLAYWRIGHT_BACKEND_URL || 'http://127.0.0.1:8
 const backendUrl = new URL(backendBaseUrl)
 const backendPort = backendUrl.port || (backendUrl.protocol === 'https:' ? '443' : '80')
 const isolatedE2eDatabaseUrl = process.env.STAGE14C_E2E_DATABASE_URL ??
+  process.env.STAGE14B_E2E_DATABASE_URL ??
   process.env.STAGE10_E2E_DATABASE_URL ??
   process.env.STAGE09_E2E_DATABASE_URL ??
   process.env.STAGE08_E2E_DATABASE_URL ??
@@ -23,8 +24,9 @@ if (!isolatedE2eDatabaseUrl) {
 }
 const e2eDatabaseName = new URL(isolatedE2eDatabaseUrl).pathname.replace(/^\//, '')
 const isStage10E2E = e2eDatabaseName === 'erp_stage10_e2e'
+const isStage14BE2E = e2eDatabaseName === 'erp_stage14b_e2e'
 const isStage14CE2E = e2eDatabaseName === 'erp_stage14c_e2e'
-if (!/^erp_stage0[3-9]_e2e$/.test(e2eDatabaseName) && !isStage10E2E && !isStage14CE2E) {
+if (!/^erp_stage0[3-9]_e2e$/.test(e2eDatabaseName) && !isStage10E2E && !isStage14BE2E && !isStage14CE2E) {
   throw new Error('Playwright requires an isolated stage-specific E2E database')
 }
 const documentStorageRoot = isStage14CE2E
@@ -35,19 +37,11 @@ const documentStorageRoot = isStage14CE2E
 if (!process.env.DATABASE_URL || process.env.DATABASE_URL !== isolatedE2eDatabaseUrl) {
   throw new Error('DATABASE_URL and the isolated E2E database URL must be the same isolated database')
 }
-for (const name of ['BACKEND_BRIDGE_SECRET', 'BACKEND_INTERNAL_AUTH_SECRET', 'BACKEND_CSRF_SECRET']) {
+for (const name of ['BACKEND_CSRF_SECRET']) {
   if (!process.env[name] || Buffer.byteLength(process.env[name]!, 'utf8') < 32) {
       throw new Error(`${name} must be a distinct secret of at least 32 bytes for Stage 07 E2E`)
   }
 }
-if (new Set([
-  process.env.BACKEND_BRIDGE_SECRET,
-  process.env.BACKEND_INTERNAL_AUTH_SECRET,
-  process.env.BACKEND_CSRF_SECRET,
-]).size !== 3) {
-  throw new Error('Bridge, internal-auth, and CSRF secrets must be different')
-}
-
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
@@ -68,10 +62,8 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 120_000,
       env: {
-        DATABASE_URL: isolatedE2eDatabaseUrl,
         BACKEND_BASE_URL: backendBaseUrl,
         DOCUMENT_STORAGE_ROOT: documentStorageRoot,
-        NEXTAUTH_URL: baseURL,
         NEXT_PUBLIC_APP_URL: baseURL,
       },
     },
@@ -90,6 +82,9 @@ export default defineConfig({
         STAGE10_E2E_DATABASE_URL: isStage10E2E
           ? isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:')
           : '',
+        STAGE14B_TEST_DATABASE_URL: isStage14BE2E
+          ? isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:')
+          : '',
         STAGE14C_TEST_DATABASE_URL: isStage14CE2E
           ? isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:')
           : '',
@@ -105,8 +100,6 @@ export default defineConfig({
         STAGE04_E2E_DATABASE_URL: isolatedE2eDatabaseUrl.replace(/^postgresql:/, 'postgresql+asyncpg:'),
         BACKEND_ENVIRONMENT: 'test',
         BACKEND_OTEL_ENABLED: 'false',
-        BACKEND_BRIDGE_SECRET: process.env.BACKEND_BRIDGE_SECRET || '',
-        BACKEND_INTERNAL_AUTH_SECRET: process.env.BACKEND_INTERNAL_AUTH_SECRET || '',
         BACKEND_CSRF_SECRET: process.env.BACKEND_CSRF_SECRET || '',
         BACKEND_PUBLIC_ORIGIN: baseURL,
       },

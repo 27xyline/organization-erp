@@ -13,7 +13,6 @@ from app.domain.errors import DomainError
 from app.integrations.asset_import import OpenpyxlAssetWorkbook
 from app.integrations.asset_qr import render_asset_qr
 from app.integrations.audit import SqlAlchemyAuditGateway
-from app.integrations.auth_bridge import verify_bridge
 from app.integrations.exports import DashboardExportRenderer
 from app.integrations.my_actions import SqlAlchemyMyActionsGateway
 from app.integrations.password_hash import Argon2PasswordHasher
@@ -64,21 +63,12 @@ def get_catalog_service(request: Request) -> CatalogService:
 
 async def get_actor(
     request: Request,
-    service: Annotated[AuthService, Depends(get_auth_service)],
     sessions: Annotated[SessionsService, Depends(get_sessions_service)],
 ) -> Actor:
     session_token = request.cookies.get(SESSION_COOKIE_NAME)
     if session_token:
         return await sessions.resolve(session_token)
-    configured = request.app.state.settings.bridge_secret
-    secret = configured.get_secret_value() if configured else ""
-    if len(secret.encode()) < 32:
-        raise DomainError("AUTH_UNAVAILABLE", "Сервис авторизации недоступен", 503)
-    header = request.headers.get("authorization", "")
-    if not header.startswith("Bearer "):
-        raise DomainError("UNAUTHENTICATED", "Требуется вход в систему", 401)
-    identifier, version = verify_bridge(header[7:], secret)
-    return await service.resolve_actor(identifier, version)
+    raise DomainError("UNAUTHENTICATED", "Требуется вход в систему", 401)
 
 
 async def get_authenticated_context(

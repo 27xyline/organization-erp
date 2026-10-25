@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@/lib/auth/authorization', () => ({ authorizeApiRequest: mocks.authorize }))
-vi.mock('@/lib/backend/bridge', () => ({ proxyBackendRequest: mocks.proxy }))
+vi.mock('@/lib/backend/transport', () => ({ proxyBackendRequest: mocks.proxy }))
 vi.mock('@/lib/backend/client', () => ({ backendUnavailableResponse: mocks.unavailable }))
 
 import { GET, POST } from './route'

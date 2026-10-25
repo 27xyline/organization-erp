@@ -1,4 +1,4 @@
-import { AssetMaintenanceStatus, AssetMaintenanceType } from '@prisma/client'
+import { AssetMaintenanceStatus, AssetMaintenanceType } from '@/lib/contracts/enums'
 import { z } from 'zod'
 
 export const createMaintenanceSchema = z.object({

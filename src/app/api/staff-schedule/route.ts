@@ -1,10 +1,9 @@
 import type { NextRequest } from 'next/server'
 import { createStaffScheduleSchema } from '@/features/employees/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { proxyBackendRequest } from '@/lib/backend/bridge'
+import { proxyBackendRequest } from '@/lib/backend/transport'
 import { backendUnavailableResponse } from '@/lib/backend/client'
-import { apiError, apiValidationError } from '@/lib/http/api-response'
-import { departmentForReference } from '@/lib/auth/resource-scopes'
+import { apiValidationError } from '@/lib/http/api-response'
 
 export async function GET(request: NextRequest) {
   const auth = await authorizeApiRequest(request, 'staffSchedule.read')
@@ -21,10 +20,6 @@ export async function POST(request: NextRequest) {
   if (auth.response) return auth.response
   const input = createStaffScheduleSchema.safeParse(await request.clone().json())
   if (!input.success) return apiValidationError(input.error)
-  const departmentId = await departmentForReference(input.data)
-  if (departmentId && !auth.access.allows('staffSchedule.create', { departmentId })) {
-    return apiError('FORBIDDEN', 'Недостаточно прав', 403)
-  }
   try {
     return await proxyBackendRequest(request, '/api/staff-schedule', auth.user, auth.requestId)
   } catch (error) {

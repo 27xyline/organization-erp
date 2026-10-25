@@ -116,8 +116,6 @@ async def test_account_me_returns_only_the_actor_contract():
         Settings(
             _env_file=None,
             csrf_secret=None,
-            internal_auth_secret=None,
-            bridge_secret=None,
             otel_enabled=False,
         )
     )
@@ -142,8 +140,16 @@ async def test_account_me_returns_only_the_actor_contract():
     assert response.headers["cache-control"] == "private, no-store"
     data = response.json()["data"]
     assert set(data) == {
-        "id", "name", "username", "role", "roles", "permissions", "employeeId",
-        "mustChangePassword", "sessionVersion", "access",
+        "id",
+        "name",
+        "username",
+        "role",
+        "roles",
+        "permissions",
+        "employeeId",
+        "mustChangePassword",
+        "sessionVersion",
+        "access",
     }
     assert "passwordHash" not in data and "token" not in data and "secret" not in data
 
@@ -154,8 +160,6 @@ async def test_missing_csrf_secret_fails_closed_as_auth_unavailable():
         Settings(
             _env_file=None,
             csrf_secret=None,
-            internal_auth_secret=None,
-            bridge_secret=None,
             otel_enabled=False,
         )
     )

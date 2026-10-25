@@ -1,11 +1,10 @@
 import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
-import { proxyBackendRequest } from '@/lib/backend/bridge'
+import { proxyBackendRequest } from '@/lib/backend/transport'
 import { backendUnavailableResponse } from '@/lib/backend/client'
-import { apiError, apiValidationError } from '@/lib/http/api-response'
+import { apiValidationError } from '@/lib/http/api-response'
 import { createEmployeeSchema } from '@/features/employees/contracts/schemas'
-import { departmentForPosition } from '@/lib/auth/resource-scopes'
 
 const querySchema = z.object({
   scope: z.enum(['active', 'archive', 'expired', 'all']).default('all'),
@@ -36,10 +35,6 @@ export async function POST(request: NextRequest) {
   if (auth.response) return auth.response
   const input = createEmployeeSchema.safeParse(await request.clone().json())
   if (!input.success) return apiValidationError(input.error)
-  const departmentId = await departmentForPosition(input.data.staffScheduleId)
-  if (departmentId && !auth.access.allows('employees.create', { departmentId })) {
-    return apiError('FORBIDDEN', 'Недостаточно прав', 403)
-  }
   try {
     return await proxyBackendRequest(request, '/api/employees', auth.user, auth.requestId)
   } catch (error) {

@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import { proxyBackendRequest } from '@/lib/backend/bridge'
+import { proxyBackendRequest } from '@/lib/backend/transport'
 import { backendUnavailableResponse } from '@/lib/backend/client'
 import { createProjectSchema } from '@/features/projects/contracts/project'
 import { authorizeApiRequest } from '@/lib/auth/authorization'

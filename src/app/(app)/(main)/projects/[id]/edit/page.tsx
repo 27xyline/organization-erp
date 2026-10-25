@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import EditProjectPage from '@/features/projects/ui/edit-project-page'
 import { requirePagePermission } from '@/lib/auth/authorization'
-import { backendUserFetch } from '@/lib/backend/bridge'
+import { backendUserFetch } from '@/lib/backend/transport'
 import { BackendRequestError } from '@/lib/backend/client'
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {

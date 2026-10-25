@@ -3,7 +3,7 @@ import { changePasswordSchema } from '@/features/users/contracts/schemas'
 import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiValidationError } from '@/lib/http/api-response'
 import { backendUnavailableResponse } from '@/lib/backend/client'
-import { proxyBackendRequest } from '@/lib/backend/bridge'
+import { proxyBackendRequest } from '@/lib/backend/transport'
 
 export async function POST(request: NextRequest) {
   const auth = await authorizeApiRequest(request)

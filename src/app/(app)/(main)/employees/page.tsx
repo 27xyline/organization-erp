@@ -1,6 +1,6 @@
 import { EmployeesClient } from '@/features/employees/ui/employees-client'
 import { requirePagePermission } from '@/lib/auth/authorization'
-import { backendUserFetch } from '@/lib/backend/bridge'
+import { backendUserFetch } from '@/lib/backend/transport'
 import { readBackendData } from '@/lib/backend/page-data'
 import {
   normalizeEmployee,

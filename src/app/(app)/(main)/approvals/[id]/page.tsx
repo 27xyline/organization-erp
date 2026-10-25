@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ApprovalDecisionPanel } from '@/features/approvals/ui/approval-decision-panel'
 import { requirePagePermission } from '@/lib/auth/authorization'
 import { formatDateTime } from '@/lib/utils'
-import { backendUserFetch } from '@/lib/backend/bridge'
+import { backendUserFetch } from '@/lib/backend/transport'
 import { readBackendData } from '@/lib/backend/page-data'
 
 interface ApprovalDetail {

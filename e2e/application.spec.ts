@@ -58,8 +58,13 @@ test('Python auth enforces forced password change and invalidates the stale brow
   await page.waitForLoadState('networkidle')
   await page.getByLabel('Пользователь').fill(E2E_FORCED.username)
   await page.getByLabel('Пароль').fill(E2E_FORCED.password)
+  const rejectedLogin = page.waitForResponse((response) =>
+    new URL(response.url()).pathname === '/api/auth/login' && response.request().method() === 'POST',
+  )
   await page.getByRole('button', { name: 'Войти' }).click()
-  await expect(page.getByText('Неверный логин или пароль')).toBeVisible()
+  const rejectedLoginResponse = await rejectedLogin
+  expect(rejectedLoginResponse.status()).toBe(401)
+  await expect(page.getByText('Не удалось выполнить вход. Проверьте данные и повторите попытку.')).toBeVisible()
 
   await page.getByLabel('Пароль').fill(nextPassword)
   await page.getByRole('button', { name: 'Войти' }).click()

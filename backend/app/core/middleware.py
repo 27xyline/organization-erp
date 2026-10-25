@@ -51,27 +51,14 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
                 try:
                     settings = request.app.state.settings
                     csrf_configured = settings.csrf_secret
-                    csrf_secret = (
-                        csrf_configured.get_secret_value() if csrf_configured else ""
-                    )
+                    csrf_secret = csrf_configured.get_secret_value() if csrf_configured else ""
                     unsafe = request.method.upper() not in {"GET", "HEAD", "OPTIONS", "TRACE"}
                     csrf_required = request.url.path in {
                         "/api/auth/login",
                         "/api/auth/logout",
                     } or (unsafe and SESSION_COOKIE_NAME in request.cookies)
                     response: Response
-                    csrf_unavailable = csrf_required and (
-                        len(csrf_secret.encode()) < 32
-                        or csrf_secret
-                        in {
-                            settings.bridge_secret.get_secret_value()
-                            if settings.bridge_secret
-                            else "",
-                            settings.internal_auth_secret.get_secret_value()
-                            if settings.internal_auth_secret
-                            else "",
-                        }
-                    )
+                    csrf_unavailable = csrf_required and (len(csrf_secret.encode()) < 32)
                     csrf_valid = not csrf_required or validate_csrf_request(
                         request.cookies.get(CSRF_COOKIE_NAME, ""),
                         request.headers.get(CSRF_HEADER_NAME, ""),

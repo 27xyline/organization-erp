@@ -1,4 +1,4 @@
-import { PayrollAdjustmentType, PayrollPeriodStatus } from '@prisma/client'
+import { PayrollAdjustmentType, PayrollPeriodStatus } from '@/lib/contracts/enums'
 import { z } from 'zod'
 
 export const payrollQuerySchema = z.object({

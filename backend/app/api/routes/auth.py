@@ -28,11 +28,6 @@ def csrf_secret(settings: Settings) -> str:
     secret = configured.get_secret_value() if configured else ""
     if len(secret.encode()) < 32:
         raise DomainError("AUTH_UNAVAILABLE", "Сервис авторизации недоступен", 503)
-    if secret in {
-        settings.bridge_secret.get_secret_value() if settings.bridge_secret else "",
-        settings.internal_auth_secret.get_secret_value() if settings.internal_auth_secret else "",
-    }:
-        raise DomainError("AUTH_UNAVAILABLE", "Сервис авторизации недоступен", 503)
     return secret
 
 
@@ -40,14 +35,12 @@ def require_csrf(request: Request) -> None:
     cookie = request.cookies.get(CSRF_COOKIE_NAME, "")
     header = request.headers.get(CSRF_HEADER_NAME, "")
     secret = csrf_secret(request.app.state.settings)
-    if (
-        not validate_csrf_request(
-            cookie,
-            header,
-            secret,
-            request.headers.get("origin"),
-            request.app.state.settings.public_origin,
-        )
+    if not validate_csrf_request(
+        cookie,
+        header,
+        secret,
+        request.headers.get("origin"),
+        request.app.state.settings.public_origin,
     ):
         raise DomainError("CSRF_INVALID", "Запрос не прошёл проверку безопасности", 403)
 

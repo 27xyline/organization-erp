@@ -62,12 +62,6 @@ def install_error_handlers(app: FastAPI) -> None:
     async def handle_validation_error(
         request: Request, exc: RequestValidationError
     ) -> JSONResponse:
-        if request.url.path == "/api/internal/auth/credentials":
-            return JSONResponse(
-                {"data": None},
-                status_code=200,
-                headers={"x-request-id": request.state.request_context.request_id},
-            )
         if request.url.path.startswith(("/api/assets", "/api/operations")):
             errors = exc.errors()
             safe_parse_path = any(

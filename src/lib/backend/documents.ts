@@ -2,7 +2,7 @@ import 'server-only'
 
 import type { CurrentUser } from '@/lib/auth/authorization'
 import { backendUnavailableResponse } from './client'
-import { proxyBackendRequest, proxyDocumentStreamRequest } from './bridge'
+import { proxyBackendRequest, proxyDocumentStreamRequest } from './transport'
 
 export async function proxyDocumentRequest(
   request: Request,

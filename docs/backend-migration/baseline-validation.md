@@ -118,6 +118,6 @@ python3 .runtime/migration-baseline/2026-10-07/post-verification.py
 
 ## Что читать на учебной паузе
 
-Начать с [write-owners.md: путь переименования подразделения](write-owners.md): browser PATCH → proxy → route/actor/scopes/schema → DepartmentService → organization advisory lock → обновление подразделения и Employee/StaffSchedule/Mol snapshots → AuditLog → commit → ответ → reload. Этот сценарий уже показывает, зачем при Python-переносе сохранять общий UoW.
+Исторический пример пути переименования подразделения находится в [архивной карте владельцев Stage 00](archive/stage00/write-owners.md). Для текущих владельцев и архитектуры используйте root README и Stage 14 reports.
 
 Затем сравнить его с procurement submit/capitalize: в текущем TS зависимые сущности создаются в отдельных транзакциях. Это существующее поведение с риском частичного успеха, а не образец транзакций, который надо механически копировать.

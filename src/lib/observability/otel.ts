@@ -1,4 +1,3 @@
-import { PrismaInstrumentation } from '@prisma/instrumentation'
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http'
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
 import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics'
@@ -25,7 +24,6 @@ export function startObservability(serviceName: string): NodeSDK | undefined {
         exporter: new OTLPMetricExporter({ url: exporterUrl(endpoint, 'metrics') }),
         exportIntervalMillis: 30_000,
       })],
-      instrumentations: [new PrismaInstrumentation()],
     })
     instance.start()
     sdk = instance

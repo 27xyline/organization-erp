@@ -13,7 +13,7 @@ vi.mock('@/lib/auth/authorization', () => ({
     requestId: 'request-1',
   })),
 }))
-vi.mock('@/lib/backend/bridge', () => ({ proxyBackendRequest: mocks.proxy }))
+vi.mock('@/lib/backend/transport', () => ({ proxyBackendRequest: mocks.proxy }))
 vi.mock('@/lib/backend/client', () => ({
   backendUnavailableResponse: vi.fn(() => Response.json({ error: 'backend unavailable' }, { status: 503 })),
 }))

@@ -1,4 +1,4 @@
-import { ApprovalRequestStatus } from '@prisma/client'
+import { ApprovalRequestStatus } from '@/lib/contracts/enums'
 import { z } from 'zod'
 
 const optionalId = z.string().trim().min(1).max(128).nullable().optional()

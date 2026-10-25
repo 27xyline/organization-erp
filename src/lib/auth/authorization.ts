@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
-import type { UserRole } from '@prisma/client'
+import type { UserRole } from '@/lib/contracts/enums'
 import { backendFetch, BackendRequestError } from '@/lib/backend/client'
 import { AccessContext, type PermissionTarget, type ScopeGrant } from './access-context'
 import {

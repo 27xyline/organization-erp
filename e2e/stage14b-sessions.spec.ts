@@ -1,9 +1,10 @@
 import { expect, test } from '@playwright/test'
+import { E2E_ADMIN } from './global-setup'
+
+const baseOrigin = new URL(process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:3301').origin
 
 test('Python session survives SSR reload, rejects CSRF, and logout revokes the old cookie', async ({ page }) => {
-  const username = process.env.STAGE14B_E2E_USERNAME
-  const password = process.env.STAGE14B_E2E_PASSWORD
-  if (!username || !password) throw new Error('Stage 14B E2E credentials are required')
+  const { username, password } = E2E_ADMIN
 
   await page.goto('/login')
   await page.getByLabel('Пользователь').fill(username)
@@ -29,7 +30,7 @@ test('Python session survives SSR reload, rejects CSRF, and logout revokes the o
   expect((await page.request.get('/api/account/me')).status()).toBe(200)
 
   const logout = await page.request.post('/api/auth/logout', {
-    headers: { origin: 'http://127.0.0.1:3301', 'x-csrf-token': csrfToken },
+    headers: { origin: baseOrigin, 'x-csrf-token': csrfToken },
   })
   expect(logout.status()).toBe(200)
   const oldCookieHeader = oldCookies.map(({ name, value }) => `${name}=${value}`).join('; ')

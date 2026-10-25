@@ -1,7 +1,7 @@
 import type { Mol } from '@/features/assets/contracts/types'
 import { requirePagePermission } from '@/lib/auth/authorization'
 import { MolsClient } from '@/features/assets/ui/mols-client'
-import { backendUserFetch } from '@/lib/backend/bridge'
+import { backendUserFetch } from '@/lib/backend/transport'
 import { readBackendData } from '@/lib/backend/page-data'
 import type { DepartmentListItem } from '@/features/departments/contracts/types'
 

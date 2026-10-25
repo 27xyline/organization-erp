@@ -1,10 +1,9 @@
 import { NextRequest } from 'next/server'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({ authorize: vi.fn(), proxy: vi.fn(), departmentForMol: vi.fn(), allows: vi.fn() }))
+const mocks = vi.hoisted(() => ({ authorize: vi.fn(), proxy: vi.fn() }))
 vi.mock('@/lib/auth/authorization', () => ({ authorizeApiRequest: mocks.authorize }))
 vi.mock('@/lib/backend/stage07', () => ({ proxyStage07Request: mocks.proxy }))
-vi.mock('@/lib/auth/resource-scopes', () => ({ departmentForMol: mocks.departmentForMol }))
 
 import { GET as getTemplate } from './template/route'
 import { POST as previewFile } from './preview/route'
@@ -21,12 +20,10 @@ describe('asset import BFF', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     mocks.authorize.mockResolvedValue({
-      user: { id: 'user-1', sessionVersion: 1 }, access: { allows: mocks.allows },
+      user: { id: 'user-1', sessionVersion: 1 },
       requestId: 'request-1', response: null,
     })
-    mocks.allows.mockReturnValue(true)
     mocks.proxy.mockResolvedValue(Response.json({ data: { ok: true } }, { status: 201 }))
-    mocks.departmentForMol.mockResolvedValue('department-1')
   })
   afterEach(() => vi.unstubAllGlobals())
 
@@ -66,7 +63,7 @@ describe('asset import BFF', () => {
     expect(request.headers.get('content-type')).toContain('multipart/form-data; boundary=')
   })
 
-  it('validates rows and checks each MOL department before commit', async () => {
+  it('validates rows before forwarding commit to Python', async () => {
     const request = new NextRequest('http://localhost/api/assets/import/commit', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ assets: [input] }),
@@ -74,32 +71,24 @@ describe('asset import BFF', () => {
     const response = await commitImport(request)
 
     expect(mocks.authorize).toHaveBeenCalledWith(request, 'assets.create')
-    expect(mocks.departmentForMol).toHaveBeenCalledWith('mol-1')
-    expect(mocks.allows).toHaveBeenCalledWith('assets.create', { departmentId: 'department-1' })
     expect(mocks.proxy).toHaveBeenCalledWith(request, '/api/assets/import/commit', expect.anything(), 'request-1')
     expect(await request.json()).toEqual({ assets: [input] })
     expect(response.status).toBe(201)
   })
 
-  it('checks import departments individually instead of passing a combined scope target', async () => {
+  it('forwards validated import rows for authoritative Python scope checks', async () => {
     const second = { ...input, inventoryNumber: 'INV-2', molId: 'mol-2' }
-    mocks.departmentForMol.mockImplementation(async (molId: string) =>
-      molId === 'mol-1' ? 'department-1' : 'department-2',
-    )
     const request = new NextRequest('http://localhost/api/assets/import/commit', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ assets: [input, second] }),
     })
     await commitImport(request)
 
-    expect(mocks.allows).toHaveBeenCalledWith('assets.create', { departmentId: 'department-1' })
-    expect(mocks.allows).toHaveBeenCalledWith('assets.create', { departmentId: 'department-2' })
-    expect(mocks.allows).toHaveBeenCalledTimes(2)
     expect(mocks.proxy).toHaveBeenCalledWith(request, '/api/assets/import/commit', expect.anything(), 'request-1')
   })
 
-  it('denies a row whose MOL department is outside the browser actor scope', async () => {
-    mocks.allows.mockReturnValue(false)
+  it('preserves Python resource-scope denials', async () => {
+    mocks.proxy.mockResolvedValueOnce(Response.json({ error: 'Forbidden' }, { status: 403 }))
     const request = new NextRequest('http://localhost/api/assets/import/commit', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ assets: [input] }),
@@ -107,7 +96,7 @@ describe('asset import BFF', () => {
     const response = await commitImport(request)
 
     expect(response.status).toBe(403)
-    expect(mocks.proxy).not.toHaveBeenCalled()
+    expect(mocks.proxy).toHaveBeenCalled()
   })
 
   it('rejects malformed commit input before reaching Python', async () => {

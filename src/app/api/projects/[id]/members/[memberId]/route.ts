@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { projectMemberUpdateSchema } from '@/features/projects/contracts/project-members'
-import { proxyBackendRequest } from '@/lib/backend/bridge'
+import { proxyBackendRequest } from '@/lib/backend/transport'
 import { backendUnavailableResponse } from '@/lib/backend/client'
 import { validateRequest } from '@/lib/http/validate-request'
 import { authorizeApiRequest } from '@/lib/auth/authorization'

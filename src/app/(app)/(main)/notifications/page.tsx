@@ -1,7 +1,7 @@
-import { NotificationChannel, NotificationEventType } from '@prisma/client'
+import { NotificationChannel, NotificationEventType } from '@/lib/contracts/enums'
 import { NotificationsPageClient } from '@/features/notifications/ui/notifications-page-client'
 import { requirePageUser } from '@/lib/auth/authorization'
-import { backendUserFetch } from '@/lib/backend/bridge'
+import { backendUserFetch } from '@/lib/backend/transport'
 import { readBackendData } from '@/lib/backend/page-data'
 
 interface NotificationItem {

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { backendUserFetch } = vi.hoisted(() => ({ backendUserFetch: vi.fn() }))
 
-vi.mock('@/lib/backend/bridge', () => ({ backendUserFetch }))
+vi.mock('@/lib/backend/transport', () => ({ backendUserFetch }))
 
 import { readAssetById } from './backend-ssr'
 
