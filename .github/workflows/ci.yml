@@ -89,6 +89,7 @@ jobs:
         working-directory: frontend
         env:
           DATABASE_URL: postgresql://organization_erp_ci:organization_erp_ci_password@127.0.0.1:5432/organization_erp_e2e
+          PLAYWRIGHT_PRODUCTION: "1"
           E2E_DATABASE_URL: postgresql://organization_erp_ci:organization_erp_ci_password@127.0.0.1:5432/organization_erp_e2e
           BACKEND_DATABASE_URL: postgresql+asyncpg://organization_erp_ci:organization_erp_ci_password@127.0.0.1:5432/organization_erp_e2e
           BACKEND_CSRF_SECRET: ci-only-e2e-csrf-secret-with-at-least-thirty-two-characters
@@ -132,6 +133,12 @@ jobs:
       - name: Verify migrated PostgreSQL catalog
         working-directory: backend
         run: uv run python -m app.scripts.verify_schema
+      - name: Check backup and restore tools
+        run: |
+          uv run --project backend ruff check --config backend/pyproject.toml ops/backup
+          uv run --project backend ruff format --check --config backend/pyproject.toml ops/backup
+          uv run --project backend mypy --config-file backend/pyproject.toml ops/backup/erp_backup.py
+          uv run --project backend python -m unittest discover -s ops/backup -p 'test_*.py'
       - name: Check Python formatting and types
         working-directory: backend
         run: |

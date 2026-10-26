@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 import { resolveE2EDocumentStorageRoot } from './src/lib/e2e-storage'
 
+const production = process.env.PLAYWRIGHT_PRODUCTION === '1'
 const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3001'
 const serverUrl = new URL(baseURL)
 const serverPort = serverUrl.port || (serverUrl.protocol === 'https:' ? '443' : '80')
@@ -38,7 +39,7 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
     {
-      command: `npm run dev -- --hostname ${serverHost} --port ${serverPort}`,
+      command: `npm run ${production ? 'start' : 'dev'} -- --hostname ${serverHost} --port ${serverPort}`,
       url: `${baseURL}/api/health/live`,
       reuseExistingServer: false,
       timeout: 120_000,
