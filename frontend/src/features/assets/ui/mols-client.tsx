@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -259,6 +260,7 @@ export function MolsClient({
             <DialogTitle>
               {editingMol ? 'Редактирование МОЛ' : 'Новый МОЛ'}
             </DialogTitle>
+            <DialogDescription>Укажите данные материально ответственного лица и его подразделение.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="flex gap-6">

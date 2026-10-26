@@ -113,6 +113,17 @@ export function ReportsPage({
   const dateTo = data.query.dateTo
   const departmentId = data.query.departmentId
   const projectId = data.query.projectId
+  const queryKey = JSON.stringify([dateFrom, dateTo, departmentId, projectId])
+  const [previousQueryKey, setPreviousQueryKey] = useState(queryKey)
+  if (previousQueryKey !== queryKey) {
+    setPreviousQueryKey(queryKey)
+    setLoadingTurnover(true)
+    setLoadingProfitability(true)
+    setLoadingDepreciation(true)
+    setLoadingVacations(true)
+    setLoadingCustom(activeTab === 'constructor' && selectedMetrics.length > 0)
+  }
+
   const customGroups = {
     department: canGroupByDepartment,
     project: canGroupByProject,

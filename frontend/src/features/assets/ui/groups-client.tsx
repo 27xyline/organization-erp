@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -182,6 +183,7 @@ export function GroupsClient({ initialGroups, canEdit }: { initialGroups: AssetG
             <DialogTitle>
               {editingGroup ? 'Редактирование группы' : 'Новая группа'}
             </DialogTitle>
+            <DialogDescription>Укажите код и название группы для классификации имущества.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
