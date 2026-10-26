@@ -11,6 +11,31 @@ import {
 import { proxyBackendRequest } from './transport'
 
 describe('backend client', () => {
+  it('owns the source stream and propagates downstream cancellation', async () => {
+    let cancelled: unknown
+    const source = new Response(new ReadableStream<Uint8Array>({
+      cancel(reason) { cancelled = reason },
+    }))
+    const forwarded = forwardedResponse(source)
+
+    // Native fetch finalizers may cancel an unlocked source after its Response is collected.
+    expect(source.body?.locked).toBe(true)
+    await forwarded.body?.cancel('browser disconnected')
+    await vi.waitFor(() => expect(cancelled).toBe('browser disconnected'))
+  })
+
+  it('delivers chunks before EOF and propagates upstream failures', async () => {
+    let upstream!: ReadableStreamDefaultController<Uint8Array>
+    const source = new Response(new ReadableStream<Uint8Array>({
+      start(controller) { upstream = controller },
+    }))
+    const reader = forwardedResponse(source).body!.getReader()
+    upstream.enqueue(new Uint8Array([1, 2, 3]))
+    expect(await reader.read()).toEqual({ done: false, value: new Uint8Array([1, 2, 3]) })
+    upstream.error(new Error('upstream disconnected'))
+    await expect(reader.read()).rejects.toThrow('upstream disconnected')
+  })
+
   afterEach(() => {
     vi.unstubAllEnvs()
     vi.unstubAllGlobals()

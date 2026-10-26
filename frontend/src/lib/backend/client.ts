@@ -180,7 +180,11 @@ export function forwardedResponse(
     for (const cookie of cookieHeaders) headers.append('set-cookie', cookie)
   }
   headers.set('cache-control', 'private, no-store')
-  return new Response(response.body, { status: response.status, headers })
+  // Acquire the upstream reader: sharing an unlocked fetch body with a new Response
+  // lets the original Response finalizer cancel a stream still used by this proxy.
+  // pipeThrough retains backpressure and forwards cancellation without buffering files.
+  const body = response.body?.pipeThrough(new TransformStream<Uint8Array, Uint8Array>()) ?? null
+  return new Response(body, { status: response.status, headers })
 }
 
 export function backendUnavailableResponse(error: unknown, requestId?: string): Response {
