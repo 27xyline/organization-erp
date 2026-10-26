@@ -40,3 +40,7 @@ coverage.xml
 backend/var/
 /var/documents/
 frontend/.test-data/
+
+/backups/
+/.restore/
+/.backup.lock
