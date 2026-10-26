@@ -82,7 +82,7 @@ openssl rand -hex 32
 Вставьте полученное значение в `BACKEND_CSRF_SECRET` в `.env`. Затем запустите приложение:
 
 ```sh
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
+docker compose up --build -d
 ```
 
 Compose запускает:
@@ -98,7 +98,7 @@ Compose запускает:
 Первого администратора создайте вручную: готовых учётных данных и страницы SQLAdmin в проекте нет.
 
 ```sh
-docker compose -f docker-compose.yml -f docker-compose.dev.yml exec backend python -m app.scripts.create_admin
+docker compose exec backend python -m app.scripts.create_admin
 ```
 
 Команда запросит постоянный пароль администратора. Логин и имя будут `admin`, учётная запись получит роль администратора, а менять пароль после первого входа не потребуется. Пароль должен быть непустым и не длиннее 512 символов.
@@ -114,9 +114,9 @@ uv run --env-file ../.env python -m app.scripts.seed --allow-local-demo-db
 Полезные команды из корня репозитория:
 
 ```sh
-docker compose -f docker-compose.yml -f docker-compose.dev.yml ps
-docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f backend
-docker compose -f docker-compose.yml -f docker-compose.dev.yml down
+docker compose ps
+docker compose logs -f backend
+docker compose down
 ```
 
 ## Запуск API локально
@@ -124,7 +124,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml down
 В этом режиме PostgreSQL работает в Compose, а FastAPI — в локальном Python-окружении. После создания `.env` запустите базу из корня репозитория:
 
 ```sh
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres
+docker compose up -d postgres
 ```
 
 Затем из `backend/` примените миграции и запустите сервер:
@@ -173,7 +173,7 @@ uv run pytest tests/unit
 Полный `pytest` требует отдельную PostgreSQL-базу `organization_erp_test`. Запустите Compose PostgreSQL, затем из корня репозитория создайте базу один раз:
 
 ```sh
-docker compose -f docker-compose.yml -f docker-compose.dev.yml exec -T postgres sh -c 'createdb -U "$POSTGRES_USER" organization_erp_test'
+docker compose exec -T postgres sh -c 'createdb -U "$POSTGRES_USER" organization_erp_test'
 ```
 
 Из `backend/` укажите URL `organization_erp_test`, примените миграции к этой базе и запустите тесты. Если вы изменили параметры подключения в `.env`, подставьте их в URL:
@@ -202,6 +202,8 @@ Pre-commit в репозитории не настроен; CI запускае�
 | Переменная | Назначение |
 | --- | --- |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | Учётные данные и имя базы в Docker Compose. |
+| `POSTGRES_PORT`, `BACKEND_PORT` | Локальные порты PostgreSQL и API; по умолчанию `5434` и `8000`, доступны только через `127.0.0.1`. |
+| `APP_BIND_ADDRESS`, `APP_PORT` | Адрес привязки и порт веб-интерфейса; по умолчанию `127.0.0.1:3001`. |
 | `BACKEND_DATABASE_URL` | Подключение локального Python API и CLI к PostgreSQL; в `.env.example` используется `localhost:5434`. В контейнере Compose формирует URL из `POSTGRES_*`. |
 | `BACKEND_TEST_DATABASE_URL` | Подключение тестов; путь должен оканчиваться на `/organization_erp_test`. Задаётся в окружении при запуске тестов. |
 | `BACKEND_CSRF_SECRET` | Секрет подписи CSRF-токенов; для локальной разработки задайте случайное значение длиной не менее 32 байт. |

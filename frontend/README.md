@@ -14,7 +14,7 @@ Next.js-интерфейс проекта: страницы, серверный 
 
 ```sh
 cp .env.example .env
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d backend
+docker compose up --build -d backend
 ```
 
 Затем из `frontend/` установите зависимости и запустите Next.js:

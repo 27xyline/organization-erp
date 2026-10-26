@@ -96,8 +96,6 @@ async def _sync_compose_document_files(
         "compose",
         "-f",
         str(project_root / "docker-compose.yml"),
-        "-f",
-        str(project_root / "docker-compose.dev.yml"),
     )
     try:
         process = await asyncio.create_subprocess_exec(
