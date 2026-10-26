@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import type { EmployeeForm } from './use-employees-page'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -33,8 +34,8 @@ interface EmployeeDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   editingEmployee: Employee | null
-  formData: any
-  setFormData: React.Dispatch<React.SetStateAction<any>>
+  formData: EmployeeForm
+  setFormData: React.Dispatch<React.SetStateAction<EmployeeForm>>
   positionOptions: StaffSchedule[]
   onPositionChange: (value: string) => void
   onSave: (e: React.FormEvent) => void
@@ -73,7 +74,7 @@ export function EmployeeDialog({
               <Input
                 id="employee-code"
                 value={formData.code}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, code: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, code: e.target.value }))}
                 required
               />
             </div>
@@ -100,7 +101,7 @@ export function EmployeeDialog({
                 min="0.01"
                 step="any"
                 value={formData.employmentRate}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, employmentRate: normalizeEmploymentRateInput(e.target.value) }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, employmentRate: normalizeEmploymentRateInput(e.target.value) }))}
                 disabled={formData.staffScheduleId === 'none'}
                 required
               />
@@ -134,7 +135,7 @@ export function EmployeeDialog({
               <Input
                 id="employee-name"
                 value={formData.fullName}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, fullName: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, fullName: e.target.value }))}
                 required
               />
             </div>
@@ -145,7 +146,7 @@ export function EmployeeDialog({
                   <Input
                     id="employee-phone"
                     value={formData.phone}
-                    onChange={(e) => setFormData((prev: any) => ({ ...prev, phone: e.target.value }))}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-2">
@@ -154,7 +155,7 @@ export function EmployeeDialog({
                     id="employee-email"
                     type="email"
                     value={formData.email}
-                    onChange={(e) => setFormData((prev: any) => ({ ...prev, email: e.target.value }))}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
                   />
                 </div>
               </div>
@@ -167,7 +168,7 @@ export function EmployeeDialog({
                 <Label htmlFor="employee-contract-type">Вид трудового договора</Label>
                 <Select
                   value={formData.contractType}
-                  onValueChange={(value) => setFormData((prev: any) => ({ ...prev, contractType: value }))}
+                  onValueChange={(value) => setFormData((prev) => ({ ...prev, contractType: value as EmployeeForm['contractType'] }))}
                 >
                   <SelectTrigger id="employee-contract-type">
                     <SelectValue placeholder="Выберите вид договора" />
@@ -189,7 +190,7 @@ export function EmployeeDialog({
                     id="employee-contract-signed"
                     type="date"
                     value={formData.contractSignedDate}
-                    onChange={(e) => setFormData((prev: any) => ({ ...prev, contractSignedDate: e.target.value }))}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, contractSignedDate: e.target.value }))}
                     required
                   />
                 </div>
@@ -199,7 +200,7 @@ export function EmployeeDialog({
                     id="employee-contract-end"
                     type="date"
                     value={formData.contractEndDate}
-                    onChange={(e) => setFormData((prev: any) => ({ ...prev, contractEndDate: e.target.value }))}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, contractEndDate: e.target.value }))}
                   />
                   <p className="text-[10px] text-muted-foreground">Оставь пустым, если бессрочный</p>
                 </div>
@@ -210,7 +211,7 @@ export function EmployeeDialog({
               <Input
                 id="employee-contract-number"
                 value={formData.contractNumber}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, contractNumber: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, contractNumber: e.target.value }))}
                 required
               />
             </div>

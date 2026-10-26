@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -82,7 +82,7 @@ interface PersonnelTimelineProps {
 }
 
 export function PersonnelTimeline({ loading, personnelActions, onDeleteAction }: PersonnelTimelineProps) {
-  const thirtyDaysAgo = useMemo(() => Date.now() - 30 * 24 * 60 * 60 * 1000, [personnelActions])
+  const [thirtyDaysAgo] = useState(() => Date.now() - 30 * 24 * 60 * 60 * 1000)
   return (
     <Card className="flex h-full min-h-0 flex-col overflow-hidden xl:col-span-1">
       <CardHeader>

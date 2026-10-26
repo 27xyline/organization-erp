@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useEffectEvent } from 'react'
 import {
   ArrowLeft,
   FileSpreadsheet,
@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import type { DashboardOverview } from '../contracts/view-model'
 import type { ReportMetric } from '../contracts/report-presets'
+import type { TurnoverReport, ProfitabilityRow, DepreciationReport, VacationReportRow, ReportPreset, CustomReportRow } from '../contracts/reports'
 import { ASSET_STATUS_LABELS, VACATION_TYPE_LABELS } from '../contracts/labels'
 import { ReportFilters } from './report-filters'
 import { EmptyLine, ProgressBar } from './reporting-ui'
@@ -79,23 +80,23 @@ export function ReportsPage({
   const [activeTab, setActiveTab] = useState('summary')
 
   // Состояние отчёта об оборачиваемости
-  const [turnoverData, setTurnoverData] = useState<any>(null)
+  const [turnoverData, setTurnoverData] = useState<TurnoverReport | null>(null)
   const [loadingTurnover, setLoadingTurnover] = useState(false)
 
   // Состояние отчёта о рентабельности
-  const [profitabilityData, setProfitabilityData] = useState<any[]>([])
+  const [profitabilityData, setProfitabilityData] = useState<ProfitabilityRow[]>([])
   const [loadingProfitability, setLoadingProfitability] = useState(false)
 
   // Состояние отчёта об амортизации
-  const [depreciationData, setDepreciationData] = useState<any>(null)
+  const [depreciationData, setDepreciationData] = useState<DepreciationReport | null>(null)
   const [loadingDepreciation, setLoadingDepreciation] = useState(false)
 
   // Состояние отчёта об отпусках
-  const [vacationsData, setVacationsData] = useState<any[]>([])
+  const [vacationsData, setVacationsData] = useState<VacationReportRow[]>([])
   const [loadingVacations, setLoadingVacations] = useState(false)
 
   // Состояние шаблонов и конструктора отчётов
-  const [presets, setPresets] = useState<any[]>([])
+  const [presets, setPresets] = useState<ReportPreset[]>([])
   const [presetName, setPresetName] = useState('')
   const [groupBy, setGroupBy] = useState<'department' | 'project'>(defaultCustomGroupBy)
   const [selectedMetrics, setSelectedMetrics] = useState<ReportMetric[]>(() =>
@@ -104,10 +105,9 @@ export function ReportsPage({
       .filter((metric) => availableCustomMetrics.includes(metric))
       .slice(0, 2),
   )
-  const [customReportData, setCustomReportData] = useState<any[]>([])
+  const [customReportData, setCustomReportData] = useState<CustomReportRow[]>([])
   const [customReportError, setCustomReportError] = useState<string | null>(null)
   const [loadingCustom, setLoadingCustom] = useState(false)
-  const [loadingPresets, setLoadingPresets] = useState(false)
 
   const dateFrom = data.query.dateFrom
   const dateTo = data.query.dateTo
@@ -122,87 +122,59 @@ export function ReportsPage({
     .filter((metric) => availableCustomMetrics.includes(metric))
 
   // Загружаем данные об оборачиваемости
-  const fetchTurnover = async () => {
-    setLoadingTurnover(true)
-    try {
-      const params = new URLSearchParams({ dateFrom, dateTo })
-      if (departmentId) params.set('departmentId', departmentId)
-      const res = await fetch(`/api/reports/turnover?${params.toString()}`)
-      if (res.ok) {
-        setTurnoverData(await res.json())
-      }
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoadingTurnover(false)
-    }
+  const fetchTurnover = () => {
+    const params = new URLSearchParams({ dateFrom, dateTo })
+    if (departmentId) params.set('departmentId', departmentId)
+    return fetch(`/api/reports/turnover?${params.toString()}`)
+      .then(async (res) => {
+        if (res.ok) setTurnoverData(await res.json())
+      })
+      .catch((error: unknown) => console.error(error))
+      .finally(() => setLoadingTurnover(false))
   }
 
   // Загружаем данные о рентабельности
-  const fetchProfitability = async () => {
-    setLoadingProfitability(true)
-    try {
-      const params = new URLSearchParams({ dateFrom, dateTo })
-      if (projectId) params.set('projectId', projectId)
-      const res = await fetch(`/api/reports/profitability?${params.toString()}`)
-      if (res.ok) {
-        setProfitabilityData(await res.json())
-      }
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoadingProfitability(false)
-    }
+  const fetchProfitability = () => {
+    const params = new URLSearchParams({ dateFrom, dateTo })
+    if (projectId) params.set('projectId', projectId)
+    return fetch(`/api/reports/profitability?${params.toString()}`)
+      .then(async (res) => {
+        if (res.ok) setProfitabilityData(await res.json())
+      })
+      .catch((error: unknown) => console.error(error))
+      .finally(() => setLoadingProfitability(false))
   }
 
   // Загружаем данные об амортизации
-  const fetchDepreciation = async () => {
-    setLoadingDepreciation(true)
-    try {
-      const params = new URLSearchParams({ dateFrom, dateTo })
-      if (departmentId) params.set('departmentId', departmentId)
-      const res = await fetch(`/api/reports/depreciation?${params.toString()}`)
-      if (res.ok) {
-        setDepreciationData(await res.json())
-      }
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoadingDepreciation(false)
-    }
+  const fetchDepreciation = () => {
+    const params = new URLSearchParams({ dateFrom, dateTo })
+    if (departmentId) params.set('departmentId', departmentId)
+    return fetch(`/api/reports/depreciation?${params.toString()}`)
+      .then(async (res) => {
+        if (res.ok) setDepreciationData(await res.json())
+      })
+      .catch((error: unknown) => console.error(error))
+      .finally(() => setLoadingDepreciation(false))
   }
 
   // Загружаем данные об отпусках
-  const fetchVacations = async () => {
-    setLoadingVacations(true)
-    try {
-      const params = new URLSearchParams({ dateFrom, dateTo })
-      if (departmentId) params.set('departmentId', departmentId)
-      const res = await fetch(`/api/reports/vacations?${params.toString()}`)
-      if (res.ok) {
-        setVacationsData(await res.json())
-      }
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoadingVacations(false)
-    }
+  const fetchVacations = () => {
+    const params = new URLSearchParams({ dateFrom, dateTo })
+    if (departmentId) params.set('departmentId', departmentId)
+    return fetch(`/api/reports/vacations?${params.toString()}`)
+      .then(async (res) => {
+        if (res.ok) setVacationsData(await res.json())
+      })
+      .catch((error: unknown) => console.error(error))
+      .finally(() => setLoadingVacations(false))
   }
 
   // Загружаем шаблоны
-  const fetchPresets = async () => {
-    setLoadingPresets(true)
-    try {
-      const res = await fetch('/api/reports/presets')
-      if (res.ok) {
-        setPresets(await res.json())
-      }
-    } catch (e) {
-      console.error(e)
-    } finally {
-      setLoadingPresets(false)
-    }
-  }
+  const fetchPresets = () => fetch('/api/reports/presets')
+    .then(async (res) => {
+      if (res.ok) setPresets(await res.json())
+    })
+    .catch((error: unknown) => console.error(error))
 
   // Сохраняем шаблон
   const savePreset = async () => {
@@ -240,9 +212,9 @@ export function ReportsPage({
   }
 
   // Загружаем шаблон
-  const loadPreset = (preset: any) => {
-    const presetGroup = preset.groupBy as 'department' | 'project'
-    if (!customGroups[presetGroup]) {
+  const loadPreset = (preset: ReportPreset) => {
+    const presetGroup = preset.groupBy
+    if (!presetGroup || !customGroups[presetGroup]) {
       setCustomReportError('У вас нет доступа к этой группировке пресета')
       return
     }
@@ -254,38 +226,36 @@ export function ReportsPage({
     }
     setGroupBy(presetGroup)
     setSelectedMetrics(metrics)
+    setLoadingCustom(true)
+    setCustomReportError(null)
     void buildCustomReport(presetGroup, metrics)
   }
 
   // Строим пользовательский отчёт
-  const buildCustomReport = async (
+  const buildCustomReport = (
     gBy = groupBy,
     metrics: ReportMetric[] = selectedMetrics,
   ) => {
     if (!customGroups[gBy] || !metrics.length) return
-    setLoadingCustom(true)
-    setCustomReportError(null)
-    try {
-      const res = await fetch('/api/reports/custom', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          preset: { name: 'Temp', metrics, groupBy: gBy },
-          query: { dateFrom, dateTo, departmentId, projectId },
-        }),
-      })
+    return fetch('/api/reports/custom', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        preset: { name: 'Temp', metrics, groupBy: gBy },
+        query: { dateFrom, dateTo, departmentId, projectId },
+      }),
+    }).then(async (res) => {
       if (res.ok) {
+        setCustomReportError(null)
         setCustomReportData(await res.json())
       } else {
         const body = await res.json().catch(() => ({}))
         setCustomReportError(body.error?.message || 'Не удалось сформировать отчёт')
       }
-    } catch (e) {
-      console.error(e)
+    }).catch((error: unknown) => {
+      console.error(error)
       setCustomReportError('Не удалось связаться с сервером')
-    } finally {
-      setLoadingCustom(false)
-    }
+    }).finally(() => setLoadingCustom(false))
   }
 
   function changeGroup(group: 'department' | 'project') {
@@ -295,10 +265,13 @@ export function ReportsPage({
     setSelectedMetrics(metrics)
     setCustomReportData([])
     setCustomReportError(null)
-    if (activeTab === 'constructor') void buildCustomReport(group, metrics)
+    if (activeTab === 'constructor') {
+      setLoadingCustom(metrics.length > 0)
+      void buildCustomReport(group, metrics)
+    }
   }
 
-  useEffect(() => {
+  const loadActiveReport = useEffectEvent(() => {
     if (activeTab === 'turnover') fetchTurnover()
     if (activeTab === 'profitability') fetchProfitability()
     if (activeTab === 'depreciation') fetchDepreciation()
@@ -307,7 +280,22 @@ export function ReportsPage({
       fetchPresets()
       buildCustomReport()
     }
+  })
+
+  // Query changes reload the active report. Builder selections are read at that moment;
+  // editing them is applied by the explicit “Сформировать отчет” action.
+  useEffect(() => {
+    loadActiveReport()
   }, [activeTab, dateFrom, dateTo, departmentId, projectId])
+
+  function changeTab(tab: string) {
+    setLoadingTurnover(true)
+    setLoadingProfitability(true)
+    setLoadingDepreciation(true)
+    setLoadingVacations(true)
+    if (tab === 'constructor') setLoadingCustom(customGroups[groupBy] && selectedMetrics.length > 0)
+    setActiveTab(tab)
+  }
 
   const toggleMetric = (metric: ReportMetric) => {
     setSelectedMetrics((prev) =>
@@ -343,7 +331,7 @@ export function ReportsPage({
 
       <ReportFilters action="/reports" data={data} />
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={changeTab} className="w-full">
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 p-1">
           <TabsTrigger value="summary">Сводная панель</TabsTrigger>
           {canReadTurnover && <TabsTrigger value="turnover">Текучесть кадров</TabsTrigger>}
@@ -391,8 +379,8 @@ export function ReportsPage({
                             tone={row.occupancy > 100 ? 'danger' : 'default'}
                           />
                         </TableCell>
-                        <TableCell className="text-right">{formatCurrency(row.plannedFot)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(row.actualFot)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(row.plannedFot ?? 0)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(row.actualFot ?? 0)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -641,7 +629,7 @@ export function ReportsPage({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {depreciationData.assets.map((asset: any) => (
+                    {depreciationData.assets.map((asset) => (
                       <TableRow key={asset.id}>
                         <TableCell className="font-mono text-xs">{asset.inventoryNumber}</TableCell>
                         <TableCell className="font-medium">{asset.name}</TableCell>
@@ -683,7 +671,7 @@ export function ReportsPage({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {depreciationData.movements.map((move: any) => (
+                    {depreciationData.movements.map((move) => (
                       <TableRow key={move.id}>
                         <TableCell className="whitespace-nowrap">{formatDate(move.date)}</TableCell>
                         <TableCell>
@@ -834,7 +822,7 @@ export function ReportsPage({
                 </div>
 
                 <Button
-                  onClick={() => buildCustomReport()}
+                  onClick={() => { setLoadingCustom(true); setCustomReportError(null); void buildCustomReport() }}
                   className="w-full text-xs"
                   disabled={!selectedMetrics.length || loadingCustom}
                 >
@@ -854,7 +842,7 @@ export function ReportsPage({
                 <Input
                   placeholder="Название пресета"
                   value={presetName}
-                  onChange={(e: any) => setPresetName(e.target.value)}
+                  onChange={(e) => setPresetName(e.target.value)}
                   className="text-xs"
                 />
                 <Button
@@ -918,19 +906,19 @@ export function ReportsPage({
                             <TableCell className="text-right">{row.occupiedRate}</TableCell>
                           )}
                           {selectedMetrics.includes('plannedFot') && (
-                            <TableCell className="text-right">{formatCurrency(row.plannedFot)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(row.plannedFot ?? 0)}</TableCell>
                           )}
                           {selectedMetrics.includes('projectBudget') && (
                             <>
-                              <TableCell className="text-right">{formatCurrency(row.plannedBudget)}</TableCell>
-                              <TableCell className="text-right">{formatCurrency(row.actualBudget)}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(row.plannedBudget ?? 0)}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(row.actualBudget ?? 0)}</TableCell>
                             </>
                           )}
                           {selectedMetrics.includes('actualFot') && (
-                            <TableCell className="text-right">{formatCurrency(row.actualFot)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(row.actualFot ?? 0)}</TableCell>
                           )}
                           {selectedMetrics.includes('assetValue') && (
-                            <TableCell className="text-right">{formatCurrency(row.assetValue)}</TableCell>
+                            <TableCell className="text-right">{formatCurrency(row.assetValue ?? 0)}</TableCell>
                           )}
                         </TableRow>
                       ))}

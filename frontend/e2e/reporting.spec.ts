@@ -26,6 +26,34 @@ test('Reporting dashboard, reports, global search and scoped binary export', asy
   await page.getByRole('tab', { name: 'Текучесть кадров' }).click()
   expect((await turnoverResponse).status()).toBe(200)
 
+  for (const [tab, endpoint] of [
+    ['Рентабельность проектов', '/api/reports/profitability?'],
+    ['Амортизация и ОС', '/api/reports/depreciation?'],
+    ['Календарь отпусков', '/api/reports/vacations?'],
+  ]) {
+    const reportResponse = page.waitForResponse((response) => response.url().includes(endpoint))
+    await page.getByRole('tab', { name: tab }).click()
+    expect((await reportResponse).status()).toBe(200)
+  }
+
+  const customRequests: string[] = []
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/reports/custom') customRequests.push(request.postData() || '')
+  })
+  const customResponse = page.waitForResponse((response) => response.url().endsWith('/api/reports/custom'))
+  await page.getByRole('tab', { name: 'Конструктор', exact: true }).click()
+  expect((await customResponse).status()).toBe(200)
+  const buildReport = page.getByRole('button', { name: 'Сформировать отчет' })
+  await expect(buildReport).toBeEnabled()
+  expect(customRequests).toHaveLength(1)
+  await page.getByRole('checkbox', { name: 'Численность штата' }).uncheck()
+  await page.waitForLoadState('networkidle')
+  expect(customRequests).toHaveLength(1)
+  const rebuiltResponse = page.waitForResponse((response) => response.url().endsWith('/api/reports/custom'))
+  await buildReport.click()
+  expect((await rebuiltResponse).status()).toBe(200)
+  expect(JSON.parse(customRequests[1]).preset.metrics).toEqual(['occupiedRate'])
+
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.getByRole('link', { name: 'Скачать Excel' }).click(),

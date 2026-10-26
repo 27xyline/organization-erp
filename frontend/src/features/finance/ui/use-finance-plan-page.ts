@@ -65,25 +65,16 @@ export function useFinancePlanPage(type: FinanceSectionType) {
       .sort((left, right) => (typeOrder[left.typeLabel] ?? 99) - (typeOrder[right.typeLabel] ?? 99))
   }, [selectedCell])
 
-  const loadFinanceTable = useCallback(async () => {
-    try {
-      setLoading(true)
-      const response = await fetch(config.endpoint(currentYear))
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch finance table')
-      }
-
+  const loadFinanceTable = useCallback(() => fetch(config.endpoint(currentYear))
+    .then(async (response) => {
+      if (!response.ok) throw new Error('Failed to fetch finance table')
       const payload = await response.json()
       const data = payload.data || payload
       setRows(data.rows)
       setProjects(data.projects || [])
-    } catch (error) {
-      console.error('Error loading finance table:', error)
-    } finally {
-      setLoading(false)
-    }
-  }, [config, currentYear])
+    })
+    .catch((error: unknown) => console.error('Error loading finance table:', error))
+    .finally(() => setLoading(false)), [config, currentYear])
 
   useEffect(() => {
     void loadFinanceTable()
@@ -204,6 +195,7 @@ export function useFinancePlanPage(type: FinanceSectionType) {
       }
 
       closeCellDialog()
+      setLoading(true)
       await loadFinanceTable()
     } catch (error) {
       console.error('Error saving finance plan cell:', error)
@@ -236,6 +228,7 @@ export function useFinancePlanPage(type: FinanceSectionType) {
       }
 
       closeCellDialog()
+      setLoading(true)
       await loadFinanceTable()
     } catch (error) {
       console.error('Error clearing finance plan cell:', error)

@@ -1,6 +1,49 @@
 import type { Employee, StaffSchedule, Vacation, PersonnelAction } from './types'
 
-export const normalizeEmployee = (employee: any): Employee => ({
+type ApiNumber = number | string | null
+type ApiDate = Date | string
+
+type StaffPositionResponse = Omit<NonNullable<Employee['staffSchedule']>, 'rate' | 'salary' | 'departmentActive'> & {
+  rate?: ApiNumber
+  salary?: ApiNumber
+  departmentRef?: { isActive: boolean } | null
+}
+
+export type EmployeeResponse = Omit<Employee, 'phone' | 'email' | 'photo' | 'contractType' | 'contractSignedDate' | 'contractEndDate' | 'employmentRate' | 'staffSchedule'> & {
+  phone?: string | null
+  email?: string | null
+  photo?: string | null
+  contractType?: Employee['contractType'] | null
+  contractSignedDate?: ApiDate | null
+  contractEndDate?: ApiDate | null
+  employmentRate?: ApiNumber
+  staffSchedule?: StaffPositionResponse | null
+}
+
+type StaffScheduleResponse = Omit<StaffSchedule, 'rate' | 'salary' | 'occupiedRate' | 'freeRate' | 'employees' | 'departmentActive'> & {
+  rate?: ApiNumber
+  salary?: ApiNumber
+  occupiedRate?: ApiNumber
+  freeRate?: ApiNumber
+  employees?: EmployeeResponse[]
+  departmentRef?: { isActive: boolean } | null
+}
+
+type VacationResponse = Omit<Vacation, 'startDate' | 'endDate'> & { startDate: ApiDate; endDate: ApiDate }
+type ActionEmployeeResponse = Omit<PersonnelAction['employee'], 'contractSignedDate' | 'contractEndDate' | 'employmentRate'> & {
+  contractSignedDate?: ApiDate | null
+  contractEndDate?: ApiDate | null
+  employmentRate?: ApiNumber
+}
+type PersonnelActionResponse = Omit<PersonnelAction, 'date' | 'createdAt' | 'employee' | 'oldContractEndDate' | 'newContractEndDate'> & {
+  date: ApiDate
+  createdAt: ApiDate
+  employee: ActionEmployeeResponse
+  oldContractEndDate?: ApiDate | null
+  newContractEndDate?: ApiDate | null
+}
+
+export const normalizeEmployee = (employee: EmployeeResponse): Employee => ({
   id: employee.id,
   code: employee.code,
   fullName: employee.fullName,
@@ -29,7 +72,7 @@ export const normalizeEmployee = (employee: any): Employee => ({
     : null,
 })
 
-export const normalizeStaffSchedule = (position: any): StaffSchedule => {
+export const normalizeStaffSchedule = (position: StaffScheduleResponse): StaffSchedule => {
   const employees = (position.employees || []).map(normalizeEmployee)
   const occupiedRate = Number(
     position.occupiedRate ?? employees.reduce((sum: number, employee: Employee) => sum + employee.employmentRate, 0)
@@ -49,7 +92,7 @@ export const normalizeStaffSchedule = (position: any): StaffSchedule => {
   }
 }
 
-export const normalizeVacation = (vacation: any): Vacation => ({
+export const normalizeVacation = (vacation: VacationResponse): Vacation => ({
   id: vacation.id,
   employeeId: vacation.employeeId,
   employee: vacation.employee,
@@ -58,7 +101,7 @@ export const normalizeVacation = (vacation: any): Vacation => ({
   type: vacation.type,
 })
 
-export const normalizePersonnelAction = (action: any): PersonnelAction => ({
+export const normalizePersonnelAction = (action: PersonnelActionResponse): PersonnelAction => ({
   id: action.id,
   type: action.type,
   date: new Date(action.date),

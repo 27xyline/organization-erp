@@ -79,28 +79,16 @@ function ProjectPayrollCellDialog({
   onSave,
   onClear,
 }: {
-  selectedCell: ProjectPayrollSelectedCell | null
+  selectedCell: ProjectPayrollSelectedCell
   saving: boolean
   onClose: () => void
   onSave: (payload: { okladEnabled: boolean; nadbavkaAmount: string }) => void
   onClear: () => void
 }) {
-  const [okladEnabled, setOkladEnabled] = useState(false)
-  const [nadbavkaAmount, setNadbavkaAmount] = useState('')
-
-  useEffect(() => {
-    if (!selectedCell) {
-      setOkladEnabled(false)
-      setNadbavkaAmount('')
-      return
-    }
-
-    const okladDetail = selectedCell.cell.details.find((detail) => detail.type === 'OKLAD')
-    const nadbavkaDetail = selectedCell.cell.details.find((detail) => detail.type === 'NADBAVKA')
-
-    setOkladEnabled(Boolean(okladDetail))
-    setNadbavkaAmount(nadbavkaDetail?.amount || '')
-  }, [selectedCell])
+  const [okladEnabled, setOkladEnabled] = useState(() =>
+    selectedCell.cell.details.some((detail) => detail.type === 'OKLAD'))
+  const [nadbavkaAmount, setNadbavkaAmount] = useState(() =>
+    selectedCell.cell.details.find((detail) => detail.type === 'NADBAVKA')?.amount || '')
 
   const canClear = Boolean(selectedCell && Number(selectedCell.cell.amount) > 0)
 
@@ -209,46 +197,36 @@ export function ProjectPayrollSection({
   const totalRate = useMemo(() => Number(summary.totalRate), [summary.totalRate])
   const totalSalary = useMemo(() => Number(summary.totalSalary), [summary.totalSalary])
 
-  const loadMembers = useCallback(async () => {
-    const response = await fetch(`/api/projects/${projectId}/members`, { cache: 'no-store' })
+  const loadMembers = useCallback(() => fetch(`/api/projects/${projectId}/members`, { cache: 'no-store' })
+    .then(async (response) => {
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ error: 'Не удалось загрузить состав проекта' }))
+        throw new Error(body.error || 'Не удалось загрузить состав проекта')
+      }
+      const data = await response.json() as MembersResponse
+      setMembers(data.members)
+      setAvailableEmployees(data.availableEmployees)
+    }), [projectId])
 
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({ error: 'Не удалось загрузить состав проекта' }))
-      throw new Error(body.error || 'Не удалось загрузить состав проекта')
-    }
+  const loadPayroll = useCallback((year: number) => fetch(`/api/projects/${projectId}/payroll?year=${year}`, { cache: 'no-store' })
+    .then(async (response) => {
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({ error: 'Не удалось загрузить таблицу выплат' }))
+        throw new Error(body.error || 'Не удалось загрузить таблицу выплат')
+      }
+      const data = await response.json() as PayrollResponse
+      setRows(data.rows)
+      setSummary(data.summary)
+    }), [projectId])
 
-    const data = await response.json() as MembersResponse
-    setMembers(data.members)
-    setAvailableEmployees(data.availableEmployees)
-  }, [projectId])
-
-  const loadPayroll = useCallback(async (year: number) => {
-    const response = await fetch(`/api/projects/${projectId}/payroll?year=${year}`, { cache: 'no-store' })
-
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({ error: 'Не удалось загрузить таблицу выплат' }))
-      throw new Error(body.error || 'Не удалось загрузить таблицу выплат')
-    }
-
-    const data = await response.json() as PayrollResponse
-    setRows(data.rows)
-    setSummary(data.summary)
-  }, [projectId])
-
-  const loadSection = useCallback(async (year: number) => {
-    setLoading(true)
-
-    try {
-      await Promise.all([
-        ...(canReadMembers ? [loadMembers()] : []),
-        ...(canReadPayroll ? [loadPayroll(year)] : []),
-      ])
-    } catch (error) {
+  const loadSection = useCallback((year: number) => Promise.all([
+    ...(canReadMembers ? [loadMembers()] : []),
+    ...(canReadPayroll ? [loadPayroll(year)] : []),
+  ])
+    .catch((error: unknown) => {
       toast.error(error instanceof Error ? error.message : 'Не удалось загрузить данные проекта')
-    } finally {
-      setLoading(false)
-    }
-  }, [canReadMembers, canReadPayroll, loadMembers, loadPayroll, toast])
+    })
+    .finally(() => setLoading(false)), [canReadMembers, canReadPayroll, loadMembers, loadPayroll, toast])
 
   useEffect(() => {
     void loadSection(currentYear)
@@ -536,7 +514,7 @@ export function ProjectPayrollSection({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentYear((value) => value - 1)}
+                onClick={() => { setLoading(true); setCurrentYear((value) => value - 1) }}
                 disabled={loading || saving}
               >
                 Назад
@@ -548,7 +526,7 @@ export function ProjectPayrollSection({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setCurrentYear((value) => value + 1)}
+                onClick={() => { setLoading(true); setCurrentYear((value) => value + 1) }}
                 disabled={loading || saving}
               >
                 Вперёд
@@ -573,7 +551,7 @@ export function ProjectPayrollSection({
         </div>}
       </div>
 
-      {canEditPayroll && <ProjectPayrollCellDialog
+      {canEditPayroll && selectedCell && <ProjectPayrollCellDialog
         selectedCell={selectedCell}
         saving={saving}
         onClose={closeCellDialog}

@@ -1,9 +1,9 @@
 'use client'
 
 import { useMemo } from 'react'
-import { format, differenceInDays, addDays, isSameMonth, startOfMonth, endOfMonth } from 'date-fns'
+import { format, differenceInDays, addDays, startOfMonth, endOfMonth } from 'date-fns'
 import { ru } from 'date-fns/locale'
-import { Task, TaskStatusLabels } from '@/features/projects/contracts/types'
+import { Task } from '@/features/projects/contracts/types'
 import { cn } from '@/lib/utils'
 
 interface GanttChartProps {

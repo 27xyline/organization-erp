@@ -104,6 +104,11 @@ const createInitialActionForm = (employee?: Employee | null, type: PersonnelActi
   newContractEndDate: '',
 })
 
+export type EmployeeForm = ReturnType<typeof createInitialEmployeeForm>
+export type StaffForm = ReturnType<typeof createInitialStaffForm>
+export type VacationForm = ReturnType<typeof createInitialVacationForm>
+export type ActionForm = ReturnType<typeof createInitialActionForm>
+
 export interface EmployeesInitialData {
   employees: Employee[]
   staffSchedule: StaffSchedule[]
@@ -168,7 +173,7 @@ export function useEmployeesPage(initialData?: EmployeesInitialData) {
 
       if (departmentsResponse.ok) {
         const data = await departmentsResponse.json()
-        setDepartments((data.data || []).map((department: any) => ({
+        setDepartments((data.data || []).map((department: EmployeesInitialData['departments'][number]) => ({
           id: department.id,
           code: department.code,
           name: department.name,

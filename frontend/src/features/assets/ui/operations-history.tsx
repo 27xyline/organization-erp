@@ -1,5 +1,7 @@
 'use client'
 
+import type { Operation } from '@/features/assets/contracts/types'
+
 import { formatDate, formatCurrency, formatDecimal } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { 
@@ -18,7 +20,7 @@ import {
 } from "lucide-react"
 
 interface OperationsHistoryProps {
-  operations: any[]
+  operations: Operation[]
 }
 
 function statusLabel(code?: string): string {
@@ -109,7 +111,7 @@ export function OperationsHistory({ operations }: OperationsHistoryProps) {
 
   return (
     <div className="space-y-3 max-h-[600px] overflow-y-auto pr-2">
-      {operations.map((operation: any) => {
+      {operations.map((operation) => {
         const typeInfo = operationTypeLabels[operation.type] || { 
           label: operation.type, 
           icon: null,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Task, TaskStatus, TaskStatusLabels } from '@/features/projects/contracts/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -42,12 +42,11 @@ function TaskItem({
   const [editingDates, setEditingDates] = useState(false)
   const [startDate, setStartDate] = useState(task.startDate ? format(new Date(task.startDate), 'yyyy-MM-dd') : '')
   const [endDate, setEndDate] = useState(task.endDate ? format(new Date(task.endDate), 'yyyy-MM-dd') : '')
-  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState(() => {
-    const activeEmployeeIds = new Set(memberOptions.map((member) => member.employeeId))
-    return task.assignees
-      .map((assignee) => assignee.employeeId)
-      .filter((employeeId) => activeEmployeeIds.has(employeeId))
-  })
+  const [draftEmployeeIds, setDraftEmployeeIds] = useState<string[] | null>(null)
+  const activeEmployeeIds = new Set(memberOptions.map((member) => member.employeeId))
+  const selectedEmployeeIds = (draftEmployeeIds ?? task.assignees.map((assignee) => assignee.employeeId))
+    .filter((employeeId) => activeEmployeeIds.has(employeeId))
+
 
   const safeAllTasks = allTasks || []
   const children = safeAllTasks.filter((item) => item.parentId === task.id)
@@ -59,14 +58,6 @@ function TaskItem({
     return task.assignees.filter((assignee) => !activeEmployeeIds.has(assignee.employeeId))
   }, [memberOptions, task.assignees])
 
-  useEffect(() => {
-    const activeEmployeeIds = new Set(memberOptions.map((member) => member.employeeId))
-    setSelectedEmployeeIds(
-      task.assignees
-        .map((assignee) => assignee.employeeId)
-        .filter((employeeId) => activeEmployeeIds.has(employeeId))
-    )
-  }, [memberOptions, task.assignees])
 
   const handleAddSubtask = async () => {
     if (!newTaskName.trim()) return
@@ -185,7 +176,12 @@ function TaskItem({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setEditingDates(!editingDates)}
+            onClick={() => {
+              setDraftEmployeeIds(null)
+              setStartDate(task.startDate ? format(new Date(task.startDate), 'yyyy-MM-dd') : '')
+              setEndDate(task.endDate ? format(new Date(task.endDate), 'yyyy-MM-dd') : '')
+              setEditingDates(!editingDates)
+            }}
           >
             <Edit2 className="h-4 w-4" />
           </Button>
@@ -232,7 +228,7 @@ function TaskItem({
           <TaskAssigneeSelector
             members={memberOptions}
             selectedEmployeeIds={selectedEmployeeIds}
-            onChange={setSelectedEmployeeIds}
+            onChange={setDraftEmployeeIds}
             loading={membersLoading}
             unavailableAssignees={unavailableAssignees}
           />

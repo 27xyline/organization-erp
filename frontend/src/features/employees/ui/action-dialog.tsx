@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import type { ActionForm } from './use-employees-page'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -32,8 +33,8 @@ const DetailSummaryItem = ({ label, value }: DetailSummaryItemProps) => (
 interface ActionDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  formData: any
-  setFormData: React.Dispatch<React.SetStateAction<any>>
+  formData: ActionForm
+  setFormData: React.Dispatch<React.SetStateAction<ActionForm>>
   onSave: (e: React.FormEvent) => void
   employees: Employee[]
   onActionTypeChange: (value: string) => void
@@ -57,7 +58,6 @@ export function ActionDialog({
   onEmployeeChange,
   onPositionChange,
   transferPositionOptions,
-  selectedActionEmployee,
   selectedActionPosition,
   availableActionRate,
   calculatedActionSalary
@@ -121,7 +121,7 @@ export function ActionDialog({
                 id="action-date"
                 type="date"
                 value={formData.date}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, date: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, date: e.target.value }))}
                 required
               />
             </div>
@@ -153,7 +153,7 @@ export function ActionDialog({
                     min="0.01"
                     step="any"
                     value={formData.employmentRate}
-                    onChange={(e) => setFormData((prev: any) => ({ ...prev, employmentRate: normalizeEmploymentRateInput(e.target.value) }))}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, employmentRate: normalizeEmploymentRateInput(e.target.value) }))}
                     disabled={formData.staffScheduleId === 'none'}
                     required
                   />
@@ -190,7 +190,7 @@ export function ActionDialog({
                 id="action-new-end"
                 type="date"
                 value={formData.newContractEndDate}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, newContractEndDate: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, newContractEndDate: e.target.value }))}
                 required
               />
               <p className="text-[10px] text-muted-foreground">Оставьте без изменений, если договор становится бессрочным, но уберите дату при редактировании карточки</p>
@@ -211,7 +211,7 @@ export function ActionDialog({
             <Textarea
               id="action-description"
               value={formData.description}
-              onChange={(e) => setFormData((prev: any) => ({ ...prev, description: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
               placeholder="Приказ № 123 от..."
               rows={3}
             />

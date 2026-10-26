@@ -5,8 +5,8 @@ import { Asset, AssetGroup, Mol, AssetStatusLabels } from '@/features/assets/con
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { formatDate, formatCurrency, formatDecimal } from '@/lib/utils'
-import { Search, Eye, Edit, Archive, ArrowRightLeft, Trash2 } from 'lucide-react'
+import { formatCurrency, formatDecimal } from '@/lib/utils'
+import { Search, Eye, Edit, Archive, ArrowRightLeft } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -16,7 +16,7 @@ interface AssetsTableProps {
   mols: Mol[]
 }
 
-export function AssetsTable({ assets, groups, mols }: AssetsTableProps) {
+export function AssetsTable({ assets, groups }: AssetsTableProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const router = useRouter()
 

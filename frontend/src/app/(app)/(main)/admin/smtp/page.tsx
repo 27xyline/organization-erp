@@ -43,14 +43,14 @@ export default function SmtpSettingsPage() {
             setPassword('')
           }
         }
-      } catch (e) {
+      } catch {
         toast.error('Не удалось загрузить настройки SMTP')
       } finally {
         setLoading(false)
       }
     }
     loadSettings()
-  }, [])
+  }, [toast])
 
   const saveSettings = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -73,7 +73,7 @@ export default function SmtpSettingsPage() {
       } else {
         toast.error('Не удалось сохранить настройки')
       }
-    } catch (err) {
+    } catch {
       toast.error('Произошла ошибка при сохранении')
     } finally {
       setSaving(false)
@@ -109,8 +109,8 @@ export default function SmtpSettingsPage() {
         setTestResult({ success: false, message: 'Код ошибки сервера.' })
         toast.error('Ошибка проверки соединения')
       }
-    } catch (err: any) {
-      setTestResult({ success: false, message: err.message || 'Ошибка сети.' })
+    } catch (err: unknown) {
+      setTestResult({ success: false, message: err instanceof Error ? err.message : 'Ошибка сети.' })
       toast.error('Ошибка сети при проверке')
     } finally {
       setTesting(false)
@@ -129,7 +129,7 @@ export default function SmtpSettingsPage() {
       } else {
         toast.error('Ошибка при обработке очереди')
       }
-    } catch (err) {
+    } catch {
       toast.error('Ошибка сети при обработке очереди')
     } finally {
       setProcessing(false)

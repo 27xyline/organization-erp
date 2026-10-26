@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import type { StaffForm } from './use-employees-page'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -12,8 +13,8 @@ interface StaffDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   editingStaff: StaffSchedule | null
-  formData: any
-  setFormData: React.Dispatch<React.SetStateAction<any>>
+  formData: StaffForm
+  setFormData: React.Dispatch<React.SetStateAction<StaffForm>>
   onSave: (e: React.FormEvent) => void
   departments: Array<{ id: string; code: string; name: string; isActive: boolean }>
 }
@@ -50,7 +51,7 @@ export function StaffDialog({
             <Input
               id="staff-position"
               value={formData.position}
-              onChange={(e) => setFormData((prev: any) => ({ ...prev, position: e.target.value }))}
+              onChange={(e) => setFormData((prev) => ({ ...prev, position: e.target.value }))}
               required
             />
           </div>
@@ -61,7 +62,7 @@ export function StaffDialog({
               value={formData.departmentId}
               onValueChange={(value) => {
                 const department = departments.find((item) => item.id === value)
-                setFormData((prev: any) => ({
+                setFormData((prev) => ({
                   ...prev,
                   departmentId: value,
                   department: department?.name || prev.department,
@@ -95,7 +96,7 @@ export function StaffDialog({
                 min="0.01"
                 step="any"
                 value={formData.rate}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, rate: normalizeEmploymentRateInput(e.target.value) }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, rate: normalizeEmploymentRateInput(e.target.value) }))}
                 required
               />
             </div>
@@ -107,7 +108,7 @@ export function StaffDialog({
                 min="0"
                 step="0.01"
                 value={formData.salary}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, salary: Number(e.target.value) }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, salary: Number(e.target.value) }))}
                 required
               />
             </div>

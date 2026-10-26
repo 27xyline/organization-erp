@@ -11,10 +11,10 @@ import {
 
 type EmployeesInitialData = Parameters<typeof EmployeesClient>[0]['initialData']
 type EmployeesDashboardResponse = Omit<EmployeesInitialData, 'employees' | 'staffSchedule' | 'vacations' | 'personnelActions'> & {
-  employees: unknown[]
-  staffSchedule: unknown[]
-  vacations: unknown[]
-  personnelActions: unknown[]
+  employees: Parameters<typeof normalizeEmployee>[0][]
+  staffSchedule: Parameters<typeof normalizeStaffSchedule>[0][]
+  vacations: Parameters<typeof normalizeVacation>[0][]
+  personnelActions: Parameters<typeof normalizePersonnelAction>[0][]
 }
 
 export default async function EmployeesPage() {

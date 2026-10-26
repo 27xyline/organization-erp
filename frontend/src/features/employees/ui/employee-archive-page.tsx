@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { normalizeEmployee } from '../contracts/normalizers'
 import { Archive, ArrowLeft, Search } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
@@ -49,26 +50,6 @@ const employmentContractTypeLabels: Record<EmploymentContractType, string> = {
   EXTERNAL: 'Внешний',
 }
 
-const normalizeEmployee = (employee: any): Employee => ({
-  id: employee.id,
-  code: employee.code,
-  fullName: employee.fullName,
-  department: employee.department,
-  status: employee.status,
-  employmentRate: Number(employee.employmentRate ?? 0),
-  contractType: employee.contractType || 'PRIMARY',
-  contractSignedDate: employee.contractSignedDate ? new Date(employee.contractSignedDate) : null,
-  contractEndDate: employee.contractEndDate ? new Date(employee.contractEndDate) : null,
-  contractNumber: employee.contractNumber || '',
-  staffSchedule: employee.staffSchedule
-    ? {
-        id: employee.staffSchedule.id,
-        position: employee.staffSchedule.position,
-        department: employee.staffSchedule.department,
-        rate: Number(employee.staffSchedule.rate || 0),
-      }
-    : null,
-})
 
 export default function EmployeeArchivePage({ canEdit }: { canEdit: boolean }) {
   const { toast } = useToast()
@@ -89,27 +70,18 @@ export default function EmployeeArchivePage({ canEdit }: { canEdit: boolean }) {
     description: '',
   })
 
-  const loadEmployees = async () => {
-    try {
-      setLoading(true)
-      const response = await fetch('/api/employees?scope=archive')
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch archived employees')
-      }
-
+  const loadEmployees = useCallback(() => fetch('/api/employees?scope=archive')
+    .then(async (response) => {
+      if (!response.ok) throw new Error('Failed to fetch archived employees')
       const data = await response.json()
       setEmployees((data.data || []).map(normalizeEmployee))
-    } catch (error) {
-      console.error('Error loading archived employees:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
+    })
+    .catch((error: unknown) => console.error('Error loading archived employees:', error))
+    .finally(() => setLoading(false)), [])
 
   useEffect(() => {
-    loadEmployees()
-  }, [])
+    void loadEmployees()
+  }, [loadEmployees])
 
   const filteredEmployees = useMemo(() => {
     const filteredByStatus = employees.filter((employee) => {
@@ -192,6 +164,7 @@ export default function EmployeeArchivePage({ canEdit }: { canEdit: boolean }) {
       }
 
       setDismissEmployee(null)
+      setLoading(true)
       await loadEmployees()
     } catch (error) {
       console.error('Error dismissing employee from archive:', error)
@@ -240,6 +213,7 @@ export default function EmployeeArchivePage({ canEdit }: { canEdit: boolean }) {
       }
 
       setSelectedEmployee(null)
+      setLoading(true)
       await loadEmployees()
     } catch (error) {
       console.error('Error extending employee contract:', error)

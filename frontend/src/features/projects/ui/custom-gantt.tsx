@@ -37,7 +37,6 @@ const minimumWeekWidth = 80
 const minimumGanttBarWidth = 24
 const defaultLeftPanelWidth = 460
 const minimumLeftPanelWidth = 280
-const minimumTaskColumnWidth = 220
 const minimumRightPanelWidth = 260
 const resizeHandleWidth = 8
 const monthHeaderHeight = 36
@@ -78,7 +77,7 @@ const getIsoWeekNumber = (date: Date) => {
   return Math.ceil((((d.getTime() - yearStart.getTime()) / DAY_IN_MS) + 1) / 7)
 }
 
-export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTaskAdd }: CustomGanttProps) {
+export function CustomGantt({ tasks, onTaskEdit, onTaskDelete, onTaskAdd }: CustomGanttProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const rowHeight = 56
   const ganttBarHeight = 22
@@ -142,10 +141,6 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
       resizeObserver.disconnect()
     }
   }, [])
-
-  useEffect(() => {
-    setLeftPanelWidth((currentWidth) => Math.min(Math.max(currentWidth, minimumLeftPanelWidth), maxLeftPanelWidth))
-  }, [maxLeftPanelWidth])
 
   useEffect(() => {
     if (!isResizing) return
@@ -441,7 +436,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
           
             {/* Строки задач */}
             <div className="bg-white">
-              {organizedTasks.map((task, idx) => {
+              {organizedTasks.map((task) => {
                 const responsibleEntries = getTaskAssigneeNames(task)
 
                 return (
@@ -607,7 +602,7 @@ export function CustomGantt({ tasks, projectId, onTaskEdit, onTaskDelete, onTask
                 ))}
               </div>
 
-              {organizedTasks.map((task, idx) => {
+              {organizedTasks.map((task) => {
                 const position = getTaskPosition(task)
                 if (!position) return (
                   <div 

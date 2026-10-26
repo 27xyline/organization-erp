@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useCallback, useContext, useState } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { CheckCircle2, AlertCircle, Info, X, AlertTriangle } from 'lucide-react'
 
@@ -23,18 +23,20 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | null>(null)
 
+const fallbackToastContext: ToastContextValue = {
+  toast: {
+    success: (message: string) => console.log('[toast:success]', message),
+    error: (message: string) => console.error('[toast:error]', message),
+    info: (message: string) => console.log('[toast:info]', message),
+    warning: (message: string) => console.warn('[toast:warning]', message),
+  },
+}
+
 export function useToast() {
   const context = useContext(ToastContext)
   if (!context) {
     // Запасной вариант на случай, если провайдер ещё не смонтирован
-    return {
-      toast: {
-        success: (message: string) => console.log('[toast:success]', message),
-        error: (message: string) => console.error('[toast:error]', message),
-        info: (message: string) => console.log('[toast:info]', message),
-        warning: (message: string) => console.warn('[toast:warning]', message),
-      },
-    }
+    return fallbackToastContext
   }
   return context
 }
@@ -100,12 +102,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     }, 4000)
   }, [dismiss])
 
-  const toast = {
+  const toast = useMemo(() => ({
     success: (message: string) => addToast(message, 'success'),
     error: (message: string) => addToast(message, 'error'),
     info: (message: string) => addToast(message, 'info'),
     warning: (message: string) => addToast(message, 'warning'),
-  }
+  }), [addToast])
 
   return (
     <ToastContext.Provider value={{ toast }}>

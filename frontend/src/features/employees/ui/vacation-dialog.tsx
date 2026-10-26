@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import type { VacationForm } from './use-employees-page'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
@@ -12,8 +13,8 @@ interface VacationDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   editingVacation: Vacation | null
-  formData: any
-  setFormData: React.Dispatch<React.SetStateAction<any>>
+  formData: VacationForm
+  setFormData: React.Dispatch<React.SetStateAction<VacationForm>>
   onSave: (e: React.FormEvent) => void
   employees: Employee[]
 }
@@ -42,7 +43,7 @@ export function VacationDialog({
             <Label htmlFor="vacation-employee">Сотрудник</Label>
             <Select
               value={formData.employeeId}
-              onValueChange={(value) => setFormData((prev: any) => ({ ...prev, employeeId: value }))}
+              onValueChange={(value) => setFormData((prev) => ({ ...prev, employeeId: value }))}
             >
               <SelectTrigger id="vacation-employee">
                 <SelectValue placeholder="Выберите сотрудника" />
@@ -61,7 +62,7 @@ export function VacationDialog({
             <Label htmlFor="vacation-type">Вид отсутствия</Label>
             <Select
               value={formData.type}
-              onValueChange={(value) => setFormData((prev: any) => ({ ...prev, type: value }))}
+              onValueChange={(value) => setFormData((prev) => ({ ...prev, type: value as VacationForm['type'] }))}
             >
               <SelectTrigger id="vacation-type">
                 <SelectValue placeholder="Выберите вид отсутствия" />
@@ -83,7 +84,7 @@ export function VacationDialog({
                 id="vacation-start"
                 type="date"
                 value={formData.startDate}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, startDate: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, startDate: e.target.value }))}
                 required
               />
             </div>
@@ -93,7 +94,7 @@ export function VacationDialog({
                 id="vacation-end"
                 type="date"
                 value={formData.endDate}
-                onChange={(e) => setFormData((prev: any) => ({ ...prev, endDate: e.target.value }))}
+                onChange={(e) => setFormData((prev) => ({ ...prev, endDate: e.target.value }))}
                 required
               />
             </div>

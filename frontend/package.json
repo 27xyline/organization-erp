@@ -16,7 +16,7 @@
     "build:clean": "npm run clean:next && npm run build",
     "start": "next start -p 3001",
     "start:prod": "npm run build:clean && npm run start",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "prisma generate --schema=e2e/prisma/schema.prisma && playwright test",
