@@ -27,7 +27,7 @@ processors:
       - set(span.status.message, "")
     metric_statements:
       - keep_matching_keys(resource.attributes, "^(service\\.name|service\\.namespace|service\\.instance\\.id|telemetry\\.sdk\\.language)$")
-      - keep_matching_keys(datapoint.attributes, "^(http\\.route|http\\.request\\.method|http\\.response\\.status_code|http\\.method|http\\.status_code|db\\.system|db\\.system\\.name|db\\.operation\\.name|service\\.name|span\\.name|span\\.kind|status\\.code|collector\\.instance\\.id)$")
+      - keep_matching_keys(datapoint.attributes, "^(http\\.route|http\\.request\\.method|http\\.response\\.status_code|http\\.method|http\\.status_code|db\\.system|db\\.system\\.name|db\\.operation\\.name|service\\.name|span\\.name|span\\.kind|status\\.code|collector\\.instance\\.id|outcome|job)$")
   batch:
     timeout: 5s
     send_batch_size: 512

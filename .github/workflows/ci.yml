@@ -9,39 +9,142 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:15
+        image: postgres:18.6-alpine
         env:
-          POSTGRES_USER: project1
-          POSTGRES_PASSWORD: project1_ci_password
-          POSTGRES_DB: project1_test
+          POSTGRES_USER: organization_erp_ci
+          POSTGRES_PASSWORD: organization_erp_ci_password
+          POSTGRES_DB: organization_erp_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U project1 -d project1_test"
+          --health-cmd "pg_isready -U organization_erp_ci -d organization_erp_test"
           --health-interval 5s --health-timeout 5s --health-retries 12
     env:
-      DATABASE_URL: postgresql://project1:project1_ci_password@127.0.0.1:5432/project1_test
-      NEXTAUTH_URL: http://127.0.0.1:3000
-      NEXTAUTH_SECRET: ci-only-secret-with-at-least-thirty-two-characters
-      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
-      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3000
+      BACKEND_DATABASE_URL: postgresql+asyncpg://organization_erp_ci:organization_erp_ci_password@127.0.0.1:5432/organization_erp_test
+      PRISMA_SKIP_POSTINSTALL_GENERATE: "true"
+      BACKEND_BASE_URL: http://127.0.0.1:8000
+      BACKEND_CSRF_SECRET: ci-only-csrf-secret-with-at-least-thirty-two-characters
+      BACKEND_PUBLIC_ORIGIN: http://localhost:3001
+      NEXT_PUBLIC_APP_URL: http://localhost:3001
+      PLAYWRIGHT_BASE_URL: http://localhost:3001
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npx prisma generate
-      - run: npx prisma migrate deploy
-      - run: npm run lint
-      - run: npm run typecheck
-      - run: npm test
-      - run: TEST_DATABASE_URL=$DATABASE_URL npm run test:db
-      - run: POSTGRES_PASSWORD=project1_ci_password docker compose --profile observability config --quiet
+          cache-dependency-path: frontend/package-lock.json
+      - working-directory: frontend
+        run: npm ci
+      - name: Audit frontend dependencies
+        working-directory: frontend
+        run: npm audit --audit-level=high
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install backend migration dependencies
+        working-directory: backend
+        run: uv sync --frozen
+      - name: Apply Alembic migrations
+        working-directory: backend
+        run: uv run alembic upgrade head
+      - name: Verify migrated PostgreSQL catalog
+        working-directory: backend
+        run: uv run python -m app.scripts.verify_schema
+      - working-directory: frontend
+        run: npm run lint
+      - working-directory: frontend
+        run: npm run typecheck
+      - working-directory: frontend
+        run: npm test
+      - run: POSTGRES_PASSWORD=organization_erp_ci_password docker compose --profile observability config --quiet
       - run: docker run --rm -v "$PWD/ops/observability/collector.yaml:/etc/otelcol-contrib/config.yaml:ro" --entrypoint /otelcol-contrib otel/opentelemetry-collector-contrib:0.123.0 validate --config=/etc/otelcol-contrib/config.yaml
       - run: docker run --rm -v "$PWD/ops/observability:/etc/prometheus:ro" --entrypoint /bin/promtool prom/prometheus:v3.2.1 check config /etc/prometheus/prometheus.yml
-      - run: npm run build
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
-      - run: npm audit --omit=dev --omit=optional --audit-level=high
+      - working-directory: frontend
+        run: npm run build
+      - working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Prepare isolated shared E2E database
+        env:
+          DATABASE_URL: postgresql://organization_erp_ci:organization_erp_ci_password@127.0.0.1:5432/organization_erp_test
+        run: |
+          createdb --maintenance-db="$DATABASE_URL" --template=organization_erp_test organization_erp_e2e
+          psql postgresql://organization_erp_ci:organization_erp_ci_password@127.0.0.1:5432/organization_erp_e2e -v ON_ERROR_STOP=1 <<'SQL'
+          DO $$
+          DECLARE all_tables text;
+          BEGIN
+            SELECT string_agg(format('%I.%I', schemaname, tablename), ', ')
+              INTO all_tables
+              FROM pg_tables
+             WHERE schemaname = 'public';
+            EXECUTE 'TRUNCATE TABLE ' || all_tables || ' CASCADE';
+          END
+          $$;
+          SQL
+      - name: Run browser tests against the shared E2E database
+        working-directory: frontend
+        env:
+          DATABASE_URL: postgresql://organization_erp_ci:organization_erp_ci_password@127.0.0.1:5432/organization_erp_e2e
+          PLAYWRIGHT_PRODUCTION: "1"
+          E2E_DATABASE_URL: postgresql://organization_erp_ci:organization_erp_ci_password@127.0.0.1:5432/organization_erp_e2e
+          BACKEND_DATABASE_URL: postgresql+asyncpg://organization_erp_ci:organization_erp_ci_password@127.0.0.1:5432/organization_erp_e2e
+          BACKEND_CSRF_SECRET: ci-only-e2e-csrf-secret-with-at-least-thirty-two-characters
+          BACKEND_PUBLIC_ORIGIN: http://localhost:3001
+        run: npm run test:e2e
+
+  backend-verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18.6-alpine
+        env:
+          POSTGRES_USER: organization_erp_ci
+          POSTGRES_PASSWORD: organization_erp_ci_password
+          POSTGRES_DB: organization_erp_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U organization_erp_ci -d organization_erp_test"
+          --health-interval 5s --health-timeout 5s --health-retries 12
+    env:
+      BACKEND_DATABASE_URL: postgresql+asyncpg://organization_erp_ci:organization_erp_ci_password@127.0.0.1:5432/organization_erp_test
+      BACKEND_TEST_DATABASE_URL: postgresql+asyncpg://organization_erp_ci:organization_erp_ci_password@127.0.0.1:5432/organization_erp_test
+      BACKEND_ENVIRONMENT: test
+      BACKEND_OTEL_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install Python backend dependencies
+        working-directory: backend
+        run: uv sync --frozen
+      - name: Prepare dedicated Python test schema with Alembic
+        working-directory: backend
+        run: uv run alembic upgrade head
+      - name: Verify migrated PostgreSQL catalog
+        working-directory: backend
+        run: uv run python -m app.scripts.verify_schema
+      - name: Check backup and restore tools
+        run: |
+          uv run --project backend ruff check --config backend/pyproject.toml ops/backup
+          uv run --project backend ruff format --check --config backend/pyproject.toml ops/backup
+          uv run --project backend mypy --config-file backend/pyproject.toml ops/backup/erp_backup.py
+          uv run --project backend python -m unittest discover -s ops/backup -p 'test_*.py'
+      - name: Check Python formatting and types
+        working-directory: backend
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+          uv run mypy app
+      - name: Test Python backend
+        working-directory: backend
+        run: uv run pytest

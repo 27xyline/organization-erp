@@ -1,0 +1,23 @@
+import type { NextRequest } from 'next/server'
+import { z } from 'zod'
+import { authorizeApiRequest } from '@/lib/auth/authorization'
+import { apiValidationError } from '@/lib/http/api-response'
+import { payrollQuerySchema } from '@/features/finance/contracts/payroll'
+import { proxyFinanceRequest } from '@/lib/backend/finance'
+
+const payslipQuerySchema = payrollQuerySchema.extend({
+  employeeId: z.string().min(1),
+})
+
+export async function GET(request: NextRequest) {
+  const auth = await authorizeApiRequest(request, 'payroll.export')
+  if (auth.response) return auth.response
+  const query = payslipQuerySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams))
+  if (!query.success) return apiValidationError(query.error)
+  return proxyFinanceRequest(
+    request,
+    `${request.nextUrl.pathname}${request.nextUrl.search}`,
+    auth.user,
+    auth.requestId,
+  )
+}

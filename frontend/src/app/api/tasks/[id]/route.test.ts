@@ -1,0 +1,63 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+
+const mocks = vi.hoisted(() => ({
+  proxy: vi.fn(),
+}))
+
+vi.mock('@/lib/auth/authorization', () => ({
+  authorizeApiRequest: vi.fn(async () => ({
+    user: { id: 'admin-1', sessionVersion: 1 },
+    requestId: 'request-1',
+  })),
+}))
+vi.mock('@/lib/backend/transport', () => ({ proxyBackendRequest: mocks.proxy }))
+vi.mock('@/lib/backend/client', () => ({
+  backendUnavailableResponse: vi.fn(() => Response.json({ error: 'backend unavailable' }, { status: 503 })),
+}))
+
+describe('tasks/[id] BFF route', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.proxy.mockImplementation(async () => Response.json({ data: { id: 'task-1', status: 'IN_PROGRESS' } }))
+  })
+
+  it('preserves the Kanban status-only PUT contract', async () => {
+    const { PUT } = await import('@/app/api/tasks/[id]/route')
+    const request = new Request('http://localhost/api/tasks/task-1', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'IN_PROGRESS' }),
+    })
+    const response = await PUT(request as never, { params: Promise.resolve({ id: 'task-1' }) })
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ data: { status: 'IN_PROGRESS' } })
+    expect(mocks.proxy).toHaveBeenCalledWith(request, '/api/tasks/task-1', expect.anything(), 'request-1')
+  })
+
+  it('preserves Python resource-scope denials', async () => {
+    mocks.proxy.mockResolvedValueOnce(Response.json({ error: 'Forbidden' }, { status: 403 }))
+    const { PUT } = await import('@/app/api/tasks/[id]/route')
+    const response = await PUT(
+      new Request('http://localhost/api/tasks/task-1', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'COMPLETED' }),
+      }) as never,
+      { params: Promise.resolve({ id: 'task-1' }) },
+    )
+
+    expect(response.status).toBe(403)
+    expect(mocks.proxy).toHaveBeenCalled()
+  })
+
+  it('keeps Zod validation on the Next.js boundary', async () => {
+    const { PUT } = await import('@/app/api/tasks/[id]/route')
+    const response = await PUT(
+      new Request('http://localhost/api/tasks/task-1', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'UNKNOWN' }),
+      }) as never,
+      { params: Promise.resolve({ id: 'task-1' }) },
+    )
+
+    expect(response.status).toBe(422)
+    expect(await response.json()).toMatchObject({ error: { code: 'VALIDATION_ERROR' } })
+    expect(mocks.proxy).not.toHaveBeenCalled()
+  })
+})

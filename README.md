@@ -1,692 +1,114 @@
-# Organization ERP
+# ERP организации
 
-Внутренняя система учёта организации: имущество, сотрудники, проекты, закупки, финансы, документооборот и согласования. Модульный Next.js-монолит с PostgreSQL и ролевой моделью доступа.
+Веб-приложение для учёта сотрудников, имущества, проектов, закупок, финансов и документов. Интерфейс сделан на Next.js, сервер приложения — на FastAPI, данные хранятся в PostgreSQL.
 
----
+## Структура проекта
 
-## Содержание
-
-- [Функциональность](#функциональность)
-- [Стек технологий](#стек-технологий)
-- [Быстрый старт](#быстрый-старт)
-- [Переменные окружения](#переменные-окружения)
-- [Архитектура](#архитектура)
-- [Бизнес-модули](#бизнес-модули)
-- [Роли и безопасность](#роли-и-безопасность)
-- [Ежедневная разработка](#ежедневная-разработка)
-- [Prisma и миграции](#prisma-и-миграции)
-- [Тестирование](#тестирование)
-- [Команды npm](#команды-npm)
-- [Docker и production](#docker-и-production)
-- [Структура репозитория](#структура-репозитория)
-
----
-
-## Функциональность
-
-| Модуль | Возможности |
-| --- | --- |
-| **Имущество** | Реестр ТМЦ с инвентарными номерами, группами, статусами. Операции поступления, перемещения, списания. Распределённый учёт через МОЛ и `AssetHolding`. Обслуживание и плановые проверки. |
-| **Сотрудники** | Кадровый учёт, табельные номера, контракты (основной, внутренний, внешний). Навыки, сертификаты, менеджерская иерархия. Кадровые действия: приём, перевод, увольнение. Отпуска и больничные. |
-| **Проекты** | Проекты с бюджетами (план/факт, доходы/расходы), участниками, задачами с 3-уровневой иерархией. Диаграмма Ганта, критический путь, зависимости, вехи, чек-листы, комментарии. |
-| **Финансы** | Штатное расписание, зарплатные ведомости, финансовый план (оклад + надбавка), расчёт зарплаты по проектам. Расчётные периоды с закрытием. |
-| **Закупки** | Полный цикл: заявка → согласование → контракт с поставщиком → поставки → постановка на учёт. Привязка к проектам и документам. Валидация ИНН. |
-| **Документы** | Электронный документооборот: версионирование файлов с SHA-256, категории (договор, приказ, акт, счёт…), статусы жизненного цикла. Хранение на локальной файловой системе. |
-| **Согласования** | Многошаговые цепочки согласований с произвольными участниками. Статусы шагов, сроки, напоминания. Оптимистичная блокировка. |
-| **Уведомления** | In-app и email уведомления. Настраиваемые предпочтения по типам событий. Outbox-паттерн для email. Scheduled-алерты: просроченные задачи, истекающие контракты, обслуживание имущества, перерасход бюджета. |
-| **Табель** | Учёт рабочего времени по сотрудникам, проектам и задачам. Типы: рабочий день, отпуск, больничный, командировка, сверхурочные. |
-| **Подразделения** | Иерархическая оргструктура. Руководители подразделений. Связь с сотрудниками, МОЛ, штатным расписанием. |
-| **Отчётность** | Дашборд с KPI: численность, ФОТ, бюджеты проектов, статусы имущества. Аналитика по подразделениям. Сохранённые пресеты отчётов. |
-| **Экспорт** | Выгрузка реестров в Excel (ExcelJS), Word (docx), PDF (PDFKit). |
-| **Аудит** | Журнал действий пользователей с привязкой к сущностям. Request ID для трассировки. |
-
----
-
-## Стек технологий
-
-| Слой | Технология |
-| --- | --- |
-| Runtime | Node.js ≥ 22 |
-| Фреймворк | Next.js 16, React 19, TypeScript |
-| БД | PostgreSQL 15, Prisma ORM 6.19 |
-| Аутентификация | NextAuth 4 (Credentials), JWT-сессии, Argon2id |
-| UI | TailwindCSS 3, Radix UI, Lucide React |
-| Валидация | Zod |
-| Экспорт | ExcelJS, docx, PDFKit |
-| Тесты | Vitest (unit/integration), Playwright (E2E) |
-| CI/CD | GitHub Actions |
-| Инфраструктура | Docker, Docker Compose v2 |
-
-Проверить локальные версии:
-
-```bash
-node --version    # ≥ 22.0.0
-npm --version
-docker --version
-docker compose version
+```text
+organization-erp/
+├── backend/                 # API, бизнес-логика и миграции базы данных
+├── frontend/                # веб-интерфейс на Next.js
+├── ops/deployment/          # инструкция запуска на сервере и пример HTTPS-прокси
+├── ops/observability/       # настройки мониторинга
+├── docker-compose.yml       # сервисы приложения
+└── .env.example             # пример настроек
 ```
 
----
+## Запуск на своём компьютере
 
-## Быстрый старт
+Понадобится Docker Desktop или Docker Engine с Docker Compose.
 
-Приложение запускается на хосте, PostgreSQL — в Docker:
+1. Скачайте проект и перейдите в его папку:
 
-```bash
-# 1. Настройка окружения
-cp .env.example .env           # задайте POSTGRES_PASSWORD и NEXTAUTH_SECRET
+   ```sh
+   git clone https://github.com/27xyline/organization-erp.git
+   cd organization-erp
+   ```
 
-# 2. Запуск БД
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres
+2. Создайте файл настроек и задайте секрет для CSRF:
 
-# 3. Установка и инициализация
-npm ci
-npm run db:generate
-npm run db:migrate:deploy
-npm run db:seed                # расширенный демо-набор (только локальная dev/test БД!)
-npm run user:create-admin      # интерактивно: логин, имя, пароль ≥ 12 символов
+   ```sh
+   cp .env.example .env
+   openssl rand -hex 32
+   ```
 
-# 4. Запуск
-npm run dev
+   Скопируйте полученное значение в `BACKEND_CSRF_SECRET` в файле `.env`.
+
+3. Соберите и запустите приложение:
+
+   ```sh
+   docker compose up --build -d --wait --wait-timeout 180
+   ```
+
+   После запуска откройте [http://localhost:3001](http://localhost:3001). API доступен на [http://localhost:8000](http://localhost:8000).
+
+4. Создайте учётную запись администратора:
+
+   ```sh
+   docker compose exec backend python -m app.scripts.create_admin
+   ```
+
+   Команда запросит пароль. Логин и имя администратора — `admin`.
+
+Порты PostgreSQL (`5434`), API (`8000`) и веб-интерфейса (`3001`) по умолчанию
+доступны только на этом компьютере. Порты меняются через `POSTGRES_PORT`,
+`BACKEND_PORT` и `APP_PORT` в `.env`.
+
+Для доступа к веб-интерфейсу из локальной сети установите
+`APP_BIND_ADDRESS=0.0.0.0`, а в `BACKEND_PUBLIC_ORIGIN` и `NEXT_PUBLIC_APP_URL`
+укажите один и тот же адрес этого компьютера, например `http://192.168.1.10:3001`.
+Для доступа через интернет используйте серверную инструкцию с HTTPS ниже.
+
+## Первый вход и начало работы
+
+1. Откройте [страницу входа](http://localhost:3001/login) и войдите как `admin`
+   с паролем, который задали командой `create_admin`.
+2. В меню «Подразделения» создайте структуру организации. Затем заполните
+   штатное расписание и добавьте сотрудников в разделе «Сотрудники».
+3. В меню «Пользователи» создайте учётные записи коллег, назначьте роли
+   и области доступа к подразделениям и проектам. Для роли сотрудника привяжите
+   кадровую карточку. Пользователю выдаётся временный пароль, который он меняет
+   при первом входе.
+4. Для учёта имущества сначала добавьте группы имущества и МОЛ
+   (материально ответственных лиц), затем создайте имущество.
+5. Создайте проект и его задачи либо начните работу с нужным разделом:
+   закупками, согласованиями, документами или рабочим временем. Набор доступных
+   действий зависит от назначенных ролей и областей доступа.
+
+Для знакомства с заполненной системой можно добавить локальные демо-данные
+по [инструкции backend](backend/README.md#локальный-запуск-в-docker-compose).
+Для этого нужны Python и `uv`; команду выполняют после создания администратора.
+
+## Остановка и проверка состояния
+
+Проверьте состояние сервисов и при необходимости откройте их логи:
+
+```sh
+docker compose ps -a
+docker compose logs --tail=100 backend app worker
 ```
 
-Приложение доступно на **http://localhost:3001**. После первого входа администратор обязан сменить пароль.
+Чтобы остановить приложение, выполните:
 
-Сгенерировать секрет для NextAuth:
-
-```bash
-openssl rand -base64 48
+```sh
+docker compose down
 ```
 
----
+Данные PostgreSQL и файлы документов хранятся в Docker volumes и сохраняются
+при обычном `down`. Флаг `--volumes` удаляет эти хранилища.
 
-## Переменные окружения
+## Запуск на сервере
 
-Скопируйте `.env.example` в `.env`. Файл `.env` содержит секреты и исключён из Git.
+В [инструкции развёртывания](ops/deployment/README.md) описаны настройки
+production, домен, HTTPS, создание администратора и обновление приложения.
 
-| Переменная | Назначение | Локальное значение |
-| --- | --- | --- |
-| `POSTGRES_USER` | пользователь PostgreSQL в Docker | `project1` |
-| `POSTGRES_PASSWORD` | пароль PostgreSQL | задайте свой |
-| `POSTGRES_DB` | имя основной БД | `project1` |
-| `POSTGRES_PORT` | порт PostgreSQL на хосте (dev-overlay) | `5434` |
-| `DATABASE_URL` | подключение Prisma и приложения на хосте | `postgresql://...@localhost:5434/project1` |
-| `NEXTAUTH_URL` | канонический URL приложения | `http://localhost:3001` |
-| `NEXTAUTH_SECRET` | секрет подписи сессий, минимум 32 символа | уникальный секрет |
-| `NEXT_PUBLIC_APP_URL` | публичный URL | `http://localhost:3001` |
-| `PORT` | порт на хосте | `3001` |
-| `APP_PORT` | публикация порта контейнера `app` | `3001` |
-| `PLAYWRIGHT_BASE_URL` | URL для E2E-тестов | `http://127.0.0.1:3001` |
-| `DOCUMENT_STORAGE_ROOT` | каталог хранения документов | `./.runtime/documents` |
-| `DOCUMENT_MAX_FILE_SIZE_BYTES` | максимальный размер файла (≤ 100 МБ) | `26214400` |
+## Подробные инструкции
 
-В Compose контейнеры `app` и `migrate` подключаются к PostgreSQL по `postgres:5432`. `DATABASE_URL` из `.env` используется командами на хосте.
+- [Frontend: локальный запуск и проверки](frontend/README.md)
+- [Backend: зависимости, API, миграции и тесты](backend/README.md)
 
-Документы хранятся на локальной ФС. В Docker — отдельный volume `project1_document_data`. Не размещайте каталог внутри `public`, `.next`, `src` или `node_modules`.
+## Резервное копирование
 
-Переменные Yandex OAuth присутствуют в `.env.example` как резерв, но код их не использует.
-
----
-
-## Архитектура
-
-### Модульная структура
-
-Приложение разделено на предметные модули внутри `src/features/`. Каждый модуль использует только нужные слои:
-
-```
-src/features/<feature>/
-├── contracts/       Zod-схемы, DTO, публичные типы
-├── domain/          чистые бизнес-правила, доменные ошибки
-├── application/     запросы, команды, транзакционные сценарии
-├── infrastructure/  сложные Prisma-запросы и helpers
-└── ui/              предметные React-компоненты и hooks
-```
-
-### Направление зависимостей
-
-```
-app ──► feature/application ──► feature/domain
- │               └───────────► feature/infrastructure ──► lib/prisma
- └──► feature/ui
-```
-
-### Основные правила
-
-- `src/app` — маршрутизация, авторизация, HTTP-адаптация, композиция экранов
-- `src/lib` — общая инфраструктура, не зависит от `features` или `app`
-- **domain** не зависит от application, infrastructure, UI, Next.js, Prisma Client
-- **UI** не обращается напрямую к Prisma или infrastructure
-- межмодульный обмен — через `contracts`; композиция модулей — в `app`
-- HTTP URL, JSON-контракты, роли и Prisma-схема — стабильные внешние границы
-
----
-
-## Бизнес-модули
-
-### Имущество (`assets`)
-
-Центральная сущность — `Asset` с инвентарным номером, ценой, группой и статусом жизненного цикла:
-
-`IN_STOCK` → `IN_USE` → `UNDER_REPAIR` → `PLANNED_FOR_DISPOSAL` → `PARTIALLY_DISPOSED` → `FULLY_DISPOSED`
-
-Имущество привязано к **МОЛ** (материально ответственное лицо) через `AssetHolding` — одно ТМЦ может быть распределено между несколькими МОЛ. Каждая операция (поступление, перемещение, списание, смена статуса) фиксируется в `Operation`.
-
-Обслуживание (`AssetMaintenance`): плановые осмотры, калибровки, ремонты с отслеживанием дат и стоимости.
-
-### Сотрудники (`employees`)
-
-Полный кадровый учёт: табельный номер, подразделение, должность, тип контракта (основной / внутреннее / внешнее совместительство), ставка, контактные данные.
-
-Кадровые действия (`PersonnelAction`): приём, увольнение, перевод, продление, повышение — с историей изменений.
-
-Отпуска и отсутствия (`Vacation`): отпуск, больничный, командировка, отпуск без содержания.
-
-Навыки (`EmployeeSkill`) и сертификаты (`EmployeeCertificate`) с датами выдачи и истечения.
-
-### Проекты (`projects`)
-
-Проекты с бюджетным планированием (план/факт расходов и доходов), датами, статусами (`ACTIVE`, `COMPLETED`, `ARCHIVED`).
-
-**Задачи** — 3-уровневая иерархия с зависимостями (Finish-to-Start с lag), приоритетами, рисками, вехами. Чек-листы и комментарии. Алгоритм **критического пути** для выявления узких мест.
-
-**Участники проекта** — сотрудники с должностью, ставкой и зарплатой в контексте проекта.
-
-Визуализация: **диаграмма Ганта** (SVAR React Gantt).
-
-### Финансы (`finance`)
-
-- **Штатное расписание** (`StaffSchedule`): должности, ставки, оклады по подразделениям
-- **Зарплатные ведомости** (`SalaryEntry`): помесячные записи по сотрудникам
-- **Финансовый план** (`FinancePlanEntry`): оклады и надбавки по сотрудникам и проектам
-- **Корректировки** (`PayrollAdjustment`): премии, разовые выплаты, удержания
-- **Расчётные периоды** (`PayrollPeriod`): открытие/закрытие с фиксацией ответственного
-
-### Закупки (`procurement`)
-
-Полный цикл от заявки до постановки на баланс:
-
-```
-DRAFT → SUBMITTED → APPROVED → CONTRACTED → PARTIALLY_DELIVERED → DELIVERED → CAPITALIZED
-```
-
-- **Заявка** (`ProcurementRequest`): позиции, бюджетный лимит, валидация (сумма ≤ лимит)
-- **Согласование**: многошаговая цепочка через модуль `approvals`
-- **Контракт** (`ProcurementContract`): поставщик с валидацией ИНН, сумма, сроки
-- **Поставки** (`ProcurementDelivery`): приёмка позиций, привязка к активам
-
-### Документы (`documents`)
-
-Электронный документооборот с версионированием файлов:
-
-- Категории: общий, договор, приказ, акт, счёт, кадровый, проектный, имущественный
-- Жизненный цикл: `DRAFT` → `IN_REVIEW` → `APPROVED` → `SIGNED` → `ARCHIVED`
-- Каждая версия хранится с SHA-256 хешем, MIME-типом и оригинальным именем
-- Оптимистичная блокировка (`lockVersion`) для конкурентного доступа
-- Документы привязываются к проектам, сотрудникам, имуществу
-
-### Согласования (`approvals`)
-
-Универсальный механизм многошаговых согласований:
-
-- Произвольное количество шагов с именованными согласователями
-- Последовательная обработка: `WAITING` → `PENDING` → `APPROVED`/`REJECTED`
-- Сроки и напоминания (`reminderSent`)
-- Привязка к документам, проектам, закупкам
-- Оптимистичная блокировка
-
-### Уведомления (`notifications`)
-
-- **In-app**: нотификации в интерфейсе (колокольчик)
-- **Email**: SMTP-рассылка через outbox-паттерн с ретраями
-- Настраиваемые предпочтения по типам событий и каналам
-- **Scheduled-алерты**: истекающие контракты сотрудников, просроченные задачи, плановое списание имущества, обслуживание, перерасход бюджета
-
-### Табель (`timekeeping`)
-
-Учёт рабочего времени: рабочие дни, отпуска, больничные, командировки, сверхурочные. Привязка к сотруднику, проекту и задаче.
-
-### Отчётность (`reporting`)
-
-Дашборд с ключевыми показателями:
-
-- Численность и загруженность штатного расписания
-- ФОТ: план vs факт
-- Бюджеты проектов: использование, отклонения, средний прогресс
-- Имущество: количество, стоимость, требующие внимания
-- Текущие отсутствия, просроченные задачи
-- Аналитика по подразделениям
-- Сохранённые пресеты отчётов
-
----
-
-## Роли и безопасность
-
-### Ролевая модель (RBAC)
-
-Система использует двухуровневую ролевую модель:
-
-**Системные роли** (`UserRole`) — базовый уровень доступа:
-
-| Роль | Описание |
-| --- | --- |
-| `ADMIN` | все операции и управление пользователями |
-| `EDITOR` | доменные изменения без управления пользователями |
-| `VIEWER` | только чтение и экспорт |
-
-**Прикладные роли** (`AppRole`) — гранулярные полномочия с область видимости:
-
-| Роль | Описание |
-| --- | --- |
-| `ADMIN` | Полный доступ ко всему |
-| `HR` | Кадровые операции |
-| `ACCOUNTANT` | Финансы, зарплаты, бюджеты |
-| `PROJECT_MANAGER` | Управление проектами |
-| `ASSET_CUSTODIAN` | Учёт имущества (МОЛ) |
-| `DEPARTMENT_HEAD` | Руководитель подразделения |
-| `AUDITOR` | Аудит и отчётность |
-| `EMPLOYEE` | Базовый доступ сотрудника |
-
-Каждая прикладная роль назначается пользователю с **режимом области видимости** (`ScopeMode`):
-
-- `ALL` — доступ ко всем записям
-- `ASSIGNED` — только назначенные подразделения/проекты
-- `SELF` — только собственные записи
-- `NONE` — без ограничения по scope
-
-### Безопасность
-
-- Middleware (`proxy.ts`) выполняет раннее перенаправление; Server Components и API повторно проверяют пользователя в PostgreSQL
-- Мутации требуют допустимую роль и same-origin
-- Пароли — **Argon2id**
-- Блокировка после 5 неверных попыток на 15 минут
-- JWT-сессии с максимальным временем жизни 8 часов
-- Versioned sessions (`sessionVersion`) — мгновенная инвалидация при смене пароля или деактивации
-- Audit log с `requestId` для сквозной трассировки
-- Health endpoints: `GET /api/health/live`, `GET /api/health/ready`
-
----
-
-## Ежедневная разработка
-
-### Управление локальной БД
-
-```bash
-# Поднять PostgreSQL
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres
-
-# Состояние и логи
-docker compose -f docker-compose.yml -f docker-compose.dev.yml ps
-docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f postgres
-
-# Запустить приложение
-npm run dev
-
-# Остановить/запустить без удаления данных
-docker compose -f docker-compose.yml -f docker-compose.dev.yml stop postgres
-docker compose -f docker-compose.yml -f docker-compose.dev.yml start postgres
-
-# Удалить контейнеры, сохранив данные
-docker compose -f docker-compose.yml -f docker-compose.dev.yml down
-
-# Полный сброс (необратимо!)
-docker compose -f docker-compose.yml -f docker-compose.dev.yml down -v
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d postgres
-npm run db:migrate:deploy
-npm run db:seed
-```
-
-Dev-overlay публикует PostgreSQL на хосте. Не подключайте `docker-compose.dev.yml` в production.
-
-### Seed и администратор
-
-```bash
-npm run db:seed              # расширенный демо-набор (upsert, безопасно перезапускать локально)
-npm run user:create-admin    # интерактивное создание (TTY, пароль скрыт)
-npm run db:verify            # проверка целостности данных
-```
-
-Seed наполняет основные разделы приложения связанными данными: 40 сотрудников в 10 подразделениях, 24 проекта с 192 задачами, 120 объектов имущества, 36 заявок на закупку, 60 документов с файлами и версиями, 40 согласований, зарплатные и финансовые записи за последние шесть месяцев, табель, отпуска, обслуживание имущества, уведомления и сохранённые представления.
-
-Для входа в демо-пользователей используйте логины `demo.admin`, `demo.hr`, `demo.project`, `demo.finance`, `demo.assets` или `demo.audit` и временный пароль `DemoLocal2026!`. При первом входе приложение попросит заменить пароль. Записи создаются через `upsert`, поэтому повторный запуск не размножает демо-данные и не сбрасывает заполненные вручную поля большинства записей.
-
-Seed проверяет адрес `DATABASE_URL`: по умолчанию разрешены только `localhost`, `127.0.0.1`, `::1` и Docker-хост `postgres`. В production seed останавливается. Для отдельной удалённой тестовой БД запускайте команду только после явной проверки адреса и задайте `ALLOW_DEMO_SEED=1`.
-
-`db:verify` проверяет:
-- равенство суммы `AssetHolding.quantity` общему `Asset.quantity`
-- отсутствие отрицательных количеств и стоимостей
-- отсутствие orphan relations
-- отсутствие секретов в audit JSON
-
----
-
-## Prisma и миграции
-
-Схема: `prisma/schema.prisma`. Миграции: `prisma/migrations/`.
-
-### Применить существующие миграции
-
-```bash
-npm ci
-npm run db:generate
-npm run db:migrate:deploy    # безопасно для CI и production
-```
-
-### Создать новую миграцию
-
-```bash
-# 1. Измените prisma/schema.prisma
-# 2. Создайте и примените миграцию
-npm run db:migrate -- --name add_asset_location
-
-# 3. Проверьте
-npm run db:generate
-npm run db:verify
-npm run check
-
-# 4. Закоммитьте изменения
-```
-
-Имя миграции — `snake_case`, описывает изменение: `add_employee_department`, `make_contract_code_optional`.
-
-### Миграция с ручным SQL
-
-```bash
-npm run db:migrate -- --name backfill_asset_holdings --create-only
-# Отредактируйте migration.sql
-npm run db:migrate
-npm run db:verify
-```
-
-Для опасных изменений используйте **expand/contract**: добавьте новые nullable-поля, совместимый код, backfill, а удаление старых полей вынесите в отдельный релиз.
-
-### Полезные команды
-
-```bash
-npm run db:generate              # перегенерировать Prisma Client
-npm run db:studio                # открыть Prisma Studio
-npx prisma migrate status        # состояние миграций
-npx prisma migrate reset         # полный сброс (только dev!)
-```
-
-> **Не используйте** `prisma db push` вместо миграций. Не изменяйте уже применённые `migration.sql` — оформляйте исправления новой миграцией.
-
----
-
-## Тестирование
-
-### Unit и integration тесты (Vitest)
-
-```bash
-npm test
-```
-
-Среда: jsdom. Конфигурация: `vitest.config.ts`.
-
-### E2E тесты (Playwright)
-
-```bash
-# Установить браузер (первый раз)
-npx playwright install chromium
-
-# Рекомендуется отдельная тестовая БД
-docker compose -f docker-compose.yml -f docker-compose.dev.yml exec postgres \
-  createdb -U project1 project1_test
-
-DATABASE_URL="postgresql://project1:<пароль>@localhost:5434/project1_test" \
-  npm run db:migrate:deploy
-
-DATABASE_URL="postgresql://project1:<пароль>@localhost:5434/project1_test" \
-PLAYWRIGHT_BASE_URL="http://127.0.0.1:3001" \
-  npm run test:e2e
-```
-
-E2E создаёт пользователей `e2e-admin`, `e2e-viewer` и тестовые записи. Не запускайте с production `DATABASE_URL`.
-
-### Полный CI-набор
-
-```bash
-npm ci
-npm run db:generate
-npm run db:migrate:deploy
-npm run lint
-npm run typecheck
-npm test
-npm run build
-npx playwright install chromium
-npm run test:e2e
-npm audit --omit=dev --audit-level=high
-```
-
-Сокращённая команда (lint + typecheck + tests + build):
-
-```bash
-npm run check
-```
-
----
-
-## Команды npm
-
-| Команда | Назначение |
-| --- | --- |
-| **Разработка** | |
-| `npm run dev` | dev-сервер (порт 3001) |
-| `npm run dev:turbo` | dev-сервер с Turbopack |
-| `npm run dev:webpack` | dev-сервер с Webpack |
-| `npm run dev:reset` | очистить кеш и запустить dev |
-| **Сборка** | |
-| `npm run build` | production build |
-| `npm run build:clean` | очистить кеш + build |
-| `npm run start` | запустить production build |
-| `npm run start:prod` | очистить + собрать + запустить |
-| `npm run clean:next` | удалить `.next`, `.next-dev`, `.next-dev-turbo` |
-| **Проверки** | |
-| `npm run lint` | ESLint |
-| `npm run typecheck` | TypeScript `--noEmit` |
-| `npm test` | Vitest |
-| `npm run test:e2e` | Playwright |
-| `npm run check` | lint + typecheck + tests + build |
-| **База данных** | |
-| `npm run db:generate` | Prisma Client |
-| `npm run db:migrate` | создать/применить dev-миграцию |
-| `npm run db:migrate:deploy` | применить готовые миграции |
-| `npm run db:studio` | Prisma Studio |
-| `npm run db:seed` | демо-данные |
-| `npm run db:verify` | проверка целостности |
-| **Администрирование** | |
-| `npm run user:create-admin` | создать ADMIN-пользователя |
-
----
-
-## Docker и production
-
-### Локальная проверка production Docker
-
-```bash
-docker compose config          # проверить итоговую конфигурацию (не публикуйте!)
-docker compose build
-docker compose up -d
-docker compose ps
-```
-
-Compose запускает сервисы по порядку:
-
-1. **`postgres`** — PostgreSQL 15 с постоянным volume
-2. **`migrate`** — одноразовый контейнер `prisma migrate deploy`
-3. **`app`** — production Next.js (после успешных миграций)
-
-`Exited (0)` у `migrate` — нормально.
-
-```bash
-docker compose logs --tail=100 migrate
-docker compose logs -f app
-curl --fail http://127.0.0.1:3001/api/health/live    # процесс отвечает
-curl --fail http://127.0.0.1:3001/api/health/ready   # подключение к БД
-```
-
-### Production: подготовка
-
-На сервере: Docker Engine + Docker Compose v2. Разворачивайте из проверенного commit/tag.
-
-```bash
-cp .env.example .env
-chmod 600 .env
-```
-
-Обязательно:
-
-- `POSTGRES_PASSWORD` — длинный уникальный пароль
-- `NEXTAUTH_SECRET` — минимум 32 символа
-- `NEXTAUTH_URL` и `NEXT_PUBLIC_APP_URL` — одинаковый HTTPS origin
-- `APP_PORT=127.0.0.1:3001` — ограничить loopback (если reverse proxy на том же сервере)
-- Не подключайте `docker-compose.dev.yml`
-- TLS — на reverse proxy, проксируйте на `127.0.0.1:3001`
-
-### Production: первый запуск
-
-```bash
-docker compose build
-docker compose up -d
-docker compose ps
-docker compose logs --tail=100 migrate
-docker compose logs --tail=100 app
-curl --fail http://127.0.0.1:3001/api/health/live
-curl --fail http://127.0.0.1:3001/api/health/ready
-```
-
-Создание первого администратора:
-
-```bash
-docker compose run --rm -it \
-  -v "$PWD/src:/app/src:ro" \
-  -v "$PWD/scripts:/app/scripts:ro" \
-  migrate npm run user:create-admin
-```
-
-**Не запускайте `db:seed` в production.**
-
-### Production: backup
-
-Перед каждой миграцией:
-
-```bash
-BACKUP_FILE="/srv/project1/dumps/project1-$(date +%F-%H%M%S).dump"
-docker compose exec -T postgres sh -c \
-  'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc' \
-  > "$BACKUP_FILE"
-test -s "$BACKUP_FILE"
-ls -lh "$BACKUP_FILE"
-```
-
-Храните копии вне сервера. Регулярно проверяйте восстановление.
-
-### Production: обновление
-
-1. Включить maintenance mode
-2. Создать и проверить backup
-3. Получить проверенный commit/tag
-4. Собрать и запустить:
-
-```bash
-docker compose build
-docker compose up -d
-```
-
-5. Проверить:
-
-```bash
-docker compose logs --tail=100 migrate
-docker compose ps
-curl --fail http://127.0.0.1:3001/api/health/live
-curl --fail http://127.0.0.1:3001/api/health/ready
-```
-
-6. Проверка данных:
-
-```bash
-docker compose run --rm \
-  -v "$PWD/src:/app/src:ro" \
-  -v "$PWD/scripts:/app/scripts:ro" \
-  migrate npm run db:verify
-```
-
-7. Smoke-тест → отключить maintenance mode
-
-### Production: восстановление из backup
-
-```bash
-docker compose stop app migrate
-docker compose exec -T postgres sh -c \
-  'dropdb -U "$POSTGRES_USER" --if-exists "$POSTGRES_DB" && createdb -U "$POSTGRES_USER" "$POSTGRES_DB"'
-docker compose exec -T postgres sh -c \
-  'pg_restore -U "$POSTGRES_USER" -d "$POSTGRES_DB" --clean --if-exists' \
-  < /srv/project1/dumps/project1-YYYY-MM-DD-HHMMSS.dump
-docker compose up -d migrate app
-```
-
-После восстановления: проверить логи migrate, `db:verify`, health → smoke-тест → открыть доступ.
-
----
-
-## Rollout AssetHolding
-
-**Release A:**
-1. Maintenance mode + backup
-2. Additive-миграция пользователей и `AssetHolding`
-3. `npm run db:verify` + smoke/E2E
-4. Открыть доступ (legacy `Asset.molId` остаётся для rollback)
-
-**Release B** (после стабильного периода):
-1. Backup + `db:verify`
-2. Удалить legacy `Asset.molId` отдельной миграцией
-3. Полный CI + smoke-тесты
-
-При ошибке Release A: доступ не открывается, контейнеры останавливаются, база восстанавливается из backup.
-
----
-
-## Структура репозитория
-
-```
-prisma/                     схема, миграции и dev seed
-scripts/                    admin-скрипты и проверки БД
-src/
-├── app/
-│   ├── (auth)/             логин
-│   ├── (app)/(main)/       основные страницы
-│   │   ├── assets/         имущество
-│   │   ├── employees/      сотрудники
-│   │   ├── projects/       проекты
-│   │   ├── finance/        финансы
-│   │   ├── procurement/    закупки
-│   │   ├── documents/      документы
-│   │   ├── approvals/      согласования
-│   │   ├── timekeeping/    табель
-│   │   ├── reports/        отчётность
-│   │   ├── notifications/  уведомления
-│   │   └── admin/          администрирование
-│   └── api/                REST API endpoints
-├── features/               бизнес-модули
-│   ├── assets/             contracts, domain, application, infrastructure, ui
-│   ├── employees/          contracts, domain, application, infrastructure, ui
-│   ├── projects/           contracts, domain, application, ui
-│   ├── finance/            contracts, domain, application, ui
-│   ├── procurement/        contracts, application, ui
-│   ├── documents/          contracts, domain, application, infrastructure, ui
-│   ├── approvals/          contracts, application, ui
-│   ├── notifications/      contracts, application, ui
-│   ├── timekeeping/        contracts, domain, application, ui
-│   ├── departments/        contracts, application, ui
-│   ├── reporting/          contracts, domain, application, ui
-│   ├── exports/            application
-│   └── users/              application
-├── components/             общий UI-kit, layout, навигация
-├── lib/                    auth, DB, HTTP, logger, errors
-└── types/                  TypeScript декларации
-e2e/                        Playwright E2E тесты
-.github/workflows/ci.yml   CI pipeline
-Dockerfile                  multi-stage production image
-docker-compose.yml          production topology
-docker-compose.dev.yml      dev-overlay (порт PostgreSQL)
-```
+[Команды резервного копирования и проверки восстановления](ops/backup/README.md)
+сохраняют PostgreSQL и файлы документов вместе. Восстановление выполняется
+в отдельный проект с новыми хранилищами; рабочие данные не перезаписываются.

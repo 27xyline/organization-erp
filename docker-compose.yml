@@ -1,13 +1,15 @@
 services:
   postgres:
-    image: postgres:15
+    image: postgres:18.6-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-project1}
+      POSTGRES_USER: ${POSTGRES_USER:-organization_erp_app}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB:-project1}
+      POSTGRES_DB: ${POSTGRES_DB:-organization_erp_dev}
     volumes:
-      - project1_postgres_data:/var/lib/postgresql/data
+      - organization_erp_postgres_data_v18:/var/lib/postgresql
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5434}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -16,10 +18,16 @@ services:
 
   migrate:
     build:
-      context: .
-      target: migration
+      context: ./backend
+      dockerfile: Dockerfile
+    command:
+      [
+        "sh",
+        "-c",
+        "alembic upgrade head && python -m app.scripts.verify_schema",
+      ]
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-project1}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-project1}
+      BACKEND_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-organization_erp_app}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-organization_erp_dev}
     depends_on:
       postgres:
         condition: service_healthy
@@ -27,21 +35,16 @@ services:
 
   app:
     build:
-      context: .
+      context: ./frontend
       target: runner
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-project1}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-project1}
-      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3001}
-      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Set NEXTAUTH_SECRET}
+      BACKEND_BASE_URL: http://backend:8000
+      BACKEND_PUBLIC_ORIGIN: ${BACKEND_PUBLIC_ORIGIN:-http://localhost:3001}
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3001}
-      DOCUMENT_STORAGE_ROOT: /var/lib/project1/documents
-      DOCUMENT_MAX_FILE_SIZE_BYTES: ${DOCUMENT_MAX_FILE_SIZE_BYTES:-26214400}
       PORT: 3001
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
       OTEL_SERVICE_NAME: erp-app
-    volumes:
-      - project1_document_data:/var/lib/project1/documents
     networks:
       - default
       - observability_ingest
@@ -49,28 +52,68 @@ services:
       migrate:
         condition: service_completed_successfully
     ports:
-      - "${APP_PORT:-3001}:3001"
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-3001}:3001"
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/api/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 6
 
-  worker:
+  backend:
     build:
-      context: .
-      target: worker
+      context: ./backend
+      dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-project1}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-project1}
-      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
-      OTEL_SERVICE_NAME: erp-notification-worker
+      BACKEND_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-organization_erp_app}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-organization_erp_dev}
+      BACKEND_ENVIRONMENT: ${BACKEND_ENVIRONMENT:-development}
+      BACKEND_CSRF_SECRET: ${BACKEND_CSRF_SECRET:-}
+      BACKEND_PUBLIC_ORIGIN: ${BACKEND_PUBLIC_ORIGIN:-http://localhost:3001}
+      DOCUMENT_STORAGE_ROOT: /var/lib/organization-erp/documents
+      DOCUMENT_MAX_FILE_SIZE_BYTES: ${DOCUMENT_MAX_FILE_SIZE_BYTES:-26214400}
+      BACKEND_OTEL_ENABLED: ${BACKEND_OTEL_ENABLED:-true}
+      BACKEND_OTEL_EXPORTER_OTLP_ENDPOINT: ${BACKEND_OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      BACKEND_SERVICE_NAME: organization-erp-backend
     networks:
       - default
       - observability_ingest
     depends_on:
       migrate:
         condition: service_completed_successfully
+    volumes:
+      - organization_erp_document_data:/var/lib/organization-erp/documents
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/api/health/ready', timeout=2).read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["python", "-m", "app.tasks.notifications"]
+    restart: unless-stopped
+    stop_grace_period: 90s
+    environment:
+      BACKEND_DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-organization_erp_app}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-organization_erp_dev}
+      BACKEND_ENVIRONMENT: ${BACKEND_ENVIRONMENT:-development}
+      BACKEND_OTEL_ENABLED: ${BACKEND_OTEL_ENABLED:-true}
+      BACKEND_OTEL_EXPORTER_OTLP_ENDPOINT: ${BACKEND_OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      BACKEND_SERVICE_NAME: organization-erp-notification-worker
+    networks:
+      - default
+      - observability_ingest
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0 if b'app.tasks.notifications' in open('/proc/1/cmdline', 'rb').read() else 1)"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.123.0
@@ -94,7 +137,7 @@ services:
     volumes:
       - ./ops/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./ops/observability/alerts.yml:/etc/prometheus/alerts.yml:ro
-      - project1_prometheus_data:/prometheus
+      - organization_erp_prometheus_data:/prometheus
     ports:
       - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
     networks:
@@ -108,7 +151,7 @@ services:
     command: ["-config.file=/etc/tempo/config.yaml"]
     volumes:
       - ./ops/observability/tempo.yaml:/etc/tempo/config.yaml:ro
-      - project1_tempo_data:/var/tempo
+      - organization_erp_tempo_data:/var/tempo
     networks:
       - observability_backend
 
@@ -124,7 +167,7 @@ services:
     volumes:
       - ./ops/observability/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./ops/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - project1_grafana_data:/var/lib/grafana
+      - organization_erp_grafana_data:/var/lib/grafana
     ports:
       - "127.0.0.1:${GRAFANA_PORT:-3002}:3000"
     networks:
@@ -132,11 +175,13 @@ services:
       - observability_backend
 
 volumes:
-  project1_postgres_data:
-  project1_document_data:
-  project1_prometheus_data:
-  project1_tempo_data:
-  project1_grafana_data:
+  organization_erp_postgres_data_v18:
+    name: organization-erp-postgres-data-v18
+  organization_erp_document_data:
+    name: organization-erp-document-data
+  organization_erp_prometheus_data:
+  organization_erp_tempo_data:
+  organization_erp_grafana_data:
 
 networks:
   observability_ingest:

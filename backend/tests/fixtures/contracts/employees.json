@@ -1,0 +1,52 @@
+{
+  "fixture": "employees-legacy-hr-v1",
+  "scenario": [
+    "hire",
+    "extend",
+    "transfer",
+    "vacation",
+    "dismiss",
+    "expired-contract-sync-twice"
+  ],
+  "employee": {
+    "status": "DISMISSED",
+    "department": "department-b",
+    "position": "position-b",
+    "contractEndDate": "2027-12-31T00:00:00.000Z",
+    "vacationCount": 1
+  },
+  "actions": [
+    {
+      "type": "HIRE",
+      "date": "2026-01-01",
+      "newContractEndDate": "2026-12-31"
+    },
+    {
+      "type": "EXTEND",
+      "date": "2026-01-10",
+      "newContractEndDate": "2027-12-31"
+    },
+    {
+      "type": "TRANSFER",
+      "date": "2026-02-01",
+      "newContractEndDate": "2027-12-31"
+    },
+    {
+      "type": "DISMISS",
+      "date": "2026-03-01",
+      "newContractEndDate": "2027-12-31"
+    }
+  ],
+  "sync": {
+    "firstCount": 1,
+    "secondCount": 0,
+    "expiredArchiveCount": 1
+  },
+  "auditActionCounts": {
+    "STAFF_POSITION_CREATE": 2,
+    "EMPLOYEE_CREATE": 2,
+    "PERSONNEL_ACTION_CREATE": 3,
+    "VACATION_CREATE": 1
+  },
+  "notificationOutboxCount": 0
+}

@@ -14,7 +14,7 @@
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "refId": "A", "expr": "sum(rate(erp_span_calls_total{span_kind=\"SPAN_KIND_SERVER\"}[5m]))", "legendFormat": "Запросы/с" }]
+      "targets": [{ "refId": "A", "expr": "sum(rate(erp_http_requests_total[5m]))", "legendFormat": "Запросы/с" }]
     },
     {
       "id": 2,
@@ -22,7 +22,7 @@
       "type": "timeseries",
       "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "refId": "A", "expr": "sum(rate(erp_span_calls_total{span_kind=\"SPAN_KIND_SERVER\",http_status_code=~\"5..\"}[5m])) / clamp_min(sum(rate(erp_span_calls_total{span_kind=\"SPAN_KIND_SERVER\"}[5m])), 0.001)", "legendFormat": "Ошибки 5xx" }],
+      "targets": [{ "refId": "A", "expr": "sum(rate(erp_http_requests_total{http_response_status_code=~\"5..\"}[5m])) / clamp_min(sum(rate(erp_http_requests_total[5m])), 0.001)", "legendFormat": "Ошибки 5xx" }],
       "fieldConfig": { "defaults": { "unit": "percentunit", "min": 0, "max": 1 } }
     },
     {
@@ -31,7 +31,7 @@
       "type": "timeseries",
       "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(erp_span_duration_seconds_bucket{span_kind=\"SPAN_KIND_SERVER\"}[5m])))", "legendFormat": "p95" }],
+      "targets": [{ "refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(erp_http_request_duration_seconds_bucket[5m])))", "legendFormat": "p95" }],
       "fieldConfig": { "defaults": { "unit": "s" } }
     },
     {
@@ -40,7 +40,7 @@
       "type": "timeseries",
       "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
       "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "targets": [{ "refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(erp_span_duration_seconds_bucket{db_system=~\"postgresql|postgres\"}[5m]) or rate(erp_span_duration_seconds_bucket{db_system_name=~\"postgresql|postgres\"}[5m])))", "legendFormat": "p95" }],
+      "targets": [{ "refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(erp_db_query_duration_seconds_bucket[5m])))", "legendFormat": "p95" }],
       "fieldConfig": { "defaults": { "unit": "s" } }
     },
     {
@@ -92,6 +92,31 @@
       "type": "alertlist",
       "gridPos": { "x": 0, "y": 32, "w": 24, "h": 7 },
       "options": { "show": "current", "sortOrder": 1, "dashboardAlerts": false }
+    },
+    {
+      "id": 11,
+      "title": "База данных: p95 ожидания соединения",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 39, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "histogram_quantile(0.95, sum by (le) (rate(erp_db_pool_wait_seconds_bucket[5m])))", "legendFormat": "p95" }],
+      "fieldConfig": { "defaults": { "unit": "s" } }
+    },
+    {
+      "id": 12,
+      "title": "Результаты заданий worker",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 39, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "sum by (job, outcome) (rate(erp_notification_worker_jobs_total[5m]))", "legendFormat": "{{job}} · {{outcome}}" }]
+    },
+    {
+      "id": 13,
+      "title": "Просроченные блокировки outbox",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 47, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "refId": "A", "expr": "erp_notification_outbox_expired_leases", "legendFormat": "Просроченные lease" }]
     }
   ]
 }
