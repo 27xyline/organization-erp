@@ -3158,7 +3158,7 @@
         },
         "projectId": {
           "default": null,
-          "nullable": false,
+          "nullable": true,
           "type": "text"
         },
         "responsible": {

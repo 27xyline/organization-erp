@@ -17,6 +17,7 @@ from app.domain.auth.rules import AccessContext
 from app.domain.ports.projects import (
     ActivityRecord,
     CommentRecord,
+    GeneralAssignee,
     MemberRecord,
     ProjectPage,
     ProjectRecord,
@@ -203,7 +204,7 @@ class SqlAlchemyProjectRepository:
         row = await self._session().get(Task, task_id, populate_existing=True)
         return TaskRecord.from_values(serial(row)) if row else None
 
-    async def tasks(self, project_id: str, shape: str = "list") -> tuple[TaskRecord, ...]:
+    async def tasks(self, project_id: str | None, shape: str = "list") -> tuple[TaskRecord, ...]:
         session = self._session()
         rows = (
             await session.scalars(
@@ -322,6 +323,60 @@ class SqlAlchemyProjectRepository:
             TaskRecord.from_values(task_value(row, flatten=shape == "api")) for row in rows
         )
 
+    async def inbox(self, employee_id: str | None, all_tasks: bool) -> tuple[TaskRecord, ...]:
+        query = select(Task.id, Task.projectId)
+        if not all_tasks:
+            query = query.where(
+                Task.id.in_(
+                    select(TaskAssignee.taskId).where(TaskAssignee.employeeId == employee_id)
+                )
+            )
+        rows = (await self._session().execute(query.order_by(Task.createdAt))).all()
+        allowed = {row.id for row in rows}
+        result: builtins.list[TaskRecord] = []
+        for project_id in dict.fromkeys(row.projectId for row in rows):
+            result.extend(
+                task for task in await self.tasks(project_id, "mutation") if task.id in allowed
+            )
+        return tuple(result)
+
+    async def general_assignee_options(self) -> tuple[GeneralAssignee, ...]:
+        rows = (
+            await self._session().scalars(
+                select(Employee).where(Employee.status == "ACTIVE").order_by(Employee.fullName)
+            )
+        ).all()
+        return tuple(GeneralAssignee(None, row.id, row.fullName) for row in rows)
+
+    async def general_assignees(self, employee_ids: tuple[str, ...]) -> tuple[GeneralAssignee, ...]:
+        rows = (
+            await self._session().scalars(
+                select(Employee).where(Employee.id.in_(employee_ids), Employee.status == "ACTIVE")
+            )
+        ).all()
+        by_id = {row.id: row for row in rows}
+        return tuple(
+            GeneralAssignee(None, key, by_id[key].fullName) for key in employee_ids if key in by_id
+        )
+
+    async def task_assigned(self, task_id: str, employee_id: str) -> bool:
+        return (
+            await self._session().scalar(
+                select(TaskAssignee.id).where(
+                    TaskAssignee.taskId == task_id, TaskAssignee.employeeId == employee_id
+                )
+            )
+            is not None
+        )
+
+    async def lock_task(self, task_id: str) -> bool:
+        return (
+            await self._session().scalar(
+                select(Task.id).where(Task.id == task_id).with_for_update()
+            )
+            is not None
+        )
+
     async def dependencies(self, project_id: str) -> tuple[tuple[str, str], ...]:
         return tuple(
             (
@@ -351,7 +406,10 @@ class SqlAlchemyProjectRepository:
         return tuple(member_record(by_id[key]) for key in employee_ids if key in by_id)
 
     async def _relations(
-        self, task_id: str, values: dict[str, Any], members: tuple[MemberRecord, ...] | None
+        self,
+        task_id: str,
+        values: dict[str, Any],
+        members: tuple[MemberRecord | GeneralAssignee, ...] | None,
     ) -> None:
         session = self._session()
         if members is not None:
@@ -387,7 +445,10 @@ class SqlAlchemyProjectRepository:
         await _flush(session)
 
     async def create_task(
-        self, project_id: str, values: dict[str, Any], members: tuple[MemberRecord, ...]
+        self,
+        project_id: str | None,
+        values: dict[str, Any],
+        members: tuple[MemberRecord | GeneralAssignee, ...],
     ) -> TaskRecord:
         data = {
             key: value
@@ -404,7 +465,10 @@ class SqlAlchemyProjectRepository:
         return result
 
     async def update_task(
-        self, task_id: str, values: dict[str, Any], members: tuple[MemberRecord, ...] | None
+        self,
+        task_id: str,
+        values: dict[str, Any],
+        members: tuple[MemberRecord | GeneralAssignee, ...] | None,
     ) -> TaskRecord:
         row = await self._session().get(Task, task_id, populate_existing=True)
         assert row is not None

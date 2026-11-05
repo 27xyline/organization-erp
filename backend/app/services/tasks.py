@@ -7,7 +7,7 @@ from typing import Any
 
 from app.core.context import Actor, RequestContext
 from app.domain.errors import DomainError
-from app.domain.ports.projects import CommentRecord, MemberRecord, TaskRecord
+from app.domain.ports.projects import CommentRecord, GeneralAssignee, MemberRecord, TaskRecord
 from app.domain.ports.uow import UnitOfWork, UnitOfWorkFactory
 from app.domain.projects.task_rules import (
     ensure_acyclic_dependencies,
@@ -16,7 +16,7 @@ from app.domain.projects.task_rules import (
 )
 from app.services.dto.projects import TaskCommand
 from app.services.employees import audit, authorize
-from app.services.projects import lock_project, parse_date
+from app.services.projects import check_actor, lock_project, parse_date
 
 
 def task_error() -> DomainError:
@@ -26,6 +26,81 @@ def task_error() -> DomainError:
 class TaskService:
     def __init__(self, factory: UnitOfWorkFactory[UnitOfWork]) -> None:
         self._factory = factory
+
+    async def inbox(self, actor: Actor) -> tuple[TaskRecord, ...]:
+        authorize(actor, "tasks.read")
+        assert actor.access is not None
+        all_tasks = bool(set(actor.access.roles) & {"ADMIN", "PROJECT_MANAGER"})
+        async with self._factory() as uow:
+            if not all_tasks and not actor.access.employee_id:
+                return ()
+            return await uow.projects.inbox(actor.access.employee_id, all_tasks)
+
+    @staticmethod
+    def _general_manager(actor: Actor) -> None:
+        authorize(actor, "tasks.update")
+        if actor.access is None or not set(actor.access.roles) & {"ADMIN", "PROJECT_MANAGER"}:
+            raise DomainError("FORBIDDEN", "Недостаточно прав", 403)
+
+    async def general_assignee_options(self, actor: Actor) -> tuple[GeneralAssignee, ...]:
+        self._general_manager(actor)
+        async with self._factory() as uow:
+            return await uow.projects.general_assignee_options()
+
+    async def create_general(self, command: TaskCommand, context: RequestContext) -> TaskRecord:
+        actor = context.actor
+        assert actor is not None
+        self._general_manager(actor)
+        values = dict(command.values)
+        if values.get("level", 1) != 1 or values.get("parentId") or values.get("predecessorIds"):
+            invalid("INVALID_HIERARCHY", "Общие задачи не поддерживают вложенность и зависимости")
+        async with self._factory() as uow:
+            await check_actor(uow, actor)
+            members = await self._general_assignees(uow, values.get("employeeIds", []))
+            values["responsible"] = "\n".join(member.full_name for member in members) or None
+            values["description"] = values.get("description") or None
+            self._normalize(values)
+            result = await uow.projects.create_task(None, values, members)
+            await audit(uow, context, "TASK_CREATE", "Task", result.id, {"projectId": None})
+            await uow.commit()
+            return result
+
+    async def _general_assignees(
+        self, uow: UnitOfWork, employee_ids: builtins.list[str]
+    ) -> tuple[GeneralAssignee, ...]:
+        members = await uow.projects.general_assignees(tuple(employee_ids))
+        if len(members) != len(employee_ids):
+            invalid("INVALID_ASSIGNEES", "Можно назначать только активных сотрудников")
+        return members
+
+    async def change_assigned_status(
+        self, task_id: str, status: str, context: RequestContext
+    ) -> TaskRecord:
+        actor = context.actor
+        assert actor is not None
+        authorize(actor, "tasks.read")
+        assert actor.access is not None
+        employee_id = actor.access.employee_id
+        if not employee_id:
+            raise DomainError("FORBIDDEN", "Недостаточно прав", 403)
+        async with self._factory() as uow:
+            await check_actor(uow, actor)
+            current = await uow.projects.task(task_id)
+            if current is None:
+                raise task_error()
+            if current.project_id:
+                if not await uow.projects.lock(current.project_id):
+                    raise task_error()
+            if not await uow.projects.lock_task(task_id):
+                raise task_error()
+            if not await uow.projects.task_assigned(task_id, employee_id):
+                raise DomainError("FORBIDDEN", "Недостаточно прав", 403)
+            result = await uow.projects.update_task(task_id, {"status": status}, None)
+            await audit(
+                uow, context, "TASK_UPDATE", "Task", task_id, {"projectId": current.project_id}
+            )
+            await uow.commit()
+            return result
 
     async def list(self, project_id: str, actor: Actor) -> tuple[TaskRecord, ...]:
         authorize(actor, "tasks.read", {"projectId": project_id})
@@ -76,8 +151,14 @@ class TaskService:
         current = await uow.projects.task(task_id)
         if current is None:
             raise task_error()
-        authorize(actor, permission, {"projectId": current.project_id})
-        await lock_project(uow, current.project_id, actor)
+        if current.project_id is None:
+            self._general_manager(actor)
+            await check_actor(uow, actor)
+            if not await uow.projects.lock_task(task_id):
+                raise task_error()
+        else:
+            authorize(actor, permission, {"projectId": current.project_id})
+            await lock_project(uow, current.project_id, actor)
         # Строка могла быть удалена, пока код ожидал блокировку проекта.
         current = await uow.projects.task(task_id)
         if current is None:
@@ -94,12 +175,21 @@ class TaskService:
         async with self._factory() as uow:
             current = await self._existing(uow, task_id, actor, "tasks.update")
             members = (
-                await self._members(uow, current.project_id, values["employeeIds"])
+                await (
+                    self._members(uow, current.project_id, values["employeeIds"])
+                    if current.project_id
+                    else self._general_assignees(uow, values["employeeIds"])
+                )
                 if "employeeIds" in values
                 else None
             )
             if "predecessorIds" in values:
-                await self._dependencies(uow, current.project_id, task_id, values["predecessorIds"])
+                if current.project_id:
+                    await self._dependencies(
+                        uow, current.project_id, task_id, values["predecessorIds"]
+                    )
+                elif values["predecessorIds"]:
+                    invalid("INVALID_DEPENDENCY", "Общие задачи не поддерживают зависимости")
             if members is not None:
                 values["responsible"] = "\n".join(member.full_name for member in members) or None
             self._normalize(values)

@@ -37,7 +37,13 @@ def test_metadata_matches_all_inventoried_tables_and_columns() -> None:
 
         for expected in model["columns"]:
             column = table.c[expected["sql_name"]]
-            assert column.nullable is expected["sql"]["nullable"]
+            # The legacy inventory is a historical snapshot; this migration changes one column.
+            nullable = (
+                True
+                if (model["sql_name"], expected["sql_name"]) == ("tasks", "projectId")
+                else expected["sql"]["nullable"]
+            )
+            assert column.nullable is nullable
             sql_type = expected["sql"]["type"]
             if sql_type.startswith('"'):
                 assert isinstance(column.type, Enum)
