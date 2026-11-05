@@ -9,7 +9,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, exists, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -17,6 +17,7 @@ from app.domain.auth.rules import AccessContext
 from app.domain.ports.projects import (
     ActivityRecord,
     CommentRecord,
+    GeneralAssignee,
     MemberRecord,
     ProjectPage,
     ProjectRecord,
@@ -39,6 +40,7 @@ from app.models.projects import (
 from app.models.users import AuditLog, UserProjectScope
 from app.repositories.departments import _flush
 from app.repositories.employees import columns, employee_loads
+from app.repositories.task_visibility import task_visibility
 
 
 def decimal_string(value: Decimal) -> str:
@@ -109,6 +111,7 @@ class SqlAlchemyProjectRepository:
         status: str | None,
         allowed_ids: tuple[str, ...] | None,
         references: bool = False,
+        access: AccessContext | None = None,
     ) -> ProjectPage:
         query = select(Project)
         if allowed_ids is not None:
@@ -140,6 +143,7 @@ class SqlAlchemyProjectRepository:
                 await self._session().execute(
                     select(Task.projectId, func.count())
                     .where(Task.projectId.in_([r.id for r in rows]))
+                    .where(task_visibility(access) if access else true())
                     .group_by(Task.projectId)
                 )
             ).all()
@@ -203,19 +207,34 @@ class SqlAlchemyProjectRepository:
         row = await self._session().get(Task, task_id, populate_existing=True)
         return TaskRecord.from_values(serial(row)) if row else None
 
-    async def tasks(self, project_id: str, shape: str = "list") -> tuple[TaskRecord, ...]:
+    async def tasks(
+        self,
+        project_id: str | None,
+        shape: str = "list",
+        task_id: str | None = None,
+        visible_ids: tuple[str, ...] | None = None,
+    ) -> tuple[TaskRecord, ...]:
         session = self._session()
         rows = (
             await session.scalars(
-                select(Task).where(Task.projectId == project_id).order_by(Task.createdAt)
+                select(Task)
+                .where(
+                    Task.projectId == project_id,
+                    *([Task.id == task_id] if task_id else []),
+                    *([Task.id.in_(visible_ids)] if visible_ids is not None else []),
+                )
+                .order_by(Task.createdAt)
             )
         ).all()
+        ids = [row.id for row in rows]
         if shape == "graph":
             return tuple(TaskRecord.from_values(serial(row)) for row in rows)
         if shape == "api":
 
             def simple(row: Task, depth: int = 0) -> dict[str, Any]:
                 value = serial(row)
+                if visible_ids is not None and value["parentId"] not in ids:
+                    value["parentId"] = None
                 if depth < 2:
                     value["children"] = [
                         simple(child, depth + 1) for child in rows if child.parentId == row.id
@@ -223,7 +242,6 @@ class SqlAlchemyProjectRepository:
                 return value
 
             return tuple(TaskRecord.from_values(simple(row)) for row in rows)
-        ids = [row.id for row in rows]
         assignees: dict[str, builtins.list[dict[str, Any]]] = {}
         raw_assignees: dict[str, builtins.list[dict[str, Any]]] = {}
         for item in await session.scalars(
@@ -254,6 +272,7 @@ class SqlAlchemyProjectRepository:
         for dependency in await session.scalars(
             select(TaskDependency)
             .where(TaskDependency.successorId.in_(ids))
+            .where(TaskDependency.predecessorId.in_(ids) if visible_ids is not None else true())
             .options(selectinload(TaskDependency.predecessor))
             .order_by(TaskDependency.createdAt)
         ):
@@ -303,6 +322,8 @@ class SqlAlchemyProjectRepository:
 
         def task_value(row: Task, depth: int = 0, flatten: bool = False) -> dict[str, Any]:
             result = serial(row)
+            if visible_ids is not None and result["parentId"] not in ids:
+                result["parentId"] = None
             if not flatten:
                 result.update(
                     assignees=(raw_assignees if depth > 0 else assignees).get(row.id, []),
@@ -320,6 +341,100 @@ class SqlAlchemyProjectRepository:
 
         return tuple(
             TaskRecord.from_values(task_value(row, flatten=shape == "api")) for row in rows
+        )
+
+    async def inbox(
+        self,
+        employee_id: str | None,
+        all_tasks: bool,
+        project_ids: tuple[str, ...] = (),
+        include_general: bool = False,
+    ) -> tuple[tuple[TaskRecord, bool], ...]:
+        assigned = exists(
+            select(TaskAssignee.id).where(
+                TaskAssignee.taskId == Task.id, TaskAssignee.employeeId == employee_id
+            )
+        )
+        query = select(
+            Task, assigned.label("assigned"), Project.code.label("project_code")
+        ).outerjoin(Project, Project.id == Task.projectId)
+        if not all_tasks:
+            query = query.where(
+                or_(
+                    Task.projectId.is_(None) if include_general else Task.id.in_(()),
+                    Task.projectId.in_(project_ids),
+                    assigned,
+                )
+            )
+        rows = (await self._session().execute(query.order_by(Task.createdAt))).all()
+        general_ids = (
+            [row.Task.id for row in rows if row.Task.projectId is None] if include_general else []
+        )
+        assignees: dict[str, builtins.list[dict[str, Any]]] = {}
+        if general_ids:
+            pairs = await self._session().execute(
+                select(TaskAssignee.taskId, Employee.id, Employee.fullName, Employee.status)
+                .join(Employee, Employee.id == TaskAssignee.employeeId)
+                .where(TaskAssignee.taskId.in_(general_ids))
+            )
+            for task_id, employee, name, status in pairs:
+                assignees.setdefault(task_id, []).append(
+                    {"employeeId": employee, "fullName": name, "active": status == "ACTIVE"}
+                )
+        result = []
+        for row, is_assigned, project_code in rows:
+            data = serial(row)
+            data["projectCode"] = project_code
+            if row.projectId is None:
+                data["assignees"] = assignees.get(row.id, [])
+            result.append((TaskRecord.from_values(data), bool(is_assigned)))
+        return tuple(result)
+
+    async def general_assignee_options(self) -> tuple[GeneralAssignee, ...]:
+        rows = (
+            await self._session().scalars(
+                select(Employee).where(Employee.status == "ACTIVE").order_by(Employee.fullName)
+            )
+        ).all()
+        return tuple(GeneralAssignee(None, row.id, row.fullName) for row in rows)
+
+    async def general_assignees(
+        self, employee_ids: tuple[str, ...], task_id: str | None = None
+    ) -> tuple[GeneralAssignee, ...]:
+        rows = (
+            await self._session().scalars(
+                select(Employee).where(
+                    Employee.id.in_(employee_ids),
+                    or_(
+                        Employee.status == "ACTIVE",
+                        Employee.id.in_(
+                            select(TaskAssignee.employeeId).where(TaskAssignee.taskId == task_id)
+                        ),
+                    ),
+                )
+            )
+        ).all()
+        by_id = {row.id: row for row in rows}
+        return tuple(
+            GeneralAssignee(None, key, by_id[key].fullName) for key in employee_ids if key in by_id
+        )
+
+    async def task_assigned(self, task_id: str, employee_id: str) -> bool:
+        return (
+            await self._session().scalar(
+                select(TaskAssignee.id).where(
+                    TaskAssignee.taskId == task_id, TaskAssignee.employeeId == employee_id
+                )
+            )
+            is not None
+        )
+
+    async def lock_task(self, task_id: str) -> bool:
+        return (
+            await self._session().scalar(
+                select(Task.id).where(Task.id == task_id).with_for_update()
+            )
+            is not None
         )
 
     async def dependencies(self, project_id: str) -> tuple[tuple[str, str], ...]:
@@ -351,7 +466,10 @@ class SqlAlchemyProjectRepository:
         return tuple(member_record(by_id[key]) for key in employee_ids if key in by_id)
 
     async def _relations(
-        self, task_id: str, values: dict[str, Any], members: tuple[MemberRecord, ...] | None
+        self,
+        task_id: str,
+        values: dict[str, Any],
+        members: tuple[MemberRecord | GeneralAssignee, ...] | None,
     ) -> None:
         session = self._session()
         if members is not None:
@@ -387,7 +505,10 @@ class SqlAlchemyProjectRepository:
         await _flush(session)
 
     async def create_task(
-        self, project_id: str, values: dict[str, Any], members: tuple[MemberRecord, ...]
+        self,
+        project_id: str | None,
+        values: dict[str, Any],
+        members: tuple[MemberRecord | GeneralAssignee, ...],
     ) -> TaskRecord:
         data = {
             key: value
@@ -398,13 +519,13 @@ class SqlAlchemyProjectRepository:
         self._session().add(row)
         await _flush(self._session())
         await self._relations(row.id, values, members)
-        result = next(
-            item for item in await self.tasks(project_id, "mutation") if item.id == row.id
-        )
-        return result
+        return (await self.tasks(project_id, "mutation", row.id))[0]
 
     async def update_task(
-        self, task_id: str, values: dict[str, Any], members: tuple[MemberRecord, ...] | None
+        self,
+        task_id: str,
+        values: dict[str, Any],
+        members: tuple[MemberRecord | GeneralAssignee, ...] | None,
     ) -> TaskRecord:
         row = await self._session().get(Task, task_id, populate_existing=True)
         assert row is not None
@@ -412,9 +533,16 @@ class SqlAlchemyProjectRepository:
             if key not in ("employeeIds", "predecessorIds", "checklist"):
                 setattr(row, key, value)
         await self._relations(task_id, values, members)
-        return next(
-            item for item in await self.tasks(row.projectId, "mutation") if item.id == task_id
-        )
+        return (await self.tasks(row.projectId, "mutation", task_id))[0]
+
+    async def update_task_status(self, task_id: str, status: str) -> TaskRecord:
+        row = await self._session().get(Task, task_id)
+        assert row is not None
+        from app.models.enums import TaskStatus
+
+        row.status = TaskStatus(status)
+        await _flush(self._session())
+        return TaskRecord.from_values(serial(row))
 
     async def delete_task(self, task_id: str) -> None:
         await self._session().execute(delete(Task).where(Task.id == task_id))
@@ -479,13 +607,15 @@ class SqlAlchemyProjectRepository:
         return member_record(row)
 
     async def activity(
-        self, project_id: str, tasks: bool, documents: bool
+        self, project_id: str, tasks: bool, documents: bool, access: AccessContext
     ) -> tuple[ActivityRecord, ...]:
         conditions = [(AuditLog.entityType == "Project") & (AuditLog.entityId == project_id)]
         if tasks:
             conditions.append(
                 (AuditLog.entityType == "Task")
-                & AuditLog.entityId.in_(select(Task.id).where(Task.projectId == project_id))
+                & AuditLog.entityId.in_(
+                    select(Task.id).where(Task.projectId == project_id, task_visibility(access))
+                )
             )
         if documents:
             conditions.append(
@@ -519,11 +649,18 @@ class SqlAlchemyProjectRepository:
             return None
         values = dict(project.values)
         target = {"projectId": project_id}
-        tasks = (
-            await self.tasks(project_id, "detail" if detail else "api")
-            if access.allows("tasks.read", target)
-            else ()
-        )
+        tasks: tuple[TaskRecord, ...] = ()
+        if access.allows("tasks.read", target):
+            visible_ids = tuple(
+                (
+                    await self._session().scalars(
+                        select(Task.id).where(Task.projectId == project_id, task_visibility(access))
+                    )
+                ).all()
+            )
+            tasks = await self.tasks(
+                project_id, "detail" if detail else "api", visible_ids=visible_ids
+            )
         values["tasksList"] = [task.values for task in tasks]
         assets = []
         if access.allows("assets.read", target):

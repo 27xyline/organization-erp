@@ -59,6 +59,8 @@ class AccessContext:
     def _ids(self, grant: ScopeGrant, kind: str) -> tuple[str, ...] | None:
         mode = grant.department_scope_mode if kind == "department" else grant.project_scope_mode
         if mode == "ALL":
+            if kind == "project" and grant.role == "PROJECT_MANAGER":
+                return ()
             return None
         if mode == "SELF":
             return (

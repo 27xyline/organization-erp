@@ -6,7 +6,7 @@ import { authorizeApiRequest } from '@/lib/auth/authorization'
 import { apiValidationError } from '@/lib/http/api-response'
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const auth = await authorizeApiRequest(request, 'tasks.update')
+  const auth = await authorizeApiRequest(request, 'tasks.read')
   if (auth.response) return auth.response
   const id = (await params).id
   const input = updateTaskSchema.safeParse(await request.clone().json())

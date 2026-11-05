@@ -84,6 +84,7 @@ class ProjectService:
                 if permission == "projects.reference.read"
                 else actor.access.allowed_project_ids(permission),
                 references and permission == "projects.reference.read",
+                actor.access,
             )
             if not references:
                 for item in result.projects:

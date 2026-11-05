@@ -83,7 +83,8 @@ function allowedDepartmentModes(role: AppRole): ScopeMode[] {
 function allowedProjectModes(role: AppRole): ScopeMode[] {
   if (['ADMIN', 'AUDITOR'].includes(role)) return ['ALL']
   if (role === 'EMPLOYEE') return ['SELF']
-  if (['ACCOUNTANT', 'PROJECT_MANAGER', 'DEPARTMENT_HEAD'].includes(role)) {
+  if (role === 'PROJECT_MANAGER') return ['ASSIGNED']
+  if (['ACCOUNTANT', 'DEPARTMENT_HEAD'].includes(role)) {
     return ['ASSIGNED', 'ALL']
   }
   return ['NONE']
@@ -324,7 +325,7 @@ export function UsersManager({
   const saveUser = async (user: UserRow) => {
     setSavingId(user.id)
     try {
-      const temporaryPassword = temporaryPasswords[user.id]?.trim()
+      const temporaryPassword = temporaryPasswords[user.id]
       const response = await fetch(`/api/users/${user.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -404,7 +405,6 @@ export function UsersManager({
                 <Input
                   id="temporaryPassword"
                   type="password"
-                  minLength={7}
                   value={createForm.temporaryPassword}
                   onChange={(event) => setCreateForm((form) => ({
                     ...form,
@@ -476,7 +476,6 @@ export function UsersManager({
                 <Input
                   id={`temporary-password-${user.id}`}
                   type="password"
-                  minLength={7}
                   placeholder="Оставьте пустым, чтобы не менять"
                   value={temporaryPasswords[user.id] || ''}
                   onChange={(event) => setTemporaryPasswords((current) => ({

@@ -22,6 +22,7 @@ from app.models.timekeeping import StaffSchedule, Vacation
 from app.models.users import AuditLog, User
 from app.repositories.assets import visibility as asset_visibility
 from app.repositories.employees import employee_scope
+from app.repositories.task_visibility import task_visibility
 
 
 def _id_scope(access: AccessContext, permission: str, column: Any) -> Any:
@@ -163,7 +164,7 @@ class SqlAlchemyReportingRepository:
                             func.sum(case((Task.status == "COMPLETED", 1), else_=0)),
                             func.avg(Task.progress),
                         )
-                        .where(Task.projectId.in_(project_ids))
+                        .where(Task.projectId.in_(project_ids), task_visibility(access))
                         .group_by(Task.projectId)
                     )
                 ).all()
@@ -346,7 +347,7 @@ class SqlAlchemyReportingRepository:
 
         task_data: list[dict[str, Any]] = []
         if can_tasks:
-            task_filters = [project_scope(access, "tasks.read")]
+            task_filters = [task_visibility(access)]
             if project_id:
                 task_filters.append(Project.id == project_id)
             if department_id:

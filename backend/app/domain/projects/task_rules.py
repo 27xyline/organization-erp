@@ -10,7 +10,7 @@ def invalid(code: str, message: str) -> None:
 
 
 def ensure_valid_task_hierarchy(
-    project_id: str, level: int, parent_id: str | None, parent: tuple[str, int] | None
+    project_id: str, level: int, parent_id: str | None, parent: tuple[str | None, int] | None
 ) -> None:
     if not parent_id:
         if level != 1:

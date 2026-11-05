@@ -171,9 +171,12 @@ class ProjectRecord:
 @dataclass(frozen=True, slots=True)
 class TaskRecord:
     id: str
-    projectId: str
+    projectId: str | None
     name: str
     level: int
+    creatorId: str | None = None
+    projectName: str | None = None
+    projectCode: str | None = None
     description: str | None = None
     priority: str = "MEDIUM"
     risk: str = "LOW"
@@ -194,7 +197,7 @@ class TaskRecord:
     children: tuple[TaskRecord, ...] | None = None
 
     @property
-    def project_id(self) -> str:
+    def project_id(self) -> str | None:
         return self.projectId
 
     @classmethod
@@ -210,6 +213,8 @@ class TaskRecord:
     @property
     def values(self) -> dict[str, Any]:
         result = asdict(self)
+        result.pop("creatorId", None)
+        result.pop("projectCode", None)
         for key in ("assignees", "predecessors", "checklist", "comments", "children"):
             value = getattr(self, key)
             if value is None:
@@ -250,6 +255,14 @@ class MemberRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class GeneralAssignee:
+    id: None
+    employee_id: str
+    full_name: str
+    active: bool = True
+
+
+@dataclass(frozen=True, slots=True)
 class ProjectPage:
     projects: tuple[ProjectRecord, ...]
     total: int
@@ -264,6 +277,7 @@ class ProjectRepository(Protocol):
         status: str | None,
         allowed_ids: tuple[str, ...] | None,
         references: bool = False,
+        access: AccessContext | None = None,
     ) -> ProjectPage: ...
     async def get(self, project_id: str) -> ProjectRecord | None: ...
     async def create(self, values: dict[str, Any]) -> ProjectRecord: ...
@@ -274,17 +288,39 @@ class ProjectRepository(Protocol):
         self, project_id: str, access: AccessContext, detail: bool = False
     ) -> ProjectRecord | None: ...
     async def task(self, task_id: str) -> TaskRecord | None: ...
-    async def tasks(self, project_id: str, shape: str = "list") -> tuple[TaskRecord, ...]: ...
+    async def tasks(
+        self, project_id: str | None, shape: str = "list"
+    ) -> tuple[TaskRecord, ...]: ...
+    async def inbox(
+        self,
+        employee_id: str | None,
+        all_tasks: bool,
+        project_ids: tuple[str, ...] = (),
+        include_general: bool = False,
+    ) -> tuple[tuple[TaskRecord, bool], ...]: ...
+    async def general_assignee_options(self) -> tuple[GeneralAssignee, ...]: ...
+    async def general_assignees(
+        self, employee_ids: tuple[str, ...], task_id: str | None = None
+    ) -> tuple[GeneralAssignee, ...]: ...
+    async def task_assigned(self, task_id: str, employee_id: str) -> bool: ...
+    async def lock_task(self, task_id: str) -> bool: ...
     async def dependencies(self, project_id: str) -> tuple[tuple[str, str], ...]: ...
     async def active_members(
         self, project_id: str, employee_ids: tuple[str, ...]
     ) -> tuple[MemberRecord, ...]: ...
     async def create_task(
-        self, project_id: str, values: dict[str, Any], members: tuple[MemberRecord, ...]
+        self,
+        project_id: str | None,
+        values: dict[str, Any],
+        members: tuple[MemberRecord | GeneralAssignee, ...],
     ) -> TaskRecord: ...
     async def update_task(
-        self, task_id: str, values: dict[str, Any], members: tuple[MemberRecord, ...] | None
+        self,
+        task_id: str,
+        values: dict[str, Any],
+        members: tuple[MemberRecord | GeneralAssignee, ...] | None,
     ) -> TaskRecord: ...
+    async def update_task_status(self, task_id: str, status: str) -> TaskRecord: ...
     async def delete_task(self, task_id: str) -> None: ...
     async def comment(self, task_id: str, author_id: str, body: str) -> CommentRecord: ...
     async def members(self, project_id: str, include_salary: bool) -> tuple[MemberRecord, ...]: ...
@@ -295,5 +331,5 @@ class ProjectRepository(Protocol):
         self, project_id: str, member_id: str, archived: bool
     ) -> MemberRecord | None: ...
     async def activity(
-        self, project_id: str, tasks: bool, documents: bool
+        self, project_id: str, tasks: bool, documents: bool, access: AccessContext
     ) -> tuple[ActivityRecord, ...]: ...

@@ -212,12 +212,19 @@ class Task(Base):
         nullable=False,
         server_default=text("'NOT_STARTED'"),
     )
-    projectId: Mapped[str] = mapped_column(
+    creatorId: Mapped[str | None] = mapped_column(
+        Text(),
+        ForeignKey(
+            "users.id", name="tasks_creatorId_fkey", ondelete="SET NULL", onupdate="CASCADE"
+        ),
+        nullable=True,
+    )
+    projectId: Mapped[str | None] = mapped_column(
         Text(),
         ForeignKey(
             "projects.id", name="tasks_projectId_fkey", ondelete="CASCADE", onupdate="CASCADE"
         ),
-        nullable=False,
+        nullable=True,
     )
     createdAt: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=False, precision=3),

@@ -17,7 +17,6 @@ const links = [
   { href: '/assets/inventory', label: 'Инвентаризация', icon: QrCode, permission: 'assets.inventory.manage' },
   { href: '/archive', label: 'Архив имущества', icon: Archive, permission: 'assets.read' },
   { href: '/procurement', label: 'Закупки', icon: ShoppingCart, permission: 'procurement.read' },
-  { href: '/projects', label: 'Проекты', icon: Briefcase, permission: 'projects.read' },
   { href: '/employees', label: 'Сотрудники', icon: Users, permission: 'employees.read' },
   { href: '/mols', label: 'МОЛ', icon: UserCog, permission: 'mols.read' },
   { href: '/finance/salary', label: 'Финансы', icon: DollarSign, permission: 'finance.salary.read' },
@@ -49,6 +48,11 @@ export function MobileNavigation({ currentUser }: {
           <DialogTitle>Consilium</DialogTitle>
           <DialogDescription>Навигация по разделам</DialogDescription>
           <nav className="mt-4 grid gap-1">
+            {(permissionSet.has('projects.read') || permissionSet.has('tasks.read')) && <div className="rounded-md px-3 py-2">
+              <div className="mb-1 font-medium">Рабочие процессы</div>
+              {permissionSet.has('projects.read') && <Link href="/projects" onClick={() => setOpen(false)} className="flex items-center gap-3 py-2 text-sm"><Briefcase className="h-4 w-4" />Проекты</Link>}
+              {permissionSet.has('tasks.read') && <Link href="/tasks" onClick={() => setOpen(false)} className="flex items-center gap-3 py-2 text-sm"><ClipboardCheck className="h-4 w-4" />Задачи</Link>}
+            </div>}
             {links.filter((link) => permissionSet.has(link.permission as Permission)).map(({ href, label, icon: Icon }) => (
               <Link key={href} href={href} onClick={() => setOpen(false)} className="flex items-center gap-3 rounded-md px-3 py-2 text-sm hover:bg-accent">
                 <Icon className="h-4 w-4" />{label}

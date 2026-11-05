@@ -5,16 +5,19 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, exists, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.sql.elements import ColumnElement
 
+from app.domain.auth.rules import AccessContext
 from app.models.departments import Department
 from app.models.employees import Employee
 from app.models.enums import EmployeeStatus
-from app.models.projects import Project, Task
+from app.models.projects import Project, Task, TaskAssignee
 from app.models.timekeeping import TimeEntry, Timesheet
 from app.models.users import User, UserDepartmentScope, UserRoleAssignment
+from app.repositories.task_visibility import task_visibility
 
 
 class SqlAlchemyTimekeepingRepository:
@@ -23,8 +26,12 @@ class SqlAlchemyTimekeepingRepository:
     def __init__(self, session: Callable[[], AsyncSession]) -> None:
         self._session = session
 
-    async def get_entry(self, identifier: str, *, for_update: bool = False) -> TimeEntry | None:
+    async def get_entry(
+        self, identifier: str, *, for_update: bool = False, populate_existing: bool = False
+    ) -> TimeEntry | None:
         query = select(TimeEntry).where(TimeEntry.id == identifier)
+        if populate_existing:
+            query = query.execution_options(populate_existing=True)
         query = query.options(
             selectinload(TimeEntry.employee).selectinload(Employee.staffSchedule),
             selectinload(TimeEntry.project),
@@ -72,7 +79,7 @@ class SqlAlchemyTimekeepingRepository:
         )
         return list(result.all())
 
-    async def project_options(self) -> list[dict[str, Any]]:
+    async def project_options(self, access: AccessContext) -> list[dict[str, Any]]:
         session = self._session()
         result = await session.scalars(
             select(Project).where(Project.status == "ACTIVE").order_by(Project.name)
@@ -83,6 +90,9 @@ class SqlAlchemyTimekeepingRepository:
             tasks = await session.execute(
                 select(Task.id, Task.name)
                 .where(Task.projectId == project.id)
+                .where(
+                    true() if set(access.roles) & {"HR", "ACCOUNTANT"} else task_visibility(access)
+                )
                 .order_by(Task.level, Task.name)
             )
             output.append(
@@ -94,6 +104,31 @@ class SqlAlchemyTimekeepingRepository:
                 }
             )
         return output
+
+    async def visible_task_ids(self, access: AccessContext, ids: tuple[str, ...]) -> set[str]:
+        if set(access.roles) & {"HR", "ACCOUNTANT"}:
+            rows = await self._session().scalars(select(Task.id).where(Task.id.in_(ids)))
+            return set(rows.all())
+        common: ColumnElement[bool] = Task.projectId.is_(None)
+        if not set(access.roles) & {"ADMIN", "PROJECT_MANAGER", "EMPLOYEE"}:
+            common = and_(
+                common,
+                exists(
+                    select(TaskAssignee.id)
+                    .where(
+                        TaskAssignee.taskId == Task.id,
+                        TaskAssignee.employeeId == access.employee_id,
+                    )
+                    .correlate(Task)
+                ),
+            )
+        rows = await self._session().scalars(
+            select(Task.id).where(
+                Task.id.in_(ids),
+                or_(common, and_(Task.projectId.is_not(None), task_visibility(access))),
+            )
+        )
+        return set(rows.all())
 
     async def reviewer_for(self, employee_id: str) -> dict[str, Any] | None:
         session = self._session()
@@ -231,7 +266,7 @@ class SqlAlchemyTimekeepingRepository:
         await session.flush()
         # Сервис формирует публичный JSON-контракт после фиксации UoW;
         # предварительно загрузить все связи, пока активна AsyncSession.
-        refreshed = await self.get_entry(row.id)
+        refreshed = await self.get_entry(row.id, populate_existing=True)
         assert refreshed is not None
         return refreshed
 

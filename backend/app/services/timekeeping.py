@@ -68,6 +68,14 @@ def _entry_values(row: Any) -> dict[str, Any]:
     }
 
 
+def _visible_entry_values(row: Any, visible_task_ids: set[str] | None) -> dict[str, Any]:
+    value = _entry_values(row)
+    if row.taskId and visible_task_ids is not None and row.taskId not in visible_task_ids:
+        value["taskId"] = None
+        value["task"] = None
+    return value
+
+
 class TimekeepingService:
     def __init__(self, factory: UnitOfWorkFactory[UnitOfWork]) -> None:
         self._factory = factory
@@ -106,6 +114,12 @@ class TimekeepingService:
             ]
             if project_id:
                 visible = [row for row in visible if row.projectId == project_id]
+            task_ids = tuple({row.taskId for row in visible if row.taskId})
+            visible_task_ids = (
+                await uow.timekeeping.visible_task_ids(actor.access, task_ids)
+                if task_ids
+                else set()
+            )
             summaries: dict[str, dict[str, Any]] = {}
             for entry in visible:
                 employee = entry.employee
@@ -178,7 +192,7 @@ class TimekeepingService:
             ]
             projects = [
                 item
-                for item in await uow.timekeeping.project_options()
+                for item in await uow.timekeeping.project_options(actor.access)
                 if can_read_all or actor.access.allows("projects.read", {"projectId": item["id"]})
             ]
             sheets = [
@@ -235,7 +249,7 @@ class TimekeepingService:
                 "year": year,
                 "month": month,
                 "normativeHours": normative_hours,
-                "entries": [_entry_values(row) for row in visible],
+                "entries": [_visible_entry_values(row, visible_task_ids) for row in visible],
                 "timesheets": [
                     {
                         "id": item.id,
@@ -351,6 +365,10 @@ class TimekeepingService:
                 or (value.taskId and task is None)
             ):
                 _fail("INVALID_REFERENCE", "Сотрудник, проект или задача не найдены", 422)
+            if value.taskId and value.taskId not in await uow.timekeeping.visible_task_ids(
+                actor.access, (value.taskId,)
+            ):
+                _fail("INVALID_REFERENCE", "Сотрудник, проект или задача не найдены", 422)
             if task is not None and (project is None or task.projectId != project.id):
                 _fail("INVALID_REFERENCE", "Задача не относится к выбранному проекту", 422)
             if not self._can_mutate(actor.access, value.employeeId, value.projectId):
@@ -387,8 +405,13 @@ class TimekeepingService:
                     context.request_id,
                 )
             )
+            visible_ids = (
+                await uow.timekeeping.visible_task_ids(actor.access, (row.taskId,))
+                if row.taskId
+                else set()
+            )
             await uow.commit()
-            return _entry_values(row)
+            return _visible_entry_values(row, visible_ids)
 
     async def update(
         self, identifier: str, value: TimeEntryUpdateCommand, context: RequestContext
@@ -422,6 +445,12 @@ class TimekeepingService:
             project = await uow.timekeeping.project(project_id) if project_id else None
             task = await uow.timekeeping.task(task_id) if task_id else None
             if not employee or (project_id and project is None) or (task_id and task is None):
+                _fail("INVALID_REFERENCE", "Сотрудник, проект или задача не найдены", 422)
+            if (
+                task_id
+                and task_id != row.taskId
+                and task_id not in await uow.timekeeping.visible_task_ids(actor.access, (task_id,))
+            ):
                 _fail("INVALID_REFERENCE", "Сотрудник, проект или задача не найдены", 422)
             if task is not None and (project is None or task.projectId != project.id):
                 _fail("INVALID_REFERENCE", "Задача не относится к выбранному проекту", 422)
@@ -466,8 +495,13 @@ class TimekeepingService:
                     context.request_id,
                 )
             )
+            visible_ids = (
+                await uow.timekeeping.visible_task_ids(actor.access, (updated.taskId,))
+                if updated.taskId
+                else set()
+            )
             await uow.commit()
-            return _entry_values(updated)
+            return _visible_entry_values(updated, visible_ids)
 
     async def remove(
         self, identifier: str, context: RequestContext, correction_reason: str | None = None

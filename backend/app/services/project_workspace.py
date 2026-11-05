@@ -23,4 +23,5 @@ class ProjectWorkspaceService:
                 all_events or actor.access.allows("tasks.read", {"projectId": project_id}),
                 all_events
                 or actor.access.allows("documents.read", {"documentProjectId": project_id}),
+                actor.access,
             )

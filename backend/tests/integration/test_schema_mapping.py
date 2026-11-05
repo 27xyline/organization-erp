@@ -26,6 +26,8 @@ def test_metadata_matches_all_inventoried_tables_and_columns() -> None:
     for model in models:
         table = metadata.tables[model["sql_name"]]
         expected_columns = {column["sql_name"] for column in model["columns"]}
+        if model["sql_name"] == "tasks":
+            expected_columns.add("creatorId")
         assert set(table.columns.keys()) == expected_columns
 
         primary_key = next(c for c in model["constraints"] if c["kind"] == "primary_key")
@@ -37,7 +39,13 @@ def test_metadata_matches_all_inventoried_tables_and_columns() -> None:
 
         for expected in model["columns"]:
             column = table.c[expected["sql_name"]]
-            assert column.nullable is expected["sql"]["nullable"]
+            # The legacy inventory is a historical snapshot; this migration changes one column.
+            nullable = (
+                True
+                if (model["sql_name"], expected["sql_name"]) == ("tasks", "projectId")
+                else expected["sql"]["nullable"]
+            )
+            assert column.nullable is nullable
             sql_type = expected["sql"]["type"]
             if sql_type.startswith('"'):
                 assert isinstance(column.type, Enum)
@@ -105,6 +113,10 @@ def test_metadata_matches_all_inventoried_tables_and_columns() -> None:
             if constraint["kind"] == "foreign_key"
         }
         actual_fks = {constraint.name: constraint for constraint in table.foreign_key_constraints}
+        if model["sql_name"] == "tasks":
+            creator_fk = actual_fks.pop("tasks_creatorId_fkey")
+            assert creator_fk.ondelete == "SET NULL"
+            assert creator_fk.onupdate == "CASCADE"
         assert set(actual_fks) == set(expected_fks)
         for name, expected in expected_fks.items():
             actual = actual_fks[name]
@@ -150,11 +162,11 @@ def test_schema_defaults_and_enum_metadata_are_complete() -> None:
         )
         == 49
     )
-    assert sum(len(table.columns) for table in legacy_tables) == INVENTORY["counts"]["columns"]
+    assert sum(len(table.columns) for table in legacy_tables) == INVENTORY["counts"]["columns"] + 1
     assert sum(len(table.indexes) for table in legacy_tables) == INVENTORY["counts"]["indexes"]
     assert (
         sum(len(table.foreign_key_constraints) for table in legacy_tables)
-        == INVENTORY["counts"]["foreign_keys"]
+        == INVENTORY["counts"]["foreign_keys"] + 1
     )
     assert (
         sum(
@@ -294,8 +306,8 @@ async def test_read_only_postgres_catalog_matches_metadata(db_engine) -> None:
     index_count = sum(len(catalog["indexes"][table]) for table in legacy_tables)
     check_count = sum(len(catalog["checks"][table]) for table in legacy_tables)
     for label, actual, expected in (
-        ("columns", column_count, counts["columns"]),
-        ("foreign keys", foreign_key_count, counts["foreign_keys"]),
+        ("columns", column_count, counts["columns"] + 1),
+        ("foreign keys", foreign_key_count, counts["foreign_keys"] + 1),
         ("indexes", index_count, counts["indexes"]),
         ("checks", check_count, counts["checks"]),
     ):

@@ -221,7 +221,7 @@ describe('authorization', () => {
     })
   })
 
-  it('does not expose unassigned assets through an ALL project scope', () => {
+  it('does not give a project manager access through a legacy ALL scope', () => {
     const access = buildAccessContext({
       ...baseUser,
       roleAssignments: [{
@@ -235,7 +235,7 @@ describe('authorization', () => {
     }, [])
 
     expect(access.assetWhere('assets.read')).toEqual({
-      OR: [{ projectId: { not: null } }],
+      OR: [{ id: '__forbidden__' }],
     })
   })
 

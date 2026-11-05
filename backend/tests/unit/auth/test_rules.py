@@ -77,3 +77,30 @@ def test_list_reference_export_and_documents_use_complete_grant_scope():
     admin = AccessContext("a", None, None, (), (ScopeGrant("3", "ADMIN", "ALL", "ALL"),))
     assert admin.allowed_department_ids("employees.read") is None
     assert admin.allows("documents.read", {})
+
+
+def test_project_manager_requires_explicit_project_scope_and_cannot_create_projects():
+    access = AccessContext(
+        "u", None, None, (), (ScopeGrant("1", "PROJECT_MANAGER", "NONE", "ALL"),)
+    )
+    assert not access.has("projects.create")
+    assert not access.allows("projects.read", {"projectId": "p"})
+
+
+def test_project_manager_global_scope_is_rejected_when_assigning_role():
+    import pytest
+
+    from app.domain.errors import DomainError
+    from app.services.users import normalize_assignments
+
+    assignment = {
+        "role": "PROJECT_MANAGER",
+        "departmentScopeMode": "NONE",
+        "projectScopeMode": "ALL",
+        "departmentIds": [],
+        "projectIds": [],
+    }
+    with pytest.raises(DomainError):
+        normalize_assignments([assignment])
+    assignment.update(projectScopeMode="ASSIGNED", projectIds=["p"])
+    assert normalize_assignments([assignment])[0]["projectIds"] == ["p"]

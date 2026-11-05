@@ -53,7 +53,8 @@ async def test_authenticated_api_rejects_legacy_bearer_identity_without_session(
 
 
 @pytest.mark.anyio
-async def test_forced_password_change_revokes_old_session(auth_env):
+@pytest.mark.parametrize("new_password", ["x", "x" * 513])
+async def test_forced_password_change_revokes_old_session(auth_env, new_password):
     env = auth_env
     identifier = await env["seed"](forced=True)
     app = create_app(app_settings(env["url"]))
@@ -77,11 +78,11 @@ async def test_forced_password_change_revokes_old_session(auth_env):
         changed = await client.post(
             "/api/account/password",
             headers=headers,
-            json={"currentPassword": PASSWORD, "newPassword": "new-password"},
+            json={"currentPassword": PASSWORD, "newPassword": new_password},
         )
         assert changed.status_code == 200
         assert (await client.get("/api/account/me")).status_code == 401
-        assert await login(client, identifier, "new-password")
+        assert await login(client, identifier, new_password)
 
 
 @pytest.mark.anyio

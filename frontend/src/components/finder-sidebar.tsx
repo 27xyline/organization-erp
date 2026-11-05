@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useMemo, useState } from "react"
 import { usePathname } from "next/navigation"
 import { signOutSession } from "@/lib/auth/session-client"
 import { cn } from "@/lib/utils"
@@ -36,13 +36,6 @@ import { ROLE_LABELS, type AppRole, type Permission } from "@/lib/auth/permissio
 import { NotificationBell } from "@/features/notifications/ui/notification-bell"
 import { GlobalSearchButton } from '@/features/search/ui/global-search-provider'
 
-interface Project {
-  id: string
-  code: string
-  name: string
-  status: string
-}
-
 interface MenuItem {
   id: string
   label: string
@@ -59,7 +52,7 @@ const staticMenuItems: Omit<MenuItem, 'children'>[] = [
   },
   {
     id: "projects",
-    label: "Проекты",
+    label: "Рабочие процессы",
     icon: <Briefcase className="h-5 w-5" />,
   },
   {
@@ -120,7 +113,6 @@ export function FinderSidebar({ currentUser }: {
     name: string
     roles: AppRole[]
     permissions: Permission[]
-    accessKey: string
   }
 }) {
   const pathname = usePathname()
@@ -128,7 +120,7 @@ export function FinderSidebar({ currentUser }: {
   const [expandedItems, setExpandedItems] = useState<string[]>(() => {
     if (pathname === '/login') return []
     const itemsToExpand: string[] = []
-    if (pathname.startsWith('/projects')) itemsToExpand.push('projects')
+    if (pathname.startsWith('/projects') || pathname.startsWith('/tasks')) itemsToExpand.push('projects')
     if (pathname.startsWith('/finance')) itemsToExpand.push('finance')
     if (pathname.startsWith('/employees') || pathname.startsWith('/mols')) itemsToExpand.push('employees')
     if (pathname === '/' || pathname.startsWith('/reports')) itemsToExpand.push('overview')
@@ -143,7 +135,7 @@ export function FinderSidebar({ currentUser }: {
       setExpandedItems([])
     } else {
       const itemsToExpand: string[] = []
-      if (pathname.startsWith('/projects')) itemsToExpand.push('projects')
+      if (pathname.startsWith('/projects') || pathname.startsWith('/tasks')) itemsToExpand.push('projects')
       if (pathname.startsWith('/finance')) itemsToExpand.push('finance')
       if (pathname.startsWith('/employees') || pathname.startsWith('/mols')) itemsToExpand.push('employees')
       if (pathname === '/' || pathname.startsWith('/reports')) itemsToExpand.push('overview')
@@ -156,47 +148,6 @@ export function FinderSidebar({ currentUser }: {
       }
     }
   }
-  const [projectResult, setProjectResult] = useState<{
-    accessKey: string | null
-    projects: Project[]
-  }>({ accessKey: null, projects: [] })
-  const fetchedProjectAccessRef = useRef<string | null>(null)
-  const isProjectsExpanded = expandedItems.includes("projects")
-
-  useEffect(() => {
-    if (!permissionSet.has('projects.read') || !isProjectsExpanded) {
-      fetchedProjectAccessRef.current = null
-      return
-    }
-    if (fetchedProjectAccessRef.current === currentUser.accessKey) return
-
-    let isMounted = true
-    fetchedProjectAccessRef.current = currentUser.accessKey
-
-    async function fetchProjects() {
-      try {
-        const response = await fetch('/api/projects')
-        if (response.ok && isMounted) {
-          const data = await response.json()
-          setProjectResult({
-            accessKey: currentUser.accessKey,
-            projects: (data.data || []).slice(0, 5),
-          })
-        }
-      } catch (error) {
-        console.error('Error fetching projects:', error)
-      }
-    }
-
-    fetchProjects()
-
-    return () => {
-      isMounted = false
-    }
-  }, [currentUser.accessKey, isProjectsExpanded, permissionSet])
-
-
-
   const toggleExpand = (id: string) => {
     setExpandedItems(prev => 
       prev.includes(id) 
@@ -210,17 +161,7 @@ export function FinderSidebar({ currentUser }: {
     return pathname === href || pathname.startsWith(href + '/')
   }
 
-  const isChildLinkActive = (href: string) => pathname === href
-
-  const projectChildren = [
-    { id: "projects-list", label: "Все проекты", icon: <Building2 className="h-4 w-4" />, href: "/projects" },
-    ...(projectResult.accessKey === currentUser.accessKey ? projectResult.projects : []).map(p => ({
-      id: `project-${p.id}`,
-      label: p.name,
-      icon: <Building2 className="h-4 w-4" />,
-      href: `/projects/${p.id}`
-    }))
-  ]
+  const isChildLinkActive = (href: string) => href === '/projects' ? isActive(href) : pathname === href
 
   const getMenuChildren = (id: string) => {
     switch (id) {
@@ -234,7 +175,10 @@ export function FinderSidebar({ currentUser }: {
             : []),
         ]
       case 'projects':
-        return permissionSet.has('projects.read') ? projectChildren : []
+        return [
+          ...(permissionSet.has('projects.read') ? [{ id: 'projects-list', label: 'Проекты', icon: <Building2 className="h-4 w-4" />, href: '/projects' }] : []),
+          ...(permissionSet.has('tasks.read') ? [{ id: 'tasks', label: 'Задачи', icon: <ClipboardCheck className="h-4 w-4" />, href: '/tasks' }] : []),
+        ]
       case 'finance':
         return financeChildren.filter((child) =>
           child.id === 'payroll'
@@ -279,7 +223,7 @@ export function FinderSidebar({ currentUser }: {
     const isExpanded = expandedItems.includes(item.id)
     const children = getMenuChildren(item.id)
     const hasChildren = children.length > 0
-    const isItemActive = item.id === 'projects' ? isActive('/projects') : item.id === 'employees' ? isActive('/employees') || isActive('/mols') : false
+    const isItemActive = item.id === 'projects' ? isActive('/projects') || isActive('/tasks') : item.id === 'employees' ? isActive('/employees') || isActive('/mols') : false
     const isChildActive = children.some(child => isActive(child.href))
     const shouldHighlightParent = isItemActive && !isChildActive
 
