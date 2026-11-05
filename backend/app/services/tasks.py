@@ -117,6 +117,8 @@ class TaskService:
             raise DomainError("FORBIDDEN", "Недостаточно прав", 403)
         async with self._factory() as uow:
             await check_actor(uow, actor)
+            if not await uow.projects.task_assigned(task_id, employee_id):
+                raise task_error()
             current = await uow.projects.task(task_id)
             if current is None:
                 raise task_error()
@@ -132,7 +134,7 @@ class TaskService:
                     authorize(actor, "tasks.update", {"projectId": current.project_id})
                 else:
                     self._general_manager(actor)
-            result = await uow.projects.update_task(task_id, {"status": status}, None)
+            result = await uow.projects.update_task_status(task_id, status)
             await audit(
                 uow, context, "TASK_UPDATE", "Task", task_id, {"projectId": current.project_id}
             )

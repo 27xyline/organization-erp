@@ -93,3 +93,21 @@ it('shows an inactive existing assignee and allows removing them', async () => {
   expect(fetchMock).toHaveBeenCalledWith('/api/tasks/t', expect.objectContaining({ body: expect.stringContaining('"employeeIds":[]') }))
   await act(async () => root.unmount()); vi.unstubAllGlobals()
 })
+
+
+it('prevents switching forms while a save is pending', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  let resolveSave!: (response: Response) => void
+  vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(resolve => { resolveSave = resolve })))
+  const container = document.createElement('div'); const root = createRoot(container)
+  const tasks = ['Первый', 'Второй'].map((name, i) => ({ id: String(i), name, status: 'NOT_STARTED' as const, projectId: null, canReadProject: false, assignees: [] }))
+  await act(async () => root.render(<SharedTasksBoard tasks={tasks} canManage projects={[]} assignees={[]} />))
+  await act(async () => container.querySelector<HTMLButtonElement>('article button')!.click())
+  await act(async () => container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+  const buttons = Array.from(container.querySelectorAll('button'))
+  expect(buttons.find(b => b.textContent === 'Новая задача')!.disabled).toBe(true)
+  expect(buttons.filter(b => b.textContent === 'Изменить').every(b => b.disabled)).toBe(true)
+  expect(buttons.find(b => b.textContent === 'Отмена')!.disabled).toBe(true)
+  await act(async () => resolveSave(Response.json({ data: {} })))
+  await act(async () => root.unmount()); vi.unstubAllGlobals()
+})

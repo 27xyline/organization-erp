@@ -204,11 +204,15 @@ class SqlAlchemyProjectRepository:
         row = await self._session().get(Task, task_id, populate_existing=True)
         return TaskRecord.from_values(serial(row)) if row else None
 
-    async def tasks(self, project_id: str | None, shape: str = "list") -> tuple[TaskRecord, ...]:
+    async def tasks(
+        self, project_id: str | None, shape: str = "list", task_id: str | None = None
+    ) -> tuple[TaskRecord, ...]:
         session = self._session()
         rows = (
             await session.scalars(
-                select(Task).where(Task.projectId == project_id).order_by(Task.createdAt)
+                select(Task)
+                .where(Task.projectId == project_id, *([Task.id == task_id] if task_id else []))
+                .order_by(Task.createdAt)
             )
         ).all()
         if shape == "graph":
@@ -486,10 +490,7 @@ class SqlAlchemyProjectRepository:
         self._session().add(row)
         await _flush(self._session())
         await self._relations(row.id, values, members)
-        result = next(
-            item for item in await self.tasks(project_id, "mutation") if item.id == row.id
-        )
-        return result
+        return (await self.tasks(project_id, "mutation", row.id))[0]
 
     async def update_task(
         self,
@@ -503,9 +504,16 @@ class SqlAlchemyProjectRepository:
             if key not in ("employeeIds", "predecessorIds", "checklist"):
                 setattr(row, key, value)
         await self._relations(task_id, values, members)
-        return next(
-            item for item in await self.tasks(row.projectId, "mutation") if item.id == task_id
-        )
+        return (await self.tasks(row.projectId, "mutation", task_id))[0]
+
+    async def update_task_status(self, task_id: str, status: str) -> TaskRecord:
+        row = await self._session().get(Task, task_id)
+        assert row is not None
+        from app.models.enums import TaskStatus
+
+        row.status = TaskStatus(status)
+        await _flush(self._session())
+        return TaskRecord.from_values(serial(row))
 
     async def delete_task(self, task_id: str) -> None:
         await self._session().execute(delete(Task).where(Task.id == task_id))
