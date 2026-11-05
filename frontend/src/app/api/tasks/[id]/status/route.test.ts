@@ -11,3 +11,8 @@ describe('assigned status BFF', () => {
     expect(mocks.proxy).not.toHaveBeenCalled()
   })
 })
+it('returns a client error for malformed JSON', async () => {
+  const { PATCH } = await import('./route')
+  const request = new Request('http://localhost/api/tasks/t/status', { method: 'PATCH', body: '{' })
+  expect((await PATCH(request as never, { params: Promise.resolve({ id: 't' }) })).status).toBe(400)
+})

@@ -27,18 +27,7 @@ Service = Annotated[TaskService, Depends(get_service)]
 @router.get("/tasks")
 async def task_inbox(context: Context, service: Service) -> Any:
     assert context.actor is not None
-    actor = context.actor
-    assert actor.access is not None
-    tasks = []
-    for item in await service.inbox(actor):
-        values = item.values
-        for key in ("comments", "predecessors", "checklist", "children"):
-            values.pop(key, None)
-        values["canReadProject"] = bool(
-            item.projectId and actor.access.allows("projects.read", {"projectId": item.projectId})
-        )
-        tasks.append(values)
-    return {"data": json_value(tasks)}
+    return {"data": json_value(await service.inbox(context.actor))}
 
 
 @router.get("/tasks/assignees")

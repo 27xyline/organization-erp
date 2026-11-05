@@ -21,5 +21,5 @@ export default async function TasksPage() {
     const pages = await Promise.all(Array.from({ length: Math.max(0, (metadata.pagination?.totalPages || 1) - 1) }, (_, index) => backendUserFetch(`/api/projects?page=${index + 2}&pageSize=100`, user)))
     for (const response of pages) projects.push(...await readBackendData<Array<{ id: string; name: string }>>(response, 'Не удалось загрузить проекты'))
   }
-  return <SharedTasksBoard tasks={tasks.map((task) => ({ ...task, canManageProject: !!task.projectId && user.access.allows('tasks.update', { projectId: task.projectId }) }))} canManage={canManage} projects={projects.filter((project) => user.access.allows('tasks.create', { projectId: project.id }))} assignees={assignees} employeeId={user.employeeId} />
+  return <SharedTasksBoard tasks={tasks.map((task) => ({ ...task, canManageProject: !!task.projectId && user.access.allows('tasks.update', { projectId: task.projectId }) }))} canManage={canManage} projects={projects.filter((project) => user.access.allows('tasks.create', { projectId: project.id }))} assignees={assignees} employeeId={user.employeeId} canSelfUpdate={user.roles.includes('EMPLOYEE')} />
 }

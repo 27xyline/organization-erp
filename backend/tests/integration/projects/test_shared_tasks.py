@@ -34,7 +34,7 @@ async def test_admin_creates_and_lists_general_task(project_env):
 async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
     from dataclasses import replace
 
-    from sqlalchemy import delete
+    from sqlalchemy import delete, event, update
 
     from app.core.context import Actor
     from app.domain.auth.rules import AccessContext, ScopeGrant
@@ -60,6 +60,7 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
     app.state.tracer = trace.get_tracer(__name__)
     app.state.unit_of_work_factory = create_unit_of_work_factory(sessions)
     current = context
+    task_ids: set[str] = set()
     app.dependency_overrides[get_authenticated_context] = lambda: current
     try:
         async with httpx.AsyncClient(
@@ -68,9 +69,14 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
             assert (
                 await client.post(f"/api/projects/{project.id}/members", json={"employeeId": first})
             ).status_code == 200
+            assert (
+                await client.post(
+                    f"/api/projects/{project.id}/members", json={"employeeId": second}
+                )
+            ).status_code == 200
             project_task = await client.post(
                 f"/api/projects/{project.id}/tasks",
-                json={"name": "Project", "employeeIds": [first]},
+                json={"name": "Project", "description": "Private", "employeeIds": [first, second]},
             )
             assert project_task.status_code == 201, project_task.text
             options = await client.get("/api/tasks/assignees")
@@ -85,6 +91,21 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
                 two.json()["data"]["id"],
                 project_task.json()["data"]["id"],
             }
+            task_ids = ids
+            async with sessions() as session:
+                await session.execute(
+                    update(Employee).where(Employee.id == second).values(status="DISMISSED")
+                )
+                await session.commit()
+            kept = await client.put(
+                f"/api/tasks/{two.json()['data']['id']}",
+                json={"name": "Updated", "employeeIds": [second]},
+            )
+            assert kept.status_code == 200, kept.text
+            forbidden_add = await client.put(
+                f"/api/tasks/{one.json()['data']['id']}", json={"employeeIds": [first, second]}
+            )
+            assert forbidden_add.status_code == 422
             assert ids <= {task["id"] for task in (await client.get("/api/tasks")).json()["data"]}
             manager_access = AccessContext(
                 prefix, None, None, (), (ScopeGrant(prefix, "PROJECT_MANAGER", "NONE", "ASSIGNED"),)
@@ -95,7 +116,40 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
                     prefix, is_authenticated=True, session_version=1, access=manager_access
                 ),
             )
-            assert ids <= {task["id"] for task in (await client.get("/api/tasks")).json()["data"]}
+            manager_statements = []
+
+            def count_manager_sql(conn, cursor, statement, parameters, context, executemany):
+                if statement.lstrip().upper().startswith("SELECT"):
+                    manager_statements.append(statement)
+
+            event.listen(
+                sessions.kw["bind"].sync_engine, "before_cursor_execute", count_manager_sql
+            )
+            try:
+                manager_listing = (await client.get("/api/tasks")).json()["data"]
+            finally:
+                event.remove(
+                    sessions.kw["bind"].sync_engine, "before_cursor_execute", count_manager_sql
+                )
+            assert len(manager_statements) <= 2
+            assert ids <= {task["id"] for task in manager_listing}
+            hidden = next(
+                task for task in manager_listing if task["id"] == project_task.json()["data"]["id"]
+            )
+            assert set(hidden) == {
+                "id",
+                "name",
+                "status",
+                "isGeneral",
+                "isAssignedToMe",
+                "canReadProject",
+            }
+            general = next(
+                task for task in manager_listing if task["id"] == two.json()["data"]["id"]
+            )
+            assert general["assignees"] == [
+                {"employeeId": second, "fullName": "Two", "active": False}
+            ]
             assert (await client.get(f"/api/projects/{project.id}/tasks")).status_code == 403
             assert (
                 await client.put(
@@ -110,7 +164,18 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
             )
             current = replace(context, actor=actor)
             assert (await client.get("/api/tasks/assignees")).status_code == 403
-            listing = await client.get("/api/tasks")
+            statements = []
+
+            def count_sql(conn, cursor, statement, parameters, context, executemany):
+                if statement.lstrip().upper().startswith("SELECT"):
+                    statements.append(statement)
+
+            event.listen(sessions.kw["bind"].sync_engine, "before_cursor_execute", count_sql)
+            try:
+                listing = await client.get("/api/tasks")
+            finally:
+                event.remove(sessions.kw["bind"].sync_engine, "before_cursor_execute", count_sql)
+            assert len(statements) <= 2
             assert {task["id"] for task in listing.json()["data"]} == {
                 one.json()["data"]["id"],
                 project_task.json()["data"]["id"],
@@ -119,7 +184,16 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
                 t for t in listing.json()["data"] if t["id"] == project_task.json()["data"]["id"]
             )
             assert project_summary["canReadProject"] is False
-            assert "comments" not in project_summary
+            assert set(project_summary) <= {
+                "id",
+                "name",
+                "status",
+                "isGeneral",
+                "isAssignedToMe",
+                "canReadProject",
+            }
+            assert project_summary["isAssignedToMe"] is True
+            assert project_summary["isGeneral"] is False
             assert (await client.get(f"/api/projects/{project.id}")).status_code == 403
             assert (
                 await client.patch(
@@ -132,11 +206,24 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
                     json={"status": "IN_PROGRESS"},
                 )
             ).status_code == 200
+            unassigned = await client.patch(
+                f"/api/tasks/{two.json()['data']['id']}/status", json={"status": "COMPLETED"}
+            )
+            missing = await client.patch(
+                "/api/tasks/nonexistent/status", json={"status": "COMPLETED"}
+            )
+            assert unassigned.status_code == missing.status_code == 404
+            assert unassigned.json() == missing.json()
+            auditor_access = AccessContext(
+                prefix, first, prefix, (), (ScopeGrant(prefix, "AUDITOR", "ALL", "ALL"),)
+            )
+            current = replace(context, actor=replace(actor, access=auditor_access))
             assert (
                 await client.patch(
-                    f"/api/tasks/{two.json()['data']['id']}/status", json={"status": "COMPLETED"}
+                    f"/api/tasks/{one.json()['data']['id']}/status", json={"status": "COMPLETED"}
                 )
             ).status_code == 403
+            current = replace(context, actor=actor)
             assert (
                 await client.put(f"/api/tasks/{one.json()['data']['id']}", json={"name": "Denied"})
             ).status_code == 403
@@ -157,6 +244,7 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
             # Project membership is deleted with the project in project_env cleanup.
             from app.models.projects import ProjectMember, Task
 
+            await session.execute(delete(Task).where(Task.id.in_(task_ids)))
             await session.execute(delete(Task).where(Task.projectId == project.id))
             await session.execute(
                 delete(ProjectMember).where(ProjectMember.projectId == project.id)

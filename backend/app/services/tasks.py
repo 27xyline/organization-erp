@@ -27,14 +27,43 @@ class TaskService:
     def __init__(self, factory: UnitOfWorkFactory[UnitOfWork]) -> None:
         self._factory = factory
 
-    async def inbox(self, actor: Actor) -> tuple[TaskRecord, ...]:
+    async def inbox(self, actor: Actor) -> tuple[dict[str, Any], ...]:
         authorize(actor, "tasks.read")
         assert actor.access is not None
         all_tasks = bool(set(actor.access.roles) & {"ADMIN", "PROJECT_MANAGER"})
         async with self._factory() as uow:
             if not all_tasks and not actor.access.employee_id:
                 return ()
-            return await uow.projects.inbox(actor.access.employee_id, all_tasks)
+            rows = await uow.projects.inbox(actor.access.employee_id, all_tasks)
+            result = []
+            for task, assigned in rows:
+                can_read_project = bool(
+                    task.projectId
+                    and actor.access.allows("projects.read", {"projectId": task.projectId})
+                )
+                summary: dict[str, Any] = {
+                    "id": task.id,
+                    "name": task.name,
+                    "status": task.status,
+                    "isGeneral": task.projectId is None,
+                    "isAssignedToMe": assigned,
+                    "canReadProject": can_read_project,
+                }
+                if can_read_project:
+                    summary["projectId"] = task.projectId
+                if all_tasks and task.projectId is None:
+                    summary.update(
+                        {
+                            "description": task.description,
+                            "priority": task.priority,
+                            "risk": task.risk,
+                            "startDate": task.startDate,
+                            "endDate": task.endDate,
+                            "assignees": task.assignees or (),
+                        }
+                    )
+                result.append(summary)
+            return tuple(result)
 
     @staticmethod
     def _general_manager(actor: Actor) -> None:
@@ -66,9 +95,9 @@ class TaskService:
             return result
 
     async def _general_assignees(
-        self, uow: UnitOfWork, employee_ids: builtins.list[str]
+        self, uow: UnitOfWork, employee_ids: builtins.list[str], task_id: str | None = None
     ) -> tuple[GeneralAssignee, ...]:
-        members = await uow.projects.general_assignees(tuple(employee_ids))
+        members = await uow.projects.general_assignees(tuple(employee_ids), task_id)
         if len(members) != len(employee_ids):
             invalid("INVALID_ASSIGNEES", "Можно назначать только активных сотрудников")
         return members
@@ -81,6 +110,9 @@ class TaskService:
         authorize(actor, "tasks.read")
         assert actor.access is not None
         employee_id = actor.access.employee_id
+        roles = set(actor.access.roles)
+        if not roles & {"EMPLOYEE", "ADMIN", "PROJECT_MANAGER"}:
+            raise DomainError("FORBIDDEN", "Недостаточно прав", 403)
         if not employee_id:
             raise DomainError("FORBIDDEN", "Недостаточно прав", 403)
         async with self._factory() as uow:
@@ -94,7 +126,12 @@ class TaskService:
             if not await uow.projects.lock_task(task_id):
                 raise task_error()
             if not await uow.projects.task_assigned(task_id, employee_id):
-                raise DomainError("FORBIDDEN", "Недостаточно прав", 403)
+                raise task_error()
+            if "EMPLOYEE" not in roles:
+                if current.project_id:
+                    authorize(actor, "tasks.update", {"projectId": current.project_id})
+                else:
+                    self._general_manager(actor)
             result = await uow.projects.update_task(task_id, {"status": status}, None)
             await audit(
                 uow, context, "TASK_UPDATE", "Task", task_id, {"projectId": current.project_id}
@@ -178,7 +215,7 @@ class TaskService:
                 await (
                     self._members(uow, current.project_id, values["employeeIds"])
                     if current.project_id
-                    else self._general_assignees(uow, values["employeeIds"])
+                    else self._general_assignees(uow, values["employeeIds"], task_id)
                 )
                 if "employeeIds" in values
                 else None

@@ -11,3 +11,8 @@ describe('shared tasks BFF', () => {
     expect(mocks.proxy).toHaveBeenCalledWith(request, '/api/tasks', expect.anything(), 'r')
   })
 })
+it('returns a client error for malformed JSON', async () => {
+  const { POST } = await import('./route')
+  const request = new Request('http://localhost/api/tasks', { method: 'POST', body: '{' })
+  expect((await POST(request as never)).status).toBe(400)
+})

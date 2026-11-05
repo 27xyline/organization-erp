@@ -46,3 +46,50 @@ it('creates a general task with selected employees', async () => {
   await act(async () => root.unmount())
   vi.unstubAllGlobals()
 })
+
+it('resets the form when switching tasks and creating a new one', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const container = document.createElement('div'); const root = createRoot(container)
+  const tasks = ['Первый', 'Второй'].map((name, i) => ({ id: String(i), name, status: 'NOT_STARTED' as const, projectId: null, canReadProject: false, assignees: [] }))
+  await act(async () => root.render(<SharedTasksBoard tasks={tasks} canManage projects={[]} assignees={[]} />))
+  const edits = container.querySelectorAll<HTMLButtonElement>('article button:first-child')
+  await act(async () => edits[0].click())
+  expect(container.querySelector<HTMLInputElement>('input[name="name"]')!.value).toBe('Первый')
+  await act(async () => edits[1].click())
+  expect(container.querySelector<HTMLInputElement>('input[name="name"]')!.value).toBe('Второй')
+  await act(async () => Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Новая задача')!.click())
+  expect(container.querySelector<HTMLInputElement>('input[name="name"]')!.value).toBe('')
+  await act(async () => root.unmount()); vi.unstubAllGlobals()
+})
+
+it('ignores a late response for a previously selected project', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  let resolveA!: (response: Response) => void
+  vi.stubGlobal('fetch', vi.fn((url: string) => url.includes('/a/') ? new Promise<Response>(r => { resolveA = r }) : Promise.resolve(Response.json({ members: [{ employeeId: 'b', employee: { fullName: 'Бета' } }] }))))
+  const container = document.createElement('div'); const root = createRoot(container)
+  await act(async () => root.render(<SharedTasksBoard tasks={[]} canManage projects={[{ id: 'a', name: 'А' }, { id: 'b', name: 'Б' }]} assignees={[]} />))
+  await act(async () => Array.from(container.querySelectorAll('button')).find(b => b.textContent === 'Новая задача')!.click())
+  const select = container.querySelector<HTMLSelectElement>('form select')!
+  await act(async () => { select.value = 'a'; select.dispatchEvent(new Event('change', { bubbles: true })) })
+  await act(async () => { select.value = 'b'; select.dispatchEvent(new Event('change', { bubbles: true })) })
+  await act(async () => resolveA(Response.json({ members: [{ employeeId: 'a', employee: { fullName: 'Альфа' } }] })))
+  expect(container.textContent).toContain('Бета')
+  expect(container.textContent).not.toContain('Альфа')
+  await act(async () => root.unmount()); vi.unstubAllGlobals()
+})
+
+it('shows an inactive existing assignee and allows removing them', async () => {
+  vi.stubGlobal('IS_REACT_ACT_ENVIRONMENT', true)
+  const fetchMock = vi.fn(async () => Response.json({ data: {} }))
+  vi.stubGlobal('fetch', fetchMock)
+  const container = document.createElement('div'); const root = createRoot(container)
+  await act(async () => root.render(<SharedTasksBoard tasks={[{ id: 't', name: 'Задача', status: 'NOT_STARTED', isGeneral: true, canReadProject: false, assignees: [{ employeeId: 'inactive', fullName: 'Бывший', active: false }] }]} canManage projects={[]} assignees={[]} />))
+  await act(async () => container.querySelector<HTMLButtonElement>('article button')!.click())
+  expect(container.textContent).toContain('Бывший (неактивен)')
+  const checkbox = container.querySelector<HTMLInputElement>('input[type="checkbox"]')!
+  expect(checkbox.checked).toBe(true)
+  await act(async () => checkbox.click())
+  await act(async () => container.querySelector('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))
+  expect(fetchMock).toHaveBeenCalledWith('/api/tasks/t', expect.objectContaining({ body: expect.stringContaining('"employeeIds":[]') }))
+  await act(async () => root.unmount()); vi.unstubAllGlobals()
+})

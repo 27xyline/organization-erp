@@ -9,7 +9,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -323,21 +323,38 @@ class SqlAlchemyProjectRepository:
             TaskRecord.from_values(task_value(row, flatten=shape == "api")) for row in rows
         )
 
-    async def inbox(self, employee_id: str | None, all_tasks: bool) -> tuple[TaskRecord, ...]:
-        query = select(Task.id, Task.projectId)
+    async def inbox(
+        self, employee_id: str | None, all_tasks: bool
+    ) -> tuple[tuple[TaskRecord, bool], ...]:
+        assigned = exists(
+            select(TaskAssignee.id).where(
+                TaskAssignee.taskId == Task.id, TaskAssignee.employeeId == employee_id
+            )
+        )
+        query = select(Task, assigned.label("assigned"))
         if not all_tasks:
-            query = query.where(
-                Task.id.in_(
-                    select(TaskAssignee.taskId).where(TaskAssignee.employeeId == employee_id)
-                )
-            )
+            query = query.where(assigned)
         rows = (await self._session().execute(query.order_by(Task.createdAt))).all()
-        allowed = {row.id for row in rows}
-        result: builtins.list[TaskRecord] = []
-        for project_id in dict.fromkeys(row.projectId for row in rows):
-            result.extend(
-                task for task in await self.tasks(project_id, "mutation") if task.id in allowed
+        general_ids = (
+            [row.Task.id for row in rows if row.Task.projectId is None] if all_tasks else []
+        )
+        assignees: dict[str, builtins.list[dict[str, Any]]] = {}
+        if general_ids:
+            pairs = await self._session().execute(
+                select(TaskAssignee.taskId, Employee.id, Employee.fullName, Employee.status)
+                .join(Employee, Employee.id == TaskAssignee.employeeId)
+                .where(TaskAssignee.taskId.in_(general_ids))
             )
+            for task_id, employee, name, status in pairs:
+                assignees.setdefault(task_id, []).append(
+                    {"employeeId": employee, "fullName": name, "active": status == "ACTIVE"}
+                )
+        result = []
+        for row, is_assigned in rows:
+            data = serial(row)
+            if all_tasks and row.projectId is None:
+                data["assignees"] = assignees.get(row.id, [])
+            result.append((TaskRecord.from_values(data), bool(is_assigned)))
         return tuple(result)
 
     async def general_assignee_options(self) -> tuple[GeneralAssignee, ...]:
@@ -348,10 +365,20 @@ class SqlAlchemyProjectRepository:
         ).all()
         return tuple(GeneralAssignee(None, row.id, row.fullName) for row in rows)
 
-    async def general_assignees(self, employee_ids: tuple[str, ...]) -> tuple[GeneralAssignee, ...]:
+    async def general_assignees(
+        self, employee_ids: tuple[str, ...], task_id: str | None = None
+    ) -> tuple[GeneralAssignee, ...]:
         rows = (
             await self._session().scalars(
-                select(Employee).where(Employee.id.in_(employee_ids), Employee.status == "ACTIVE")
+                select(Employee).where(
+                    Employee.id.in_(employee_ids),
+                    or_(
+                        Employee.status == "ACTIVE",
+                        Employee.id.in_(
+                            select(TaskAssignee.employeeId).where(TaskAssignee.taskId == task_id)
+                        ),
+                    ),
+                )
             )
         ).all()
         by_id = {row.id: row for row in rows}
