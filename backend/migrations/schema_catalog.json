@@ -3106,6 +3106,11 @@
           "nullable": false,
           "type": "timestamp(3) without time zone"
         },
+        "creatorId": {
+          "default": null,
+          "nullable": true,
+          "type": "text"
+        },
         "description": {
           "default": null,
           "nullable": true,
@@ -3188,6 +3193,7 @@
         }
       },
       "constraints": {
+        "tasks_creatorId_fkey": "FOREIGN KEY (\"creatorId\") REFERENCES users(id) ON UPDATE CASCADE ON DELETE SET NULL",
         "tasks_date_range": "CHECK (\"startDate\" IS NULL OR \"endDate\" IS NULL OR \"startDate\" <= \"endDate\")",
         "tasks_level_range": "CHECK (level >= 1 AND level <= 3)",
         "tasks_parentId_fkey": "FOREIGN KEY (\"parentId\") REFERENCES tasks(id) ON UPDATE CASCADE ON DELETE SET NULL",

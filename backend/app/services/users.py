@@ -58,7 +58,7 @@ def normalize_assignments(assignments: list[dict[str, Any]]) -> list[dict[str, A
                 and department in scoped
                 and project in scoped
             )
-            or (role == "PROJECT_MANAGER" and department == "NONE" and project in scoped)
+            or (role == "PROJECT_MANAGER" and department == "NONE" and project == "ASSIGNED")
         )
         if not valid:
             fail("INVALID_SCOPE_ASSIGNMENT")

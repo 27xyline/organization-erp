@@ -173,17 +173,7 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
                 )
             assert len(manager_statements) <= 2
             assert ids <= {task["id"] for task in manager_listing}
-            hidden = next(
-                task for task in manager_listing if task["id"] == project_task.json()["data"]["id"]
-            )
-            assert set(hidden) == {
-                "id",
-                "name",
-                "status",
-                "isGeneral",
-                "isAssignedToMe",
-                "canReadProject",
-            }
+            assert project_task.json()["data"]["id"] not in {task["id"] for task in manager_listing}
             general = next(
                 task for task in manager_listing if task["id"] == two.json()["data"]["id"]
             )
@@ -276,6 +266,7 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
             assert len(statements) <= 2
             assert {task["id"] for task in listing.json()["data"]} == {
                 one.json()["data"]["id"],
+                two.json()["data"]["id"],
                 project_task.json()["data"]["id"],
             }
             project_summary = next(
@@ -287,6 +278,7 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
                 "name",
                 "status",
                 "isGeneral",
+                "projectName",
                 "isAssignedToMe",
                 "canReadProject",
             }
@@ -366,9 +358,20 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
                 )
             ).status_code == 403
             current = replace(context, actor=actor)
+            own = await client.post("/api/tasks", json={"name": "Own", "employeeIds": [first]})
+            assert own.status_code == 201, own.text
+            own_id = own.json()["data"]["id"]
+            task_ids.add(own_id)
             assert (
-                await client.put(f"/api/tasks/{one.json()['data']['id']}", json={"name": "Denied"})
-            ).status_code == 403
+                await client.put(f"/api/tasks/{own_id}", json={"name": "Edited"})
+            ).status_code == 200
+            assert (
+                await client.put(f"/api/tasks/{own_id}", json={"employeeIds": [second]})
+            ).status_code == 422
+            assert (await client.delete(f"/api/tasks/{own_id}")).status_code == 403
+            assert (
+                await client.post("/api/tasks", json={"name": "Wrong", "employeeIds": [second]})
+            ).status_code == 422
             extra = await client.patch(
                 f"/api/tasks/{one.json()['data']['id']}/status",
                 json={"status": "COMPLETED", "name": "Denied"},

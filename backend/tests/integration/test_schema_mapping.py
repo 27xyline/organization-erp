@@ -26,6 +26,8 @@ def test_metadata_matches_all_inventoried_tables_and_columns() -> None:
     for model in models:
         table = metadata.tables[model["sql_name"]]
         expected_columns = {column["sql_name"] for column in model["columns"]}
+        if model["sql_name"] == "tasks":
+            expected_columns.add("creatorId")
         assert set(table.columns.keys()) == expected_columns
 
         primary_key = next(c for c in model["constraints"] if c["kind"] == "primary_key")
@@ -111,6 +113,10 @@ def test_metadata_matches_all_inventoried_tables_and_columns() -> None:
             if constraint["kind"] == "foreign_key"
         }
         actual_fks = {constraint.name: constraint for constraint in table.foreign_key_constraints}
+        if model["sql_name"] == "tasks":
+            creator_fk = actual_fks.pop("tasks_creatorId_fkey")
+            assert creator_fk.ondelete == "SET NULL"
+            assert creator_fk.onupdate == "CASCADE"
         assert set(actual_fks) == set(expected_fks)
         for name, expected in expected_fks.items():
             actual = actual_fks[name]
@@ -156,11 +162,11 @@ def test_schema_defaults_and_enum_metadata_are_complete() -> None:
         )
         == 49
     )
-    assert sum(len(table.columns) for table in legacy_tables) == INVENTORY["counts"]["columns"]
+    assert sum(len(table.columns) for table in legacy_tables) == INVENTORY["counts"]["columns"] + 1
     assert sum(len(table.indexes) for table in legacy_tables) == INVENTORY["counts"]["indexes"]
     assert (
         sum(len(table.foreign_key_constraints) for table in legacy_tables)
-        == INVENTORY["counts"]["foreign_keys"]
+        == INVENTORY["counts"]["foreign_keys"] + 1
     )
     assert (
         sum(

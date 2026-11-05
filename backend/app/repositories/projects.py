@@ -328,20 +328,26 @@ class SqlAlchemyProjectRepository:
         )
 
     async def inbox(
-        self, employee_id: str | None, all_tasks: bool
+        self, employee_id: str | None, all_tasks: bool, project_ids: tuple[str, ...] = ()
     ) -> tuple[tuple[TaskRecord, bool], ...]:
         assigned = exists(
             select(TaskAssignee.id).where(
                 TaskAssignee.taskId == Task.id, TaskAssignee.employeeId == employee_id
             )
         )
-        query = select(Task, assigned.label("assigned"))
+        query = select(
+            Task, assigned.label("assigned"), Project.name.label("project_name")
+        ).outerjoin(Project, Project.id == Task.projectId)
         if not all_tasks:
-            query = query.where(assigned)
+            query = query.where(
+                or_(
+                    Task.projectId.is_(None),
+                    Task.projectId.in_(project_ids),
+                    assigned,
+                )
+            )
         rows = (await self._session().execute(query.order_by(Task.createdAt))).all()
-        general_ids = (
-            [row.Task.id for row in rows if row.Task.projectId is None] if all_tasks else []
-        )
+        general_ids = [row.Task.id for row in rows if row.Task.projectId is None]
         assignees: dict[str, builtins.list[dict[str, Any]]] = {}
         if general_ids:
             pairs = await self._session().execute(
@@ -354,9 +360,10 @@ class SqlAlchemyProjectRepository:
                     {"employeeId": employee, "fullName": name, "active": status == "ACTIVE"}
                 )
         result = []
-        for row, is_assigned in rows:
+        for row, is_assigned, project_name in rows:
             data = serial(row)
-            if all_tasks and row.projectId is None:
+            data["projectName"] = project_name
+            if row.projectId is None:
                 data["assignees"] = assignees.get(row.id, [])
             result.append((TaskRecord.from_values(data), bool(is_assigned)))
         return tuple(result)
@@ -623,6 +630,15 @@ class SqlAlchemyProjectRepository:
             if access.allows("tasks.read", target)
             else ()
         )
+        if tasks:
+            from app.domain.projects.task_visibility import visible_project_tasks
+
+            if "ADMIN" not in access.roles and not any(
+                grant.role == "PROJECT_MANAGER"
+                and project_id in (access._ids(grant, "project") or ())
+                for grant in access.grants_for("tasks.read")
+            ):
+                tasks = visible_project_tasks(await self.tasks(project_id), access, project_id)
         values["tasksList"] = [task.values for task in tasks]
         assets = []
         if access.allows("assets.read", target):

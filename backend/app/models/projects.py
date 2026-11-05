@@ -212,6 +212,13 @@ class Task(Base):
         nullable=False,
         server_default=text("'NOT_STARTED'"),
     )
+    creatorId: Mapped[str | None] = mapped_column(
+        Text(),
+        ForeignKey(
+            "users.id", name="tasks_creatorId_fkey", ondelete="SET NULL", onupdate="CASCADE"
+        ),
+        nullable=True,
+    )
     projectId: Mapped[str | None] = mapped_column(
         Text(),
         ForeignKey(

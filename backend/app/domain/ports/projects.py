@@ -174,6 +174,8 @@ class TaskRecord:
     projectId: str | None
     name: str
     level: int
+    creatorId: str | None = None
+    projectName: str | None = None
     description: str | None = None
     priority: str = "MEDIUM"
     risk: str = "LOW"
@@ -286,7 +288,7 @@ class ProjectRepository(Protocol):
         self, project_id: str | None, shape: str = "list"
     ) -> tuple[TaskRecord, ...]: ...
     async def inbox(
-        self, employee_id: str | None, all_tasks: bool
+        self, employee_id: str | None, all_tasks: bool, project_ids: tuple[str, ...] = ()
     ) -> tuple[tuple[TaskRecord, bool], ...]: ...
     async def general_assignee_options(self) -> tuple[GeneralAssignee, ...]: ...
     async def general_assignees(

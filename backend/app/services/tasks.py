@@ -14,6 +14,7 @@ from app.domain.projects.task_rules import (
     ensure_valid_task_hierarchy,
     invalid,
 )
+from app.domain.projects.task_visibility import visible_project_tasks
 from app.services.dto.projects import TaskCommand
 from app.services.employees import audit, authorize
 from app.services.projects import check_actor, lock_project, parse_date
@@ -32,9 +33,18 @@ class TaskService:
         assert actor.access is not None
         all_tasks = bool(set(actor.access.roles) & {"ADMIN", "PROJECT_MANAGER"})
         async with self._factory() as uow:
-            if not all_tasks and not actor.access.employee_id:
-                return ()
-            rows = await uow.projects.inbox(actor.access.employee_id, all_tasks)
+            is_admin = "ADMIN" in actor.access.roles
+            pm_projects = tuple(
+                {
+                    project
+                    for grant in actor.access.grants_for("tasks.read")
+                    if grant.role == "PROJECT_MANAGER"
+                    for project in (actor.access._ids(grant, "project") or ())
+                }
+            )
+            rows = await uow.projects.inbox(
+                actor.access.employee_id if not all_tasks else None, is_admin, pm_projects
+            )
             result = []
             for task, assigned in rows:
                 can_read_project = bool(
@@ -46,12 +56,13 @@ class TaskService:
                     "name": task.name,
                     "status": task.status,
                     "isGeneral": task.projectId is None,
+                    "projectName": task.projectName,
                     "isAssignedToMe": assigned,
                     "canReadProject": can_read_project,
                 }
                 if can_read_project:
                     summary["projectId"] = task.projectId
-                if all_tasks and task.projectId is None:
+                if task.projectId is None:
                     summary.update(
                         {
                             "description": task.description,
@@ -60,6 +71,11 @@ class TaskService:
                             "startDate": task.startDate,
                             "endDate": task.endDate,
                             "assignees": task.assignees or (),
+                            "canEdit": all_tasks
+                            or (
+                                "EMPLOYEE" in actor.access.roles
+                                and task.creatorId == actor.actor_id
+                            ),
                         }
                     )
                 result.append(summary)
@@ -79,8 +95,15 @@ class TaskService:
     async def create_general(self, command: TaskCommand, context: RequestContext) -> TaskRecord:
         actor = context.actor
         assert actor is not None
-        self._general_manager(actor)
+        authorize(actor, "tasks.read")
+        assert actor.access is not None
+        manager = bool(set(actor.access.roles) & {"ADMIN", "PROJECT_MANAGER"})
+        if not manager and ("EMPLOYEE" not in actor.access.roles or not actor.access.employee_id):
+            raise DomainError("FORBIDDEN", "Недостаточно прав", 403)
         values = dict(command.values)
+        if not manager and values.get("employeeIds") != [actor.access.employee_id]:
+            invalid("INVALID_ASSIGNEES", "Сотрудник может назначить только себя")
+        values["creatorId"] = actor.actor_id
         if values.get("level", 1) != 1 or values.get("parentId") or values.get("predecessorIds"):
             invalid("INVALID_HIERARCHY", "Общие задачи не поддерживают вложенность и зависимости")
         async with self._factory() as uow:
@@ -144,7 +167,9 @@ class TaskService:
     async def list(self, project_id: str, actor: Actor) -> tuple[TaskRecord, ...]:
         authorize(actor, "tasks.read", {"projectId": project_id})
         async with self._factory() as uow:
-            return await uow.projects.tasks(project_id)
+            rows = await uow.projects.tasks(project_id)
+            assert actor.access is not None
+            return visible_project_tasks(rows, actor.access, project_id)
 
     async def create(
         self, project_id: str, command: TaskCommand, context: RequestContext
@@ -191,7 +216,15 @@ class TaskService:
         if current is None:
             raise task_error()
         if current.project_id is None:
-            self._general_manager(actor)
+            if (
+                permission == "tasks.update"
+                and actor.access
+                and "EMPLOYEE" in actor.access.roles
+                and current.creatorId == actor.actor_id
+            ):
+                pass
+            else:
+                self._general_manager(actor)
             await check_actor(uow, actor)
             if not await uow.projects.lock_task(task_id):
                 raise task_error()
@@ -209,10 +242,17 @@ class TaskService:
     ) -> TaskRecord:
         actor = context.actor
         assert actor is not None
-        authorize(actor, "tasks.update")
+        authorize(actor, "tasks.read")
         values = dict(command.values)
         async with self._factory() as uow:
             current = await self._existing(uow, task_id, actor, "tasks.update")
+            if (
+                current.project_id is None
+                and actor.access
+                and not set(actor.access.roles) & {"ADMIN", "PROJECT_MANAGER"}
+            ):
+                if "employeeIds" in values and values["employeeIds"] != [actor.access.employee_id]:
+                    invalid("INVALID_ASSIGNEES", "Сотрудник может назначить только себя")
             members = (
                 await (
                     self._members(uow, current.project_id, values["employeeIds"])

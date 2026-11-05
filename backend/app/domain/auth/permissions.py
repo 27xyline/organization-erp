@@ -294,7 +294,6 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         "reports.read",
         "reports.export",
         "projects.read",
-        "projects.create",
         "projects.update",
         "projects.delete",
         "projectMembers.read",
