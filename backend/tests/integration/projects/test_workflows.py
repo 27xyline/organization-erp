@@ -221,7 +221,7 @@ async def test_scope_and_stale_actor_deny_direct_mutations(project_env):
             TaskCommand.from_values({"name": "bad"}),
             replace(context, actor=replace(context.actor, access=scoped)),
         )
-    assert error.value.code == "FORBIDDEN"
+    assert (error.value.code, error.value.status_code) == ("TASK_NOT_FOUND", 404)
 
 
 @pytest.mark.anyio

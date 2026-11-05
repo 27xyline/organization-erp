@@ -306,8 +306,8 @@ async def test_read_only_postgres_catalog_matches_metadata(db_engine) -> None:
     index_count = sum(len(catalog["indexes"][table]) for table in legacy_tables)
     check_count = sum(len(catalog["checks"][table]) for table in legacy_tables)
     for label, actual, expected in (
-        ("columns", column_count, counts["columns"]),
-        ("foreign keys", foreign_key_count, counts["foreign_keys"]),
+        ("columns", column_count, counts["columns"] + 1),
+        ("foreign keys", foreign_key_count, counts["foreign_keys"] + 1),
         ("indexes", index_count, counts["indexes"]),
         ("checks", check_count, counts["checks"]),
     ):

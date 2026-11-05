@@ -99,7 +99,7 @@ class TaskService:
         if not manager and ("EMPLOYEE" not in actor.access.roles or not actor.access.employee_id):
             raise DomainError("FORBIDDEN", "Недостаточно прав", 403)
         values = dict(command.values)
-        if not manager and values.get("employeeIds") != [actor.access.employee_id]:
+        if not manager and tuple(values.get("employeeIds", ())) != (actor.access.employee_id,):
             invalid("INVALID_ASSIGNEES", "Сотрудник может назначить только себя")
         values["creatorId"] = actor.actor_id
         if values.get("level", 1) != 1 or values.get("parentId") or values.get("predecessorIds"):
@@ -257,7 +257,9 @@ class TaskService:
                 and actor.access
                 and not set(actor.access.roles) & {"ADMIN", "PROJECT_MANAGER"}
             ):
-                if "employeeIds" in values and values["employeeIds"] != [actor.access.employee_id]:
+                if "employeeIds" in values and tuple(values["employeeIds"]) != (
+                    actor.access.employee_id,
+                ):
                     invalid("INVALID_ASSIGNEES", "Сотрудник может назначить только себя")
             members = (
                 await (

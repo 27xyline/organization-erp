@@ -171,3 +171,62 @@ def test_timekeeping_entry_hides_unassigned_task_reference():
     entry = _visible_entry_values(row, {"visible"})
     assert entry["taskId"] is None and entry["task"] is None
     assert _visible_entry_values(row, {"hidden"})["task"]["name"] == "Secret"
+
+
+@pytest.mark.anyio
+async def test_employee_can_create_and_update_general_task_with_self_assignment(monkeypatch):
+    from app.core.context import Actor, RequestContext
+    from app.domain.errors import DomainError
+    from app.domain.ports.projects import GeneralAssignee
+    from app.services.dto.projects import TaskCommand
+    from app.services.tasks import TaskService
+
+    access = AccessContext("u", "e", None, (), (ScopeGrant("1", "EMPLOYEE", "SELF", "SELF"),))
+    actor = Actor("u", is_authenticated=True, employee_id="e", access=access)
+    current = TaskRecord(id="t", projectId=None, name="Own", level=1, creatorId="u")
+
+    class Repository:
+        async def task(self, identifier):
+            return current
+
+        async def lock_task(self, identifier):
+            return True
+
+        async def general_assignees(self, identifiers, task_id=None):
+            return tuple(
+                GeneralAssignee(None, identifier, "Employee") for identifier in identifiers
+            )
+
+        async def create_task(self, project_id, values, members):
+            return current
+
+        async def update_task(self, identifier, values, members):
+            return current
+
+    class UnitOfWork:
+        projects = Repository()
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def commit(self):
+            pass
+
+    async def no_op(*args):
+        pass
+
+    monkeypatch.setattr("app.services.tasks.check_actor", no_op)
+    monkeypatch.setattr("app.services.tasks.audit", no_op)
+    service = TaskService(lambda: UnitOfWork())
+    context = RequestContext("r", actor=actor)
+    own = TaskCommand.from_values({"name": "Own", "employeeIds": ["e"]})
+    assert (await service.create_general(own, context)).id == "t"
+    assert (await service.update("t", own, context)).id == "t"
+    other = TaskCommand.from_values({"name": "Wrong", "employeeIds": ["other"]})
+    with pytest.raises(DomainError, match="только себя"):
+        await service.create_general(other, context)
+    with pytest.raises(DomainError, match="только себя"):
+        await service.update("t", other, context)
