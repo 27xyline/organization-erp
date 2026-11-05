@@ -195,7 +195,19 @@ uv run ruff format --check .
 uv run mypy app
 ```
 
-Pre-commit в репозитории не настроен; CI запускает эти проверки напрямую.
+Для установки проверок перед коммитом из корня репозитория выполните:
+
+```sh
+uv sync --project backend --frozen
+uv run --project backend --frozen pre-commit install
+```
+
+При изменении Python-файлов или настроек backend pre-commit запускает проверки Ruff
+для соответствующей части проекта целиком, как в CI.
+При изменении frontend запускаются ESLint и проверка типов; для них сначала выполните
+`npm ci` в каталоге `frontend`. Для ручной проверки всех файлов используйте
+`uv run --project backend --frozen pre-commit run --all-files` из корня репозитория.
+Остальные проверки, включая тесты, выполняются в CI.
 
 ## Основные переменные окружения
 

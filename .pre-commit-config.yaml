@@ -1,0 +1,39 @@
+repos:
+  - repo: local
+    hooks:
+      - id: backend-ruff-check
+        name: Backend Ruff lint
+        entry: bash -c 'cd backend && uv run --frozen ruff check .'
+        language: system
+        files: ^backend/(.*\.pyi?|pyproject\.toml|uv\.lock)$
+        pass_filenames: false
+      - id: backend-ruff-format
+        name: Backend Ruff format
+        entry: bash -c 'cd backend && uv run --frozen ruff format --check .'
+        language: system
+        files: ^backend/(.*\.pyi?|pyproject\.toml|uv\.lock)$
+        pass_filenames: false
+      - id: backup-ruff-check
+        name: Backup Ruff lint
+        entry: uv run --project backend --frozen ruff check --config backend/pyproject.toml ops/backup
+        language: system
+        files: ^(ops/backup/.*\.pyi?|backend/(pyproject\.toml|uv\.lock))$
+        pass_filenames: false
+      - id: backup-ruff-format
+        name: Backup Ruff format
+        entry: uv run --project backend --frozen ruff format --check --config backend/pyproject.toml ops/backup
+        language: system
+        files: ^(ops/backup/.*\.pyi?|backend/(pyproject\.toml|uv\.lock))$
+        pass_filenames: false
+      - id: frontend-lint
+        name: Frontend lint
+        entry: npm --prefix frontend run lint
+        language: system
+        files: ^frontend/
+        pass_filenames: false
+      - id: frontend-typecheck
+        name: Frontend typecheck
+        entry: npm --prefix frontend run typecheck
+        language: system
+        files: ^frontend/
+        pass_filenames: false
