@@ -59,7 +59,7 @@ const staticMenuItems: Omit<MenuItem, 'children'>[] = [
   },
   {
     id: "projects",
-    label: "Проекты",
+    label: "Рабочие процессы",
     icon: <Briefcase className="h-5 w-5" />,
   },
   {
@@ -128,7 +128,7 @@ export function FinderSidebar({ currentUser }: {
   const [expandedItems, setExpandedItems] = useState<string[]>(() => {
     if (pathname === '/login') return []
     const itemsToExpand: string[] = []
-    if (pathname.startsWith('/projects')) itemsToExpand.push('projects')
+    if (pathname.startsWith('/projects') || pathname.startsWith('/tasks')) itemsToExpand.push('projects')
     if (pathname.startsWith('/finance')) itemsToExpand.push('finance')
     if (pathname.startsWith('/employees') || pathname.startsWith('/mols')) itemsToExpand.push('employees')
     if (pathname === '/' || pathname.startsWith('/reports')) itemsToExpand.push('overview')
@@ -143,7 +143,7 @@ export function FinderSidebar({ currentUser }: {
       setExpandedItems([])
     } else {
       const itemsToExpand: string[] = []
-      if (pathname.startsWith('/projects')) itemsToExpand.push('projects')
+      if (pathname.startsWith('/projects') || pathname.startsWith('/tasks')) itemsToExpand.push('projects')
       if (pathname.startsWith('/finance')) itemsToExpand.push('finance')
       if (pathname.startsWith('/employees') || pathname.startsWith('/mols')) itemsToExpand.push('employees')
       if (pathname === '/' || pathname.startsWith('/reports')) itemsToExpand.push('overview')
@@ -234,7 +234,10 @@ export function FinderSidebar({ currentUser }: {
             : []),
         ]
       case 'projects':
-        return permissionSet.has('projects.read') ? projectChildren : []
+        return [
+          ...(permissionSet.has('projects.read') ? projectChildren : []),
+          ...(permissionSet.has('tasks.read') ? [{ id: 'tasks', label: 'Задачи', icon: <ClipboardCheck className="h-4 w-4" />, href: '/tasks' }] : []),
+        ]
       case 'finance':
         return financeChildren.filter((child) =>
           child.id === 'payroll'
@@ -279,7 +282,7 @@ export function FinderSidebar({ currentUser }: {
     const isExpanded = expandedItems.includes(item.id)
     const children = getMenuChildren(item.id)
     const hasChildren = children.length > 0
-    const isItemActive = item.id === 'projects' ? isActive('/projects') : item.id === 'employees' ? isActive('/employees') || isActive('/mols') : false
+    const isItemActive = item.id === 'projects' ? isActive('/projects') || isActive('/tasks') : item.id === 'employees' ? isActive('/employees') || isActive('/mols') : false
     const isChildActive = children.some(child => isActive(child.href))
     const shouldHighlightParent = isItemActive && !isChildActive
 
