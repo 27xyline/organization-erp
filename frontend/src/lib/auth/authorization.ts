@@ -97,7 +97,7 @@ export function buildAccessContext(
     assignmentId: assignment.id,
     role: assignment.role,
     departmentScopeMode: assignment.departmentScopeMode,
-    projectScopeMode: assignment.projectScopeMode,
+    projectScopeMode: assignment.role === 'PROJECT_MANAGER' && assignment.projectScopeMode === 'ALL' ? 'ASSIGNED' : assignment.projectScopeMode,
     departmentIds: assignment.departmentScopeMode === 'ASSIGNED'
       ? expandDescendants(
           assignment.departmentScopes.map((scope) => scope.departmentId),
@@ -148,9 +148,9 @@ export async function requireUser(): Promise<CurrentUser> {
       assignmentId: grant.assignmentId,
       role: grant.role as AppRole,
       departmentScopeMode: grant.departmentScopeMode as ScopeMode,
-      projectScopeMode: grant.projectScopeMode as ScopeMode,
+      projectScopeMode: grant.role === 'PROJECT_MANAGER' && grant.projectScopeMode === 'ALL' ? 'ASSIGNED' : grant.projectScopeMode as ScopeMode,
       departmentIds: grant.departmentIds,
-      projectIds: grant.projectIds,
+      projectIds: grant.role === 'PROJECT_MANAGER' && grant.projectScopeMode === 'ALL' ? [] : grant.projectIds,
     }))
     return {
       id: actor.id,

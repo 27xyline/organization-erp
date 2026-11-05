@@ -83,7 +83,8 @@ function allowedDepartmentModes(role: AppRole): ScopeMode[] {
 function allowedProjectModes(role: AppRole): ScopeMode[] {
   if (['ADMIN', 'AUDITOR'].includes(role)) return ['ALL']
   if (role === 'EMPLOYEE') return ['SELF']
-  if (['ACCOUNTANT', 'PROJECT_MANAGER', 'DEPARTMENT_HEAD'].includes(role)) {
+  if (role === 'PROJECT_MANAGER') return ['ASSIGNED']
+  if (['ACCOUNTANT', 'DEPARTMENT_HEAD'].includes(role)) {
     return ['ASSIGNED', 'ALL']
   }
   return ['NONE']

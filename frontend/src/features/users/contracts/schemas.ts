@@ -11,6 +11,9 @@ const assignmentSchema = z.object({
   departmentIds: z.array(z.string().min(1)).default([]),
   projectIds: z.array(z.string().min(1)).default([]),
 }).superRefine((assignment, context) => {
+  if (assignment.role === 'PROJECT_MANAGER' && assignment.projectScopeMode !== 'ASSIGNED') {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['projectScopeMode'], message: 'Выберите конкретные проекты' })
+  }
   if (assignment.departmentScopeMode === 'ASSIGNED' && assignment.departmentIds.length === 0) {
     context.addIssue({
       code: z.ZodIssueCode.custom,

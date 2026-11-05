@@ -111,3 +111,15 @@ it('prevents switching forms while a save is pending', async () => {
   await act(async () => resolveSave(Response.json({ data: {} })))
   await act(async () => root.unmount()); vi.unstubAllGlobals()
 })
+
+it('показывает источник общей и проектной задачи', async () => {
+  const container = document.createElement('div')
+  const root = createRoot(container)
+  await act(async () => root.render(<SharedTasksBoard tasks={[
+    { id: 'a', name: 'Первая', status: 'NOT_STARTED', isGeneral: true, canReadProject: false },
+    { id: 'b', name: 'Вторая', status: 'NOT_STARTED', isGeneral: false, projectName: 'Проект Альфа', canReadProject: false },
+  ]} canManage={false} projects={[]} assignees={[]} />))
+  expect(container.textContent).toContain('Общая')
+  expect(container.textContent).toContain('Проект Альфа')
+  await act(async () => root.unmount())
+})

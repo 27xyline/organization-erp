@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   catch (error) { return backendUnavailableResponse(error, auth.requestId) }
 }
 export async function POST(request: NextRequest) {
-  const auth = await authorizeApiRequest(request, 'tasks.create')
+  const auth = await authorizeApiRequest(request, 'tasks.read')
   if (auth.response) return auth.response
   let body: unknown
   try { body = await request.clone().json() }

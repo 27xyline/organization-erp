@@ -318,7 +318,6 @@ export const ROLE_PERMISSIONS: Record<AppRole, ReadonlySet<Permission>> = {
     'reports.read',
     'reports.export',
     'projects.read',
-    'projects.create',
     'projects.update',
     'projects.delete',
     'projectMembers.read',
