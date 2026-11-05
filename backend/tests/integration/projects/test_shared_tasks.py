@@ -545,6 +545,43 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
                 item for item in pm_month.json()["data"]["entries"] if item["id"] == historical_id
             )
             assert pm_old["taskId"] is None and pm_old["task"] is None
+            # HR and accounting retain the task references used by timekeeping.
+            for role in ("HR", "ACCOUNTANT"):
+                role_access = replace(
+                    access, grants=(ScopeGrant(employee_user, role, "ALL", "NONE"),)
+                )
+                current = replace(context, actor=replace(actor, access=role_access))
+                role_month = await client.get(
+                    "/api/time-entries", params={"year": 2040, "month": 3}
+                )
+                assert role_month.status_code == 200
+                role_old = next(
+                    item
+                    for item in role_month.json()["data"]["entries"]
+                    if item["id"] == historical_id
+                )
+                assert (
+                    role_old["taskId"] == hidden_id
+                    and role_old["task"]["name"] == "Hidden sentinel"
+                )
+                project_option = next(
+                    item
+                    for item in role_month.json()["data"]["projects"]
+                    if item["id"] == project.id
+                )
+                assert hidden_id in {item["id"] for item in project_option["tasksList"]}
+                if role == "HR":
+                    hr_post = await client.post(
+                        "/api/time-entries", json={**entry_data, "taskId": hidden_id}
+                    )
+                    assert hr_post.status_code == 201, hr_post.text
+                    assert hr_post.json()["data"]["taskId"] == hidden_id
+                    hr_put = await client.put(
+                        f"/api/time-entries/{entry_id}", json={"taskId": hidden_id}
+                    )
+                    assert hr_put.status_code == 200, hr_put.text
+                    assert hr_put.json()["data"]["task"]["name"] == "Hidden sentinel"
+
             current = replace(context, actor=replace(actor, access=member_access))
             async with sessions() as session:
                 from datetime import datetime

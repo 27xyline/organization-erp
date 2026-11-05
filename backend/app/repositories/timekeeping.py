@@ -5,7 +5,7 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import and_, exists, func, or_, select
+from sqlalchemy import and_, exists, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.sql.elements import ColumnElement
@@ -26,8 +26,12 @@ class SqlAlchemyTimekeepingRepository:
     def __init__(self, session: Callable[[], AsyncSession]) -> None:
         self._session = session
 
-    async def get_entry(self, identifier: str, *, for_update: bool = False) -> TimeEntry | None:
+    async def get_entry(
+        self, identifier: str, *, for_update: bool = False, populate_existing: bool = False
+    ) -> TimeEntry | None:
         query = select(TimeEntry).where(TimeEntry.id == identifier)
+        if populate_existing:
+            query = query.execution_options(populate_existing=True)
         query = query.options(
             selectinload(TimeEntry.employee).selectinload(Employee.staffSchedule),
             selectinload(TimeEntry.project),
@@ -86,7 +90,9 @@ class SqlAlchemyTimekeepingRepository:
             tasks = await session.execute(
                 select(Task.id, Task.name)
                 .where(Task.projectId == project.id)
-                .where(task_visibility(access))
+                .where(
+                    true() if set(access.roles) & {"HR", "ACCOUNTANT"} else task_visibility(access)
+                )
                 .order_by(Task.level, Task.name)
             )
             output.append(
@@ -100,6 +106,9 @@ class SqlAlchemyTimekeepingRepository:
         return output
 
     async def visible_task_ids(self, access: AccessContext, ids: tuple[str, ...]) -> set[str]:
+        if set(access.roles) & {"HR", "ACCOUNTANT"}:
+            rows = await self._session().scalars(select(Task.id).where(Task.id.in_(ids)))
+            return set(rows.all())
         common: ColumnElement[bool] = Task.projectId.is_(None)
         if not set(access.roles) & {"ADMIN", "PROJECT_MANAGER", "EMPLOYEE"}:
             common = and_(
@@ -257,7 +266,7 @@ class SqlAlchemyTimekeepingRepository:
         await session.flush()
         # Сервис формирует публичный JSON-контракт после фиксации UoW;
         # предварительно загрузить все связи, пока активна AsyncSession.
-        refreshed = await self.get_entry(row.id)
+        refreshed = await self.get_entry(row.id, populate_existing=True)
         assert refreshed is not None
         return refreshed
 
