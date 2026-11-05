@@ -33,7 +33,7 @@ class AuthService:
         self, username: str, password: str
     ) -> CredentialResult | None:
         username = username.strip().lower()
-        if not 1 <= len(username) <= 100 or not 1 <= len(password) <= 512:
+        if not 1 <= len(username) <= 100 or not password:
             return None
         async with self._uow_factory() as uow:
             user = await uow.users.by_username_for_update(username)

@@ -63,7 +63,7 @@ class CreateUserInput(UserFields):
     name: str
     employeeId: str | None = Field(default=None, min_length=1)
     assignments: list[AssignmentInput]
-    temporaryPassword: str = Field(min_length=7, max_length=512)
+    temporaryPassword: str = Field(min_length=1)
 
     @field_validator("username")
     @classmethod
@@ -85,7 +85,7 @@ class UpdateUserInput(UserFields):
     employeeId: str | None = Field(default=None, min_length=1)
     assignments: list[AssignmentInput] | None = None
     isActive: bool | None = None
-    temporaryPassword: str | None = Field(default=None, min_length=7, max_length=512)
+    temporaryPassword: str | None = Field(default=None, min_length=1)
 
     @model_validator(mode="after")
     def changes(self) -> Self:
@@ -105,8 +105,8 @@ class UpdateUserInput(UserFields):
 
 class ChangePasswordInput(BaseModel):
     model_config = ConfigDict(strict=True)
-    currentPassword: str = Field(min_length=1, max_length=512)
-    newPassword: str = Field(min_length=7, max_length=512)
+    currentPassword: str = Field(min_length=1)
+    newPassword: str = Field(min_length=1)
 
     @model_validator(mode="after")
     def differs(self) -> Self:

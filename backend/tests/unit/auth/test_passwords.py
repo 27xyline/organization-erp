@@ -1,6 +1,9 @@
 import pytest
+from pydantic import ValidationError
 
 from app.integrations.password_hash import Argon2PasswordHasher
+from app.schemas.auth import CredentialsInput
+from app.schemas.users import ChangePasswordInput, CreateUserInput, UpdateUserInput
 from app.services.auth import DUMMY_PASSWORD_HASH
 
 
@@ -19,3 +22,37 @@ async def test_node_phc_dummy_and_round_trip_hash():
     assert await passwords.verify(encoded, "password-test")
     assert not await passwords.verify(encoded, "wrong")
     assert not await passwords.verify("malformed", "anything")
+
+
+@pytest.mark.parametrize("password", ["x", "x" * 513, " "])
+@pytest.mark.anyio
+async def test_password_lengths_are_supported_across_schemas_and_hashing(password):
+    assignment = {
+        "role": "ADMIN",
+        "departmentScopeMode": "ALL",
+        "projectScopeMode": "ALL",
+        "departmentIds": [],
+        "projectIds": [],
+    }
+    assert CredentialsInput(username="user", password=password).password == password
+    assert (
+        CreateUserInput(
+            username="user", name="User", assignments=[assignment], temporaryPassword=password
+        ).temporaryPassword
+        == password
+    )
+    assert UpdateUserInput(temporaryPassword=password).temporaryPassword == password
+    assert ChangePasswordInput(currentPassword=password, newPassword=password + "x")
+    hasher = Argon2PasswordHasher()
+    encoded = await hasher.hash(password)
+    assert await hasher.verify(encoded, password)
+    assert not await hasher.verify(encoded, password + "x")
+
+
+def test_passwords_cannot_be_empty():
+    with pytest.raises(ValidationError):
+        CredentialsInput(username="user", password="")
+    with pytest.raises(ValidationError):
+        UpdateUserInput(temporaryPassword="")
+    with pytest.raises(ValidationError):
+        ChangePasswordInput(currentPassword="x", newPassword="")

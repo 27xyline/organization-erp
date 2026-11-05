@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createUserSchema } from './schemas'
+import { changePasswordSchema, createUserSchema, updateUserSchema } from './schemas'
 
 const base = {
   username: 'employee.user',
@@ -82,5 +82,19 @@ describe('scoped user schemas', () => {
         projectIds: [],
       }],
     }).success).toBe(false)
+  })
+})
+
+describe('password lengths', () => {
+  it.each(['x', 'x'.repeat(513), ' '])('accepts nonempty passwords in user and password changes', (password) => {
+    const assignments = [{ role: 'AUDITOR', departmentScopeMode: 'ALL', projectScopeMode: 'ALL', departmentIds: [], projectIds: [] }]
+    expect(createUserSchema.safeParse({ ...base, assignments, temporaryPassword: password }).success).toBe(true)
+    expect(updateUserSchema.safeParse({ temporaryPassword: password }).success).toBe(true)
+    expect(changePasswordSchema.safeParse({ currentPassword: password, newPassword: `${password}x` }).success).toBe(true)
+  })
+
+  it('rejects empty passwords', () => {
+    expect(updateUserSchema.safeParse({ temporaryPassword: '' }).success).toBe(false)
+    expect(changePasswordSchema.safeParse({ currentPassword: 'x', newPassword: '' }).success).toBe(false)
   })
 })

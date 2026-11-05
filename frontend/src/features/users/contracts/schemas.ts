@@ -69,8 +69,7 @@ const usernameSchema = z
 
 const passwordSchema = z
   .string()
-  .min(7, 'Пароль должен содержать минимум 7 символов')
-  .max(512)
+  .min(1, 'Введите пароль')
 
 export const createUserSchema = z.object({
   username: usernameSchema,
@@ -114,7 +113,7 @@ export const updateUserSchema = z
 
 export const changePasswordSchema = z
   .object({
-    currentPassword: z.string().min(1).max(512),
+    currentPassword: passwordSchema,
     newPassword: passwordSchema,
   })
   .refine((value) => value.currentPassword !== value.newPassword, {
