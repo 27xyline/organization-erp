@@ -196,6 +196,64 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
                     f"/api/tasks/{project_task.json()['data']['id']}", json={"name": "Denied"}
                 )
             ).status_code == 403
+            # Назначенный менеджер без доступа к проекту не должен блокировать строки.
+            manager_access = AccessContext(
+                prefix,
+                first,
+                prefix,
+                (),
+                (ScopeGrant(prefix, "PROJECT_MANAGER", "NONE", "ASSIGNED"),),
+            )
+            current = replace(
+                context,
+                actor=Actor(
+                    prefix,
+                    is_authenticated=True,
+                    employee_id=first,
+                    session_version=1,
+                    access=manager_access,
+                ),
+            )
+            denied_locks = []
+
+            def capture_manager_locks(conn, cursor, statement, parameters, context, executemany):
+                sql = statement.lower()
+                if "for update" in sql and ("from tasks" in sql or "from projects" in sql):
+                    denied_locks.append(statement)
+
+            event.listen(
+                sessions.kw["bind"].sync_engine, "before_cursor_execute", capture_manager_locks
+            )
+            try:
+                denied_status = await client.patch(
+                    f"/api/tasks/{project_task.json()['data']['id']}/status",
+                    json={"status": "IN_PROGRESS"},
+                )
+            finally:
+                event.remove(
+                    sessions.kw["bind"].sync_engine, "before_cursor_execute", capture_manager_locks
+                )
+            assert denied_status.status_code == 403
+            assert denied_locks == []
+
+            manager_access = AccessContext(
+                prefix,
+                first,
+                prefix,
+                (),
+                (
+                    ScopeGrant(
+                        prefix, "PROJECT_MANAGER", "NONE", "ASSIGNED", project_ids=(project.id,)
+                    ),
+                ),
+            )
+            current = replace(context, actor=replace(current.actor, access=manager_access))
+            assert (
+                await client.patch(
+                    f"/api/tasks/{project_task.json()['data']['id']}/status",
+                    json={"status": "IN_PROGRESS"},
+                )
+            ).status_code == 200
             access = AccessContext(
                 prefix, first, prefix, (), (ScopeGrant(prefix, "EMPLOYEE", "SELF", "SELF"),)
             )

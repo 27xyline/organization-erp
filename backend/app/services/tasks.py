@@ -122,6 +122,11 @@ class TaskService:
             current = await uow.projects.task(task_id)
             if current is None:
                 raise task_error()
+            if "EMPLOYEE" not in roles:
+                if current.project_id:
+                    authorize(actor, "tasks.update", {"projectId": current.project_id})
+                else:
+                    self._general_manager(actor)
             if current.project_id:
                 if not await uow.projects.lock(current.project_id):
                     raise task_error()
@@ -129,11 +134,6 @@ class TaskService:
                 raise task_error()
             if not await uow.projects.task_assigned(task_id, employee_id):
                 raise task_error()
-            if "EMPLOYEE" not in roles:
-                if current.project_id:
-                    authorize(actor, "tasks.update", {"projectId": current.project_id})
-                else:
-                    self._general_manager(actor)
             result = await uow.projects.update_task_status(task_id, status)
             await audit(
                 uow, context, "TASK_UPDATE", "Task", task_id, {"projectId": current.project_id}
