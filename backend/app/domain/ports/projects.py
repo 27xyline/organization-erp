@@ -176,6 +176,7 @@ class TaskRecord:
     level: int
     creatorId: str | None = None
     projectName: str | None = None
+    projectCode: str | None = None
     description: str | None = None
     priority: str = "MEDIUM"
     risk: str = "LOW"
@@ -213,6 +214,7 @@ class TaskRecord:
     def values(self) -> dict[str, Any]:
         result = asdict(self)
         result.pop("creatorId", None)
+        result.pop("projectCode", None)
         for key in ("assignees", "predecessors", "checklist", "comments", "children"):
             value = getattr(self, key)
             if value is None:

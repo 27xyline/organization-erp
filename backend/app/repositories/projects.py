@@ -356,7 +356,7 @@ class SqlAlchemyProjectRepository:
             )
         )
         query = select(
-            Task, assigned.label("assigned"), Project.name.label("project_name")
+            Task, assigned.label("assigned"), Project.code.label("project_code")
         ).outerjoin(Project, Project.id == Task.projectId)
         if not all_tasks:
             query = query.where(
@@ -382,9 +382,9 @@ class SqlAlchemyProjectRepository:
                     {"employeeId": employee, "fullName": name, "active": status == "ACTIVE"}
                 )
         result = []
-        for row, is_assigned, project_name in rows:
+        for row, is_assigned, project_code in rows:
             data = serial(row)
-            data["projectName"] = project_name
+            data["projectCode"] = project_code
             if row.projectId is None:
                 data["assignees"] = assignees.get(row.id, [])
             result.append((TaskRecord.from_values(data), bool(is_assigned)))

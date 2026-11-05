@@ -12,7 +12,7 @@ type Status = typeof statuses[number][0]
 export type Reference = { id: string; fullName: string }
 export type InboxTask = {
   id: string; name: string; status: Status; projectId?: string | null; isGeneral?: boolean; isAssignedToMe?: boolean; canReadProject: boolean
-  projectName?: string | null; canEdit?: boolean; canManageProject?: boolean; description?: string | null; priority?: string; risk?: string
+  projectCode?: string | null; canEdit?: boolean; canManageProject?: boolean; description?: string | null; priority?: string; risk?: string
   startDate?: string | null; endDate?: string | null; progress?: number
   assignees?: Array<{ employeeId: string; fullName: string; active?: boolean }>
 }
@@ -89,7 +89,7 @@ export function SharedTasksBoard({ tasks, canManage, projects, assignees, employ
       <div className="flex gap-2 md:col-span-2"><button disabled={busy} className="rounded bg-primary px-3 py-2 text-primary-foreground">Сохранить</button><button disabled={busy} type="button" onClick={() => { memberRequest.current++; setCreating(false); setEditing(null) }}>Отмена</button></div>
     </form>}
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{statuses.map(([status, label]) => <section key={status} className="min-h-40 rounded-lg bg-muted/50 p-3" onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); const task = tasks.find((item) => item.id === dragged); if (task) void changeStatus(task, status); setDragged(null) }}><h2 className="mb-3 font-semibold">{label}</h2>
-      <div className="space-y-3">{tasks.filter((task) => task.status === status).map((task) => <article key={task.id} draggable={!busy && canChange(task)} onDragStart={() => setDragged(task.id)} onDragEnd={() => setDragged(null)} className="rounded-md border bg-background p-3 shadow-sm"><h3 className="font-medium">{task.name}</h3><p className="text-xs text-muted-foreground">{(task.isGeneral ?? task.projectId === null) ? 'Общая' : task.projectName}</p><p className="mt-1 text-sm text-muted-foreground">{task.assignees?.map((a) => a.fullName).join(', ') || ''}</p>
+      <div className="space-y-3">{tasks.filter((task) => task.status === status).map((task) => <article key={task.id} draggable={!busy && canChange(task)} onDragStart={() => setDragged(task.id)} onDragEnd={() => setDragged(null)} className="rounded-md border bg-background p-3 shadow-sm"><h3 className="font-medium">{task.name}</h3><p className="text-xs text-muted-foreground">{(task.isGeneral ?? task.projectId === null) ? 'Общая' : task.projectCode}</p><p className="mt-1 text-sm text-muted-foreground">{task.assignees?.map((a) => a.fullName).join(', ') || ''}</p>
         {task.projectId && task.canReadProject && <Link href={`/projects/${task.projectId}`} className="text-sm underline">Открыть проект</Link>}
         {canChange(task) && <label className="mt-2 block text-sm">Статус<select aria-label={`Статус: ${task.name}`} value={task.status} disabled={busy} onChange={(e) => void changeStatus(task, e.target.value as Status)} className="block w-full rounded border p-1">{statuses.map(([key, text]) => <option key={key} value={key}>{text}</option>)}</select></label>}
         {(canManage || task.canEdit) && (task.isGeneral ?? task.projectId === null) && <div className="mt-2 flex gap-3 text-sm"><button disabled={busy} onClick={() => openEdit(task)}>Изменить</button>{canManage && <button disabled={busy} onClick={() => { if (window.confirm('Удалить задачу?')) void send(`/api/tasks/${encodeURIComponent(task.id)}`, 'DELETE') }}>Удалить</button>}</div>}

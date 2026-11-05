@@ -319,12 +319,13 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
                 t for t in listing.json()["data"] if t["id"] == project_task.json()["data"]["id"]
             )
             assert project_summary["canReadProject"] is False
+            assert project_summary["projectCode"] == project.code
             assert set(project_summary) <= {
                 "id",
                 "name",
                 "status",
                 "isGeneral",
-                "projectName",
+                "projectCode",
                 "isAssignedToMe",
                 "canReadProject",
             }

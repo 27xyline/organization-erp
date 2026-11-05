@@ -59,7 +59,7 @@ class TaskService:
                     "name": task.name,
                     "status": task.status,
                     "isGeneral": task.projectId is None,
-                    "projectName": task.projectName,
+                    "projectCode": task.projectCode,
                     "isAssignedToMe": assigned,
                     "canReadProject": can_read_project,
                 }

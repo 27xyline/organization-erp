@@ -9,7 +9,6 @@ interface AppLayoutProps {
     name: string
     roles: AppRole[]
     permissions: Permission[]
-    accessKey: string
   }
 }
 

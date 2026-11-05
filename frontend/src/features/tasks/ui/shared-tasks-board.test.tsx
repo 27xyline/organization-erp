@@ -117,9 +117,9 @@ it('показывает источник общей и проектной за�
   const root = createRoot(container)
   await act(async () => root.render(<SharedTasksBoard tasks={[
     { id: 'a', name: 'Первая', status: 'NOT_STARTED', isGeneral: true, canReadProject: false },
-    { id: 'b', name: 'Вторая', status: 'NOT_STARTED', isGeneral: false, projectName: 'Проект Альфа', canReadProject: false },
+    { id: 'b', name: 'Вторая', status: 'NOT_STARTED', isGeneral: false, projectCode: 'ERP-001', canReadProject: false },
   ]} canManage={false} projects={[]} assignees={[]} />))
   expect(container.textContent).toContain('Общая')
-  expect(container.textContent).toContain('Проект Альфа')
+  expect(container.textContent).toContain('ERP-001')
   await act(async () => root.unmount())
 })

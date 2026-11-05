@@ -9,11 +9,27 @@ describe('workflows navigation', () => {
   it('groups tasks and projects and keeps their separate permissions', async () => {
     const container = document.createElement('div')
     const root = createRoot(container)
-    await act(async () => root.render(<FinderSidebar currentUser={{ name: 'User', roles: ['EMPLOYEE'], permissions: ['tasks.read'], accessKey: 'a' }} />))
+    await act(async () => root.render(<FinderSidebar currentUser={{ name: 'User', roles: ['EMPLOYEE'], permissions: ['tasks.read'] }} />))
     expect(container.textContent).toContain('Рабочие процессы')
     expect(container.querySelector('a[href="/tasks"]')).not.toBeNull()
     expect(container.querySelector('a[href="/projects"]')).toBeNull()
     await act(async () => root.unmount())
+  })
+
+  it('shows only projects and tasks in the workflows menu', async () => {
+    const fetchProjects = vi.fn(async () => Response.json({ data: [{ id: 'project-1', name: 'Проект' }] }))
+    vi.stubGlobal('fetch', fetchProjects)
+    const container = document.createElement('div')
+    const root = createRoot(container)
+    await act(async () => root.render(<FinderSidebar currentUser={{ name: 'User', roles: ['ADMIN'], permissions: ['projects.read', 'tasks.read'] }} />))
+    const links = [...container.querySelectorAll<HTMLAnchorElement>('a[href^="/projects"], a[href="/tasks"]')]
+    expect(links.map((link) => [link.getAttribute('href'), link.textContent])).toEqual([
+      ['/projects', 'Проекты'],
+      ['/tasks', 'Задачи'],
+    ])
+    expect(fetchProjects).not.toHaveBeenCalled()
+    await act(async () => root.unmount())
+    vi.unstubAllGlobals()
   })
 })
 
