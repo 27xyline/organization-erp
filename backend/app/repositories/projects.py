@@ -9,7 +9,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import delete, exists, func, or_, select
+from sqlalchemy import delete, exists, func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -40,6 +40,7 @@ from app.models.projects import (
 from app.models.users import AuditLog, UserProjectScope
 from app.repositories.departments import _flush
 from app.repositories.employees import columns, employee_loads
+from app.repositories.task_visibility import task_visibility
 
 
 def decimal_string(value: Decimal) -> str:
@@ -110,6 +111,7 @@ class SqlAlchemyProjectRepository:
         status: str | None,
         allowed_ids: tuple[str, ...] | None,
         references: bool = False,
+        access: AccessContext | None = None,
     ) -> ProjectPage:
         query = select(Project)
         if allowed_ids is not None:
@@ -141,6 +143,7 @@ class SqlAlchemyProjectRepository:
                 await self._session().execute(
                     select(Task.projectId, func.count())
                     .where(Task.projectId.in_([r.id for r in rows]))
+                    .where(task_visibility(access) if access else true())
                     .group_by(Task.projectId)
                 )
             ).all()
@@ -205,22 +208,33 @@ class SqlAlchemyProjectRepository:
         return TaskRecord.from_values(serial(row)) if row else None
 
     async def tasks(
-        self, project_id: str | None, shape: str = "list", task_id: str | None = None
+        self,
+        project_id: str | None,
+        shape: str = "list",
+        task_id: str | None = None,
+        visible_ids: tuple[str, ...] | None = None,
     ) -> tuple[TaskRecord, ...]:
         session = self._session()
         rows = (
             await session.scalars(
                 select(Task)
-                .where(Task.projectId == project_id, *([Task.id == task_id] if task_id else []))
+                .where(
+                    Task.projectId == project_id,
+                    *([Task.id == task_id] if task_id else []),
+                    *([Task.id.in_(visible_ids)] if visible_ids is not None else []),
+                )
                 .order_by(Task.createdAt)
             )
         ).all()
+        ids = [row.id for row in rows]
         if shape == "graph":
             return tuple(TaskRecord.from_values(serial(row)) for row in rows)
         if shape == "api":
 
             def simple(row: Task, depth: int = 0) -> dict[str, Any]:
                 value = serial(row)
+                if visible_ids is not None and value["parentId"] not in ids:
+                    value["parentId"] = None
                 if depth < 2:
                     value["children"] = [
                         simple(child, depth + 1) for child in rows if child.parentId == row.id
@@ -228,7 +242,6 @@ class SqlAlchemyProjectRepository:
                 return value
 
             return tuple(TaskRecord.from_values(simple(row)) for row in rows)
-        ids = [row.id for row in rows]
         assignees: dict[str, builtins.list[dict[str, Any]]] = {}
         raw_assignees: dict[str, builtins.list[dict[str, Any]]] = {}
         for item in await session.scalars(
@@ -259,6 +272,7 @@ class SqlAlchemyProjectRepository:
         for dependency in await session.scalars(
             select(TaskDependency)
             .where(TaskDependency.successorId.in_(ids))
+            .where(TaskDependency.predecessorId.in_(ids) if visible_ids is not None else true())
             .options(selectinload(TaskDependency.predecessor))
             .order_by(TaskDependency.createdAt)
         ):
@@ -308,6 +322,8 @@ class SqlAlchemyProjectRepository:
 
         def task_value(row: Task, depth: int = 0, flatten: bool = False) -> dict[str, Any]:
             result = serial(row)
+            if visible_ids is not None and result["parentId"] not in ids:
+                result["parentId"] = None
             if not flatten:
                 result.update(
                     assignees=(raw_assignees if depth > 0 else assignees).get(row.id, []),
@@ -585,13 +601,15 @@ class SqlAlchemyProjectRepository:
         return member_record(row)
 
     async def activity(
-        self, project_id: str, tasks: bool, documents: bool
+        self, project_id: str, tasks: bool, documents: bool, access: AccessContext
     ) -> tuple[ActivityRecord, ...]:
         conditions = [(AuditLog.entityType == "Project") & (AuditLog.entityId == project_id)]
         if tasks:
             conditions.append(
                 (AuditLog.entityType == "Task")
-                & AuditLog.entityId.in_(select(Task.id).where(Task.projectId == project_id))
+                & AuditLog.entityId.in_(
+                    select(Task.id).where(Task.projectId == project_id, task_visibility(access))
+                )
             )
         if documents:
             conditions.append(
@@ -625,20 +643,18 @@ class SqlAlchemyProjectRepository:
             return None
         values = dict(project.values)
         target = {"projectId": project_id}
-        tasks = (
-            await self.tasks(project_id, "detail" if detail else "api")
-            if access.allows("tasks.read", target)
-            else ()
-        )
-        if tasks:
-            from app.domain.projects.task_visibility import visible_project_tasks
-
-            if "ADMIN" not in access.roles and not any(
-                grant.role == "PROJECT_MANAGER"
-                and project_id in (access._ids(grant, "project") or ())
-                for grant in access.grants_for("tasks.read")
-            ):
-                tasks = visible_project_tasks(await self.tasks(project_id), access, project_id)
+        tasks: tuple[TaskRecord, ...] = ()
+        if access.allows("tasks.read", target):
+            visible_ids = tuple(
+                (
+                    await self._session().scalars(
+                        select(Task.id).where(Task.projectId == project_id, task_visibility(access))
+                    )
+                ).all()
+            )
+            tasks = await self.tasks(
+                project_id, "detail" if detail else "api", visible_ids=visible_ids
+            )
         values["tasksList"] = [task.values for task in tasks]
         assets = []
         if access.allows("assets.read", target):

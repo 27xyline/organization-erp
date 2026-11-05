@@ -5,16 +5,18 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.domain.auth.rules import AccessContext
 from app.models.departments import Department
 from app.models.employees import Employee
 from app.models.enums import EmployeeStatus
 from app.models.projects import Project, Task
 from app.models.timekeeping import TimeEntry, Timesheet
 from app.models.users import User, UserDepartmentScope, UserRoleAssignment
+from app.repositories.task_visibility import task_visibility
 
 
 class SqlAlchemyTimekeepingRepository:
@@ -72,7 +74,7 @@ class SqlAlchemyTimekeepingRepository:
         )
         return list(result.all())
 
-    async def project_options(self) -> list[dict[str, Any]]:
+    async def project_options(self, access: AccessContext) -> list[dict[str, Any]]:
         session = self._session()
         result = await session.scalars(
             select(Project).where(Project.status == "ACTIVE").order_by(Project.name)
@@ -83,6 +85,7 @@ class SqlAlchemyTimekeepingRepository:
             tasks = await session.execute(
                 select(Task.id, Task.name)
                 .where(Task.projectId == project.id)
+                .where(task_visibility(access) if "EMPLOYEE" in access.roles else true())
                 .order_by(Task.level, Task.name)
             )
             output.append(
@@ -94,6 +97,14 @@ class SqlAlchemyTimekeepingRepository:
                 }
             )
         return output
+
+    async def visible_task_ids(self, access: AccessContext, ids: tuple[str, ...]) -> set[str]:
+        rows = await self._session().scalars(
+            select(Task.id).where(
+                Task.id.in_(ids), or_(Task.projectId.is_(None), task_visibility(access))
+            )
+        )
+        return set(rows.all())
 
     async def reviewer_for(self, employee_id: str) -> dict[str, Any] | None:
         session = self._session()

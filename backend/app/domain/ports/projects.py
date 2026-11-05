@@ -212,6 +212,7 @@ class TaskRecord:
     @property
     def values(self) -> dict[str, Any]:
         result = asdict(self)
+        result.pop("creatorId", None)
         for key in ("assignees", "predecessors", "checklist", "comments", "children"):
             value = getattr(self, key)
             if value is None:
@@ -274,6 +275,7 @@ class ProjectRepository(Protocol):
         status: str | None,
         allowed_ids: tuple[str, ...] | None,
         references: bool = False,
+        access: AccessContext | None = None,
     ) -> ProjectPage: ...
     async def get(self, project_id: str) -> ProjectRecord | None: ...
     async def create(self, values: dict[str, Any]) -> ProjectRecord: ...
@@ -323,5 +325,5 @@ class ProjectRepository(Protocol):
         self, project_id: str, member_id: str, archived: bool
     ) -> MemberRecord | None: ...
     async def activity(
-        self, project_id: str, tasks: bool, documents: bool
+        self, project_id: str, tasks: bool, documents: bool, access: AccessContext
     ) -> tuple[ActivityRecord, ...]: ...

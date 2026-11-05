@@ -6,13 +6,20 @@ from app.domain.auth.rules import AccessContext
 from app.domain.ports.projects import TaskRecord
 
 
+def full_project_task_access(access: AccessContext, project_id: str) -> bool:
+    for grant in access.grants_for("tasks.read"):
+        if grant.role == "EMPLOYEE":
+            continue
+        ids = access._ids(grant, "project")
+        if ids is None or project_id in ids:
+            return True
+    return False
+
+
 def visible_project_tasks(
     tasks: tuple[TaskRecord, ...], access: AccessContext, project_id: str
 ) -> tuple[TaskRecord, ...]:
-    if "ADMIN" in access.roles or any(
-        grant.role == "PROJECT_MANAGER" and project_id in (access._ids(grant, "project") or ())
-        for grant in access.grants_for("tasks.read")
-    ):
+    if full_project_task_access(access, project_id):
         return tasks
     visible = tuple(
         task

@@ -11,6 +11,7 @@ from app.models.employees import Employee
 from app.models.projects import Project, Task
 from app.repositories.assets import visibility as asset_visibility
 from app.repositories.documents import visibility as document_visibility
+from app.repositories.task_visibility import task_visibility
 
 _PROJECT_STATUS_LABELS = {"ACTIVE": "Активный", "COMPLETED": "Завершен", "ARCHIVED": "Архив"}
 _TASK_STATUS_LABELS = {
@@ -155,7 +156,7 @@ class SqlAlchemySearchRepository:
                         Task.status,
                     )
                     .join(Project, Project.id == Task.projectId)
-                    .where(project_scope(access, "tasks.read"))
+                    .where(task_visibility(access))
                     .where(
                         or_(
                             Task.name.ilike(term),

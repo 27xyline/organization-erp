@@ -14,7 +14,7 @@ from app.domain.projects.task_rules import (
     ensure_valid_task_hierarchy,
     invalid,
 )
-from app.domain.projects.task_visibility import visible_project_tasks
+from app.domain.projects.task_visibility import full_project_task_access, visible_project_tasks
 from app.services.dto.projects import TaskCommand
 from app.services.employees import audit, authorize
 from app.services.projects import check_actor, lock_project, parse_date
@@ -33,17 +33,15 @@ class TaskService:
         assert actor.access is not None
         all_tasks = bool(set(actor.access.roles) & {"ADMIN", "PROJECT_MANAGER"})
         async with self._factory() as uow:
-            is_admin = "ADMIN" in actor.access.roles
-            pm_projects = tuple(
-                {
-                    project
-                    for grant in actor.access.grants_for("tasks.read")
-                    if grant.role == "PROJECT_MANAGER"
-                    for project in (actor.access._ids(grant, "project") or ())
-                }
+            grants = tuple(
+                grant for grant in actor.access.grants_for("tasks.read") if grant.role != "EMPLOYEE"
             )
+            scopes = tuple(actor.access._ids(grant, "project") for grant in grants)
+            project_ids = tuple({project for scope in scopes if scope for project in scope})
             rows = await uow.projects.inbox(
-                actor.access.employee_id if not all_tasks else None, is_admin, pm_projects
+                actor.access.employee_id if not all_tasks else None,
+                any(scope is None for scope in scopes),
+                project_ids,
             )
             result = []
             for task, assigned in rows:
@@ -229,6 +227,14 @@ class TaskService:
             if not await uow.projects.lock_task(task_id):
                 raise task_error()
         else:
+            access = actor.access
+            if access is None or not access.allows("tasks.read", {"projectId": current.project_id}):
+                raise task_error()
+            if not full_project_task_access(access, current.project_id):
+                if not access.employee_id or not await uow.projects.task_assigned(
+                    task_id, access.employee_id
+                ):
+                    raise task_error()
             authorize(actor, permission, {"projectId": current.project_id})
             await lock_project(uow, current.project_id, actor)
         # Строка могла быть удалена, пока код ожидал блокировку проекта.

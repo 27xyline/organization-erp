@@ -64,10 +64,12 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
     from app.domain.auth.rules import AccessContext, ScopeGrant
     from app.models.departments import Department
     from app.models.employees import Employee
+    from app.models.users import User
 
     _, _, project, context, sessions = project_env
     prefix = context.actor.actor_id
     first, second = prefix + "-one", prefix + "-two"
+    employee_user = prefix + "-employee-user"
     async with sessions() as session:
         session.add(Department(id=prefix, code=prefix, name=prefix))
         await session.flush()
@@ -79,10 +81,21 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
                 ),
             ]
         )
+        session.add(
+            User(
+                id=employee_user,
+                username=employee_user,
+                name="Employee",
+                passwordHash="unused",
+                mustChangePassword=False,
+                role="VIEWER",
+            )
+        )
         await session.commit()
     app = create_app()
     app.state.tracer = trace.get_tracer(__name__)
     app.state.unit_of_work_factory = create_unit_of_work_factory(sessions)
+    app.state.session_factory = sessions
     current = context
     task_ids: set[str] = set()
     app.dependency_overrides[get_authenticated_context] = lambda: current
@@ -98,6 +111,13 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
                     f"/api/projects/{project.id}/members", json={"employeeId": second}
                 )
             ).status_code == 200
+            hidden_task = await client.post(
+                f"/api/projects/{project.id}/tasks",
+                json={"name": "Hidden sentinel", "employeeIds": [second]},
+            )
+            assert hidden_task.status_code == 201, hidden_task.text
+            hidden_id = hidden_task.json()["data"]["id"]
+            task_ids.add(hidden_id)
             project_task = await client.post(
                 f"/api/projects/{project.id}/tasks",
                 json={"name": "Project", "description": "Private", "employeeIds": [first, second]},
@@ -116,7 +136,7 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
                 two.json()["data"]["id"],
                 project_task.json()["data"]["id"],
             }
-            task_ids = ids
+            task_ids.update(ids)
             async with sessions() as session:
                 await session.execute(
                     update(Employee).where(Employee.id == second).values(status="DISMISSED")
@@ -172,7 +192,9 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
                     sessions.kw["bind"].sync_engine, "before_cursor_execute", count_manager_sql
                 )
             assert len(manager_statements) <= 2
-            assert ids <= {task["id"] for task in manager_listing}
+            assert {one.json()["data"]["id"], two.json()["data"]["id"]} <= {
+                task["id"] for task in manager_listing
+            }
             assert project_task.json()["data"]["id"] not in {task["id"] for task in manager_listing}
             general = next(
                 task for task in manager_listing if task["id"] == two.json()["data"]["id"]
@@ -181,11 +203,12 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
                 {"employeeId": second, "fullName": "Two", "active": False}
             ]
             assert (await client.get(f"/api/projects/{project.id}/tasks")).status_code == 403
-            assert (
-                await client.put(
-                    f"/api/tasks/{project_task.json()['data']['id']}", json={"name": "Denied"}
-                )
-            ).status_code == 403
+            hidden_update = await client.put(
+                f"/api/tasks/{project_task.json()['data']['id']}", json={"name": "Denied"}
+            )
+            missing_update = await client.put("/api/tasks/nonexistent", json={"name": "Denied"})
+            assert hidden_update.status_code == missing_update.status_code == 404
+            assert hidden_update.json() == missing_update.json()
             # Назначенный менеджер без доступа к проекту не должен блокировать строки.
             manager_access = AccessContext(
                 prefix,
@@ -245,10 +268,18 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
                 )
             ).status_code == 200
             access = AccessContext(
-                prefix, first, prefix, (), (ScopeGrant(prefix, "EMPLOYEE", "SELF", "SELF"),)
+                employee_user,
+                first,
+                prefix,
+                (),
+                (ScopeGrant(employee_user, "EMPLOYEE", "SELF", "SELF"),),
             )
             actor = Actor(
-                prefix, is_authenticated=True, employee_id=first, session_version=1, access=access
+                employee_user,
+                is_authenticated=True,
+                employee_id=first,
+                session_version=1,
+                access=access,
             )
             current = replace(context, actor=actor)
             assert (await client.get("/api/tasks/assignees")).status_code == 403
@@ -358,6 +389,9 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
                 )
             ).status_code == 403
             current = replace(context, actor=actor)
+            assert (
+                await client.put(f"/api/tasks/{one.json()['data']['id']}", json={"name": "Denied"})
+            ).status_code == 403
             own = await client.post("/api/tasks", json={"name": "Own", "employeeIds": [first]})
             assert own.status_code == 201, own.text
             own_id = own.json()["data"]["id"]
@@ -377,6 +411,68 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
                 json={"status": "COMPLETED", "name": "Denied"},
             )
             assert extra.status_code == 422
+            # Membership grants a project page, but never other people's task metadata.
+            member_access = replace(access, member_project_ids=(project.id,))
+            current = replace(context, actor=replace(actor, access=member_access))
+            workspace_response = await client.get(f"/api/projects/{project.id}/workspace")
+            assert workspace_response.status_code == 200
+            workspace = workspace_response.json()["data"]
+            assert [item["id"] for item in workspace["tasksList"]] == [
+                project_task.json()["data"]["id"]
+            ]
+            assert workspace["tasksList"][0]["assignees"][0]["employee"]["fullName"]
+            assert "creatorId" not in workspace["tasksList"][0]
+            assert workspace["_count"]["tasksList"] == 1
+            assert hidden_id not in str(
+                (await client.get(f"/api/projects/{project.id}/activity")).json()
+            )
+            assert hidden_id not in str(
+                (await client.get(f"/api/projects/{project.id}/tasks")).json()
+            )
+            search = await client.get("/api/search", params={"q": "Hidden sentinel"})
+            dashboard = await client.get("/api/dashboard")
+            assert search.status_code == dashboard.status_code == 200
+            assert hidden_id not in str(search.json()) and "Hidden sentinel" not in str(
+                search.json()
+            )
+            assert hidden_id not in str(dashboard.json()) and "Hidden sentinel" not in str(
+                dashboard.json()
+            )
+            async with sessions() as session:
+                from datetime import datetime
+
+                from app.repositories.projects import SqlAlchemyProjectRepository
+                from app.repositories.reporting import SqlAlchemyReportingRepository
+                from app.repositories.timekeeping import SqlAlchemyTimekeepingRepository
+
+                repo = SqlAlchemyProjectRepository(lambda: session)
+                page = await repo.list(1, 100, None, (project.id,), access=member_access)
+                assert page.projects[0].counts["tasksList"] == 1
+                options = await SqlAlchemyTimekeepingRepository(lambda: session).project_options(
+                    member_access
+                )
+                option = next(item for item in options if item["id"] == project.id)
+                assert [item["id"] for item in option["tasksList"]] == [
+                    project_task.json()["data"]["id"]
+                ]
+                report = await SqlAlchemyReportingRepository(session).dashboard(
+                    {
+                        "dateFrom": "2020-01-01",
+                        "dateTo": "2035-12-31",
+                        "departmentId": None,
+                        "projectId": project.id,
+                    },
+                    member_access,
+                    datetime(2026, 1, 1),
+                )
+                assert hidden_id not in str(report["tasks"])
+                assert (
+                    next(item for item in report["projects"] if item["id"] == project.id)[
+                        "tasksTotal"
+                    ]
+                    == 1
+                )
+
             current = context
             assert (
                 await client.delete(f"/api/tasks/{one.json()['data']['id']}")
@@ -394,6 +490,10 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
             await session.execute(
                 delete(ProjectMember).where(ProjectMember.projectId == project.id)
             )
+            from tests.audit_cleanup import clear_audit_logs_for_test_cleanup
+
+            await clear_audit_logs_for_test_cleanup(session)
+            await session.execute(delete(User).where(User.id == employee_user))
             await session.execute(delete(Employee).where(Employee.id.in_([first, second])))
             await session.execute(delete(Department).where(Department.id == prefix))
             await session.commit()
