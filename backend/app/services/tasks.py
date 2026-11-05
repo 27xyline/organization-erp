@@ -31,17 +31,22 @@ class TaskService:
     async def inbox(self, actor: Actor) -> tuple[dict[str, Any], ...]:
         authorize(actor, "tasks.read")
         assert actor.access is not None
-        all_tasks = bool(set(actor.access.roles) & {"ADMIN", "PROJECT_MANAGER"})
+        roles = set(actor.access.roles)
+        all_tasks = bool(roles & {"ADMIN", "PROJECT_MANAGER"})
+        include_general = bool(roles & {"ADMIN", "PROJECT_MANAGER", "EMPLOYEE"})
         async with self._factory() as uow:
             grants = tuple(
-                grant for grant in actor.access.grants_for("tasks.read") if grant.role != "EMPLOYEE"
+                grant
+                for grant in actor.access.grants_for("tasks.read")
+                if grant.role in {"ADMIN", "PROJECT_MANAGER"}
             )
             scopes = tuple(actor.access._ids(grant, "project") for grant in grants)
             project_ids = tuple({project for scope in scopes if scope for project in scope})
             rows = await uow.projects.inbox(
-                actor.access.employee_id if not all_tasks else None,
+                actor.access.employee_id if "EMPLOYEE" in roles or not all_tasks else None,
                 any(scope is None for scope in scopes),
                 project_ids,
+                include_general,
             )
             result = []
             for task, assigned in rows:
@@ -60,7 +65,7 @@ class TaskService:
                 }
                 if can_read_project:
                     summary["projectId"] = task.projectId
-                if task.projectId is None:
+                if task.projectId is None and include_general:
                     summary.update(
                         {
                             "description": task.description,

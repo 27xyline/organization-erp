@@ -5,15 +5,16 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, or_, select, true
+from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.sql.elements import ColumnElement
 
 from app.domain.auth.rules import AccessContext
 from app.models.departments import Department
 from app.models.employees import Employee
 from app.models.enums import EmployeeStatus
-from app.models.projects import Project, Task
+from app.models.projects import Project, Task, TaskAssignee
 from app.models.timekeeping import TimeEntry, Timesheet
 from app.models.users import User, UserDepartmentScope, UserRoleAssignment
 from app.repositories.task_visibility import task_visibility
@@ -85,7 +86,7 @@ class SqlAlchemyTimekeepingRepository:
             tasks = await session.execute(
                 select(Task.id, Task.name)
                 .where(Task.projectId == project.id)
-                .where(task_visibility(access) if "EMPLOYEE" in access.roles else true())
+                .where(task_visibility(access))
                 .order_by(Task.level, Task.name)
             )
             output.append(
@@ -99,9 +100,23 @@ class SqlAlchemyTimekeepingRepository:
         return output
 
     async def visible_task_ids(self, access: AccessContext, ids: tuple[str, ...]) -> set[str]:
+        common: ColumnElement[bool] = Task.projectId.is_(None)
+        if not set(access.roles) & {"ADMIN", "PROJECT_MANAGER", "EMPLOYEE"}:
+            common = and_(
+                common,
+                exists(
+                    select(TaskAssignee.id)
+                    .where(
+                        TaskAssignee.taskId == Task.id,
+                        TaskAssignee.employeeId == access.employee_id,
+                    )
+                    .correlate(Task)
+                ),
+            )
         rows = await self._session().scalars(
             select(Task.id).where(
-                Task.id.in_(ids), or_(Task.projectId.is_(None), task_visibility(access))
+                Task.id.in_(ids),
+                or_(common, and_(Task.projectId.is_not(None), task_visibility(access))),
             )
         )
         return set(rows.all())

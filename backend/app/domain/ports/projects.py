@@ -290,7 +290,11 @@ class ProjectRepository(Protocol):
         self, project_id: str | None, shape: str = "list"
     ) -> tuple[TaskRecord, ...]: ...
     async def inbox(
-        self, employee_id: str | None, all_tasks: bool, project_ids: tuple[str, ...] = ()
+        self,
+        employee_id: str | None,
+        all_tasks: bool,
+        project_ids: tuple[str, ...] = (),
+        include_general: bool = False,
     ) -> tuple[tuple[TaskRecord, bool], ...]: ...
     async def general_assignee_options(self) -> tuple[GeneralAssignee, ...]: ...
     async def general_assignees(

@@ -344,7 +344,11 @@ class SqlAlchemyProjectRepository:
         )
 
     async def inbox(
-        self, employee_id: str | None, all_tasks: bool, project_ids: tuple[str, ...] = ()
+        self,
+        employee_id: str | None,
+        all_tasks: bool,
+        project_ids: tuple[str, ...] = (),
+        include_general: bool = False,
     ) -> tuple[tuple[TaskRecord, bool], ...]:
         assigned = exists(
             select(TaskAssignee.id).where(
@@ -357,13 +361,15 @@ class SqlAlchemyProjectRepository:
         if not all_tasks:
             query = query.where(
                 or_(
-                    Task.projectId.is_(None),
+                    Task.projectId.is_(None) if include_general else Task.id.in_(()),
                     Task.projectId.in_(project_ids),
                     assigned,
                 )
             )
         rows = (await self._session().execute(query.order_by(Task.createdAt))).all()
-        general_ids = [row.Task.id for row in rows if row.Task.projectId is None]
+        general_ids = (
+            [row.Task.id for row in rows if row.Task.projectId is None] if include_general else []
+        )
         assignees: dict[str, builtins.list[dict[str, Any]]] = {}
         if general_ids:
             pairs = await self._session().execute(

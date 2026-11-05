@@ -61,6 +61,7 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
     from sqlalchemy import delete, event, update
 
     from app.core.context import Actor
+    from app.db.base import new_cuid
     from app.domain.auth.rules import AccessContext, ScopeGrant
     from app.models.departments import Department
     from app.models.employees import Employee
@@ -68,7 +69,8 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
 
     _, _, project, context, sessions = project_env
     prefix = context.actor.actor_id
-    first, second = prefix + "-one", prefix + "-two"
+    first, second = new_cuid(), new_cuid()
+    missing_task_id = new_cuid()
     employee_user = prefix + "-employee-user"
     async with sessions() as session:
         session.add(Department(id=prefix, code=prefix, name=prefix))
@@ -118,6 +120,19 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
             assert hidden_task.status_code == 201, hidden_task.text
             hidden_id = hidden_task.json()["data"]["id"]
             task_ids.add(hidden_id)
+            historical = await client.post(
+                "/api/time-entries",
+                json={
+                    "employeeId": first,
+                    "projectId": project.id,
+                    "taskId": hidden_id,
+                    "workDate": "2040-03-03",
+                    "type": "REGULAR",
+                    "hours": 1,
+                },
+            )
+            assert historical.status_code == 201, historical.text
+            historical_id = historical.json()["data"]["id"]
             project_task = await client.post(
                 f"/api/projects/{project.id}/tasks",
                 json={"name": "Project", "description": "Private", "employeeIds": [first, second]},
@@ -411,6 +426,34 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
                 json={"status": "COMPLETED", "name": "Denied"},
             )
             assert extra.status_code == 422
+            # Mixed roles combine the manager's explicit projects and employee assignments.
+            mixed_access = replace(
+                access,
+                grants=(
+                    ScopeGrant(
+                        employee_user, "PROJECT_MANAGER", "NONE", "ASSIGNED", project_ids=("other",)
+                    ),
+                    ScopeGrant(employee_user + "-e", "EMPLOYEE", "SELF", "SELF"),
+                ),
+            )
+            current = replace(context, actor=replace(actor, access=mixed_access))
+            mixed = (await client.get("/api/tasks")).json()["data"]
+            assert project_task.json()["data"]["id"] in {item["id"] for item in mixed}
+            assert hidden_id not in {item["id"] for item in mixed}
+            assert (await client.get(f"/api/projects/{project.id}")).status_code == 403
+            for role, dept, project_scope in (
+                ("AUDITOR", "ALL", "ALL"),
+                ("DEPARTMENT_HEAD", "ASSIGNED", "ASSIGNED"),
+            ):
+                limited = replace(
+                    access, grants=(ScopeGrant(employee_user, role, dept, project_scope),)
+                )
+                current = replace(context, actor=replace(actor, access=limited))
+                listing = (await client.get("/api/tasks")).json()["data"]
+                common = [item for item in listing if item["isGeneral"]]
+                assert {item["id"] for item in common} == {one.json()["data"]["id"], own_id}
+                assert "description" not in common[0] and "assignees" not in common[0]
+
             # Membership grants a project page, but never other people's task metadata.
             member_access = replace(access, member_project_ids=(project.id,))
             current = replace(context, actor=replace(actor, access=member_access))
@@ -438,6 +481,71 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
             assert hidden_id not in str(dashboard.json()) and "Hidden sentinel" not in str(
                 dashboard.json()
             )
+            entry_data = {
+                "employeeId": first,
+                "projectId": project.id,
+                "workDate": "2040-03-04",
+                "type": "REGULAR",
+                "hours": 1,
+            }
+            hidden_post = await client.post(
+                "/api/time-entries", json={**entry_data, "taskId": hidden_id}
+            )
+            unknown_post = await client.post(
+                "/api/time-entries", json={**entry_data, "taskId": missing_task_id}
+            )
+            assert hidden_post.status_code == unknown_post.status_code == 422
+            assert hidden_post.json() == unknown_post.json()
+            created_entry = await client.post(
+                "/api/time-entries",
+                json={**entry_data, "taskId": project_task.json()["data"]["id"]},
+            )
+            assert created_entry.status_code == 201, created_entry.text
+            entry_id = created_entry.json()["data"]["id"]
+            hidden_put = await client.put(
+                f"/api/time-entries/{entry_id}", json={"taskId": hidden_id}
+            )
+            unknown_put = await client.put(
+                f"/api/time-entries/{entry_id}", json={"taskId": missing_task_id}
+            )
+            assert hidden_put.status_code == unknown_put.status_code == 422
+            assert hidden_put.json() == unknown_put.json()
+            old_update = await client.put(
+                f"/api/time-entries/{historical_id}", json={"note": "Edited"}
+            )
+            assert old_update.status_code == 200, old_update.text
+            assert (
+                old_update.json()["data"]["taskId"] is None
+                and old_update.json()["data"]["task"] is None
+            )
+            month = await client.get("/api/time-entries", params={"year": 2040, "month": 3})
+            assert month.status_code == 200, month.text
+            old = next(
+                item for item in month.json()["data"]["entries"] if item["id"] == historical_id
+            )
+            assert old["taskId"] is None and old["task"] is None
+            # A manager with no project scope also cannot recover a hidden historical task.
+            current = replace(
+                context,
+                actor=replace(
+                    actor,
+                    access=replace(
+                        access,
+                        grants=(ScopeGrant(employee_user, "PROJECT_MANAGER", "NONE", "ASSIGNED"),),
+                    ),
+                ),
+            )
+            pm_update = await client.put(
+                f"/api/time-entries/{historical_id}", json={"note": "Edited again"}
+            )
+            assert pm_update.status_code == 200 and pm_update.json()["data"]["taskId"] is None
+            pm_month = await client.get("/api/time-entries", params={"year": 2040, "month": 3})
+            assert pm_month.status_code == 200
+            pm_old = next(
+                item for item in pm_month.json()["data"]["entries"] if item["id"] == historical_id
+            )
+            assert pm_old["taskId"] is None and pm_old["task"] is None
+            current = replace(context, actor=replace(actor, access=member_access))
             async with sessions() as session:
                 from datetime import datetime
 
@@ -448,9 +556,19 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
                 repo = SqlAlchemyProjectRepository(lambda: session)
                 page = await repo.list(1, 100, None, (project.id,), access=member_access)
                 assert page.projects[0].counts["tasksList"] == 1
-                options = await SqlAlchemyTimekeepingRepository(lambda: session).project_options(
-                    member_access
-                )
+                timekeeping_repo = SqlAlchemyTimekeepingRepository(lambda: session)
+                for role, dept, project_scope in (
+                    ("AUDITOR", "ALL", "ALL"),
+                    ("DEPARTMENT_HEAD", "ASSIGNED", "ASSIGNED"),
+                ):
+                    limited = replace(
+                        access, grants=(ScopeGrant(employee_user, role, dept, project_scope),)
+                    )
+                    visible_common = await timekeeping_repo.visible_task_ids(
+                        limited, (one.json()["data"]["id"], two.json()["data"]["id"])
+                    )
+                    assert visible_common == {one.json()["data"]["id"]}
+                options = await timekeeping_repo.project_options(member_access)
                 option = next(item for item in options if item["id"] == project.id)
                 assert [item["id"] for item in option["tasksList"]] == [
                     project_task.json()["data"]["id"]
@@ -484,7 +602,11 @@ async def test_assigned_employee_sees_and_changes_only_own_tasks(project_env):
         async with sessions() as session:
             # Project membership is deleted with the project in project_env cleanup.
             from app.models.projects import ProjectMember, Task
+            from app.models.timekeeping import TimeEntry
 
+            await session.execute(
+                delete(TimeEntry).where(TimeEntry.employeeId.in_([first, second]))
+            )
             await session.execute(delete(Task).where(Task.id.in_(task_ids)))
             await session.execute(delete(Task).where(Task.projectId == project.id))
             await session.execute(
