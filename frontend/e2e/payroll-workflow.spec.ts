@@ -1,4 +1,4 @@
-import { expect, test, type Browser, type Locator, type Page } from '@playwright/test'
+import { expect, test, type Browser, type Locator, type Page, type Response } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
 import { PrismaClient } from '@prisma/client'
 import { E2E_ADMIN, E2E_EMPLOYEE, E2E_HR } from './global-setup'
@@ -68,6 +68,40 @@ async function unusedPayrollPeriod() {
   }
 }
 
+async function openMonth(
+  page: Page,
+  path: string,
+  endpoint: string,
+  monthValue: string,
+  reload = false,
+): Promise<Response> {
+  const [year, month] = monthValue.split('-')
+  const isMonthResponse = (response: Response) => {
+    const url = new URL(response.url())
+    return url.pathname === endpoint && response.request().method() === 'GET'
+  }
+  const [initialResponse] = await Promise.all([
+    page.waitForResponse(isMonthResponse),
+    reload ? page.reload() : page.goto(path),
+  ])
+  expect(initialResponse.ok()).toBeTruthy()
+  const initialUrl = new URL(initialResponse.url())
+  if (initialUrl.searchParams.get('year') === year && initialUrl.searchParams.get('month') === String(Number(month))) {
+    return initialResponse
+  }
+
+  const [selectedResponse] = await Promise.all([
+    page.waitForResponse((response) => {
+      const url = new URL(response.url())
+      return isMonthResponse(response) && url.searchParams.get('year') === year &&
+        url.searchParams.get('month') === String(Number(month))
+    }),
+    page.getByLabel('Месяц').fill(monthValue),
+  ])
+  expect(selectedResponse.ok()).toBeTruthy()
+  return selectedResponse
+}
+
 async function expectXlsxDownload(
   page: Page,
   linkName: string,
@@ -91,21 +125,7 @@ test('Payroll timekeeping approval, payroll close, denied edit, and reopen', asy
   const { year, month } = await unusedPayrollPeriod()
   const monthValue = `${year}-${String(month).padStart(2, '0')}`
   const workDate = `${monthValue}-05`
-  const initialLoad = admin.page.waitForResponse((response) => {
-    const url = new URL(response.url())
-    return url.pathname === '/api/time-entries' && response.request().method() === 'GET'
-  })
-
-  await admin.page.goto('/timekeeping')
-  await initialLoad
-  const timekeepingLoad = admin.page.waitForResponse((response) => {
-    const url = new URL(response.url())
-    return url.pathname === '/api/time-entries' &&
-      url.searchParams.get('year') === String(year) &&
-      url.searchParams.get('month') === String(month)
-  })
-  await admin.page.getByLabel('Месяц').fill(monthValue)
-  const timekeepingResponse = await timekeepingLoad
+  const timekeepingResponse = await openMonth(admin.page, '/timekeeping', '/api/time-entries', monthValue)
   const timekeepingPayload = await timekeepingResponse.json()
   const employee = (timekeepingPayload.data.employees as Array<{
     id: string
@@ -130,20 +150,7 @@ test('Payroll timekeeping approval, payroll close, denied edit, and reopen', asy
   expect(entry.hours).toBe(8)
 
   const employeeSession = await signedInEmployee(browser)
-  const employeeInitialLoad = employeeSession.page.waitForResponse((response) => {
-    const url = new URL(response.url())
-    return url.pathname === '/api/time-entries' && response.request().method() === 'GET'
-  })
-  await employeeSession.page.goto('/timekeeping')
-  await employeeInitialLoad
-  const employeeMonthLoad = employeeSession.page.waitForResponse((response) => {
-    const url = new URL(response.url())
-    return url.pathname === '/api/time-entries' &&
-      url.searchParams.get('year') === String(year) &&
-      url.searchParams.get('month') === String(month)
-  })
-  await employeeSession.page.getByLabel('Месяц').fill(monthValue)
-  await employeeMonthLoad
+  await openMonth(employeeSession.page, '/timekeeping', '/api/time-entries', monthValue)
   const employeeCard = employeeSession.page.locator('div.rounded-md.border.p-3').filter({ hasText: employee!.fullName })
   const submittedEmployee = employeeSession.page.waitForResponse((response) =>
     response.url().endsWith('/api/timekeeping/timesheets') && response.request().method() === 'POST',
@@ -153,15 +160,7 @@ test('Payroll timekeeping approval, payroll close, denied edit, and reopen', asy
   expect(submittedResponse.status()).toBe(201)
   const submittedTimesheet = (await submittedResponse.json()).data as { id: string }
   await employeeSession.context.close()
-  await admin.page.reload()
-  const adminMonthLoad = admin.page.waitForResponse((response) => {
-    const url = new URL(response.url())
-    return url.pathname === '/api/time-entries' &&
-      url.searchParams.get('year') === String(year) &&
-      url.searchParams.get('month') === String(month)
-  })
-  await admin.page.getByLabel('Месяц').fill(monthValue)
-  await adminMonthLoad
+  await openMonth(admin.page, '/timekeeping', '/api/time-entries', monthValue, true)
   const reviewerEmployeeCard = admin.page.locator('div.rounded-md.border.p-3').filter({ hasText: employee!.fullName })
   await expect(reviewerEmployeeCard.getByText('На согласовании')).toBeVisible()
 
@@ -172,30 +171,11 @@ test('Payroll timekeeping approval, payroll close, denied edit, and reopen', asy
   )
   expect(approved.ok(), await approved.text()).toBeTruthy()
   await reviewer.context.close()
-  await admin.page.reload()
-  await admin.page.waitForLoadState('networkidle')
-  const approvedMonthLoad = admin.page.waitForResponse((response) => {
-    const url = new URL(response.url())
-    return url.pathname === '/api/time-entries' &&
-      url.searchParams.get('year') === String(year) &&
-      url.searchParams.get('month') === String(month)
-  })
-  await admin.page.getByLabel('Месяц').fill(monthValue)
-  await approvedMonthLoad
+  await openMonth(admin.page, '/timekeeping', '/api/time-entries', monthValue, true)
   const approvedEmployeeCard = admin.page.locator('div.rounded-md.border.p-3').filter({ hasText: employee!.fullName })
   await expect(approvedEmployeeCard.getByText('Утверждён')).toBeVisible()
 
-  await admin.page.goto('/finance/payroll')
-  await admin.page.waitForLoadState('networkidle')
-  const payrollLoad = admin.page.waitForResponse((response) => {
-    const url = new URL(response.url())
-    return url.pathname === '/api/payroll' &&
-      url.searchParams.get('year') === String(year) &&
-      url.searchParams.get('month') === String(month)
-  })
-  await admin.page.getByLabel('Месяц').fill(monthValue)
-  const payrollResponse = await payrollLoad
-  expect(payrollResponse.ok()).toBeTruthy()
+  const payrollResponse = await openMonth(admin.page, '/finance/payroll', '/api/payroll', monthValue)
   const payroll = (await payrollResponse.json()).data
   const payrollRow = payroll.rows.find((row: { employeeId: string }) => row.employeeId === employee!.id)
   expect(payrollRow).toMatchObject({ actualBase: 100000, gross: 100000, tax: 13000, payable: 87000 })
