@@ -161,7 +161,7 @@ export function FinderSidebar({ currentUser }: {
     return pathname === href || pathname.startsWith(href + '/')
   }
 
-  const isChildLinkActive = (href: string) => pathname === href
+  const isChildLinkActive = (href: string) => href === '/projects' ? isActive(href) : pathname === href
 
   const getMenuChildren = (id: string) => {
     switch (id) {

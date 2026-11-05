@@ -1,10 +1,12 @@
 import { act } from 'react'
 import { createRoot } from 'react-dom/client'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { FinderSidebar } from './finder-sidebar'
-vi.mock('next/navigation', () => ({ usePathname: () => '/tasks' }))
+const navigation = vi.hoisted(() => ({ pathname: '/tasks' }))
+vi.mock('next/navigation', () => ({ usePathname: () => navigation.pathname }))
 vi.mock('@/features/notifications/ui/notification-bell', () => ({ NotificationBell: () => null }))
 vi.mock('@/features/search/ui/global-search-provider', () => ({ GlobalSearchButton: () => null }))
+beforeEach(() => { navigation.pathname = '/tasks' })
 describe('workflows navigation', () => {
   it('groups tasks and projects and keeps their separate permissions', async () => {
     const container = document.createElement('div')
@@ -30,6 +32,16 @@ describe('workflows navigation', () => {
     expect(fetchProjects).not.toHaveBeenCalled()
     await act(async () => root.unmount())
     vi.unstubAllGlobals()
+  })
+
+  it('highlights projects on a project page', async () => {
+    navigation.pathname = '/projects/project-1'
+    const container = document.createElement('div')
+    const root = createRoot(container)
+    await act(async () => root.render(<FinderSidebar currentUser={{ name: 'User', roles: ['ADMIN'], permissions: ['projects.read', 'tasks.read'] }} />))
+    expect(container.querySelector('a[href="/projects"]')?.classList.contains('bg-accent')).toBe(true)
+    expect(container.querySelector('a[href="/tasks"]')?.classList.contains('bg-accent')).toBe(false)
+    await act(async () => root.unmount())
   })
 })
 

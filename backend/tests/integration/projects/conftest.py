@@ -38,7 +38,7 @@ async def project_env(db_session_factory):
         await session.commit()
     projects, tasks = ProjectService(factory), TaskService(factory)
     project = await projects.create(
-        ProjectCommand(prefix, prefix, plannedBudget=Decimal("12.34")), context
+        ProjectCommand(prefix, f"Проект {prefix}", plannedBudget=Decimal("12.34")), context
     )
     try:
         yield projects, tasks, project, context, db_session_factory
